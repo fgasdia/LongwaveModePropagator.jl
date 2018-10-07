@@ -1,5 +1,8 @@
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+PolynomialRoots = "3a141323-8675-5d76-9d11-e1df1406c778"
 Proj4 = "9a7e659c-8ee8-5706-894e-f68f43bc57ea"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

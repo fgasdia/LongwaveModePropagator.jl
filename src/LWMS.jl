@@ -1,9 +1,15 @@
 """
 Main program/scratch file
 """
+module LWMS
 
 using Dates
 using Proj4
+
+export earthradius
+export Inputs, LWMSModes
+
+const earthradius = 6369.427  # km, because it is used with heights
 
 struct Receiver
     name::String
@@ -27,6 +33,16 @@ struct Inputs
     deltarange::Float64
 end
 
+struct LWMSModes
+    ranger::Array{Float64}  # (undef, 2)
+    rangei::Array{Float64}  # (undef, 2)
+    atnmax::Float64
+    deltathetathreshold::Float64
+    height::Float64
+    eigen::Array{ComplexF64}
+    numeigen::Integer
+end
+
 function main()
     program_start_time = Dates.now()
     print("Program started: $program_start_time")
@@ -47,5 +63,7 @@ function main()
     maxrange = round(distance, digits=-5, RoundUp)
 
     # Get modes
+
+end
 
 end

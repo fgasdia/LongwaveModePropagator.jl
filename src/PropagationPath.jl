@@ -22,6 +22,8 @@ end
 Break propagation path into segments with appropriate magnetic field, ground, and ionosphere
 parameters.
 
+!!! info "LWPC"
+
 The LWPC LWP_PATH subroutine is called in place of preseg to automatically determine when a
 new mode segment should be created. By default it traverses every 20km along the path and
 has an algorithm that looks at the magnetic field, ground conductivity, and ionosphere
@@ -65,16 +67,19 @@ function segmentpath(σ::Float64, ϵᵣ::Float64, h′::Float64, β::Float64,
 								 [β],
 								 numsegments)
 
+	# XXX: Call PRFL_SPECIFICATION (and PRFL_EXP and PRFL_HGTS?)
+	# XXX: Do we really need to store h′, β in SegmentParameters?
+
 	return segments
 end
 
 function segmentpath(σ::Float64, ϵᵣ::Float64,
-					 dist::AbstractArray, h′::AbstractArray, β::AbstractArray,
+					 dists::AbstractArray, h′::AbstractArray, β::AbstractArray,
 					 inputs::Inputs)
 	@assert size(h′) == size(β) == size(dist) "h′, β, and `dist` must be same size"
 
 	# Use h′, β `dist` array as path segments
-	numsegments = length(dist)
+	numsegments = length(dists)
 	segments = SegmentParameters(dist,
 								 Array{Float64}(undef, numsegments),
 								 Array{Float64}(undef, numsegments),
@@ -88,25 +93,14 @@ function segmentpath(σ::Float64, ϵᵣ::Float64,
 								 numsegments)
 
 	for ii = 1:numsegments
-		segments.lat[ii] = # Calculate
-		segments.lon[ii] = # Calculate
+		segments.lat[ii] = # Calculate with Proj4
+		segments.lon[ii] = # Calculate with Proj4
 	end
 
 	return segments
 end
 
 function segmentpath(gnd::Function)
-
-end
-
-"""
-The LWPC LWP_DRIVER subroutine "processes" the presegmented path parameters. Effectively
-this means it loops over each segment, calls MF_DRIVER to get starting solutions, then SW/MF
-as needed to find modes.
-
-TODO: Figure out if the switching between MF and SW is necessary.
-"""
-function lwp_driver()
 	numsegments = floor(Int, inputs.maxrange/inputs.deltarange)
 
 	segments = SegmentParameters(Array{Float64}(undef, numsegments),
@@ -138,6 +132,17 @@ function lwp_driver()
 	end
 
 	return segments
+end
+
+"""
+The LWPC LWP_DRIVER subroutine "processes" the presegmented path parameters. Effectively
+this means it loops over each segment, calls MF_DRIVER to get starting solutions, then SW/MF
+as needed to find modes.
+
+TODO: Figure out if the switching between MF and SW is necessary.
+"""
+function driver()
+	
 end
 
 end
