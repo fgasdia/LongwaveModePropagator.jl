@@ -9,12 +9,14 @@ module ModeFinderTests
 # any(path -> path==srcdir, LOAD_PATH) || push!(LOAD_PATH, srcdir)
 
 include("../src/ModeFinder.jl")
+include("../src/LWMS.jl")
 
 using Test
 
 using StaticArrays
 using PolynomialRoots
 
+using LWMS
 using ModeFinder
 using IonosphereProfile
 
@@ -185,12 +187,16 @@ end
     @testset "Integration" begin
         electrons = Constituent(-ModeFinder.fundamentalcharge, ModeFinder.mₑ,
                                 h -> waitprofile(h, 75, 0.3), collisionprofile)
+        inputs = Inputs()
+        inputs.topheight = topheight
+        inputs.bottomheight = bottomheight
+        drcs = ModeFinder.DirectionCosines(dcl, dcm, dcn, 0.0)
 
         Rbottomlwpc = [complex(2.7846940,-0.4330095) complex(0.1893602,0.3993874);
                        complex(0.2345901,0.5070829)  complex(2.4297192,0.2463784)]
 
-        sol = ModeFinder.integratethroughionosphere(θ, ω, topheight, bottomheight, referenceheight,
-                                                    electrons, Bfield, dcl, dcm, dcn)
+        sol = ModeFinder.integratethroughionosphere(θ, ω, inputs, referenceheight,
+                                                    electrons, Bfield, drcs)
         @test sol[end] ≈ Rbottomlwpc atol=1e-1
     end
 end
@@ -249,8 +255,13 @@ end
 
     drcs = ModeFinder.DirectionCosines(dcl, dcm, dcn, G)
 
-    ζₚ = [complex(0.0389593,-1.7352930), complex(0.0773762,-1.0256317)]
-    Γₚ = [complex(2.4567194,0.0617389), complex(1.4542819,0.1539752)]
+    e = @MArray zeros(ComplexF64, 2,2,2)
+    inve = @MArray zeros(ComplexF64, 2,2,2)
+    emtx = ModeFinder.EigenMatrix(e, inve)
+
+    ζₚ = @MVector [complex(0.0389593,-1.7352930), complex(0.0773762,-1.0256317)]
+    Γₚ = @MVector [complex(2.4567194,0.0617389), complex(1.4542819,0.1539752)]
+    xseq = ModeFinder.XSequence(ζₚ, Γₚ)
 
     e_lwpc = Array{ComplexF64}(undef,2,2,2)
     e_lwpc[1,1,1] = complex(-0.6970944,0.0006473)
@@ -262,7 +273,7 @@ end
     e_lwpc[1,2,2] = complex(0.0199049,-0.7092856)
     e_lwpc[2,2,2] = complex(0.6733917,-0.0169724)
 
-    ζₚ, Γₚ, e, inve = ModeFinder.eigenmatrix(lenset, θ, ω, heightinterp, h, ζₚ, Γₚ, drcs)
+    ModeFinder.eigenmatrix!(lenset, θ, ω, heightinterp, h, emtx, xseq, drcs)
 
     @test e ≈ e_lwpc atol=1e-6
 end

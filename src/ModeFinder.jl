@@ -52,6 +52,30 @@ mutable struct DirectionCosines
     G::ComplexF64
 end
 
+mutable struct Side{ComplexF64}
+    θleft
+    θtop
+    θright
+    θbottom
+end
+
+mutable struct Corners
+    θ::AbstractArray{ComplexF64}  # mxcorners
+    X::AbstractArray{ComplexF64}  # 4, mxcorners
+    num::Integer
+end
+
+struct XSequence
+    ζₚ::AbstractVector{ComplexF64}
+    Γₚ::AbstractVector{ComplexF64}
+end
+
+struct EigenMatrix
+    e::AbstractArray{ComplexF64}
+    inve::AbstractArray{ComplexF64}
+end
+
+
 
 """
 MF_DRIVER sets omega, wavenr, gmax, tmesh, lub, ranger, rangei, and calls MF_WVGD.
@@ -152,8 +176,10 @@ cy = μ₀ (e/mc) * (B/ω)
 ```
 except that 1.758796e7 is just e/mc, so it appears to have no μ₀.
 """
-function initialheightinterp(ω, height, topheight, bottomheight, xinterp,
+function initialheightinterp(ω, height, inputs::Inputs, xinterp,
                              spec::Constituent)
+
+    topheight, bottomheight = inputs.topheight, inputs.bottomheight
     e, m, N, ν = spec.charge, spec.mass, spec.numberdensity, spec.collisionfrequency
     X = N(height)*e^2/(ϵ₀*m*ω^2)
     Y = e*B/(m*ω)
@@ -420,7 +446,6 @@ dX/dz = -ik/2 \\left( A + BX + XC + XDX \\right)
 ```
 """
 function dXdh(X, A, B, C, D, k)
-    # TODO: An in place version of this?
     (-im*k/2)*(A + B*X + X*C + X*D*X)
 end
 
@@ -438,8 +463,12 @@ Full wave solution for `X` through ionosphere.
 
 Integrates ``dX/dh`` (`dXdh()`) from `topheight` to `bottomheight`.
 """
-function integratethroughionosphere(θ, ω, topheight, bottomheight, referenceheight,
-                                    spec, B, dcl, dcm, dcn)
+function integratethroughionosphere(θ, ω, inputs::Inputs, referenceheight,
+                                    spec, B, drcs::DirectionCosines)
+    # Unpack
+    bottomheight, topheight = inputs.bottomheight, inputs.topheight
+    dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
+
     # Initial condition for integration
     M = tmatrix(θ, topheight, referenceheight, ω, spec, B, dcl, dcm, dcn)[1]
     initialX = sharplyboundedreflectionmatrix(θ, M)[2]
@@ -758,11 +787,9 @@ for which `ζ = 0`, that is, for which ordinary waves cannot be distinguished fr
 waves. Although not singular, it is not well conditioned for large collision frequency when
 the propagation is east-west at the equator.
 """
-function eigenmatrix(lenset, θ, ω, heightinterp, height, ζₚ, Γₚ, drcs::DirectionCosines)
+function eigenmatrix!(lenset, θ, ω, heightinterp, height, emtx::EigenMatrix, xseq::XSequence, drcs::DirectionCosines)
     # Unpack
-    dcl = drcs.dcl
-    dcm = drcs.dcm
-    dcn = drcs.dcn
+    dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
     G = drcs.G
 
     # Initialize
@@ -780,8 +807,6 @@ function eigenmatrix(lenset, θ, ω, heightinterp, height, ζₚ, Γₚ, drcs::D
     q = sqrt(q²)
     real(C) < 0 && (q = -q)
 
-    e = @MArray zeros(ComplexF64, 2,2,2)
-    inve = @MArray zeros(ComplexF64, 2,2,2)
     updown = +1  # +1 for upgoing waves, -1 for downgoing
     for ud = 1:2
         A = dcl*S + updown*dcn*q
@@ -798,39 +823,137 @@ function eigenmatrix(lenset, θ, ω, heightinterp, height, ζₚ, Γₚ, drcs::D
         # and set to `false` for all other rectangle locations. The sign of `ζ` is chosen so
         # that `W + ζ` has the larger magnitude. The sign of `ζ` elsewhere is chosen so that
         # the value of `ζ` is closer to that of `ζ` at the center.
-        lenset && (ζₚ[ud] = W)
-        abs2(ζ-ζₚ[ud]) > abs2(ζ+ζₚ[ud]) && (ζ = -ζ)
-        lenset && (ζₚ[ud] = ζ)
+        lenset && (xseq.ζₚ[ud] = W)
+        abs2(ζ-xseq.ζₚ[ud]) > abs2(ζ+xseq.ζₚ[ud]) && (ζ = -ζ)
+        lenset && (xseq.ζₚ[ud] = ζ)
 
         # THe sign of Γ is chosen so that the value of Γ is closer to that of Γ at the center
         # of the rectangle
         Γ = sqrt(-2*ζ*(W + ζ))
 
-        lenset && (Γₚ[ud] = Γ)
-        abs2(Γ-Γₚ[ud]) > abs2(Γ+Γₚ[ud]) && (Γ = -Γ)
+        lenset && (xseq.Γₚ[ud] = Γ)
+        abs2(Γ-xseq.Γₚ[ud]) > abs2(Γ+xseq.Γₚ[ud]) && (Γ = -Γ)
 
         # Eigenvector matrix
-        e[1,1,ud] = Hy₁
-        e[1,2,ud] = W+ζ
-        e[2,1,ud] = W+ζ
-        e[2,2,ud] = Ey₂
-        e[:,:,ud] ./= Γ
+        emtx.e[1,1,ud] = Hy₁
+        emtx.e[1,2,ud] = W+ζ
+        emtx.e[2,1,ud] = W+ζ
+        emtx.e[2,2,ud] = Ey₂
+        emtx.e[:,:,ud] ./= Γ
 
-        inve[:,:,ud] = inv(e[:,:,ud])  # TODO: Is this actually needed or can we eventually do a matrix division?
+        emtx.inve[:,:,ud] = inv(emtx.e[:,:,ud])  # TODO: Is this actually needed or can we eventually do a matrix division?
 
         # Change the sign for downgoing waves
         updown = -1
     end
-
-    return ζₚ, Γₚ, e, inve
 end
 
 """
 Interpolates values of the elements of the magnetoionic reflection matrix.
 
-See section V of NOSC TR 1143.
+The four sets of reflection coefficents (at each corner of the rectangle) provide for
+interpolation in the third-order form
+```math
+R = R_c + R′_c(θ - θ_c) + R″_c(θ-θ_c)²/2 + R‴_c(θ-θ_c)³/6
+```
+where ``θ_c`` is at the center of the rectangle.
+
+`lenset` is set to `true` indicating that the rectangle size is to be reduced or routine
+`lagrange` is to be used.
+
+See section V of NOSC TR 1143 for additional details.
 """
-function initoe()
+function initoe(corners::Corners, side::Side, adjmesh)
+    # Unpack
+    θleft, θtop, θright, θbottom = side.θleft, side.θtop, side.θright, side.θbottom
+    θcorners, Xcorners = corners.θ, corners.X
+    numcorners = corners.num
+
+    # Values of θ at the corners and center of search area.
+    θg = @SVector [complex(θleft, θtop), complex(θright, θtop),
+                   complex(θleft, θbottom), complex(θright, θbottom)]
+    θcenter = complex((θleft+θright)/2, (θbottom+θtop)/2)
+
+    # TEMP: Common variables
+    maxnumcorners = 400  # parameter
+    # TEMP
+
+    # Reflection coefficients at the bottom of the ionosphere are found at each corner.
+    # First check if we have already calculated `X` at a corner within `atol` from current corner.
+    nointegration = false
+    atol = 1e-4adjmesh^2
+    for corner = 1:4
+        lastiter = false
+        if numcorners > 0
+            lc = 1  # counter for corners already computed
+            while !lastiter & (lc <= numcorners)
+                Δ = θg[corner] - θcorner[lc]
+                Δ² = abs2(Δ)
+                if Δ² <= atol
+                    X = copy(Xcorner)
+
+                    # Test if conditions allow integration
+                    if real(X[1]) < 22000  # exp(rlgmax)
+                        lastiter = true
+                    else
+                        nointegration = true
+                        return
+                    end
+                end
+                lc += 1
+            end  # while
+        end
+        if !lastiter
+            θ = θg[corner]
+            integratethroughionosphere()
+            nointegration && (X[1] = complex(60000))  # exp(rlgmax+1)
+            if numcorners < maxnumcorners
+                numcorners += 1
+                θcorners[numcorners] = θ
+                Xcorners[1, numcorners] = copy(X)
+            end
+            nointegration && return
+        end
+        Xlow[1,corner] = copy(X)  # XXX: What is this?
+    end  # for
+
+    # Values of square roots at center of search area are found as reference values.
+    θ = θcenter
+    eigenmatrix(1 ,θ, ω, heightinterp, height, xseq, emtx, drcs)
+
+    # Set up heights for free space integration
+    z₀ = bottomheight
+    zz = heightinterp
+
+    # The reflection coefficients `R` are referred to `heightinterp` and then transformed
+    # to magnetoionic reflection coefficients. The logs of these are found and taken to be
+    # given values at the corners of the search rectangle.
+    for corner = 1:4
+        θ = θg[corner]
+        R = copy(Rlow[1,corner])
+        integratethroughfreespace()
+        # TODO: Insert roemtx and rmtx?
+        for k = 1:4
+            abs(roe[k]) < roemin && (roe[k] = roemin)
+            Rgiven[k, corner] = log(roe[k])
+        end
+    end
+
+    # TODO: Set of 25 pairs of integers are generated and stored in TRIN.
+
+    # Values of parameters are found that pertain to the geometry of the search rectangle.
+    θlength = abs(θg[1] - θcenter)
+    d1 = (θg[1] - θcenter)/θlength
+    d2 = (θg[2] - θcenter)/θlength
+
+    d1² = d1^2
+    d1³ = d1^3
+    d2² = d2^2
+    d2³ = d2^3
+
+    conjd1 = conj(d1)
+    conjd2 = conj(d2)
+
 
 end
 

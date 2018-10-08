@@ -26,11 +26,15 @@ struct Transmitter
     freq::Float64
 end
 
-struct Inputs
+# TEMP: Only need to be mutable and have internal constructor for incomplete initialization
+mutable struct Inputs
     transmitter::Transmitter
     receiver::Receiver
     maxrange::Float64
     deltarange::Float64
+    topheight::Float64
+    bottomheight::Float64
+    Inputs() = new()
 end
 
 struct LWMSModes
