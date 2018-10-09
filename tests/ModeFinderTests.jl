@@ -129,7 +129,7 @@ end
     end
 
     @testset "M Matrix" begin
-        electrons = Constituent(-ModeFinder.fundamentalcharge, ModeFinder.mₑ,
+        electrons = Constituent(-fundamentalcharge, mₑ,
                                 h -> 1.8548467e6, h -> 2.3626550e8)
 
         # 0s are not explicitly computed in LWPC
@@ -174,7 +174,7 @@ end
              complex(-1.4886049E-008,-1.1692356E-005) complex(-0.8375437,-0.0477239)]
         D = [complex(0.0011740,3.7995025E-005) complex(-1.1764401E-007,3.9499610E-006);
              complex(-1.5760942E-007,8.4526630E-007) complex(0.0017909,1.6545285E-004)]
-        k = ω/ModeFinder.speedoflight*1e3
+        k = ω/speedoflight*1e3
 
         lwpcderiv = [complex(0.1148383,0.1751488) complex(-0.1718566,0.0698231);
                      complex(-0.2180655,0.0862091) complex(-0.1612875,0.0093370)]
@@ -185,7 +185,7 @@ end
     end
 
     @testset "Integration" begin
-        electrons = Constituent(-ModeFinder.fundamentalcharge, ModeFinder.mₑ,
+        electrons = Constituent(-fundamentalcharge, mₑ,
                                 h -> waitprofile(h, 75, 0.3), collisionprofile)
         inputs = Inputs()
         inputs.topheight = topheight
@@ -195,7 +195,12 @@ end
         Rbottomlwpc = [complex(2.7846940,-0.4330095) complex(0.1893602,0.3993874);
                        complex(0.2345901,0.5070829)  complex(2.4297192,0.2463784)]
 
-        sol = ModeFinder.integratethroughionosphere(θ, ω, inputs, referenceheight,
+        mode = ModeFinder.Mode()
+        mode.θ = θ
+        mode.ω = ω
+        mode.wavenumber = ω/speedoflight*1e3  # k must be based in km because we integrate over height in km
+
+        sol = ModeFinder.integratethroughionosphere(mode, inputs, referenceheight,
                                                     electrons, Bfield, drcs)
         @test sol[end] ≈ Rbottomlwpc atol=1e-1
     end
@@ -223,9 +228,10 @@ end
         @test mh2ptest ≈ h2p atol=1e-6
     end
 
-    θ = complex(65.2520447,-1.5052794)
-    ω = 150796.4531250  # rad/s
-    k = ω/ModeFinder.speedoflight*1e3
+    mode = ModeFinder.Mode()
+    mode.θ = complex(65.2520447,-1.5052794)
+    mode.ω = 150796.4531250  # rad/s
+    mode.wavenumber = mode.ω/speedoflight*1e3
 
     h = 50.0
     z₀ = 44.2968750
@@ -235,47 +241,79 @@ end
     Xt = [complex(2.0947318,-0.0449929) complex(-0.0275066,-0.2524883);
           complex(-0.0319887,-0.3217891) complex(2.4113691,-0.3457983)]
 
-    Xttest = ModeFinder.integratethroughfreespace(θ, k, z₀, zz, h, X₀)
+    Xttest = ModeFinder.integratethroughfreespace!(X₀, mode, z₀, zz, h)
 
     @test Xttest ≈ Xt atol=1e-2
 end
 
-@testset "Eigenmatrix" begin
-    θ = complex(39.9019470,-1.7546921)
-    ω = 150796.4531250  # rad/s
-    dcl = -0.2664399
-    dcm = -0.2850476
-    dcn = -0.9207376
-    G = complex(-0.1100280,2.0067947E-004)
-    h = 50.0
-    ec_lwpc = 4.0721876E-004
-    heightinterp = ec_lwpc*ModeFinder.earthradius/2+h
 
-    lenset = false
+@testset "Ordinary/Extraordinary Waves" begin
+    @testset "Eigenmatrix" begin
+        dcl = -0.2664399
+        dcm = -0.2850476
+        dcn = -0.9207376
+        G = complex(-0.1100280,2.0067947E-004)
+        h = 50.0
+        ec_lwpc = 4.0721876E-004
+        heightinterp = ec_lwpc*ModeFinder.earthradius/2+h
 
-    drcs = ModeFinder.DirectionCosines(dcl, dcm, dcn, G)
+        lenset = false
 
-    e = @MArray zeros(ComplexF64, 2,2,2)
-    inve = @MArray zeros(ComplexF64, 2,2,2)
-    emtx = ModeFinder.EigenMatrix(e, inve)
+        mode = ModeFinder.Mode()
+        mode.ω = 150796.4531250  # rad/s
+        mode.θ = complex(39.9019470,-1.7546921)
 
-    ζₚ = @MVector [complex(0.0389593,-1.7352930), complex(0.0773762,-1.0256317)]
-    Γₚ = @MVector [complex(2.4567194,0.0617389), complex(1.4542819,0.1539752)]
-    xseq = ModeFinder.XSequence(ζₚ, Γₚ)
+        drcs = ModeFinder.DirectionCosines(dcl, dcm, dcn, G)
 
-    e_lwpc = Array{ComplexF64}(undef,2,2,2)
-    e_lwpc[1,1,1] = complex(-0.6970944,0.0006473)
-    e_lwpc[2,1,1] = complex(0.0014815,-0.7075908)
-    e_lwpc[1,2,1] = complex(0.0014815,-0.7075908)
-    e_lwpc[2,2,1] = complex(-0.7162860,0.0023426)
-    e_lwpc[1,1,2] = complex(0.7391026,-0.0233032)
-    e_lwpc[2,1,2] = complex(0.0199049,-0.7092856)
-    e_lwpc[1,2,2] = complex(0.0199049,-0.7092856)
-    e_lwpc[2,2,2] = complex(0.6733917,-0.0169724)
+        Eud = @MArray zeros(ComplexF64, 2,2,2)
 
-    ModeFinder.eigenmatrix!(lenset, θ, ω, heightinterp, h, emtx, xseq, drcs)
+        ζₚ = @MVector [complex(0.0389593,-1.7352930), complex(0.0773762,-1.0256317)]
+        Γₚ = @MVector [complex(2.4567194,0.0617389), complex(1.4542819,0.1539752)]
+        xseq = ModeFinder.XSequence(ζₚ, Γₚ)
 
-    @test e ≈ e_lwpc atol=1e-6
+        e_lwpc = Array{ComplexF64}(undef,2,2,2)
+        e_lwpc[1,1,1] = complex(-0.6970944,0.0006473)
+        e_lwpc[2,1,1] = complex(0.0014815,-0.7075908)
+        e_lwpc[1,2,1] = complex(0.0014815,-0.7075908)
+        e_lwpc[2,2,1] = complex(-0.7162860,0.0023426)
+        e_lwpc[1,1,2] = complex(0.7391026,-0.0233032)
+        e_lwpc[2,1,2] = complex(0.0199049,-0.7092856)
+        e_lwpc[1,2,2] = complex(0.0199049,-0.7092856)
+        e_lwpc[2,2,2] = complex(0.6733917,-0.0169724)
+
+        ModeFinder.eigenmatrix!(Eud, xseq, mode, lenset, heightinterp, h, drcs)
+
+        @test Eud ≈ e_lwpc atol=1e-6
+    end
+
+    @testset "ROE/R matrix conversions" begin
+        θ = complex(42.9411621,-3.6225901)
+        X = [complex(1.7967621,-0.0265428) complex(0.0993883,0.3174350);
+             complex(0.5336750,0.3858191) complex(1.2834927,0.4988435)]
+
+        Eud = zeros(ComplexF64, 2,2,2)
+        Eud[1,1,1] = complex(-0.6950788,0.0005265)
+        Eud[2,1,1] = complex(0.0023001,-0.7082505)
+        Eud[1,2,1] = complex(0.0023001,-0.7082505)
+        Eud[2,2,1] = complex(-0.7170246,0.0041443)
+        Eud[1,1,2] = complex(0.7401037,-0.0300393)
+        Eud[2,1,2] = complex(0.0229389,-0.7119964)
+        Eud[1,2,2] = complex(0.0229389,-0.7119964)
+        Eud[2,2,2] = complex(0.6676079,-0.0170387)
+
+        R_lwpc = [complex(0.3191003,0.0579732) complex(0.0592212,0.2371279);
+                  complex(0.3748306,0.3060071) complex(-0.0800366,0.4212306)]
+        Roe_lwpc = [complex(0.0721194,-0.0232919) complex(0.3896856,-0.0565601);
+                    complex(0.0823480,-0.1521263) complex(0.4669252,-0.4200467)]
+
+        Rtest, Roetest = ModeFinder.roematrix(θ, X, Eud)
+        @test Roetest ≈ Roe_lwpc atol=1e-6
+        @test Rtest ≈ R_lwpc atol=1e-6
+
+        Rtest, Xtest = ModeFinder.rmatrix(θ, Roe_lwpc, Eud)
+        @test Xtest ≈ X atol=1e-6
+        @test Rtest ≈ R_lwpc atol=1e-6
+    end
 end
 
 end

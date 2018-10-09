@@ -12,6 +12,9 @@ using DifferentialEquations
 using LWMS
 using IonosphereProfile
 
+export Mode
+export speedoflight, fundamentalcharge, mₑ
+
 
 const speedoflight = 299792458  # m/s
 const μ₀ = 4e-7π  # H/m
@@ -21,14 +24,14 @@ const fundamentalcharge = 1.602176621e-19  # C
 
 
 mutable struct Mode
-    theta::ComplexF64
-    c::ComplexF64
-    s::ComplexF64
-    csq::ComplexF64
-    ssq::ComplexF64
-    omega::Float64
+    θ::ComplexF64
+    C::ComplexF64
+    S::ComplexF64
+    C²::ComplexF64
+    S²::ComplexF64
+    ω::Float64
     wavenumber::Float64
-    ideriv::Bool
+    Mode() = new()
 end
 
 mutable struct Area
@@ -59,10 +62,12 @@ mutable struct Side{ComplexF64}
     θbottom
 end
 
-mutable struct Corners
+struct Corners
+    # TODO: Make them abstract vectors?
+    # TODO: At initialization, use !sizehint(θ, 400)  # or some reasonable number for θ and X
     θ::AbstractArray{ComplexF64}  # mxcorners
     X::AbstractArray{ComplexF64}  # 4, mxcorners
-    num::Integer
+    # num::Integer > just use length()
 end
 
 struct XSequence
@@ -70,11 +75,11 @@ struct XSequence
     Γₚ::AbstractVector{ComplexF64}
 end
 
-struct EigenMatrix
-    e::AbstractArray{ComplexF64}
-    inve::AbstractArray{ComplexF64}
+# LWPC: mf_rntg
+struct IntegrationVariables
+    X::AbstractArray{ComplexF64}
+    Roe::AbstractArray{Float64}
 end
-
 
 
 """
@@ -86,38 +91,38 @@ eigenangles. If eigenangles (_modes_) are found, then LWP_DRIVER proceeds to ent
 and additional routines, presumably to find the exact or complete solutions.
 """
 function driver(inputs::Inputs, modes::LWMSModes)
-# Unpack
-freq = inputs.freq
+    # Unpack
+    freq = inputs.freq
 
-ω = 2π*freq
-k = ω/speedoflight
-meshangle = sqrt(1/freq)
-modes.deltathetathreshold = sqrt(15/freq)/100
+    ω = 2π*freq
+    k = ω/speedoflight
+    meshangle = sqrt(1/freq)
+    modes.deltathetathreshold = sqrt(15/freq)/100
 
-if freq <= 29.9e3
-    gmax = 3.0
-elseif freq <= 99.9e3
-    gmax = 2.0
-else
-    gmax = 1.0
-end
+    if freq <= 29.9e3
+        gmax = 3.0
+    elseif freq <= 99.9e3
+        gmax = 2.0
+    else
+        gmax = 1.0
+    end
 
-if modes.ranger[1] > modes.ranger[2]
-    modes.ranger[1], modes.ranger[2] = modes.ranger[2], modes.ranger[1]
-end
-if modes.rangei[1] < modes.rangei[2]
-    modes.rangei[1], modes.rangei[2] = modes.rangei[2], modes.rangei[1]
-end
+    if modes.ranger[1] > modes.ranger[2]
+        modes.ranger[1], modes.ranger[2] = modes.ranger[2], modes.ranger[1]
+    end
+    if modes.rangei[1] < modes.rangei[2]
+        modes.rangei[1], modes.rangei[2] = modes.rangei[2], modes.rangei[1]
+    end
 
-mode = Mode(complex(NaN, NaN),
-            complex(NaN, NaN), complex(NaN, NaN),
-            complex(NaN, NaN), complex(NaN, NaN),
-            ω, k, false)
-area = Area(gmax, NaN, meshangle, false)
+    # mode = Mode(complex(NaN, NaN),
+    #             complex(NaN, NaN), complex(NaN, NaN),
+    #             complex(NaN, NaN), complex(NaN, NaN),
+    #             ω, k, false)
+    area = Area(gmax, NaN, meshangle, false)
 
-waveguide(mode)
+    waveguide(mode)
 
-return
+    return
 end
 
 """
@@ -358,6 +363,8 @@ semi-infinite extent where R is the reflection coefficient matrix as defined by 
 solution is used as the initial condition for integration. This solution is derived from the
 one in Radio Science Vol. 3, Aug 1968 pg. 792-795, although makes use of a different solver.
 
+In LWPC this function is called mf_initr.
+
 The physics is described by ``D\\mathbf{E} = 0`` where ``E`` is the electric vector of the
 elm wave and ``D`` is the dispersion matrix ``I + M + L`` where ``I`` is the unit matrix and
 ```math
@@ -463,9 +470,10 @@ Full wave solution for `X` through ionosphere.
 
 Integrates ``dX/dh`` (`dXdh()`) from `topheight` to `bottomheight`.
 """
-function integratethroughionosphere(θ, ω, inputs::Inputs, referenceheight,
-                                    spec, B, drcs::DirectionCosines)
+function integratethroughionosphere(mode::Mode, inputs::Inputs, referenceheight,
+                                    spec::Constituent, B, drcs::DirectionCosines)
     # Unpack
+    θ, ω, k = mode.θ, mode.ω, mode.wavenumber
     bottomheight, topheight = inputs.bottomheight, inputs.topheight
     dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
 
@@ -473,14 +481,15 @@ function integratethroughionosphere(θ, ω, inputs::Inputs, referenceheight,
     M = tmatrix(θ, topheight, referenceheight, ω, spec, B, dcl, dcm, dcn)[1]
     initialX = sharplyboundedreflectionmatrix(θ, M)[2]
 
-    k = ω/speedoflight*1e3  # k must be based in km because we integrate over height in km
     params = (θ=θ, referenceheight=referenceheight, ω=ω, k=k, species=spec,
               B=B, dcl=dcl, dcm=dcm, dcn=dcn)
 
     heightbounds = (topheight, bottomheight)
     prob = ODEProblem(xderivative, initialX, heightbounds, params)
-    sol = solve(prob, BS3(), reltol=1e-3)  # Faster, less accurate
-    # sol = solve(prob, Tsit5(), reltol=1e-4)  # Decent accuracy for the speed
+    sol = solve(prob, BS3(), reltol=1e-3, save_everystep=false)  # Faster, less accurate
+    # sol = solve(prob, Tsit5(), reltol=1e-4, save_everystep=false)  # Decent accuracy for the speed
+
+    # TODO: Catch if `sol` is an error, then `nointegration = true`, else `nointegration = false`
 
     return sol
 end
@@ -507,7 +516,7 @@ The functions h₁(ζ) and h₂(ζ) satisfy the Stokes differential equation (_A
 ```
 
 Note: This may actually be doing more than just calculating the hankel functions, because
-when used with `integratethroughfreespace()` below, which follows the math steps in MS 1976,
+when used with `espace()` below, which follows the math steps in MS 1976,
 the values from this function, `modhankel()`, result in the wrong values even though this
 function matches the LWPC routine mf_mdhnkl. However, when the above functions `modhankel1`,
 etc are used in `integratethroughfreespace`, that function agrees with LWPC mf_fsinteg.
@@ -646,10 +655,11 @@ Performs an integration of the differential equations for the ionosphere reflect
 through a free space region over a curved earth.
 
 The integration may be performed in either a positive or negative height direction, but LWPC
-always integrates upward. The integration variables are the matrix ``(R+1)/C`` where ``R`` is
-the reflection matrix described by Budden. This solution is based on Budden, Radio Waves in
-the Ionosphere, in particular the material on pg 118, 327-329, 336-338, and 343-345. MS
-1976, especially Appendix 2, presents a detailed explanation.
+always integrates upward. Therefore, argument `X` is actually `X₀`, the modified reflection
+coefficient matrix at `bottomheight`. The integration variables are the matrix ``X = (R+1)/C``
+where ``R`` is the reflection matrix described by Budden. This solution is based on Budden,
+Radio Waves in the Ionosphere, in particular the material on pg 118, 327-329, 336-338, and
+343-345. MS 1976, especially Appendix 2, presents a detailed explanation.
 
 Computation at θ = 90° is not excluded. Also, the equations are formulated so that a smooth
 transition is made from the "curved earth" form to the "flat earth" form for appropriate
@@ -686,10 +696,15 @@ For **vertical polarization**:
 ```
 where we are to determine the coefficients `A`, `B`, `Q`, and `G`.
 """
-function integratethroughfreespace(θ, k, z₀, zz, h, X₀)
-    abs(zz-z₀) < 0.001 && return
+function integratethroughfreespace!(X, mode::Mode, bottomheight, heightinterp, h)
+    # Unpack
+    θ, k = mode.θ, mode.wavenumber
 
-    # TODO: Change z₀ and zz variable names
+    # Initialize
+    z₀ = bottomheight
+    zz = heightinterp
+
+    abs(zz-z₀) < 0.001 && return
 
     # Initialize
     C = cosd(θ)
@@ -717,19 +732,19 @@ function integratethroughfreespace(θ, k, z₀, zz, h, X₀)
                    C*mh1+K*mh1p   C*mh2+K*mh2p]
     Δ₁ = det(a₁)
 
-    AC1 = X₀[2,1]*a₁[2,2]/Δ₁
-    BC1 = -X₀[2,1]*a₁[2,1]/Δ₁
-    AC2 = (X₀[2,2]*a₁[2,2] - 2a₁[1,2])/Δ₁
-    BC2 = (2a₁[1,1] - X₀[2,2]*a₁[2,1])/Δ₁
+    AC1 = X[2,1]*a₁[2,2]/Δ₁
+    BC1 = -X[2,1]*a₁[2,1]/Δ₁
+    AC2 = (X[2,2]*a₁[2,2] - 2a₁[1,2])/Δ₁
+    BC2 = (2a₁[1,1] - X[2,2]*a₁[2,1])/Δ₁
 
     a₂ = @SMatrix [mh1                          mh2;
                    C*mh1+(K*mh1p+L*mh1)/n₀²     C*mh2+(K*mh2p+L*mh2)/n₀²]
     Δ₂ = det(a₂)
 
-    QC1 = (X₀[1,1]*a₂[2,2] - 2a₂[1,2])/Δ₂
-    GC1 = (2a₂[1,1] - X₀[1,1]*a₂[2,1])/Δ₂
-    QC2 = X₀[1,2]*a₂[2,2]/Δ₂
-    GC2 = -X₀[1,2]*a₂[2,1]/Δ₂
+    QC1 = (X[1,1]*a₂[2,2] - 2a₂[1,2])/Δ₂
+    GC1 = (2a₂[1,1] - X[1,1]*a₂[2,1])/Δ₂
+    QC2 = X[1,2]*a₂[2,2]/Δ₂
+    GC2 = -X[1,2]*a₂[2,1]/Δ₂
 
     # Computation of upgoing fields E∥ and Ey at height `zz` for the two conditions above.
     # mh1, mh2, mh1p, mh2p = modhankel(ζₜ, bothnegative)
@@ -759,10 +774,14 @@ function integratethroughfreespace(θ, k, z₀, zz, h, X₀)
     V₁v = QC1*mh1 + GC1*mh2
     V₂v = QC2*mh1 + GC2*mh2
 
-    Xₜ = @SMatrix [(V₁v*Eyt₂ - V₂v*Eyt₁)/W  (V₂v*Ept₁ - V₁v*Ept₂)/W;
-                  (V₁h*Eyt₂ - V₂h*Eyt₁)/W   (V₂h*Ept₁ - V₁h*Ept₂)/W]
+    # Mutate to `X` at the `zz` level
+    X[1,1] = V₁v*Eyt₂ - V₂v*Eyt₁
+    X[1,2] = V₂v*Ept₁ - V₁v*Ept₂
+    X[2,1] = V₁h*Eyt₂ - V₂h*Eyt₁
+    X[2,2] = V₂h*Ept₁ - V₁h*Ept₂
+    X ./= W
 
-    return Xₜ
+    return X
 end
 
 """
@@ -787,8 +806,10 @@ for which `ζ = 0`, that is, for which ordinary waves cannot be distinguished fr
 waves. Although not singular, it is not well conditioned for large collision frequency when
 the propagation is east-west at the equator.
 """
-function eigenmatrix!(lenset, θ, ω, heightinterp, height, emtx::EigenMatrix, xseq::XSequence, drcs::DirectionCosines)
+function eigenmatrix!(Eud, xseq::XSequence, mode::Mode, lenset, heightinterp, height,
+                      drcs::DirectionCosines)
     # Unpack
+    θ, ω = mode.θ, mode.ω
     dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
     G = drcs.G
 
@@ -835,17 +856,67 @@ function eigenmatrix!(lenset, θ, ω, heightinterp, height, emtx::EigenMatrix, x
         abs2(Γ-xseq.Γₚ[ud]) > abs2(Γ+xseq.Γₚ[ud]) && (Γ = -Γ)
 
         # Eigenvector matrix
-        emtx.e[1,1,ud] = Hy₁
-        emtx.e[1,2,ud] = W+ζ
-        emtx.e[2,1,ud] = W+ζ
-        emtx.e[2,2,ud] = Ey₂
-        emtx.e[:,:,ud] ./= Γ
-
-        emtx.inve[:,:,ud] = inv(emtx.e[:,:,ud])  # TODO: Is this actually needed or can we eventually do a matrix division?
+        Eud[1,1,ud] = Hy₁
+        Eud[1,2,ud] = W+ζ
+        Eud[2,1,ud] = W+ζ
+        Eud[2,2,ud] = Ey₂
+        Eud[:,:,ud] ./= Γ
 
         # Change the sign for downgoing waves
         updown = -1
     end
+
+    return Eud, xseq
+end
+
+"""
+Transform the reflection matrix `R` (**not `X`**) from perpendicular/parallel to
+magnetoionic reflection coefficients.
+
+If the first columns of ``E_u`` and ``E_d`` correspond to ordinary waves, then ``R_{oe}`` is
+```math
+R_{oe} = \\begin{pmatrix}
+            R_{oo} & R_{oe} \\
+            R_{oe} & R_{ee}
+        \\end{pmatrix}
+```
+where the first subscript refers to the polarization of the upgoing waves and the second
+subscript refers to that of downgoing waves. NOSC TR 1143 section III has more info.
+
+See also: [`rmatrix`](@ref)
+"""
+function roematrix(θ, X, Eud)
+    # Initialize
+    C = cosd(θ)
+    Eup = Eud[:,:,1]
+    Edown = Eud[:,:,2]
+
+    # Calculate `R` from `X`
+    R = C*X - I
+
+    Roe = Edown\R*Eup
+
+    return R, Roe
+end
+
+"""
+Transform the reflection matrix `R` from magnetoionic to perpendicular/parallel reflection
+coefficients.
+
+See also: [`roematrix`](@ref)
+"""
+function rmatrix(θ, Roe, Eud)
+    # Initialize
+    C = cosd(θ)
+    Eup = Eud[:,:,1]
+    Edown = Eud[:,:,2]
+
+    R = (Edown*Roe)/Eup
+
+    # Calculate `X` from `R`
+    X = (R + I)/C
+
+    return R, X
 end
 
 """
@@ -863,20 +934,19 @@ where ``θ_c`` is at the center of the rectangle.
 
 See section V of NOSC TR 1143 for additional details.
 """
-function initoe(corners::Corners, side::Side, adjmesh)
+function initoe(corners::Corners, intg::IntegrationVariables, mode::Mode, side::Side, adjmesh)
     # Unpack
     θleft, θtop, θright, θbottom = side.θleft, side.θtop, side.θright, side.θbottom
     θcorners, Xcorners = corners.θ, corners.X
-    numcorners = corners.num
+    bottomheight = inputs.bottomheight
+
+    # Initialize
+    numcorners = length(θcorners)
 
     # Values of θ at the corners and center of search area.
     θg = @SVector [complex(θleft, θtop), complex(θright, θtop),
                    complex(θleft, θbottom), complex(θright, θbottom)]
     θcenter = complex((θleft+θright)/2, (θbottom+θtop)/2)
-
-    # TEMP: Common variables
-    maxnumcorners = 400  # parameter
-    # TEMP
 
     # Reflection coefficients at the bottom of the ionosphere are found at each corner.
     # First check if we have already calculated `X` at a corner within `atol` from current corner.
@@ -884,13 +954,16 @@ function initoe(corners::Corners, side::Side, adjmesh)
     atol = 1e-4adjmesh^2
     for corner = 1:4
         lastiter = false
+
+        # TODO: Use a more efficient structure to measure distance rather than looping through and
+        # checking distance to every corner every time?
         if numcorners > 0
-            lc = 1  # counter for corners already computed
+            lc = 1  # counter for existing corners
             while !lastiter & (lc <= numcorners)
-                Δ = θg[corner] - θcorner[lc]
+                Δ = θg[corner] - θcorners[lc]
                 Δ² = abs2(Δ)
                 if Δ² <= atol
-                    X = copy(Xcorner)
+                    X = copy(Xcorners[lc])
 
                     # Test if conditions allow integration
                     if real(X[1]) < 22000  # exp(rlgmax)
@@ -905,37 +978,36 @@ function initoe(corners::Corners, side::Side, adjmesh)
         end
         if !lastiter
             θ = θg[corner]
-            integratethroughionosphere()
-            nointegration && (X[1] = complex(60000))  # exp(rlgmax+1)
-            if numcorners < maxnumcorners
-                numcorners += 1
-                θcorners[numcorners] = θ
-                Xcorners[1, numcorners] = copy(X)
-            end
+            # TODO: I need to get a `nointegration` from `integratethroughionosphere()`
+            integratethroughionosphere(X, mode, inputs, referenceheight, spec, B, drcs)
+            nointegration && (X[1] = complex(60000))  # exp(rlgmax+1)  # TODO: This may not be necessary, just take `X[1]` as whatever it is?`
+            numcorners += 1
+            push!(θcorners, θ)
+            push!(Xcorners, copy(X))  # TODO: Do I need the copy?
             nointegration && return
         end
-        Xlow[1,corner] = copy(X)  # XXX: What is this?
+        Xlow[corner] = copy(X)  # XXX: What is this?
     end  # for
 
     # Values of square roots at center of search area are found as reference values.
     θ = θcenter
-    eigenmatrix(1 ,θ, ω, heightinterp, height, xseq, emtx, drcs)
+    eigenmatrix!(Eud, xseq, mode, true, heightinterp, height, drcs)
 
-    # Set up heights for free space integration
-    z₀ = bottomheight
-    zz = heightinterp
-
-    # The reflection coefficients `R` are referred to `heightinterp` and then transformed
+    # The reflection coefficients `X` are referred to `heightinterp` and then transformed
     # to magnetoionic reflection coefficients. The logs of these are found and taken to be
     # given values at the corners of the search rectangle.
     for corner = 1:4
         θ = θg[corner]
-        R = copy(Rlow[1,corner])
-        integratethroughfreespace()
-        # TODO: Insert roemtx and rmtx?
+        X = copy(Xlow[corner])
+        integratethroughfreespace!(X, mode, bottomheight, heightinterp, h)
+
+        # Get matrices of eigen vectors and their inverses.
+        eigenmatrix(Eud, xseq, mode, false, heightinterp, height, drcs)
+        Roe = roematrix(Eud, θ)
+
         for k = 1:4
-            abs(roe[k]) < roemin && (roe[k] = roemin)
-            Rgiven[k, corner] = log(roe[k])
+            abs(Roe[k]) < Roemin && (Roe[k] = Roemin)  # TODO: Necessary?
+            Rgiven[k, corner] = log(Roe[k])
         end
     end
 
@@ -943,17 +1015,19 @@ function initoe(corners::Corners, side::Side, adjmesh)
 
     # Values of parameters are found that pertain to the geometry of the search rectangle.
     θlength = abs(θg[1] - θcenter)
-    d1 = (θg[1] - θcenter)/θlength
-    d2 = (θg[2] - θcenter)/θlength
+    d₁ = (θg[1] - θcenter)/θlength
+    d₂ = (θg[2] - θcenter)/θlength
 
-    d1² = d1^2
-    d1³ = d1^3
-    d2² = d2^2
-    d2³ = d2^3
+    d₁² = d₁^2
+    d₁³ = d₁^3
+    d₂² = d₂^2
+    d₂³ = d₂^3
 
-    conjd1 = conj(d1)
-    conjd2 = conj(d2)
+    conjd1 = conj(d₁)
+    conjd2 = conj(d₂)
 
+    D₁ = 2(d₂²)
+    D₂ = 2d₁*d₂*(d₂² - d₁²)
 
 end
 
