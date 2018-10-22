@@ -430,7 +430,7 @@ function sharplyboundedreflectionmatrix(θ, M)
 
     # XXX: Do ∥X∥ and ⟂X⟂ really equal (∥R∥ + 1)/C and (⟂R⟂ + 1)/C? Using `r11` and `r22` from
     # mf_initr.for for now, but I haven't been able to prove this is true mathematically.
-    X = SMatrix{2, 2}(2(T[1]*(C + q[2]) - T[2]*(C +q[1]))/Δ,
+    X = MMatrix{2, 2}(2(T[1]*(C + q[2]) - T[2]*(C +q[1]))/Δ,
                       -2(q[1] - q[2])/Δ,
                       -2(T[1]*P[2] - T[2]*P[1])/Δ,
                       2((T[1]*C + P[1]) - (T[2]*C + P[2]))/Δ)
@@ -979,7 +979,7 @@ function initoe(corners::Corners, intg::IntegrationVariables, mode::Mode, side::
         if !lastiter
             θ = θg[corner]
             # TODO: I need to get a `nointegration` from `integratethroughionosphere()`
-            integratethroughionosphere(X, mode, inputs, referenceheight, spec, B, drcs)
+            X = integratethroughionosphere(mode, inputs, referenceheight, spec, B, drcs)
             nointegration && (X[1] = complex(60000))  # exp(rlgmax+1)  # TODO: This may not be necessary, just take `X[1]` as whatever it is?`
             numcorners += 1
             push!(θcorners, θ)
@@ -1006,7 +1006,7 @@ function initoe(corners::Corners, intg::IntegrationVariables, mode::Mode, side::
         Roe = roematrix(Eud, θ)
 
         for k = 1:4
-            abs(Roe[k]) < Roemin && (Roe[k] = Roemin)  # TODO: Necessary?
+            # abs(Roe[k]) < Roemin && (Roe[k] = Roemin)  # TODO: Necessary?
             Rgiven[k, corner] = log(Roe[k])
         end
     end

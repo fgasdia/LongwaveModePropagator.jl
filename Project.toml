@@ -1,6 +1,8 @@
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Gadfly = "c91e804a-d5a3-530f-b6f0-dfbca275c004"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 PolynomialRoots = "3a141323-8675-5d76-9d11-e1df1406c778"
 Proj4 = "9a7e659c-8ee8-5706-894e-f68f43bc57ea"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
