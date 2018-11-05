@@ -142,9 +142,10 @@ function tmatrix(θ, ω, referenceheight, height, spec::Constituent, B, dcl, dcm
                   M31 M32 M33]
 
     M .*= -X/(U*(U^2 - Y^2))
-    # XXX: In LWPC `earthcurvature` is not multiplied by capd (the above line)
-    # Is ^this^ correct? It _is_ multiplied in MS 1976
-    # XXX: See Pappert 1968
+
+    # In LWPC and Sheddy 1968 Fortran Program `earthcurvature` is not multiplied by capd
+    # (the above line), even though it _is_ multiplied in MS 1976.
+    # This seems to be supported by Pappert 1968
     M[1,1] += earthcurvature
     M[2,2] += earthcurvature
     M[3,3] += earthcurvature
