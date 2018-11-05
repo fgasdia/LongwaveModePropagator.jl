@@ -4,12 +4,6 @@ git-tree-sha1 = "1ce1ce9984683f0b6a587d5bdbc688ecb480096f"
 uuid = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
 version = "0.3.0"
 
-[[AxisAlgorithms]]
-deps = ["Compat", "WoodburyMatrices"]
-git-tree-sha1 = "99dabbe853e4f641ab21a676131f2cf9fb29937e"
-uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
-version = "0.3.0"
-
 [[BandedMatrices]]
 deps = ["FillArrays", "LazyArrays", "LinearAlgebra", "Random", "SparseArrays", "Test"]
 git-tree-sha1 = "913325add4b83f380e5fb83df9e6cfad36025bc9"
@@ -268,12 +262,6 @@ version = "0.2.0"
 deps = ["LinearAlgebra", "Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
-[[Interpolations]]
-deps = ["AxisAlgorithms", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "SharedArrays", "SparseArrays", "StaticArrays", "Test", "WoodburyMatrices"]
-git-tree-sha1 = "56691033f157dd1ee1d2aa042114caeefefa897b"
-uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
-version = "0.10.5"
-
 [[IteratorInterfaceExtensions]]
 deps = ["Test"]
 git-tree-sha1 = "5484e5ede2a4137b9643f4d646e8e7b87b794415"
@@ -348,6 +336,14 @@ version = "0.3.1"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[ModifiedHankelFunctionsOfOrderOneThird]]
+deps = ["Markdown", "SpecialFunctions", "StaticArrays", "Test"]
+git-tree-sha1 = "407be708aa8fe1820a524d027a3e5c351eae62be"
+repo-rev = "master"
+repo-url = "https://github.com/EP-Guy/ModifiedHankelFunctionsOfOrderOneThird.git"
+uuid = "b1c65800-dbf0-11e8-0001-4d87e1e07e69"
+version = "0.1.0"
+
 [[MuladdMacro]]
 deps = ["MacroTools", "Test"]
 git-tree-sha1 = "41e6e7c4b448afeaddaac7f496b414854f83b848"
@@ -377,12 +373,6 @@ deps = ["Compat"]
 git-tree-sha1 = "ce3b85e484a5d4c71dd5316215069311135fa9f2"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.2"
-
-[[OffsetArrays]]
-deps = ["DelimitedFiles", "Test"]
-git-tree-sha1 = "f8cd140824f74f2948ff8660bc2292e16d29c1b7"
-uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
-version = "0.8.1"
 
 [[Optim]]
 deps = ["Calculus", "Compat", "DiffEqDiffTools", "ForwardDiff", "LineSearches", "LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "PositiveFactorizations", "Printf", "Random", "SparseArrays", "StatsBase", "Test"]
@@ -487,12 +477,6 @@ deps = ["Libdl", "Printf", "Random", "Test"]
 git-tree-sha1 = "8f649d7f086942c5118c0591b5cfcda45b2b060f"
 uuid = "e6cf234a-135c-5ec9-84dd-332b85af5143"
 version = "1.0.2"
-
-[[Ratios]]
-deps = ["Compat"]
-git-tree-sha1 = "fd159bead0a24e6270fd0573a340312bd4645cc2"
-uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
-version = "0.3.0"
 
 [[RecipesBase]]
 deps = ["Random", "Test"]
@@ -655,9 +639,3 @@ deps = ["Distributions"]
 git-tree-sha1 = "3fdeedbc9d462a3d597606ad8183cf5907e04896"
 uuid = "0e69188a-a5d4-5622-b4e4-a72373136fc5"
 version = "0.0.2"
-
-[[WoodburyMatrices]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "Test"]
-git-tree-sha1 = "21772c33b447757ec7d3e61fcdfb9ea5c47eedcf"
-uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
-version = "0.4.1"

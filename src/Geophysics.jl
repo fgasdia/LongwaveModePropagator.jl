@@ -1,11 +1,8 @@
-module Geophysics
-
 export Constituent
 export waitprofile, collisionprofile
+export earthradius, speedoflight, fundamentalcharge, mₑ, μ₀, ϵ₀
 
-export speedoflight, fundamentalcharge, mₑ, μ₀, ϵ₀
-
-
+const earthradius = 6369.427  # km, because it is used with heights
 const speedoflight = 299792458  # m/s
 const μ₀ = 4e-7π  # H/m
 const ϵ₀ = 1/(μ₀*speedoflight^2)  # F/m
@@ -158,6 +155,4 @@ function lwpcdensityprofile(h, h′, β)
     end
     slope = (h - hten[j1])/(hten[j2] - hten[j1])
     en = exp(algen[j1] + (algen[j2]-algen[j1])*slope)
-end
-
 end

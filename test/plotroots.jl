@@ -1,6 +1,4 @@
 using VoronoiDelaunay
-# import Cairo, Fontconfig
-
 using GRPF
 
 using Gadfly
@@ -8,9 +6,9 @@ import Gadfly: RGB
 using DataFrames
 
 
-push!(LOAD_PATH, "C:/dev/LongwaveModeSolver/src")
-using ModeFinder
-using Geophysics
+# push!(LOAD_PATH, "C:/dev/LongwaveModeSolver/src")
+# using ModeFinder
+# using Geophysics
 
 function groundf(θ)
     ω = 2π*24e3

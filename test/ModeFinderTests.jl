@@ -1,24 +1,9 @@
-"""
-ModeFinder tests
-"""
-# thisdir = dirname(@__FILE__())
-# any(path -> path==thisdir, LOAD_PATH) || push!(LOAD_PATH, thisdir)
-# srcdir = abspath(thisdir, "..\\src")
-# any(path -> path==srcdir, LOAD_PATH) || push!(LOAD_PATH, srcdir)
-
-# push!(LOAD_PATH, "C:/dev/LongwaveModeSolver/src")
-#
-# include("../src/ModeFinder.jl")
-# include("../src/LWMS.jl")
-
 using Test
-
 using StaticArrays
 using PolynomialRoots
 
-using LWMS
-using ModeFinder
-using Geophysics
+using LongwaveModeSolver
+const LWMS = LongwaveModeSolver
 
 
 @testset "Integration Through Ionosphere" begin
@@ -51,7 +36,7 @@ using Geophysics
         @test cosd(θ) ≈ complex(0.4187719, 0.0238619) atol=1e-6
         @test sind(θ) ≈ complex(0.9084715, -0.0109995) atol=1e-6
 
-        qtest, Xtest = ModeFinder.sharplyboundedreflectionmatrix(θ, M)
+        qtest, Xtest = LWMS.sharplyboundedreflectionmatrix(θ, M)
         @test qtest[1:2] ≈ q atol=1e-6
         @test Xtest ≈ r atol=1e-6
     end
@@ -65,7 +50,7 @@ using Geophysics
                  0 complex(-0.0017909,-1.6545285E-004) complex(-1.9975925E-009,-1.7646652E-006);
                  complex(-2.1218802E-009,-1.8791933E-006) complex(1.7722986E-009,1.6356993E-006) complex(-0.0017909,-1.6564084E-004)]
 
-        Mtest, Ttest = ModeFinder.tmatrix(θ, ω, referenceheight, height, electrons, Bfield, dcl, dcm, dcn)
+        Mtest, Ttest = LWMS.tmatrix(θ, ω, referenceheight, height, electrons, Bfield, dcl, dcm, dcn)
         @test Mtest[1,1] ≈ Mlwpc[1,1] atol=1e-7
         @test Mtest[2,2] ≈ Mlwpc[2,2] atol=1e-7
         @test Mtest[3,3] ≈ Mlwpc[3,3] atol=1e-7
@@ -82,7 +67,7 @@ using Geophysics
                  complex(-1.4886049E-008,-1.1692356E-005) complex(-0.8375437,-0.0477239)]
             D = [complex(0.0011740,3.7995025E-005) complex(-1.1764401E-007,3.9499610E-006);
                  complex(-1.5760942E-007,8.4526630E-007) complex(0.0017909,1.6545285E-004)]
-            Atest, Btest, Ctest, Dtest = ModeFinder.smatrix(θ, Ttest)
+            Atest, Btest, Ctest, Dtest = LWMS.smatrix(θ, Ttest)
 
             @test Atest ≈ A atol=1e-6
             @test Btest ≈ B atol=1e-6
@@ -107,7 +92,7 @@ using Geophysics
         lwpcderiv = [complex(0.1148383,0.1751488) complex(-0.1718566,0.0698231);
                      complex(-0.2180655,0.0862091) complex(-0.1612875,0.0093370)]
 
-        testderiv = ModeFinder.dXdh(X, A, B, C, D, k)
+        testderiv = LWMS.dXdh(X, A, B, C, D, k)
 
         @test testderiv ≈ lwpcderiv atol=1e-6
     end
@@ -118,14 +103,13 @@ using Geophysics
         inputs = Inputs()
         inputs.topheight = topheight
         inputs.bottomheight = bottomheight
-        drcs = ModeFinder.DirectionCosines(dcl, dcm, dcn, 0.0)
 
         Rbottomlwpc = [complex(2.7846940,-0.4330095) complex(0.1893602,0.3993874);
                        complex(0.2345901,0.5070829)  complex(2.4297192,0.2463784)]
 
         k = ω/speedoflight*1e3  # k must be based in km because we integrate over height in km
 
-        sol = ModeFinder.integratethroughionosphere(θ, ω, k, topheight, bottomheight, referenceheight,
+        sol = LWMS.integratethroughionosphere(θ, ω, k, topheight, bottomheight, referenceheight,
                                                     electrons, Bfield, dcl, dcm, dcn)
         @test sol[end] ≈ Rbottomlwpc atol=1e-1
     end
@@ -144,10 +128,10 @@ end
         h2p = complex(0.0551328,-1.8465159)
         e0 = complex(12.7783260,-66.0632935)
 
-        h1test = ModeFinder.modhankel1(z)
-        h2test = ModeFinder.modhankel2(z)
-        h1ptest = ModeFinder.modhankel1prime(z)
-        h2ptest = ModeFinder.modhankel2prime(z)
+        h1test = LWMS.modhankel1(z)
+        h2test = LWMS.modhankel2(z)
+        h1ptest = LWMS.modhankel1prime(z)
+        h2ptest = LWMS.modhankel2prime(z)
 
         # efcn(z) = -im*2/3*z^(3/2) + im*π*5/12
 
@@ -169,7 +153,7 @@ end
     Xt = [complex(2.0947318,-0.0449929) complex(-0.0275066,-0.2524883);
           complex(-0.0319887,-0.3217891) complex(2.4113691,-0.3457983)]
 
-    Xttest = ModeFinder.integratethroughfreespace!(X₀, θ, k, fromheight, toheight, referenceheight)
+    Xttest = LWMS.integratethroughfreespace!(X₀, θ, k, fromheight, toheight, referenceheight)
 
     @test Xttest ≈ Xt atol=1e-4
 end
@@ -188,14 +172,14 @@ end
     den11 = complex(0.0210126,-0.1111768)
     den22 = complex(-0.0435943,0.2842564)
 
-    N11, N22, D11, D22 = ModeFinder.groundreflectionms76(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    N11, N22, D11, D22 = LWMS.groundreflectionms76(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
 
     # N11 doesn't equal num11, but I don't think it matters because they both result in the
     # same R̄: R̄11 = D11/(cosd(θ)*N11 - D11) = den11/(cosd(θ)*num11 - den11)
     @test N11/D11 ≈ num11/den11 atol=1e-4
     @test N22/D22 ≈ num22/den22 atol=1e-4
 
-    N11, N22, D11, D22 = ModeFinder.groundreflection(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    N11, N22, D11, D22 = LWMS.groundreflection(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
 
     @test N11 ≈ num11 atol=1e-4
     @test N22 ≈ num22 atol=1e-4
@@ -222,7 +206,7 @@ end
     electrons = Constituent(-fundamentalcharge, mₑ,
                             h -> waitprofile(h, 75, 0.3), collisionprofile)
 
-    f = ModeFinder.modifiedmodalfunction(θ, ω, k, σ, ϵᵣ,
+    f = LWMS.modifiedmodalfunction(θ, ω, k, σ, ϵᵣ,
                               bottomheight, topheight, reflectionheight, referenceheight,
                               electrons,
                               B, dcl, dcm, dcn)

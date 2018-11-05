@@ -1,64 +1,27 @@
-module ModeFinder
-
-# thisdir = dirname(@__FILE__())
-# any(path -> path==thisdir, LOAD_PATH) || push!(LOAD_PATH, thisdir)
-
 using SpecialFunctions
 using LinearAlgebra
 using StaticArrays
 using PolynomialRoots
 using DifferentialEquations
 
-
-include("LWMS.jl")
-include("Geophysics.jl")
-using LWMS
-using Geophysics
-
-export Mode
-
-mutable struct Mode
-    θ::ComplexF64
-    C::ComplexF64
-    S::ComplexF64
-    C²::ComplexF64
-    S²::ComplexF64
-    Mode() = new()
-end
-
-mutable struct ConstitutiveRelations
-    X::Float64
-    Y::Float64
-    Z::Float64
-    U::ComplexF64
-end
-
-mutable struct DirectionCosines
-    dcl::Float64
-    dcm::Float64
-    dcn::Float64
-    G::ComplexF64
-end
-
-
-"""
-LWPC's MF_WVGD is a medium length subroutine that obtains approximate eigenangles (_modes_)
-in a single path segment. It calls several secondary routines to accomplish this task.
-"""
-function waveguide(inputs::Inputs)
-# Unpack
-azim, dip = inputs.azim, inputs.dip
-
-# Initialize
-dcl = cosd(dip)*cosd(azim)
-dcm = cosd(dip)*sind(azim)
-dcn = -sind(dip)
-
-# Initialize search area
-Zb, Ze = boundaries(freq)
-Δθmesh = sqrt(3.75e3/freq)  # (deg) search grid size
-tolerance = 0.1  # (deg)
-end
+# """
+# LWPC's MF_WVGD is a medium length subroutine that obtains approximate eigenangles (_modes_)
+# in a single path segment. It calls several secondary routines to accomplish this task.
+# """
+# function waveguide(inputs::Inputs)
+# # Unpack
+# azim, dip = inputs.azim, inputs.dip
+#
+# # Initialize
+# dcl = cosd(dip)*cosd(azim)
+# dcm = cosd(dip)*sind(azim)
+# dcn = -sind(dip)
+#
+# # Initialize search area
+# Zb, Ze = boundaries(freq)
+# Δθmesh = sqrt(3.75e3/freq)  # (deg) search grid size
+# tolerance = 0.1  # (deg)
+# end
 
 """
 Search boundary for zeros in complex plane.
@@ -346,15 +309,15 @@ function integratethroughionosphere(θ, ω, k, fromheight, toheight, referencehe
 
     return sol
 end
-function integratethroughionosphere(mode::Mode, inputs::Inputs, referenceheight,
-                                    species::Constituent, B, drcs::DirectionCosines)
-    # Unpack
-    θ, ω, k = mode.θ, mode.ω, mode.wavenumber
-    bottomheight, topheight = inputs.bottomheight, inputs.topheight
-    dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
-
-    integratethroughionosphere(θ, ω, k, topheight, bottomheight, species, B, dcl, dcm, dcn)
-end
+# function integratethroughionosphere(mode::Mode, inputs::Inputs, referenceheight,
+#                                     species::Constituent, B, drcs::DirectionCosines)
+#     # Unpack
+#     θ, ω, k = mode.θ, mode.ω, mode.wavenumber
+#     bottomheight, topheight = inputs.bottomheight, inputs.topheight
+#     dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
+#
+#     integratethroughionosphere(θ, ω, k, topheight, bottomheight, species, B, dcl, dcm, dcn)
+# end
 
 """
 These functions calculate the modified Hankel functions of order 1/3 and their derivatives.
@@ -748,6 +711,4 @@ function heightgain()
     fvertical(z) = (QC1*mh1 + GC*mh2)*exp((z - d)/earthradius)
     fhorizontal(z) = (AC2*mh1 + BC2*mh2)
     g(z) = -im*exp((z - d)/a)*(cbrt(2/(a*k))*(QC1*mh1p + GC1*mh2p) + (2/(a*k))*(QC1*mh1 + GC1*mh2))
-end
-
 end
