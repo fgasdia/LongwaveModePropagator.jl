@@ -1,13 +1,27 @@
-module IonosphereProfile
+module Geophysics
 
 export Constituent
 export waitprofile, collisionprofile
+
+export speedoflight, fundamentalcharge, mₑ, μ₀, ϵ₀
+
+
+const speedoflight = 299792458  # m/s
+const μ₀ = 4e-7π  # H/m
+const ϵ₀ = 1/(μ₀*speedoflight^2)  # F/m
+const mₑ = 9.10938356e-31  # kg
+const fundamentalcharge = 1.602176621e-19  # C
 
 struct Constituent
     charge::Float64  # C
     mass::Float64  # kg
     numberdensity::Function  # function that obtains number density (m⁻³)
     collisionfrequency::Function  # function that obtains collision frequency
+end
+
+struct Ground
+    ϵᵣ::Float64
+    σ::Float64
 end
 
 """

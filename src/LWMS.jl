@@ -67,6 +67,7 @@ function main()
     maxrange = round(distance, digits=-5, RoundUp)
 
     # Get modes
+    modesolver()
 
 end
 

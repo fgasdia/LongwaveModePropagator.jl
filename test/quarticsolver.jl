@@ -73,6 +73,81 @@ function solvequartic(B4, B3, B2, B1, B0)
     return q
 end
 
+
+
+
+"""
+Solution for the roots of a fourth-order polynomial (quartic equation) taken from Burnside
+and Panton (1904), the Theory of Equations. A summary of the equations and process is given
+in Radio Science Vol. 3, Aug 1968, pg. 792-795.
+"""
+function solvequartic(B4, B3, B2, B1, B0)
+    # More suitable form for solution:
+    # q⁴ + 4b₃q³ + 6b₂q² + 4b₁q + b₀ = 0
+    b3 = B3/4B4
+    b2 = B2/6B4
+    b1 = B1/4B4
+    b0 = B0/B4
+
+    H = b2 - b3^2
+    I = b0 - 4*b3*b1 + 3b2^2
+    G = b1 - 3*b3*b2 + 2b3^3
+    h = -I/12
+    g = -G^2/4 - H*(H^2 + 3h)
+    p = (-g + sqrt(g^2 + 4h^3))/2
+    magpos = abs(real(p)) + abs(imag(p))
+    ppos = p
+    p = (-g - sqrt(g^2 + 4h^3))/2
+    magneg = abs(real(p)) + abs(imag(p))
+    magpos > magneg && (p = ppos)
+
+    ω2 = complex(-0.5, sqrt(3)/2)
+    ω3 = complex(-0.5, -sqrt(3)/2)
+    s1 = exp(log(p)/3)  # cube root of p
+    s2 = ω2*s1
+    s3 = ω3*s1
+
+    r1 = sqrt(s1 - h/s1 - H)
+    r2 = sqrt(s2 - h/s2 - H)
+    r3 = sqrt(s3 - h/s3 - H)
+
+    if abs(G) >= 1e-20
+        real(-2r1*r2*r3/G) ≈ -1 && (r3 = -r3)
+    end
+
+    q = @MVector [r1+r2+r3, r1-r2-r3, -r1+r2-r3, -r1-r2+r3]
+    q .-= b3
+
+    # First order Newton-Raphson iterative improvement
+    for j = 1:4
+        dlqmin = 9.9e9
+        for jj = 1:4
+            if jj != j
+                dlq = abs(q[j] - q[jj])
+                dlq < dlqmin && (dqlmin = dlq)
+            end
+        end
+        dlqmax = dlqmin/3
+
+        lastiter = false
+        ncount = 1
+        delq = 0.0
+        while !lastiter & (ncount <= 10)
+            f = (((B4*q[j] + B3)*q[j] + B2)*q[j] + B1)*q[j] + B0
+            dfdq = ((4B4*q[j] + 3B3)*q[j] + 2B2)*q[j] + B1
+            delq = -f/dfdq
+            abs(delq) > dlqmax && (delq *= delqmax/abs(delq))
+            q[j] += delq
+            abs(delq/q[j]) < 1e-4 && (lastiter = true)
+            ncount += 1
+        end
+        if abs(delq/q[j]) > 1e-2
+            error("q fails to converge")
+        end
+    end
+    return q
+end
+
 test1 = [complex(1.31, 0.21), complex(0.42, 0.13), complex(32.1, 3.1), complex(0.13, 0.4), complex(2.1, 0.9)]
 test2 = [complex(2.31, 1.21), complex(0.92, 0.3), complex(23.1, 4.1), complex(0.35, 0.4), complex(1.1, 1.9)]
 
