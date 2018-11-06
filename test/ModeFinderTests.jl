@@ -21,7 +21,6 @@ const LWMS = LongwaveModeSolver
     bottomheight = 44.2968750
     height = 44.2968826
 
-
     @testset "Initial Condition (sharplyboundedreflectionmatrix)" begin
         M = @SMatrix [complex(-5.3366618, -8.5360718) complex(-5.8030024, -12.9980526) complex(-18.7323227, -27.8780575);
                       complex(-5.7961845, -5.0272179) complex(-6.1202874, -9.7538357) complex(-20.0426693, -32.2982941);
@@ -116,31 +115,6 @@ const LWMS = LongwaveModeSolver
 end
 
 @testset "Free space integration" begin
-    @testset "Modified Hankel" begin
-        # NOTE: In `mf_mdhnkl.for` actual h1 = h1*exp(-e), h2 = h2*exp(e)
-        # where e = -im*2/3*z^(3/2) + im*π*5/12
-        # see Morfitt Shellman '76 pg 64
-
-        z = complex(21.7820282,2.7361517)
-        h1 = complex(0.3940974,-0.0127071)
-        h2 = complex(0.3942706,-0.0119274)
-        h1p = complex(-0.0603090,1.8473313)
-        h2p = complex(0.0551328,-1.8465159)
-        e0 = complex(12.7783260,-66.0632935)
-
-        h1test = LWMS.modhankel1(z)
-        h2test = LWMS.modhankel2(z)
-        h1ptest = LWMS.modhankel1prime(z)
-        h2ptest = LWMS.modhankel2prime(z)
-
-        # efcn(z) = -im*2/3*z^(3/2) + im*π*5/12
-
-        @test h1test ≈ h1*exp(-e0) atol=1e-7
-        @test h2test ≈ h2*exp(e0) rtol=1e-5
-        @test h1ptest ≈ h1p*exp(-e0) rtol=1e-4
-        @test h2ptest ≈ h2p*exp(e0) rtol=1e-4
-    end
-
     θ = complex(65.2520447,-1.5052794)
     ω = 150796.4531250  # rad/s
     k = ω/speedoflight*1e3
@@ -155,7 +129,7 @@ end
 
     Xttest = LWMS.integratethroughfreespace!(X₀, θ, k, fromheight, toheight, referenceheight)
 
-    @test Xttest ≈ Xt atol=1e-4
+    @test Xttest ≈ Xt atol=1e-5
 end
 
 @testset "Ground reflection" begin
@@ -172,19 +146,12 @@ end
     den11 = complex(0.0210126,-0.1111768)
     den22 = complex(-0.0435943,0.2842564)
 
-    N11, N22, D11, D22 = LWMS.groundreflectionms76(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
-
-    # N11 doesn't equal num11, but I don't think it matters because they both result in the
-    # same R̄: R̄11 = D11/(cosd(θ)*N11 - D11) = den11/(cosd(θ)*num11 - den11)
-    @test N11/D11 ≈ num11/den11 atol=1e-4
-    @test N22/D22 ≈ num22/den22 atol=1e-4
-
     N11, N22, D11, D22 = LWMS.groundreflection(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
 
-    @test N11 ≈ num11 atol=1e-4
-    @test N22 ≈ num22 atol=1e-4
-    @test D11 ≈ den11 atol=1e-4
-    @test D22 ≈ den22 atol=1e-4
+    @test N11 ≈ num11 atol=1e-5
+    @test N22 ≈ num22 atol=1e-5
+    @test D11 ≈ den11 atol=1e-5
+    @test D22 ≈ den22 atol=1e-5
 end
 
 @testset "modifiedmodalfunction" begin

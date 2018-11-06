@@ -3,6 +3,9 @@ using LinearAlgebra
 using StaticArrays
 using PolynomialRoots
 using DifferentialEquations
+using Markdown
+
+using ModifiedHankelFunctionsOfOrderOneThird
 
 # """
 # LWPC's MF_WVGD is a medium length subroutine that obtains approximate eigenangles (_modes_)
@@ -84,27 +87,14 @@ function tmatrix(θ, ω, referenceheight, height, spec::Constituent, B, dcl, dcm
     Z = ν(height)/ω
     U = 1 - im*Z
 
-    @debug "Constitutive relations: " X Y Z U
-
     # Construct susceptibility matrix (see Budden 1955, eq. 3)
-    M11 = U^2 - (dcl*Y)^2
-    M22 = U^2 - (dcm*Y)^2
-    M33 = U^2 - (dcn*Y)^2
+    U², Y² = U^2, Y^2
 
-    M12 = -im*dcn*Y*U - dcl*dcm*Y^2
-    M21 = im*dcn*Y*U - dcl*dcm*Y^2
+    M = @MMatrix [U²-dcl^2*Y²               -im*dcn*Y*U-dcl*dcm*Y²    im*dcm*Y*U-dcl*dcn*Y²;
+                  im*dcn*Y*U-dcl*dcm*Y²     U²-dcm^2*Y²               -im*dcl*Y*U-dcm*dcn*Y²;
+                  -im*dcm*Y*U-dcl*dcn*Y²    im*dcl*Y*U-dcm*dcn*Y²     U²-dcn^2*Y²]
 
-    M13 = im*dcm*Y*U - dcl*dcn*Y^2
-    M31 = -im*dcm*Y*U - dcl*dcn*Y^2
-
-    M23 = -im*dcl*Y*U - dcm*dcn*Y^2
-    M32 = im*dcl*Y*U - dcm*dcn*Y^2
-
-    M = @MMatrix [M11 M12 M13;
-                  M21 M22 M23;
-                  M31 M32 M33]
-
-    M .*= -X/(U*(U^2 - Y^2))
+    M .*= -X/(U*(U² - Y²))
 
     # In LWPC and Sheddy 1968 Fortran Program `earthcurvature` is not multiplied by capd
     # (the above line), even though it _is_ multiplied in MS 1976.
@@ -114,10 +104,10 @@ function tmatrix(θ, ω, referenceheight, height, spec::Constituent, B, dcl, dcm
     M[3,3] += earthcurvature
 
     oneplusM33 = 1 + M[3,3]
-    T = @SMatrix [-S*M[3,1]/oneplusM33 S*M[3,2]/oneplusM33 0 (C^2+M[3,3])/oneplusM33;
-                  0 0 1 0;
-                  M[2,3]*M[3,1]/oneplusM33-M[2,1] C^2+M[2,2]-M[2,3]*M[3,2]/oneplusM33 0 S*M[2,3]/oneplusM33;
-                  1+M[1,1]-M[1,3]*M[3,1]/oneplusM33 M[3,2]*M[1,3]/oneplusM33-M[1,2] 0 -S*M[1,3]/oneplusM33]
+    T = @SMatrix [-S*M[3,1]/oneplusM33              S*M[3,2]/oneplusM33                 0 (C^2+M[3,3])/oneplusM33;
+                  0                                 0                                   1 0;
+                  M[2,3]*M[3,1]/oneplusM33-M[2,1]   C^2+M[2,2]-M[2,3]*M[3,2]/oneplusM33 0 S*M[2,3]/oneplusM33;
+                  1+M[1,1]-M[1,3]*M[3,1]/oneplusM33 M[3,2]*M[1,3]/oneplusM33-M[1,2]     0 -S*M[1,3]/oneplusM33]
 
     return M, T
 end
@@ -166,17 +156,30 @@ missing a minus sign, it should be ``-T^{11} - CT^{41}``.
 """
 function smatrix(θ, T)
     c = cosd(θ)
+    c² = c^2
 
-    A = @SMatrix [4T[4,1]   0;
-                  0         4]
-    B = @SMatrix [2(T[4,4]-c*T[4,1])    -2T[4,2];
-                  0                     -2c]
-    C = @SMatrix [-2(T[1,1]+c*T[4,1])   0;
-                  2T[3,1]               -2c]
-    D = @SMatrix [c*(T[1,1]-T[4,4])-T[1,4]+c^2*T[4,1]   T[1,2]+c*T[4,2];
-                  -c*T[3,1]+T[3,4]                      c^2-T[3,2]]
+    A = @SMatrix [4*T[4,1]   0;
+                  0          4]
+    B = @SMatrix [2*(T[4,4]-c*T[4,1])    -2*T[4,2];
+                  0                      -2*c]
+    C = @SMatrix [-2*(T[1,1]+c*T[4,1])   0;
+                  2*T[3,1]               -2*c]
+    D = @SMatrix [c*(T[1,1]-T[4,4])-T[1,4]+c²*T[4,1]   T[1,2]+c*T[4,2];
+                  -c*T[3,1]+T[3,4]                     c²-T[3,2]]
 
     return A, B, C, D
+end
+
+"""
+Calculate angle from 315°.
+
+Used to sort in [`sharplyboundedreflectionmatrix`](@ref).
+"""
+function anglefrom315(qval)
+    angq = rad2deg(angle(qval))
+    angq < 0 && (angq += 360)
+    angq < 135 && (angq += 360)
+    abs(angq - 315)
 end
 
 """
@@ -209,38 +212,31 @@ function sharplyboundedreflectionmatrix(θ, M)
     # Initialize
     S = sind(θ)
     C = cosd(θ)
+    C² = C^2
     P = MVector{2,ComplexF64}(undef)
     T = MVector{2,ComplexF64}(undef)
 
     # Booker quartic coefficients
     b4 = 1 + M[3,3]
     b3 = S*(M[1,3] + M[3,1])
-    b2 = -(C^2 + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
-        (1 + M[3,3])*(C^2 + M[2,2]) + M[2,3]*M[3,2]
+    b2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
+         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
     b1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
-        (C^2 + M[2,2])*(M[1,3] + M[3,1]))
-    b0 = (1 + M[1,1])*(C^2 + M[2,2])*(C^2 + M[3,3]) +
-        M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
-        M[1,3]*(C^2 + M[2,2])*M[3,1] -
-        (1 + M[1,1])*M[2,3]*M[3,2] -
-        M[1,2]*M[2,1]*(C^2 + M[3,3])
+         (C² + M[2,2])*(M[1,3] + M[3,1]))
+    b0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
+         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
+         M[1,3]*(C² + M[2,2])*M[3,1] -
+         (1 + M[1,1])*M[2,3]*M[3,2] -
+         M[1,2]*M[2,1]*(C² + M[3,3])
 
     q = roots([b0, b1, b2, b3, b4])
-
-    # Calculate angle from 315°
-    function anglefrom315(qval)
-        angq = angle(qval)*180/π
-        angq < 0 && (angq += 360)
-        angq < 135 && (angq += 360)
-        abs(angq - 315)
-    end
     sort!(q, by=anglefrom315)
 
     # Dispersion matrix elements for R, X
     D12 = M[1,2]
     D32 = M[3,2]
-    D33 = C^2 + M[3,3]
-    for j = 1:2
+    D33 = C² + M[3,3]
+    @inbounds for j = 1:2
         D11 = 1 + M[1,1] - q[j]^2
         D13 = M[1,3] + q[j]*S
         D31 = M[3,1] + q[j]*S
@@ -309,24 +305,8 @@ function integratethroughionosphere(θ, ω, k, fromheight, toheight, referencehe
 
     return sol
 end
-# function integratethroughionosphere(mode::Mode, inputs::Inputs, referenceheight,
-#                                     species::Constituent, B, drcs::DirectionCosines)
-#     # Unpack
-#     θ, ω, k = mode.θ, mode.ω, mode.wavenumber
-#     bottomheight, topheight = inputs.bottomheight, inputs.topheight
-#     dcl, dcm, dcn = drcs.dcl, drcs.dcm, drcs.dcn
-#
-#     integratethroughionosphere(θ, ω, k, topheight, bottomheight, species, B, dcl, dcm, dcn)
-# end
 
-"""
-These functions calculate the modified Hankel functions of order 1/3 and their derivatives.
 
-The functions h₁(ζ) and h₂(ζ) satisfy the Stokes differential equation (_Airy_ function)
-```math
-\\frac{d²w}{dζ²} + ζw = 0
-```
-"""
 function modhankel(z)
     Ai = SpecialFunctions.airyai(-z)
     Bi = SpecialFunctions.airybi(-z)
@@ -340,10 +320,6 @@ function modhankel(z)
 
     return mh1, mh2, mh1p, mh2p
 end
-modhankel1(z) = 12^(1/6)*exp(-im*π/6)*(SpecialFunctions.airyai(-z)-im*SpecialFunctions.airybi(-z))
-modhankel2(z) = 12^(1/6)*exp(im*π/6)*(SpecialFunctions.airyai(-z)+im*SpecialFunctions.airybi(-z))
-modhankel1prime(z) = Complex(-1)^(5/6)*12^(1/6)*(SpecialFunctions.airyaiprime(-z)-im*SpecialFunctions.airybiprime(-z))
-modhankel2prime(z) = Complex(-1)^(-5/6)*12^(1/6)*(SpecialFunctions.airyaiprime(-z)+im*SpecialFunctions.airybiprime(-z))
 
 """
 Performs an integration of the differential equations for the ionosphere reflection matrix
@@ -412,7 +388,7 @@ function integratethroughfreespace!(X, θ, k, fromheight, toheight, referencehei
 
     # Computation of height-gain coefficients for two conditions on the upgoing wave from
     # `fromheight`; E∥ = 1, Ey = 0 and E∥ = 0, Ey = 1
-    mh1, mh2, mh1p, mh2p = modhankel(ζ₀)
+    mh1, mh2, mh1p, mh2p = modifiedhankel(ζ₀)
 
     a₁ = @SMatrix [mh1            mh2;
                    C*mh1+K*mh1p   C*mh2+K*mh2p]
@@ -436,7 +412,7 @@ function integratethroughfreespace!(X, θ, k, fromheight, toheight, referencehei
     ζₜ = (k/α)^(2/3)*(C² + α*(toheight - referenceheight))
     nₜ² = 1 + α*(toheight - referenceheight)
 
-    mh1, mh2, mh1p, mh2p = modhankel(ζₜ)
+    mh1, mh2, mh1p, mh2p = modifiedhankel(ζₜ)
 
     a21 = C*mh1 + K*mh1p
     a22 = C*mh2 + K*mh2p
@@ -467,17 +443,11 @@ function integratethroughfreespace!(X, θ, k, fromheight, toheight, referencehei
 
     return X
 end
-# function integratethroughfreespace!()
-#     # Unpack
-#     θ, k = mode.θ, mode.wavenumber
-#
-#     integratethroughfreespace!()
-# end
 
 r2x(R,C) = (R+I)/C
 x2r(X,C) = C*X - I
 
-"""
+doc"""
 Calculate `n` and `d`, the modified ground reflection matrix, at `referenceheight`.
 
 This is based on the Fresnel reflection coefficients for the ground/free-space interface.
@@ -491,14 +461,41 @@ and
 ```
 ⟂n⟂/⟂d⟂ = \\frac{⟂R̄⟂ + 1}{⟂R̄⟂C}
 ```
-The ground reflection matrix is therefore ``R̄11 = D11/(cosθ*N11 - D11)``.
+The ground reflection matrix is therefore ``R̄11 = D11/(cos(θ)*N11 - D11)``.
 
-Morfitt Shellman 1976, pg 25, and Appendix A and C includes information on the derivation.
-Also look at Pappert et al 1966, "A Numerical Investigation of Classical Approximations used
-in VLF Propagation". Much of this code does not follow the math in MS 1976, but is based
-upon `mf_bars.for`.
+From MS1976 we can derive
+```math
+_\parallel X_g_\parallel = \frac{\texttt{QC}_1 h_1 + \texttt{GC}_1 h_2}{\texttt{E}_\parallel_t_1}
+_\perp X_g_\perp = \frac{\texttt{AC}_2 h_1 + \texttt{BC}_2 h_2}{E_y_t_2}
+```
+
+The values for `N11`, `N22`, `D11`, and `D22` found here match LWPC, but do not match the
+results of the math derived in MS76. The ratios ``N11/D11`` and ``N22/D22`` remain the same.
+    - `N11` is 2Δ₂d11 times derived N11
+    - `N22` is 2Δ₁d22 times derived N22
+    - `D11` is 2Δ₂d11 times derived D11
+    - `D22` is 2Δ₁d22 times derived D22
+
+To convert between the coefficients used in this code and used in the MS76 derivation:
+
+| B₁ | a₂(2,1)      | Ch₁₀ + (Kh₁₀′ + Lh₁₀)/n₀²  |
+| B₂ | a₂(2,2)      | Ch₂₀ + (Kh₂₀′ + Lh₂₀)/n₀²  |
+| B₃ | a₁(2,1)      | Ch₁₀ + Kh₁₀′               |
+| B₄ | a₁(2,2)      | Ch₂₀ + Kh₂₀′               |
+| A₁ | -GC1 (Δ₂d11) | n11 a₂(2,1) - 2d11 a₂(1,1) |
+| A₂ | QC2 (Δ₂d11)  | n11 a₂(2,2) - 2d11 a₂(1,2) |
+| A₃ | -BC2 (Δ₁d22) | n22 a₁(2,1) - 2d22 a₁(1,1) |
+| A₄ | AC2 (Δ₁d22)  | n22 a₁(2,2) - 2d22 a₁(1,2) |
+| B₁ | vert a21     | Ch₁ₜ + (Kh₁ₜ′ + Lh₁ₜ)/nₜ²     |
+| B₂ | vert a22     | Ch₂ₜ + (Kh₂ₜ′ + Lh₂ₜ)/nₜ²     |
+| B₃ | hor a21      | Ch₁ₜ + Kh₁ₜ′                 |
+| B₄ | hor a22      | Ch₂ₜ + Kh₂ₜ′                 |
 
 `toheight` should be `reflectionheight` in normal usage
+
+References:
+    - Morfitt Shellman 1976, pg. 25, Appendix A, Appendix C, pg. 195
+    - Pappert et al 1966, "A Numerical Investigation of Classical Appoximations..."
 
 See also: `mf_rbars.for`
 """
@@ -507,36 +504,44 @@ function groundreflection(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
     α = 2/earthradius
     K = im*cbrt(α/k)
     L = im*(α/2k)
+    cbrtkoverαsq = cbrt(k/α)^2
 
     C = cosd(θ)
     C² = C^2
 
     n11, n22, d11, d22 = fresnelgroundreflection(θ, ω, σ, ϵᵣ)
 
-    ζ₀ = (k/α)^(2/3)*(C² - α*referenceheight)
+    # At the ground
+    ζ₀ = cbrtkoverαsq*(C² - α*referenceheight)
     n₀² = 1 - α*referenceheight
-    a₀ = C + L/n₀²
-    h1₀, h2₀, h1₀′, h2₀′ = modhankel(ζ₀)
+    h1₀, h2₀, h1₀′, h2₀′ = modifiedhankel(ζ₀)
 
-    ζₜ = (k/α)^(2/3)*(C² + α*(toheight - referenceheight))
+    # At the "to" level, ``z = toheight``
+    ζₜ = cbrtkoverαsq*(C² + α*(toheight - referenceheight))
     nₜ² = 1 + α*(toheight - referenceheight)
-    aₜ = C + L/nₜ²
-    h1ₜ, h2ₜ, h1ₜ′, h2ₜ′ = modhankel(ζₜ)
+    h1ₜ, h2ₜ, h1ₜ′, h2ₜ′ = modifiedhankel(ζₜ)
 
-    k1₀ = K/n₀²
-    k1ₜ = K/nₜ²
+    B1 = C*h1₀+(K*h1₀′+L*h1₀)/n₀²
+    B2 = C*h2₀+(K*h2₀′+L*h2₀)/n₀²
+    B3 = C*h1₀+K*h1₀′
+    B4 = C*h2₀+K*h2₀′
 
-    f = h1₀*h2ₜ - h2₀*h1ₜ
-    f0 = h1₀′*h2ₜ - h2₀′*h1ₜ
-    ft = h1₀*h2ₜ′ - h2₀*h1ₜ′
-    f0t = h1₀′*h2ₜ′ - h2₀′*h1ₜ′
+    A1 = n11*B1 - 2*d11*h1₀
+    A2 = n11*B2 - 2*d11*h2₀
+    A3 = n22*B3 - 2*d22*h1₀
+    A4 = n22*B4 - 2*d22*h2₀
 
-    num11 = -2*n11*(a₀*f + k1₀*f0) + 4*d11*f
-    num22 = -2*n22*(C*f + K*f0) + 4*d22*f
-    den11 = -n11*(a₀*aₜ*f + k1ₜ*a₀*ft + k1₀*aₜ*f0 + k1₀*k1ₜ*f0t) + 2*d11*(aₜ*f + k1ₜ*ft)
-    den22 = -n22*(C²*f + K*C*ft + K*C*f0 + K^2*f0t) + 2*d22*(C*f + K*ft)
+    B1 = C*h1ₜ + (K*h1ₜ′ + L*h1ₜ)/nₜ²
+    B2 = C*h2ₜ + (K*h2ₜ′ + L*h2ₜ)/nₜ²
+    B3 = C*h1ₜ + K*h1ₜ′
+    B4 = C*h2ₜ + K*h2ₜ′
 
-    return num11, num22, den11, den22
+    N11 = 2(A2*h1ₜ - A1*h2ₜ)
+    N22 = 2(A4*h1ₜ - A3*h2ₜ)
+    D11 = A2*B1 - A1*B2
+    D22 = A4*B3 - A3*B4
+
+    return N11, N22, D11, D22
 end
 
 """
@@ -548,100 +553,17 @@ function fresnelgroundreflection(θ, ω, σ, ϵᵣ)
     # Initialize
     C = cosd(θ)
     S = sind(θ)
-    C² = C^2
-    S² = S^2
 
     # At the "from" level, ``z = 0``
     ng² = complex(ϵᵣ, -σ/(ω*ϵ₀))
-    W = sqrt(ng² - S²)
+    W = sqrt(ng² - S^2)
 
     n11 = 1
     n22 = 1/W
-    d11 = 0.5*(C - W/ng²)
-    d22 = 0.5*(C/W - 1)
+    d11 = (C - W/ng²)/2
+    d22 = (C/W - 1)/2
 
     return n11, n22, d11, d22
-end
-
-"""
-Note: the values `N11`, `N22`, `D11`, and `D22` may not match those returned from LWPC's
-`mf_rbars.for` subroutine, but the ratios ``N11/D11`` and ``N22/D22`` are both equal.
-"""
-function groundreflectionms76(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
-    # Initialize
-    α = 2/earthradius
-    K = im*cbrt(α/k)
-    L = im*(α/2k)
-
-    C = cosd(θ)
-    S = sind(θ)
-    C² = C^2
-    S² = S^2
-
-    # At the "from" level, ``z = 0``
-    ng² = complex(ϵᵣ, -σ/(ω*ϵ₀))
-    W = sqrt(ng² - S²)
-
-    n11 = 1
-    n22 = 1/W
-    d11 = 0.5*(C - W/ng²)
-    d22 = 0.5*(C/W - 1)
-
-    ζ₀ = (k/α)^(2/3)*(C² - α*referenceheight)
-    n₀² = 1 - α*referenceheight
-
-    mh1, mh2, mh1p, mh2p = modhankel(ζ₀)
-    e = -im*(2/3)*ζ₀^(3/2) + im*π*5/12
-    mh1 /= exp(-e)
-    mh2 /= exp(e)
-    mh1p /= exp(-e)
-    mh2p /= exp(e)
-
-    # For horizontal polarization
-    a₁ = @SMatrix [mh1              mh2;
-                   C*mh1+K*mh1p     C*mh2+K*mh2p]
-    Δ₁ = det(a₁)
-
-    AC2 = (n22*a₁[2,2] - 2*d22*a₁[1,2])/(Δ₁*d22)
-    BC2 = (2*d22*a₁[1,1] - n22*a₁[2,1])/(Δ₁*d22)
-
-    # For vertical polarization
-    a₂ = @SMatrix [mh1                          mh2;
-                   C*mh1+(K*mh1p+L*mh1)/n₀²     C*mh2+(K*mh2p+L*mh2)/n₀²]
-    Δ₂ = det(a₂)
-
-    QC1 = (n11*a₂[2,2] - 2*d11*a₂[1,2])/(Δ₂*d11)
-    GC1 = (2*d11*a₂[1,1] - n11*a₂[2,1])/(Δ₂*d11)
-
-    # At the "to" level, ``z = toheight``
-    ζₜ = (k/α)^(2/3)*(C² + α*(toheight - referenceheight))
-    nₜ² = 1 + α*(toheight - referenceheight)
-
-    mh1, mh2, mh1p, mh2p = modhankel(ζₜ)
-    e = -im*(2/3)*ζₜ^(3/2) + im*π*5/12
-    mh1 /= exp(-e)
-    mh2 /= exp(e)
-    mh1p /= exp(-e)
-    mh2p /= exp(e)
-
-    # Horizontal polarization
-    a21 = C*mh1 + K*mh1p
-    a22 = C*mh2 + K*mh2p
-
-    Eyt₂ = (AC2*a21 + BC2*a22)/2
-
-    # Vertical polarization
-    a21 = C*mh1 + (K*mh1p + L*mh1)/nₜ²
-    a22 = C*mh2 + (K*mh2p + L*mh2)/nₜ²
-
-    Ept₁ = (QC1*a21 + GC1*a22)/2
-
-    N11 = QC1*mh1 + GC1*mh2
-    N22 = AC2*mh1 + BC2*mh2
-    D11 = Ept₁
-    D22 = Eyt₂
-
-    return N11, N22, D11, D22
 end
 
 """
@@ -706,8 +628,8 @@ Calculate modal height gain terms.
 function heightgain()
     ζ = (k/α)^(2/3)*(C² + α*(Z - H))
 
-    mh1 = modhankel1(ζ)
-    mh2 = modhankel2(ζ)
+    mh1, mh2, mh1p, mh2p = modifiedhankel(ζ)
+
     fvertical(z) = (QC1*mh1 + GC*mh2)*exp((z - d)/earthradius)
     fhorizontal(z) = (AC2*mh1 + BC2*mh2)
     g(z) = -im*exp((z - d)/a)*(cbrt(2/(a*k))*(QC1*mh1p + GC1*mh2p) + (2/(a*k))*(QC1*mh1 + GC1*mh2))

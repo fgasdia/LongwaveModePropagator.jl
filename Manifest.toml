@@ -338,11 +338,11 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[ModifiedHankelFunctionsOfOrderOneThird]]
 deps = ["Markdown", "SpecialFunctions", "StaticArrays", "Test"]
-git-tree-sha1 = "407be708aa8fe1820a524d027a3e5c351eae62be"
+git-tree-sha1 = "4e2da8176bd0bde166e8106ca62dab6ebe75aad1"
 repo-rev = "master"
 repo-url = "https://github.com/EP-Guy/ModifiedHankelFunctionsOfOrderOneThird.git"
 uuid = "b1c65800-dbf0-11e8-0001-4d87e1e07e69"
-version = "0.1.0"
+version = "0.1.1"
 
 [[MuladdMacro]]
 deps = ["MacroTools", "Test"]
@@ -394,9 +394,9 @@ version = "1.0.2"
 
 [[OrdinaryDiffEq]]
 deps = ["DataStructures", "DiffEqBase", "DiffEqDiffTools", "DiffEqOperators", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "InteractiveUtils", "LinearAlgebra", "Logging", "MuladdMacro", "NLsolve", "Parameters", "Printf", "Random", "RecursiveArrayTools", "Reexport", "SparseArrays", "StaticArrays", "Statistics", "Test"]
-git-tree-sha1 = "e345edb347c3285cd239fc857fc3bf0caabdd0cf"
+git-tree-sha1 = "3eab101c0271c27408f1efd03e552112fe61de59"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "4.17.0"
+version = "4.17.1"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
