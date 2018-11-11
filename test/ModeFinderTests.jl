@@ -49,7 +49,7 @@ const LWMS = LongwaveModeSolver
                  0 complex(-0.0017909,-1.6545285E-004) complex(-1.9975925E-009,-1.7646652E-006);
                  complex(-2.1218802E-009,-1.8791933E-006) complex(1.7722986E-009,1.6356993E-006) complex(-0.0017909,-1.6564084E-004)]
 
-        Mtest, Ttest = LWMS.tmatrix(θ, ω, referenceheight, height, electrons, Bfield, dcl, dcm, dcn)
+        Mtest = LWMS.mmatrix(ω, referenceheight, height, electrons, Bfield, dcl, dcm, dcn)
         @test Mtest[1,1] ≈ Mlwpc[1,1] atol=1e-7
         @test Mtest[2,2] ≈ Mlwpc[2,2] atol=1e-7
         @test Mtest[3,3] ≈ Mlwpc[3,3] atol=1e-7
@@ -66,7 +66,7 @@ const LWMS = LongwaveModeSolver
                  complex(-1.4886049E-008,-1.1692356E-005) complex(-0.8375437,-0.0477239)]
             D = [complex(0.0011740,3.7995025E-005) complex(-1.1764401E-007,3.9499610E-006);
                  complex(-1.5760942E-007,8.4526630E-007) complex(0.0017909,1.6545285E-004)]
-            Atest, Btest, Ctest, Dtest = LWMS.smatrix(θ, Ttest)
+            Atest, Btest, Ctest, Dtest = LWMS.smatrix(θ, Mtest)
 
             @test Atest ≈ A atol=1e-6
             @test Btest ≈ B atol=1e-6
@@ -146,12 +146,29 @@ end
     den11 = complex(0.0210126,-0.1111768)
     den22 = complex(-0.0435943,0.2842564)
 
-    N11, N22, D11, D22 = LWMS.groundreflection(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    groundcoeffs = LWMS.commongroundcoeffs(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    N11, N22, D11, D22 = LWMS.ndground(groundcoeffs)
 
     @test N11 ≈ num11 atol=1e-5
     @test N22 ≈ num22 atol=1e-5
     @test D11 ≈ den11 atol=1e-5
     @test D22 ≈ den22 atol=1e-5
+
+    C, W, ng² = groundcoeffs.C, groundcoeffs.W, groundcoeffs.ng²
+    n11, n22, d11, d22 = LWMS.fresnelnd(C, W, ng²)
+    dn11dC, dn22dC, dd11dC, dd22dC = LWMS.dfresnelnddC(C, W, ng²)
+
+    @test dn11dC ≈ complex(0.)
+    @test dn22dC ≈ complex(2.9137998E-006,-2.6495843E-006) atol=1e-6
+    @test dd11dC ≈ complex(0.5000014,-1.3253123E-006) atol=1e-6
+    @test dd22dC ≈ complex(0.0074829,0.0074347) atol=1e-6
+
+    dn11dC, dn22dC, dd11dC, dd22dC = LWMS.dndgrounddθ(groundcoeffs)
+
+    @test dn11dC ≈ complex(-11.0291405,-1.0116535) atol=1e-3
+    @test dn22dC ≈ complex(18.8285923,1.2034768) atol=1e-3
+    @test dd11dC ≈ complex(-3.7694170,-1.0067097) atol=1e-3
+    @test dd22dC ≈ complex(9.8127975,1.4418024) atol=1e-3
 end
 
 @testset "modifiedmodalfunction" begin

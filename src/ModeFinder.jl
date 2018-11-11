@@ -26,6 +26,39 @@ using ModifiedHankelFunctionsOfOrderOneThird
 # tolerance = 0.1  # (deg)
 # end
 
+struct GroundCoefficients{S,T}
+    C::T
+    W::T
+    ng²::T
+    K::T
+    L::T
+    cbrtkoverαsq::S
+    ζ₀::T
+    ζₜ::T
+    n₀²::S
+    nₜ²::S
+    B1₀::T
+    B2₀::T
+    B3₀::T
+    B4₀::T
+    A1::T
+    A2::T
+    A3::T
+    A4::T
+    B1ₜ::T
+    B2ₜ::T
+    B3ₜ::T
+    B4ₜ::T
+    h1₀::T
+    h2₀::T
+    h1₀′::T
+    h2₀′::T
+    h1ₜ::T
+    h2ₜ::T
+    h1ₜ′::T
+    h2ₜ′::T
+end
+
 """
 Search boundary for zeros in complex plane.
 
@@ -35,12 +68,12 @@ See also: `lwp_input.for`
 """
 function boundaries(freq)
     if freq < 20e3
-        Zb = complex(60., 0.)
-        Ze = complex(90., -9.)
+        Zb = complex(60, 0)
+        Ze = complex(90, -9)
         return Zb, Ze
     else
-        Zb = complex(40., 0.)
-        Ze = complex(90., -6.)
+        Zb = complex(40, 0)
+        Ze = complex(90, -6)
         return Zb, Ze
     end
 end
@@ -66,17 +99,9 @@ Susceptibility matrix ``M``:
         -iUmY-lnY^2 & iUlY-mnY^2 & U^2-n^2Y^2
     \\end{pmatrix}
 ```
-
-Matrix ``T`` fulfills the differential equation ``e′ = -iTe`` where ``e`` is the column
-matrix ``e = [Eₓ -Ey Hₓ Hy]``.
-
-Note:
-- `T44` in MS 76 should be negative
 """
-function tmatrix(θ, ω, referenceheight, height, spec::Constituent, B, dcl, dcm, dcn)
+function mmatrix(ω, referenceheight, height, spec::Constituent, B, dcl, dcm, dcn)
     # Initialize
-    S = sind(θ)
-    C = cosd(θ)
     earthcurvature = 2/earthradius*(height - referenceheight)
 
     # TODO: Add M up for each species
@@ -88,7 +113,8 @@ function tmatrix(θ, ω, referenceheight, height, spec::Constituent, B, dcl, dcm
     U = 1 - im*Z
 
     # Construct susceptibility matrix (see Budden 1955, eq. 3)
-    U², Y² = U^2, Y^2
+    U² = U^2
+    Y² = Y^2
 
     M = @MMatrix [U²-dcl^2*Y²               -im*dcn*Y*U-dcl*dcm*Y²    im*dcm*Y*U-dcl*dcn*Y²;
                   im*dcn*Y*U-dcl*dcm*Y²     U²-dcm^2*Y²               -im*dcl*Y*U-dcm*dcn*Y²;
@@ -103,13 +129,7 @@ function tmatrix(θ, ω, referenceheight, height, spec::Constituent, B, dcl, dcm
     M[2,2] += earthcurvature
     M[3,3] += earthcurvature
 
-    oneplusM33 = 1 + M[3,3]
-    T = @SMatrix [-S*M[3,1]/oneplusM33              S*M[3,2]/oneplusM33                 0 (C^2+M[3,3])/oneplusM33;
-                  0                                 0                                   1 0;
-                  M[2,3]*M[3,1]/oneplusM33-M[2,1]   C^2+M[2,2]-M[2,3]*M[3,2]/oneplusM33 0 S*M[2,3]/oneplusM33;
-                  1+M[1,1]-M[1,3]*M[3,1]/oneplusM33 M[3,2]*M[1,3]/oneplusM33-M[1,2]     0 -S*M[1,3]/oneplusM33]
-
-    return M, T
+    return M
 end
 
 """
@@ -150,25 +170,74 @@ D &= \\begin{pmatrix}
     \\end{pmatrix}
 \\end{align}
 ```
+
+Matrix ``T`` fulfills the differential equation ``e′ = -iTe`` where ``e`` is the column
+matrix ``e = [Eₓ -Ey Hₓ Hy]``.
+
 Note:
+- `T44` in MS 76 should be negative
 - MS 76' says ``C = -S^{11} + S^{12}`` and then writes that in terms of ``T``, but `C11` is
 missing a minus sign, it should be ``-T^{11} - CT^{41}``.
 """
-function smatrix(θ, T)
+function smatrix(θ, M)
     c = cosd(θ)
+    s = sind(θ)
     c² = c^2
 
-    A = @SMatrix [4*T[4,1]   0;
-                  0          4]
-    B = @SMatrix [2*(T[4,4]-c*T[4,1])    -2*T[4,2];
-                  0                      -2*c]
-    C = @SMatrix [-2*(T[1,1]+c*T[4,1])   0;
-                  2*T[3,1]               -2*c]
-    D = @SMatrix [c*(T[1,1]-T[4,4])-T[1,4]+c²*T[4,1]   T[1,2]+c*T[4,2];
-                  -c*T[3,1]+T[3,4]                     c²-T[3,2]]
+    oneplusM33 = 1 + M[3,3]
+
+    T11 = -s*M[3,1]/oneplusM33
+    T12 = s*M[3,2]/oneplusM33
+    # T13 = 0
+    T14 = (c² + M[3,3])/oneplusM33
+    # T21 = 0
+    # T22 = 0
+    # T23 = 1
+    # T24 = 0
+    T31 = M[2,3]*M[3,1]/oneplusM33 - M[2,1]
+    T32 = c² + M[2,2] - M[2,3]*M[3,2]/oneplusM33
+    # T33 = 0
+    T34 = s*M[2,3]/oneplusM33
+    T41 = 1 + M[1,1] - M[1,3]*M[3,1]/oneplusM33
+    T42 = M[3,2]*M[1,3]/oneplusM33 - M[1,2]
+    # T43 = 0
+    T44 = -s*M[1,3]/oneplusM33
+
+    A = @SMatrix [4T41   0;
+                  0      4]
+    B = @SMatrix [2(T44-c*T41)    -2T42;
+                  0               -2c]
+    C = @SMatrix [-2(T11+c*T41)   0;
+                  2T31            -2c]
+    D = @SMatrix [c*(T11-T44)-T14+c²*T41   T12+c*T42;
+                  -c*T31+T34               c²-T32]
 
     return A, B, C, D
 end
+
+function dsmatrixdC(θ, M)
+    c = cosd(θ)
+    s = sind(θ)
+
+    ds = -c/s  # ds/dc
+    dcs = s - c^2/s
+
+    oneplusM33 = 1 + M[3,3]
+
+    T31 = M[2,3]*M[3,1]/oneplusM33 - M[2,1]
+    T41 = 1 + M[1,1] - M[1,3]*M[3,1]/oneplusM33
+
+    dA = @SMatrix zeros(eltype(M), 2, 2)
+    dB = @SMatrix [-2(T41+M[1,3]*ds/oneplusM33)   0;
+                   0                              -2]
+    dC = @SMatrix [-2(T41-M[3,1]*ds/oneplusM33)   0;
+                   0                              -2]
+    dD = @SMatrix [2*c*(T41-1+M[3,3]/oneplusM33)+dcs*(-M[3,1]+M[1,3])/oneplusM33    ds*M[3,2]/oneplusM33;
+                   -T31+ds*M[2,3]/oneplusM33                                        0]
+
+    return dA, dB, dC, dD
+end
+
 
 """
 Calculate angle from 315°.
@@ -269,15 +338,15 @@ dX/dz = -ik/2 \\left( A + BX + XC + XDX \\right)
 ```
 """
 function dXdh(X, A, B, C, D, k)
-    (-im*k/2)*(A + B*X + X*C + X*D*X)
+    -im*k/2*(A + B*X + X*C + X*D*X)
 end
 
 """
 """
 function xderivative(X, params, height)
-    T = tmatrix(params.θ, params.ω, params.referenceheight, height,
-                params.species, params.B, params.dcl, params.dcm, params.dcn)[2]
-    A, B, C, D = smatrix(params.θ, T)
+    M = mmatrix(params.ω, params.referenceheight, height,
+                params.species, params.B, params.dcl, params.dcm, params.dcn)
+    A, B, C, D = smatrix(params.θ, M)
     dXdh(X, A, B, C, D, params.k)
 end
 
@@ -290,7 +359,7 @@ function integratethroughionosphere(θ, ω, k, fromheight, toheight, referencehe
                                     species, B, dcl, dcm, dcn)
     # Initial condition for integration
     # `fromheight` should be topheight
-    M = tmatrix(θ, ω, referenceheight, fromheight, species, B, dcl, dcm, dcn)[1]
+    M = mmatrix(ω, referenceheight, fromheight, species, B, dcl, dcm, dcn)
     initialX = sharplyboundedreflectionmatrix(θ, M)[2]
 
     params = (θ=θ, referenceheight=referenceheight, ω=ω, k=k, species=species,
@@ -304,21 +373,6 @@ function integratethroughionosphere(θ, ω, k, fromheight, toheight, referencehe
     # TODO: Catch if `sol` is an error, then `nointegration = true`, else `nointegration = false`
 
     return sol
-end
-
-
-function modhankel(z)
-    Ai = SpecialFunctions.airyai(-z)
-    Bi = SpecialFunctions.airybi(-z)
-    Ai′ = SpecialFunctions.airyaiprime(-z)
-    Bi′ = SpecialFunctions.airybiprime(-z)
-
-    mh1 = 12^(1/6)*exp(-im*π/6)*(Ai-im*Bi)
-    mh2 = 12^(1/6)*exp(im*π/6)*(Ai+im*Bi)
-    mh1p = Complex(-1)^(5/6)*12^(1/6)*(Ai′-im*Bi′)
-    mh2p = Complex(-1)^(-5/6)*12^(1/6)*(Ai′+im*Bi′)
-
-    return mh1, mh2, mh1p, mh2p
 end
 
 """
@@ -388,10 +442,10 @@ function integratethroughfreespace!(X, θ, k, fromheight, toheight, referencehei
 
     # Computation of height-gain coefficients for two conditions on the upgoing wave from
     # `fromheight`; E∥ = 1, Ey = 0 and E∥ = 0, Ey = 1
-    mh1, mh2, mh1p, mh2p = modifiedhankel(ζ₀)
+    h1, h2, h1′, h2′ = modifiedhankel(ζ₀)
 
-    a₁ = @SMatrix [mh1            mh2;
-                   C*mh1+K*mh1p   C*mh2+K*mh2p]
+    a₁ = @SMatrix [h1            h2;
+                   C*h1+K*h1′    C*h2+K*h2′]
     Δ₁ = det(a₁)
 
     AC1 = X[2,1]*a₁[2,2]/Δ₁
@@ -399,8 +453,8 @@ function integratethroughfreespace!(X, θ, k, fromheight, toheight, referencehei
     AC2 = (X[2,2]*a₁[2,2] - 2*a₁[1,2])/Δ₁
     BC2 = (2*a₁[1,1] - X[2,2]*a₁[2,1])/Δ₁
 
-    a₂ = @SMatrix [mh1                          mh2;
-                   C*mh1+(K*mh1p+L*mh1)/n₀²     C*mh2+(K*mh2p+L*mh2)/n₀²]
+    a₂ = @SMatrix [h1                          h2;
+                   C*h1+(K*h1′+L*h1)/n₀²       C*h2+(K*h2′+L*h2)/n₀²]
     Δ₂ = det(a₂)
 
     QC1 = (X[1,1]*a₂[2,2] - 2*a₂[1,2])/Δ₂
@@ -412,27 +466,27 @@ function integratethroughfreespace!(X, θ, k, fromheight, toheight, referencehei
     ζₜ = (k/α)^(2/3)*(C² + α*(toheight - referenceheight))
     nₜ² = 1 + α*(toheight - referenceheight)
 
-    mh1, mh2, mh1p, mh2p = modifiedhankel(ζₜ)
+    h1, h2, h1′, h2′ = modifiedhankel(ζₜ)
 
-    a21 = C*mh1 + K*mh1p
-    a22 = C*mh2 + K*mh2p
+    a21 = C*h1 + K*h1′
+    a22 = C*h2 + K*h2′
 
     # Calculate parallel (p) and y fields
     Eyt₁ = (AC1*a21 + BC1*a22)/2
     Eyt₂ = (AC2*a21 + BC2*a22)/2
 
-    a21 = C*mh1 + (K*mh1p + L*mh1)/nₜ²
-    a22 = C*mh2 + (K*mh2p + L*mh2)/nₜ²
+    a21 = C*h1 + (K*h1′ + L*h1)/nₜ²
+    a22 = C*h2 + (K*h2′ + L*h2)/nₜ²
 
     Ept₁ = (QC1*a21 + GC1*a22)/2
     Ept₂ = (QC2*a21 + GC2*a22)/2
 
     # Reflection matrix at the `toheight` level
     W = Ept₁*Eyt₂ - Ept₂*Eyt₁
-    V₁h = AC1*mh1 + BC1*mh2
-    V₂h = AC2*mh1 + BC2*mh2
-    V₁v = QC1*mh1 + GC1*mh2
-    V₂v = QC2*mh1 + GC2*mh2
+    V₁h = AC1*h1 + BC1*h2
+    V₂h = AC2*h1 + BC2*h2
+    V₁v = QC1*h1 + GC1*h2
+    V₂v = QC2*h1 + GC2*h2
 
     # Mutate to `X` at the `toheight` level
     X[1,1] = V₁v*Eyt₂ - V₂v*Eyt₁
@@ -447,8 +501,88 @@ end
 r2x(R,C) = (R+I)/C
 x2r(X,C) = C*X - I
 
+"""
+    _groundcoeffs(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
+
+Calculate values needed for calculating `n` and `d`, the modified ground reflection matrix
+terms, and their derivatives.
+
+To convert between the coefficients used in this code and used in the MS76 derivation:
+
+| B₁ | a₂(2,1)      | Ch₁₀ + (Kh₁₀′ + Lh₁₀)/n₀²  |
+| B₂ | a₂(2,2)      | Ch₂₀ + (Kh₂₀′ + Lh₂₀)/n₀²  |
+| B₃ | a₁(2,1)      | Ch₁₀ + Kh₁₀′               |
+| B₄ | a₁(2,2)      | Ch₂₀ + Kh₂₀′               |
+| A₁ | -GC1 (Δ₂d11) | n11 a₂(2,1) - 2d11 a₂(1,1) |
+| A₂ | QC2 (Δ₂d11)  | n11 a₂(2,2) - 2d11 a₂(1,2) |
+| A₃ | -BC2 (Δ₁d22) | n22 a₁(2,1) - 2d22 a₁(1,1) |
+| A₄ | AC2 (Δ₁d22)  | n22 a₁(2,2) - 2d22 a₁(1,2) |
+| B₁ | vert a21     | Ch₁ₜ + (Kh₁ₜ′ + Lh₁ₜ)/nₜ²     |
+| B₂ | vert a22     | Ch₂ₜ + (Kh₂ₜ′ + Lh₂ₜ)/nₜ²     |
+| B₃ | hor a21      | Ch₁ₜ + Kh₁ₜ′                 |
+| B₄ | hor a22      | Ch₂ₜ + Kh₂ₜ′                 |
+
+`toheight` should be `reflectionheight` in normal usage
+
+References:
+    - Morfitt Shellman 1976, pg. 25, Appendix A, Appendix C, pg. 195
+    - Pappert et al 1966, "A Numerical Investigation of Classical Appoximations..."
+
+See also: `mf_rbars.for`, [`ndground`](@ref)
+"""
+function _groundcoeffs(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
+    # Initialize
+    α = 2/earthradius
+    K = im*cbrt(α/k)
+    L = im*(α/2k)
+    cbrtkoverαsq = cbrt(k/α)^2
+
+    # Initialize
+    C = cosd(θ)
+    S = sind(θ)
+    C² = C^2
+
+    # At the "from" level, ``z = 0`` (ground)
+    ng² = complex(ϵᵣ, -σ/(ω*ϵ₀))
+    W = sqrt(ng² - S^2)
+
+    n11, n22, d11, d22 = fresnelnd(C, W, ng²)
+
+    # At the ground
+    ζ₀ = cbrtkoverαsq*(C² - α*referenceheight)
+    n₀² = 1 - α*referenceheight
+    h1₀, h2₀, h1₀′, h2₀′ = modifiedhankel(ζ₀)
+
+    # At the "to" level, ``z = toheight``
+    ζₜ = cbrtkoverαsq*(C² + α*(toheight - referenceheight))
+    nₜ² = 1 + α*(toheight - referenceheight)
+    h1ₜ, h2ₜ, h1ₜ′, h2ₜ′ = modifiedhankel(ζₜ)
+
+    B1₀ = C*h1₀+(K*h1₀′+L*h1₀)/n₀²
+    B2₀ = C*h2₀+(K*h2₀′+L*h2₀)/n₀²
+    B3₀ = C*h1₀+K*h1₀′
+    B4₀ = C*h2₀+K*h2₀′
+
+    A1 = n11*B1₀ - 2*d11*h1₀
+    A2 = n11*B2₀ - 2*d11*h2₀
+    A3 = n22*B3₀ - 2*d22*h1₀
+    A4 = n22*B4₀ - 2*d22*h2₀
+
+    B1ₜ = C*h1ₜ + (K*h1ₜ′ + L*h1ₜ)/nₜ²
+    B2ₜ = C*h2ₜ + (K*h2ₜ′ + L*h2ₜ)/nₜ²
+    B3ₜ = C*h1ₜ + K*h1ₜ′
+    B4ₜ = C*h2ₜ + K*h2ₜ′
+
+    return GroundCoefficients(C, W, ng², K, L, cbrtkoverαsq, ζ₀, ζₜ, n₀², nₜ²,
+                              B1₀, B2₀, B3₀, B4₀, A1, A2, A3, A4, B1ₜ, B2ₜ, B3ₜ, B4ₜ,
+                              h1₀, h2₀, h1₀′, h2₀′, h1ₜ, h2ₜ, h1ₜ′, h2ₜ′)
+end
+
 doc"""
-Calculate `n` and `d`, the modified ground reflection matrix, at `referenceheight`.
+    ndground(A1, A2, A3, A4, B1, B2, B3, B4, h1ₜ, h2ₜ)
+
+Calculate `n` and `d`, the modified ground reflection matrix terms, at `referenceheight`,
+given the common ground coefficients.
 
 This is based on the Fresnel reflection coefficients for the ground/free-space interface.
 The modified matrix terms are given by:
@@ -476,94 +610,107 @@ results of the math derived in MS76. The ratios ``N11/D11`` and ``N22/D22`` rema
     - `D11` is 2Δ₂d11 times derived D11
     - `D22` is 2Δ₁d22 times derived D22
 
-To convert between the coefficients used in this code and used in the MS76 derivation:
-
-| B₁ | a₂(2,1)      | Ch₁₀ + (Kh₁₀′ + Lh₁₀)/n₀²  |
-| B₂ | a₂(2,2)      | Ch₂₀ + (Kh₂₀′ + Lh₂₀)/n₀²  |
-| B₃ | a₁(2,1)      | Ch₁₀ + Kh₁₀′               |
-| B₄ | a₁(2,2)      | Ch₂₀ + Kh₂₀′               |
-| A₁ | -GC1 (Δ₂d11) | n11 a₂(2,1) - 2d11 a₂(1,1) |
-| A₂ | QC2 (Δ₂d11)  | n11 a₂(2,2) - 2d11 a₂(1,2) |
-| A₃ | -BC2 (Δ₁d22) | n22 a₁(2,1) - 2d22 a₁(1,1) |
-| A₄ | AC2 (Δ₁d22)  | n22 a₁(2,2) - 2d22 a₁(1,2) |
-| B₁ | vert a21     | Ch₁ₜ + (Kh₁ₜ′ + Lh₁ₜ)/nₜ²     |
-| B₂ | vert a22     | Ch₂ₜ + (Kh₂ₜ′ + Lh₂ₜ)/nₜ²     |
-| B₃ | hor a21      | Ch₁ₜ + Kh₁ₜ′                 |
-| B₄ | hor a22      | Ch₂ₜ + Kh₂ₜ′                 |
-
-`toheight` should be `reflectionheight` in normal usage
-
 References:
     - Morfitt Shellman 1976, pg. 25, Appendix A, Appendix C, pg. 195
     - Pappert et al 1966, "A Numerical Investigation of Classical Appoximations..."
 
-See also: `mf_rbars.for`
+See also: `mf_rbars.for`, [`_groundcoeffs`](@ref)
 """
-function groundreflection(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
-    # Initialize
-    α = 2/earthradius
-    K = im*cbrt(α/k)
-    L = im*(α/2k)
-    cbrtkoverαsq = cbrt(k/α)^2
-
-    C = cosd(θ)
-    C² = C^2
-
-    n11, n22, d11, d22 = fresnelgroundreflection(θ, ω, σ, ϵᵣ)
-
-    # At the ground
-    ζ₀ = cbrtkoverαsq*(C² - α*referenceheight)
-    n₀² = 1 - α*referenceheight
-    h1₀, h2₀, h1₀′, h2₀′ = modifiedhankel(ζ₀)
-
-    # At the "to" level, ``z = toheight``
-    ζₜ = cbrtkoverαsq*(C² + α*(toheight - referenceheight))
-    nₜ² = 1 + α*(toheight - referenceheight)
-    h1ₜ, h2ₜ, h1ₜ′, h2ₜ′ = modifiedhankel(ζₜ)
-
-    B1 = C*h1₀+(K*h1₀′+L*h1₀)/n₀²
-    B2 = C*h2₀+(K*h2₀′+L*h2₀)/n₀²
-    B3 = C*h1₀+K*h1₀′
-    B4 = C*h2₀+K*h2₀′
-
-    A1 = n11*B1 - 2*d11*h1₀
-    A2 = n11*B2 - 2*d11*h2₀
-    A3 = n22*B3 - 2*d22*h1₀
-    A4 = n22*B4 - 2*d22*h2₀
-
-    B1 = C*h1ₜ + (K*h1ₜ′ + L*h1ₜ)/nₜ²
-    B2 = C*h2ₜ + (K*h2ₜ′ + L*h2ₜ)/nₜ²
-    B3 = C*h1ₜ + K*h1ₜ′
-    B4 = C*h2ₜ + K*h2ₜ′
+function ndground(coeffs::GroundCoefficients)
+    A1, A2, A3, A4 = coeffs.A1, coeffs.A2, coeffs.A3, coeffs.A4
+    B1ₜ, B2ₜ, B3ₜ, B4ₜ = coeffs.B1ₜ, coeffs.B2ₜ, coeffs.B3ₜ, coeffs.B4ₜ
+    h1ₜ, h2ₜ = coeffs.h1ₜ, coeffs.h2ₜ
 
     N11 = 2(A2*h1ₜ - A1*h2ₜ)
     N22 = 2(A4*h1ₜ - A3*h2ₜ)
-    D11 = A2*B1 - A1*B2
-    D22 = A4*B3 - A3*B4
+    D11 = A2*B1ₜ - A1*B2ₜ
+    D22 = A4*B3ₜ - A3*B4ₜ
 
     return N11, N22, D11, D22
 end
 
 """
-Fresnel reflection matrix at the ground in terms of `n` and `d`.
+Return the derivative of the ground reflection coefficient terms `n` and `d` wrt θ at the
+reflection height.
+
+See also: [`ndground`](@ref)
+"""
+function dndgrounddC(coeffs::GroundCoefficients)
+    # Unpack
+    C, W, ng² = coeffs.C, coeffs.W, coeffs.ng²
+    K, L, cbrtkoverαsq = coeffs.K, coeffs.L, coeffs.cbrtkoverαsq
+    ζ₀, ζₜ = coeffs.ζ₀, coeffs.ζₜ
+    n₀², nₜ² = coeffs.n₀², coeffs.nₜ²
+    h1₀, h2₀, h1ₜ, h2ₜ = coeffs.h1₀, coeffs.h2₀, coeffs.h1ₜ, coeffs.h2ₜ
+    h1₀′, h2₀′, h1ₜ′, h2ₜ′ = coeffs.h1₀′, coeffs.h2₀′, coeffs.h1ₜ′, coeffs.h2ₜ′
+    B1₀, B2₀, B3₀, B4₀ = coeffs.B1₀, coeffs.B2₀, coeffs.B3₀, coeffs.B4₀
+    B1ₜ, B2ₜ, B3ₜ, B4ₜ = coeffs.B1ₜ, coeffs.B2ₜ, coeffs.B3ₜ, coeffs.B4ₜ
+    A1, A2, A3, A4 = coeffs.A1, coeffs.A2, coeffs.A3, coeffs.A4
+
+    n11, n22, d11, d22 = fresnelnd(C, W, ng²)
+    dn11dC, dn22dC, dd11dC, dd22dC = dfresnelnddC(C, W, ng²)
+
+    h1″ = -ζ₀*h1₀
+    h2″ = -ζ₀*h2₀
+    dzdC = 2*C*cbrtkoverαsq
+
+    dB1dC = h1₀ + (C*h1₀′ + (K*h1″ + L*h1₀′)/n₀²)*dzdC
+    dB2dC = h2₀ + (C*h2₀′ + (K*h2″ + L*h2₀′)/n₀²)*dzdC
+    dB3dC = h1₀ + (C*h1₀′ + K*h1″)*dzdC
+    dB4dC = h2₀ + (C*h2₀′ + K*h2″)*dzdC
+
+    dA1dC = n11*dB1dC + dn11dC*B1₀ - 2(d11*h1₀′*dzdC + dd11dC*h1₀)
+    dA2dC = n11*dB2dC + dn11dC*B2₀ - 2(d11*h2₀′*dzdC + dd11dC*h2₀)
+    dA3dC = n22*dB3dC + dn22dC*B3₀ - 2(d22*h1₀′*dzdC + dd22dC*h1₀)
+    dA4dC = n22*dB4dC + dn22dC*B4₀ - 2(d22*h2₀′*dzdC + dd22dC*h2₀)
+
+    h1″ = -ζₜ*h1ₜ
+    h2″ = -ζₜ*h2ₜ
+    dzdC = 2*C*cbrtkoverαsq
+
+    dB1dC = h1ₜ + (C*h1ₜ′ + (K*h1″ + L*h1ₜ′)/nₜ²)*dzdC
+    dB2dC = h2ₜ + (C*h2ₜ′ + (K*h2″ + L*h2ₜ′)/nₜ²)*dzdC
+    dB3dC = h1ₜ + (C*h1ₜ′ + K*h1″)*dzdC
+    dB4dC = h2ₜ + (C*h2ₜ′ + K*h2″)*dzdC
+
+    dd11dC = A2*dB1dC + dA2dC*B1ₜ - A1*dB2dC - dA1dC*B2ₜ
+    dd22dC = A4*dB3dC + dA4dC*B3ₜ - A3*dB4dC - dA3dC*B4ₜ
+    dn11dC = 2(A2*h1ₜ′*dzdC + dA2dC*h1ₜ - A1*h2ₜ′*dzdC - dA1dC*h2ₜ)
+    dn22dC = 2(A4*h1ₜ′*dzdC + dA4dC*h1ₜ - A3*h2ₜ′*dzdC - dA3dC*h2ₜ)
+
+    return dn11dC, dn22dC, dd11dC, dd22dC
+end
+
+"""
+Return the Fresnel reflection matrix at the ground in terms of `n` and `d`.
 
 See Morfitt Shellman 1976, Appendix C for the derivation.
+
+See also: [`fresnelgroundcoeffs`](@ref)
 """
-function fresnelgroundreflection(θ, ω, σ, ϵᵣ)
-    # Initialize
-    C = cosd(θ)
-    S = sind(θ)
-
-    # At the "from" level, ``z = 0``
-    ng² = complex(ϵᵣ, -σ/(ω*ϵ₀))
-    W = sqrt(ng² - S^2)
-
+function fresnelnd(C, W, ng²)
     n11 = 1
     n22 = 1/W
     d11 = (C - W/ng²)/2
     d22 = (C/W - 1)/2
 
     return n11, n22, d11, d22
+end
+
+"""
+Return the derivative of the Fresnel ground reflection terms `n` and `d` wrt cos(θ).
+
+See also: [`fresnelgroundcoeffs`](@ref)
+"""
+function dfresnelnddC(C, W, ng²)
+    W³ = W^3
+
+    dn11dC = zero(ng²)
+    dn22dC = -C/W³
+    dd11dC = (1 - C/(W*ng²))/2
+    dd22dC = (-C^2/W³ + 1/W)/2
+
+    return dn11dC, dn22dC, dd11dC, dd22dC
 end
 
 """
@@ -580,7 +727,7 @@ where ``X = (R+I)/c``, ``c=cos(θ)``, and ``nd⁻¹ = (Rg⁻¹ + I)/c``.
 TODO: Follow ELF approach, except for VLF/LF. Integrate through ionosphere down to the ground.
 No further integration back up to a reference height is done. Zeros are found at z=0.
 
-See also: `mf_fctval.for`, `groundreflection`(@ref)
+See also: `mf_fctval.for`, `ndground`(@ref)
 """
 function modifiedmodalfunction(θ, ω, k, σ, ϵᵣ,
                                bottomheight, topheight, reflectionheight, referenceheight,
@@ -596,28 +743,33 @@ function modifiedmodalfunction(θ, ω, k, σ, ϵᵣ,
     integratethroughfreespace!(X, θ, k, bottomheight, reflectionheight, referenceheight)
 
     # Calculate ground reflection matrix as `N` and `D` referred to `referenceheight`
-    N11, N22, D11, D22 = groundreflection(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    groundcoeffs = _groundcoeffs(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    N11, N22, D11, D22 = ndground(groundcoeffs)
 
-    f = (N11 - X[1,1]*D11)*(N22 - X[2,2]*D22) - X[2,1]*X[1,2]*D11*D22
+    k1 = N11 - X[1,1]*D11
+    k2 = N22 - X[2,2]*D22
+    f = k1*k2 - X[2,1]*X[1,2]*D11*D22
 end
 
 """
-Calculate modal excitation factors.
+Calculate modal excitation factors at reference height.
 
 TODO: Support horizontal end and broadside exciters (antenna).
 
 See Morfitt Shellman 1976 pg 29.
 """
-function excitationfactors()
+function excitationfactors(θ)
     # Initialize
     S = sind(θ)
 
-    B₁ = S^(5/2)/dFdθ
+    dFdθ = ()
+
+    B₁ = sqrt(S)^5/dFdθ
     B₂ = -B₁/S
 
-    Ez = B₁*(1+Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
-    Ey = -B₁/S * R21*(1 + Rg11)*(1 + Rg22)/D12
-    Ex = B₁/S * (1 + Rg11)^2*(1 - R22^2)/(Rg11*D11)
+    Ez = B₁*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
+    Ey = -B₁/S*R21*(1 + Rg11)*(1 + Rg22)/D12
+    Ex = B₁/S*(1 + Rg11)^2*(1 - R22^2)/(Rg11*D11)  # TODO: Check this one
 
     return Ez, Ey, Ex
 end
@@ -625,12 +777,15 @@ end
 """
 Calculate modal height gain terms.
 """
-function heightgain()
-    ζ = (k/α)^(2/3)*(C² + α*(Z - H))
+function heightgain(coeffs::GroundCoefficients)
+    C = cosd(θ)
 
-    mh1, mh2, mh1p, mh2p = modifiedhankel(ζ)
+    ζ = cbrt(k/α)^2*(C^2 + α*(height - reflectionheight))
+    h1, h2, h1′, h2′ = modifiedhankel(ζ)
 
-    fvertical(z) = (QC1*mh1 + GC*mh2)*exp((z - d)/earthradius)
-    fhorizontal(z) = (AC2*mh1 + BC2*mh2)
-    g(z) = -im*exp((z - d)/a)*(cbrt(2/(a*k))*(QC1*mh1p + GC1*mh2p) + (2/(a*k))*(QC1*mh1 + GC1*mh2))
+    fvertical(z) = (A2*h1ₜ - A1*h2ₜ)/-K
+    fhorizontal(z) = (A4*h1ₜ - A3*h2ₜ)/(-W/K)
+    hg(z) = -im*exp((z - d)/a)*(cbrt(2/(a*k))*(QC1*mh1p + GC1*mh2p) + (2/(a*k))*(QC1*mh1 + GC1*mh2))
+
+    return fvertical, fhorizontal
 end
