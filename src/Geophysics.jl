@@ -16,6 +16,13 @@ struct Constituent{T<:Number, F<:Function, G<:Function}
     collisionfrequency::G  # function that obtains collision frequency
 end
 
+struct BField{T}
+    B::T
+    dcl::T
+    dcm::T
+    dcn::T
+end
+
 struct Ground
     ϵᵣ::Float64
     σ::Float64

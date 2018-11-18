@@ -26,38 +26,20 @@ using ModifiedHankelFunctionsOfOrderOneThird
 # tolerance = 0.1  # (deg)
 # end
 
-struct GroundCoefficients{S,T}
-    C::T
-    W::T
-    ng²::T
-    K::T
-    L::T
-    cbrtkoverαsq::S
-    ζ₀::T
-    ζₜ::T
-    n₀²::S
-    nₜ²::S
-    B1₀::T
-    B2₀::T
-    B3₀::T
-    B4₀::T
-    A1::T
-    A2::T
-    A3::T
-    A4::T
-    B1ₜ::T
-    B2ₜ::T
-    B3ₜ::T
-    B4ₜ::T
-    h1₀::T
-    h2₀::T
-    h1₀′::T
-    h2₀′::T
-    h1ₜ::T
-    h2ₜ::T
-    h1ₜ′::T
-    h2ₜ′::T
+struct EigenAngle{T}
+    θ::T
+    cosθ::T
+    sinθ::T
+    cos²θ::T
+    sin²θ::T
+
+    function EigenAngle{T}(θ::T) where T <: Number
+        C = cosd(θ)
+        S = sind(θ)
+        new(θ, C, S, C^2, S^2)
+    end
 end
+EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
 
 """
 Search boundary for zeros in complex plane.
@@ -79,7 +61,7 @@ function boundaries(freq)
 end
 
 """
-Computation of susceptibility `M` and temporary `T` matrices as defined by Budden (1955)
+Computation of susceptibility `M` matrix as defined by Budden (1955)
 [](10.1098/rspa.1955.0027).
 
 Constitutive relations (see Budden 1955, pg. 517):
@@ -100,7 +82,10 @@ Susceptibility matrix ``M``:
     \\end{pmatrix}
 ```
 """
-function mmatrix(ω, referenceheight, height, spec::Constituent, B, dcl, dcm, dcn)
+function mmatrix!(M, ω, referenceheight, height, spec::Constituent, bfield::BField)
+    # Unpack
+    B, dcl, dcm, dcn = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+
     # Initialize
     earthcurvature = 2/earthradius*(height - referenceheight)
 
@@ -116,9 +101,15 @@ function mmatrix(ω, referenceheight, height, spec::Constituent, B, dcl, dcm, dc
     U² = U^2
     Y² = Y^2
 
-    M = @MMatrix [U²-dcl^2*Y²               -im*dcn*Y*U-dcl*dcm*Y²    im*dcm*Y*U-dcl*dcn*Y²;
-                  im*dcn*Y*U-dcl*dcm*Y²     U²-dcm^2*Y²               -im*dcl*Y*U-dcm*dcn*Y²;
-                  -im*dcm*Y*U-dcl*dcn*Y²    im*dcl*Y*U-dcm*dcn*Y²     U²-dcn^2*Y²]
+    M[1,1] = U² - dcl^2*Y²
+    M[2,1] = im*dcn*Y*U - dcl*dcm*Y²
+    M[3,1] = -im*dcm*Y*U - dcl*dcn*Y²
+    M[1,2] = -im*dcn*Y*U - dcl*dcm*Y²
+    M[2,2] = U² - dcm^2*Y²
+    M[3,2] = im*dcl*Y*U - dcm*dcn*Y²
+    M[1,3] = im*dcm*Y*U - dcl*dcn*Y²
+    M[2,3] = -im*dcl*Y*U - dcm*dcn*Y²
+    M[3,3] =  U² - dcn^2*Y²
 
     M .*= -X/(U*(U² - Y²))
 
@@ -179,10 +170,9 @@ Note:
 - MS 76' says ``C = -S^{11} + S^{12}`` and then writes that in terms of ``T``, but `C11` is
 missing a minus sign, it should be ``-T^{11} - CT^{41}``.
 """
-function smatrix(θ, M)
-    c = cosd(θ)
-    s = sind(θ)
-    c² = c^2
+function smatrix(ea::EigenAngle, M)
+    # Unpack
+    c, s, c² = ea.cosθ, ea.sinθ, ea.cos²θ
 
     oneplusM33 = 1 + M[3,3]
 
@@ -215,40 +205,105 @@ function smatrix(θ, M)
     return A, B, C, D
 end
 
-function dsmatrixdC(θ, M)
-    c = cosd(θ)
-    s = sind(θ)
+function dsmatrixdC(ea::EigenAngle, M)
+    c, s, c² = ea.cosθ, ea.sinθ, ea.cos²θ
 
     ds = -c/s  # ds/dc
-    dcs = s - c^2/s
+    dcs = s - c²/s
 
     oneplusM33 = 1 + M[3,3]
 
     T31 = M[2,3]*M[3,1]/oneplusM33 - M[2,1]
     T41 = 1 + M[1,1] - M[1,3]*M[3,1]/oneplusM33
+    T42 = M[3,2]*M[1,3]/oneplusM33 - M[1,2]
 
-    dA = @SMatrix zeros(eltype(M), 2, 2)
     dB = @SMatrix [-2(T41+M[1,3]*ds/oneplusM33)   0;
                    0                              -2]
     dC = @SMatrix [-2(T41-M[3,1]*ds/oneplusM33)   0;
                    0                              -2]
-    dD = @SMatrix [2*c*(T41-1+M[3,3]/oneplusM33)+dcs*(-M[3,1]+M[1,3])/oneplusM33    ds*M[3,2]/oneplusM33;
+    dD = @SMatrix [2*c*(T41-1+M[3,3]/oneplusM33)+dcs*(-M[3,1]+M[1,3])/oneplusM33    ds*M[3,2]/oneplusM33+T42;
                    -T31+ds*M[2,3]/oneplusM33                                        0]
 
-    return dA, dB, dC, dD
+    return dB, dC, dD
 end
-
 
 """
 Calculate angle from 315°.
 
-Used to sort in [`sharplyboundedreflectionmatrix`](@ref).
+Used to sort in [`sharplyboundedX!`](@ref).
 """
 function anglefrom315(qval)
     angq = rad2deg(angle(qval))
     angq < 0 && (angq += 360)
     angq < 135 && (angq += 360)
     abs(angq - 315)
+end
+
+"""
+Calculation of Booker quartic for solution of `X` for a sharply bounded ionosphere.
+
+See also: [`sharplyboundedX!`](@ref)
+"""
+function bookerquartic(ea::EigenAngle, M)
+    # Initialize
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Booker quartic coefficients
+    b4 = 1 + M[3,3]
+    b3 = S*(M[1,3] + M[3,1])
+    b2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
+         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
+    b1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
+         (C² + M[2,2])*(M[1,3] + M[3,1]))
+    b0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
+         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
+         M[1,3]*(C² + M[2,2])*M[3,1] -
+         (1 + M[1,1])*M[2,3]*M[3,2] -
+         M[1,2]*M[2,1]*(C² + M[3,3])
+
+    bcoeffs = SVector{5}(b0, b1, b2, b3, b4)
+
+    # TODO: (Once supported- MVector stays as MVector through ops) input bcoeffs to roots
+    q = MVector{4}(roots([b0, b1, b2, b3, b4]))
+    sort!(q, by=anglefrom315)
+
+    return q, bcoeffs
+end
+
+"""
+Common variables for [`sharplyboundedX`](@ref) and [`sharplyboundedXdXdC`](@ref).
+"""
+function _sharplybounded(ea::EigenAngle, M, q)
+    # Initialize
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Dispersion matrix elements for X
+    D12 = M[1,2]
+    D32 = M[3,2]
+    D33 = C² + M[3,3]
+
+    # For `q[1]`
+    D11₁ = 1 + M[1,1] - q[1]^2
+    D13₁ = M[1,3] + q[1]*S
+    D31₁ = M[3,1] + q[1]*S
+    denom₁ = D11₁*D33 - D13₁*D31₁
+    P1 = (-D12*D33 + D13₁*D32)/denom₁
+    T1 = q[1]*P1 - S*(-D11₁*D32 + D12*D31₁)/denom₁
+
+    # For `q[2]`
+    D11₂ = 1 + M[1,1] - q[2]^2
+    D13₂ = M[1,3] + q[2]*S
+    D31₂ = M[3,1] + q[2]*S
+    denom₂ = D11₂*D33 - D13₂*D31₂
+    P2 = (-D12*D33 + D13₂*D32)/denom₂
+    T2 = q[2]*P2 - S*(-D11₂*D32 + D12*D31₂)/denom₂
+
+    Δ = (T1*C + P1)*(C + q[2]) - (T2*C + P2)*(C + q[1])
+
+    return (D12=D12, D32=D32, D33=D33,
+            D11₁=D11₁, D13₁=D13₁, D31₁=D31₁, denom₁=denom₁, P1=P1, T1=T1,
+            D11₂=D11₂, D13₂=D13₂, D31₂=D31₂, denom₂=denom₂, P2=P2, T2=T2,
+            Δ=Δ)
 end
 
 """
@@ -276,51 +331,96 @@ quartic closest to the positive real and negative imaginary axis are calculated 
 to form ``D``, which are then used to form the reflection coefficient matrix ``R`` (or ``X``).
 
 See LWPC: `mf_initr.for`
+
+See also: [`bookerquartic`](@ref)
 """
-function sharplyboundedreflectionmatrix(θ, M)
+function sharplyboundedX!(X, D, ea::EigenAngle, q)
+    # Unpack
+    C = ea.cosθ
+    P1, P2, T1, T2, Δ = D.P1, D.P2, D.T1, D.T2, D.Δ
+
+    X[1,1] = T1*(C + q[2]) - T2*(C +q[1])
+    X[2,1] = -(q[1] - q[2])
+    X[1,2] = -(T1*P2 - T2*P1)
+    X[2,2] = (T1*C + P1) - (T2*C + P2)
+
+    X .*= 2/Δ
+
+    return X
+end
+
+"""
+There is likely an error in the LWPC code for this, `mf_initr.for` where `den` from `k=2` is
+used for both `dq`.
+
+TODO: Can probably do a matrix algebra version of this.
+"""
+function sharplyboundeddXdC!(dXdC, X, D, ea::EigenAngle, M, q, b)
+    # Unpack
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+    b0, b1, b2, b3, b4 = b
+
+    D12, D32, D33 = D.D12, D.D32, D.D33
+    D11₁, D13₁, D31₁ = D.D11₁, D.D13₁, D.D31₁
+    D11₂, D13₂, D31₂ = D.D11₂, D.D13₂, D.D31₂
+    denom₁, denom₂, P1, P2, T1, T2, Δ = D.denom₁, D.denom₂, D.P1, D.P2, D.T1, D.T2, D.Δ
+
     # Initialize
-    S = sind(θ)
-    C = cosd(θ)
-    C² = C^2
-    P = MVector{2,ComplexF64}(undef)
-    T = MVector{2,ComplexF64}(undef)
+    dS = -C/S
 
-    # Booker quartic coefficients
-    b4 = 1 + M[3,3]
-    b3 = S*(M[1,3] + M[3,1])
-    b2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
-         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
-    b1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
-         (C² + M[2,2])*(M[1,3] + M[3,1]))
-    b0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
-         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
-         M[1,3]*(C² + M[2,2])*M[3,1] -
-         (1 + M[1,1])*M[2,3]*M[3,2] -
-         M[1,2]*M[2,1]*(C² + M[3,3])
+    # Booker quartic derivatives
+    db3 = dS*(M[1,3] + M[3,1])
+    db2 = -2C*(2 + M[1,1] + M[3,3])
+    db1 = (dS/S)*b1 - 2S*C*(M[1,3] + M[3,1])
+    db0 = 2C*((1 + M[1,1])*(C² + M[2,2] + C² + M[3,3]) - M[1,3]*M[3,1] - M[1,2]*M[2,1])
 
-    q = roots([b0, b1, b2, b3, b4])
-    sort!(q, by=anglefrom315)
+    # For `q[1]`
+    dq1 = -(((db3*q[1] + db2)*q[1] + db1)*q[1] + db0) /
+            (((4b4*q[1] + 3b3)*q[1] + 2b2)*q[1] + b1)
 
-    # Dispersion matrix elements for R, X
-    D12 = M[1,2]
-    D32 = M[3,2]
-    D33 = C² + M[3,3]
-    @inbounds for j = 1:2
-        D11 = 1 + M[1,1] - q[j]^2
-        D13 = M[1,3] + q[j]*S
-        D31 = M[3,1] + q[j]*S
-        denom = D11*D33 - D13*D31
-        P[j] = (-D12*D33 + D13*D32)/denom
-        T[j] = q[j]*P[j] - S*(-D11*D32 + D12*D31)/denom
-    end
-    Δ = (T[1]*C + P[1])*(C + q[2]) - (T[2]*C + P[2])*(C + q[1])
+    dD11₁ = -2q[1]*dq1
+    dD13₁ = q[1]*dS + dq1*S
+    dD33 = 2C
+    dD31₁ = dD13₁
 
-    X = MMatrix{2, 2}(2(T[1]*(C + q[2]) - T[2]*(C +q[1]))/Δ,
-                      -2(q[1] - q[2])/Δ,
-                      -2(T[1]*P[2] - T[2]*P[1])/Δ,
-                      2((T[1]*C + P[1]) - (T[2]*C + P[2]))/Δ)
+    ddenom₁ = D11₁*dD33 + dD11₁*D33 - D13₁*dD31₁ - dD13₁*D31₁
+    dP1 = -(ddenom₁*P1 + (D12*dD33 - dD13₁*D32))/denom₁
+    dT1 = q[1]*dP1 + dq1*P1 +
+        (D11₁*D32 - D12*D31₁)*(dS - S*ddenom₁/denom₁)/denom₁ +
+        S*(dD11₁*D32 - D12*dD31₁)/denom₁  # XXX: LWPC `mf_initr.for` likely has a bug, not using the correct denom
 
-    return q, X
+    # For `q[2]`
+    dq2 = -(((db3*q[2] + db2)*q[2] + db1)*q[2] + db0) /
+            (((4b4*q[2] + 3b3)*q[2] + 2b2)*q[2] + b1)
+
+    dD11₂ = -2q[2]*dq2
+    dD13₂ = q[2]*dS + dq2*S
+    dD31₂ = dD13₂
+
+    ddenom₂ = D11₂*dD33 + dD11₂*D33 - D13₂*dD31₂ - dD13₂*D31₂
+    dP2 = -(ddenom₂*P2 + (D12*dD33 - dD13₂*D32))/denom₂
+    dT2 = q[2]*dP2 + dq2*P2 +
+        (D11₂*D32 - D12*D31₂)*(dS - S*ddenom₂/denom₂)/denom₂ +
+        S*(dD11₂*D32 - D12*dD31₂)/denom₂
+
+    dΔ = (T1*C + P1)*(1 + dq2) +
+         (T1 + dT1*C + dP1)*(C + q[2]) -
+         (T2*C + P2)*(1 + dq1) -
+         (T2 + dT2*C + dP2)*(C + q[1])
+
+    factor1 = 2/Δ
+    factor2 = dΔ/Δ
+
+    dXdC[1,1] = -X[1,1]*factor2 +
+        factor1*(T1*(1 + dq2) + dT1*(C + q[2]) - T2*(1 + dq1) - dT2*(C + q[1]))
+    dXdC[2,1] = -X[2,1]*factor2 -
+        factor1*(dq1 - dq2)
+    dXdC[1,2] = -X[1,2]*factor2 -
+        factor1*(T1*dP2 + dT1*P2 - T2*dP1 - dT2*P1)
+    dXdC[2,2] = -X[2,2]*factor2 +
+        factor1*((T1 + dT1*C + dP1) - (T2 + dT2*C + dP2))
+
+    return dXdC
 end
 
 """
@@ -340,37 +440,85 @@ dX/dz = -ik/2 \\left( A + BX + XC + XDX \\right)
 function dXdh(X, A, B, C, D, k)
     -im*k/2*(A + B*X + X*C + X*D*X)
 end
+function dXdCdh(X, dX, B, dB, C, dC, D, dD, k)
+    -im*k/2*(B*dX + dB*X + X*dC + dX*C + X*D*dX + X*dD*X + dX*D*X)
+end
 
 """
 """
-function xderivative(X, params, height)
-    M = mmatrix(params.ω, params.referenceheight, height,
-                params.species, params.B, params.dcl, params.dcm, params.dcn)
-    A, B, C, D = smatrix(params.θ, M)
+function Xderivative(X, params, height)
+    M = mmatrix!(params.M, params.ω, params.referenceheight, height,
+                 params.species, params.bfield)
+    A, B, C, D = smatrix(params.ea, M)
     dXdh(X, A, B, C, D, params.k)
+end
+
+function XdXdCderivative(XdX, params, height)
+    M = mmatrix!(params.M, params.ω, params.referenceheight, height,
+                 params.species, params.bfield)
+    A, B, C, D = smatrix(params.ea, M)
+    dB, dC, dD = dsmatrixdC(params.ea, M)
+    X = @view XdX[1:2,:]
+    dX = @view XdX[3:4,:]
+    vcat(dXdh(X, A, B, C, D, params.k), dXdCdh(X, dX, B, dB, C, dC, D, dD, params.k))
 end
 
 """
 Full wave solution for `X` through ionosphere.
 
-Integrates ``dX/dh`` (`dXdh()`) from `topheight` to `bottomheight`.
+Integrates ``dX/dh`` from `topheight` to `bottomheight`.
 """
-function integratethroughionosphere(θ, ω, k, fromheight, toheight, referenceheight,
-                                    species, B, dcl, dcm, dcn)
+function integratethroughionosphere(ea::EigenAngle, source::AbstractSource, fromheight, toheight, referenceheight,
+                                    species, bfield::BField)
+
+    # Unpack
+    ω, k = source.ω, 1000source.k  # k in km
+
+    # Initialize
+    M = @MMatrix zeros(ComplexF64, 3, 3)
+    X = @MMatrix zeros(ComplexF64, 2, 2)
+
     # Initial condition for integration
     # `fromheight` should be topheight
-    M = mmatrix(ω, referenceheight, fromheight, species, B, dcl, dcm, dcn)
-    initialX = sharplyboundedreflectionmatrix(θ, M)[2]
+    mmatrix!(M, ω, referenceheight, fromheight, species, bfield)
+    q, bcoeffs = bookerquartic(ea, M)
+    D = _sharplybounded(ea, M, q)
+    initialX = sharplyboundedX!(X, D, ea, q)
 
-    params = (θ=θ, referenceheight=referenceheight, ω=ω, k=k, species=species,
-              B=B, dcl=dcl, dcm=dcm, dcn=dcn)
+    params = (M=M, ea=ea, referenceheight=referenceheight, ω=ω, k=k, species=species,
+              bfield=bfield)
 
     heightbounds = (fromheight, toheight)
-    prob = ODEProblem(xderivative, initialX, heightbounds, params)
+    prob = ODEProblem(Xderivative, initialX, heightbounds, params)
     # sol = solve(prob, BS3(), reltol=1e-3, dtmax=1., save_everystep=false, save_start=false)  # Faster, less accurate
-    sol = solve(prob, Tsit5(), reltol=1e-4, save_everystep=false)  # Decent accuracy for the speed
+    sol = solve(prob, Tsit5(), reltol=1e-4, dtmax=1., save_everystep=false, save_start=false)  # Decent accuracy for the speed
 
-    # TODO: Catch if `sol` is an error, then `nointegration = true`, else `nointegration = false`
+    return sol
+end
+
+function integratethroughionosphere_dC(ea::EigenAngle, source::AbstractSource, fromheight, toheight, referenceheight,
+                                       species, bfield::BField)
+    # Unpack
+    ω, k = source.ω, 1000source.k  # k in km
+
+    # Initialize
+    M = @MMatrix zeros(ComplexF64, 3, 3)
+    X = @MMatrix zeros(ComplexF64, 2, 2)
+    dX = similar(X)
+
+    mmatrix!(M, ω, referenceheight, fromheight, species, bfield)
+    q, bcoeffs = bookerquartic(ea, M)
+    D = _sharplybounded(ea, M, q)
+    initialX = sharplyboundedX!(X, D, ea, q)
+    initialdX = sharplyboundeddXdC!(dX, X, D, ea, M, q, bcoeffs)
+
+    params = (M=M, ea=ea, referenceheight=referenceheight, ω=ω, k=k, species=species,
+              bfield=bfield)
+
+    heightbounds = (fromheight, toheight)
+    prob = ODEProblem(XdXdCderivative, vcat(initialX, initialdX), heightbounds, params)
+
+    sol = solve(prob, AutoTsit5(Rosenbrock23()), save_everystep=false, save_start=false)
 
     return sol
 end
@@ -424,78 +572,125 @@ For **vertical polarization**:
 (-Q/C)(ch₁(ζ) + (Kh₁′(ζ) + Lh₁(ζ))/n²) + (-G/C)(ch₂(ζ) + (Kh₂′(ζ) + Lh₂(ζ))/n²) + 2E∥ⁱ = 0
 ```
 where we are to determine the coefficients `A`, `B`, `Q`, and `G`.
+
+Boundary conditions are set at the bottom so we can solve for ``(-A/C)``, ``(-B/C)``,
+``(-Q/C)``, and ``(-G/C)``. Then we use those values to calculate the ``E`` fields at
+`toheight`.
 """
-function integratethroughfreespace!(X, θ, k, fromheight, toheight, referenceheight)
+function integratethroughfreespace!(X, ea, k, fromheight, toheight, referenceheight)
     abs(toheight - fromheight) < 0.001 && return X
+
+    # Unpack
+    C, C² = ea.cosθ, ea.cos²θ
 
     # Initialize
     α = 2/earthradius
     K = im*cbrt(α/k)
     L = im*(α/2k)
-
-    C = cosd(θ)
-    C² = C^2
+    cbrtkoverαsq = cbrt(k/α)^2  # (k/α)^(2/3)
 
     # Complex "heights"
-    ζ₀ = (k/α)^(2/3)*(C² + α*(fromheight - referenceheight))
+    ζ₀ = cbrtkoverαsq*(C² + α*(fromheight - referenceheight))
     n₀² = 1 + α*(fromheight - referenceheight)
 
     # Computation of height-gain coefficients for two conditions on the upgoing wave from
     # `fromheight`; E∥ = 1, Ey = 0 and E∥ = 0, Ey = 1
-    h1, h2, h1′, h2′ = modifiedhankel(ζ₀)
+    h1₀, h2₀, h1′₀, h2′₀ = modifiedhankel(ζ₀)
 
-    a₁ = @SMatrix [h1            h2;
-                   C*h1+K*h1′    C*h2+K*h2′]
-    Δ₁ = det(a₁)
+    # Horizontal polarization, BC 1 and 2
+    # NOTE: There is no real advantage to having `a` be even an SMatrix
+    aₕ11 = h1₀
+    aₕ12 = h2₀
+    aₕ21 = C*h1₀ + K*h1′₀
+    aₕ22 = C*h2₀ + K*h2′₀
+    Δₕ = aₕ11*aₕ22 - aₕ21*aₕ12
 
-    AC1 = X[2,1]*a₁[2,2]/Δ₁
-    BC1 = -X[2,1]*a₁[2,1]/Δ₁
-    AC2 = (X[2,2]*a₁[2,2] - 2*a₁[1,2])/Δ₁
-    BC2 = (2*a₁[1,1] - X[2,2]*a₁[2,1])/Δ₁
+    AC₁ = X[2,1]*aₕ22/Δₕ
+    BC₁ = -X[2,1]*aₕ21/Δₕ
+    AC₂ = (X[2,2]*aₕ22 - 2aₕ12)/Δₕ
+    BC₂ = (2aₕ11 - X[2,2]*aₕ21)/Δₕ
 
-    a₂ = @SMatrix [h1                          h2;
-                   C*h1+(K*h1′+L*h1)/n₀²       C*h2+(K*h2′+L*h2)/n₀²]
-    Δ₂ = det(a₂)
+    # Vertical polarization, BC 1 and 2
+    aᵥ11 = h1₀
+    aᵥ12 = h2₀
+    aᵥ21 = C*h1₀ + (K*h1′₀ + L*h1₀)/n₀²
+    aᵥ22 = C*h2₀ + (K*h2′₀ + L*h2₀)/n₀²
+    Δᵥ = aᵥ11*aᵥ22 - aᵥ21*aᵥ12
 
-    QC1 = (X[1,1]*a₂[2,2] - 2*a₂[1,2])/Δ₂
-    GC1 = (2*a₂[1,1] - X[1,1]*a₂[2,1])/Δ₂
-    QC2 = X[1,2]*a₂[2,2]/Δ₂
-    GC2 = -X[1,2]*a₂[2,1]/Δ₂
+    QC₁ = (X[1,1]*aᵥ22 - 2aᵥ12)/Δᵥ
+    GC₁ = (2aᵥ11 - X[1,1]*aᵥ21)/Δᵥ
+    QC₂ = X[1,2]*aᵥ22/Δᵥ
+    GC₂ = -X[1,2]*aᵥ21/Δᵥ
 
     # Computation of upgoing fields E∥ and Ey at `toheight` for the two conditions above.
-    ζₜ = (k/α)^(2/3)*(C² + α*(toheight - referenceheight))
+    ζₜ = cbrtkoverαsq*(C² + α*(toheight - referenceheight))
     nₜ² = 1 + α*(toheight - referenceheight)
 
-    h1, h2, h1′, h2′ = modifiedhankel(ζₜ)
+    h1ₜ, h2ₜ, h1′ₜ, h2′ₜ = modifiedhankel(ζₜ)
 
-    a21 = C*h1 + K*h1′
-    a22 = C*h2 + K*h2′
+    aₕₜ21 = C*h1ₜ + K*h1′ₜ
+    aₕₜ22 = C*h2ₜ + K*h2′ₜ
 
     # Calculate parallel (p) and y fields
-    Eyt₁ = (AC1*a21 + BC1*a22)/2
-    Eyt₂ = (AC2*a21 + BC2*a22)/2
+    Eyt₁ = (AC₁*aₕₜ21 + BC₁*aₕₜ22)/2
+    Eyt₂ = (AC₂*aₕₜ21 + BC₂*aₕₜ22)/2
 
-    a21 = C*h1 + (K*h1′ + L*h1)/nₜ²
-    a22 = C*h2 + (K*h2′ + L*h2)/nₜ²
+    aᵥₜ21 = C*h1ₜ + (K*h1′ₜ + L*h1ₜ)/nₜ²
+    aᵥₜ22 = C*h2ₜ + (K*h2′ₜ + L*h2ₜ)/nₜ²
 
-    Ept₁ = (QC1*a21 + GC1*a22)/2
-    Ept₂ = (QC2*a21 + GC2*a22)/2
+    Ept₁ = (QC₁*aᵥₜ21 + GC₁*aᵥₜ22)/2
+    Ept₂ = (QC₂*aᵥₜ21 + GC₂*aᵥₜ22)/2
 
     # Reflection matrix at the `toheight` level
     W = Ept₁*Eyt₂ - Ept₂*Eyt₁
-    V₁h = AC1*h1 + BC1*h2
-    V₂h = AC2*h1 + BC2*h2
-    V₁v = QC1*h1 + GC1*h2
-    V₂v = QC2*h1 + GC2*h2
+    V₁h = AC₁*h1ₜ + BC₁*h2ₜ
+    V₂h = AC₂*h1ₜ + BC₂*h2ₜ
+    V₁v = QC₁*h1ₜ + GC₁*h2ₜ
+    V₂v = QC₂*h1ₜ + GC₂*h2ₜ
 
     # Mutate to `X` at the `toheight` level
     X[1,1] = V₁v*Eyt₂ - V₂v*Eyt₁
     X[1,2] = V₂v*Ept₁ - V₁v*Ept₂
     X[2,1] = V₁h*Eyt₂ - V₂h*Eyt₁
     X[2,2] = V₂h*Ept₁ - V₁h*Ept₂
-    X ./= W  # XXX: Is there really just 1 W?
+    X ./= W
 
     return X
+end
+
+function integratethroughfreespace_dC!(dX)
+    dζdC = cbrtkoverαsq*2C
+
+    h1″₀ = -ζ₀*h1₀
+    h2″₀ - -ζ₀*h2₀
+
+    # Horizontal polarization
+    daₕ11dC = h1′₀*dζdC
+    daₕ12dC = h2′₀*dζdC
+    daₕ21dC = h1₀ + (C*h1′₀ + K*h1″₀)*dζdC
+    daₕ22dC = h2₀ + (C*h2′₀ + K*h2″₀)*dζdC
+    dΔₕdC = aₕ11*daₕ22dC + daₕ11dC*aₕ22 - aₕ21*daₕ12dC - daₕ21dC*aₕ12
+
+    # Vertical polarization
+    daᵥ11dC = h1′₀*dζdC
+    daᵥ12dC = h2′₀*dζdC
+    daᵥ21dC = h1₀ + (C*h1′₀ + (K*h1″₀ + L*h1′₀)/n₀²)*dζdC
+    daᵥ22dC = h2₀ + (C*h2′₀ + (K*h2″₀ + L*h2′₀)/n₀²)*dζdC
+    dΔᵥdC = aᵥ11*daᵥ22dC + daᵥ11dC*aᵥ22 - aᵥ21*daᵥ12dC - daᵥ21dC*aᵥ12
+
+    h1″ₜ = -ζₜ*h1ₜ
+    h2″ₜ = -ζₜ*h2ₜ
+
+    daₕₜ21dC = h1ₜ + (C*h1′ₜ + K*h1″ₜ)*dζdC
+    daₕₜ22dC = h2ₜ + (C*h2′ₜ + K*h2″ₜ)*dζdC
+
+    dEyt₁dC = (AC₁*daₕₜ21dC +   BC₁*a22)/2
+    dEyt₂dC = (AC₂*a21 + BC₂*a22)/2
+
+    daᵥₜ21dC = h1ₜ*(C*h1′ₜ + (K*h1″ₜ + L*h1′ₜ)/nₜ²)*dζdC
+    daᵥₜ22dC = h2ₜ*(C*h2′ₜ + (K*h2″ₜ + L*h2′ₜ)/nₜ²)*dζdC
+
+    dEp1dC = (h1*daₕₜ21dC + 1)
 end
 
 r2x(R,C) = (R+I)/C
@@ -530,17 +725,16 @@ References:
 
 See also: `mf_rbars.for`, [`ndground`](@ref)
 """
-function _groundcoeffs(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
+function _groundcoeffs(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ, toheight, referenceheight)
+    # Unpack
+    ω, k = source.ω, 1000source.k
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
     # Initialize
     α = 2/earthradius
     K = im*cbrt(α/k)
     L = im*(α/2k)
     cbrtkoverαsq = cbrt(k/α)^2
-
-    # Initialize
-    C = cosd(θ)
-    S = sind(θ)
-    C² = C^2
 
     # At the "from" level, ``z = 0`` (ground)
     ng² = complex(ϵᵣ, -σ/(ω*ϵ₀))
@@ -563,19 +757,20 @@ function _groundcoeffs(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
     B3₀ = C*h1₀+K*h1₀′
     B4₀ = C*h2₀+K*h2₀′
 
-    A1 = n11*B1₀ - 2*d11*h1₀
-    A2 = n11*B2₀ - 2*d11*h2₀
-    A3 = n22*B3₀ - 2*d22*h1₀
-    A4 = n22*B4₀ - 2*d22*h2₀
+    A1 = n11*B1₀ - 2d11*h1₀
+    A2 = n11*B2₀ - 2d11*h2₀
+    A3 = n22*B3₀ - 2d22*h1₀
+    A4 = n22*B4₀ - 2d22*h2₀
 
     B1ₜ = C*h1ₜ + (K*h1ₜ′ + L*h1ₜ)/nₜ²
     B2ₜ = C*h2ₜ + (K*h2ₜ′ + L*h2ₜ)/nₜ²
     B3ₜ = C*h1ₜ + K*h1ₜ′
     B4ₜ = C*h2ₜ + K*h2ₜ′
 
-    return GroundCoefficients(C, W, ng², K, L, cbrtkoverαsq, ζ₀, ζₜ, n₀², nₜ²,
-                              B1₀, B2₀, B3₀, B4₀, A1, A2, A3, A4, B1ₜ, B2ₜ, B3ₜ, B4ₜ,
-                              h1₀, h2₀, h1₀′, h2₀′, h1ₜ, h2ₜ, h1ₜ′, h2ₜ′)
+    return (W=W, ng²=ng², K=K, L=L, cbrtkoverαsq=cbrtkoverαsq, ζ₀=ζ₀, ζₜ=ζₜ, n₀²=n₀², nₜ²=nₜ²,
+            B1₀=B1₀, B2₀=B2₀, B3₀=B3₀, B4₀=B4₀, B1ₜ=B1ₜ, B2ₜ=B2ₜ, B3ₜ=B3ₜ, B4ₜ=B4ₜ,
+            A1=A1, A2=A2, A3=A3, A4=A4,
+            h1₀=h1₀, h2₀=h2₀, h1₀′=h1₀′, h2₀′=h2₀′, h1ₜ=h1ₜ, h2ₜ=h2ₜ, h1ₜ′=h1ₜ′, h2ₜ′=h2ₜ′)
 end
 
 doc"""
@@ -616,7 +811,7 @@ References:
 
 See also: `mf_rbars.for`, [`_groundcoeffs`](@ref)
 """
-function ndground(coeffs::GroundCoefficients)
+function ndground(coeffs)
     A1, A2, A3, A4 = coeffs.A1, coeffs.A2, coeffs.A3, coeffs.A4
     B1ₜ, B2ₜ, B3ₜ, B4ₜ = coeffs.B1ₜ, coeffs.B2ₜ, coeffs.B3ₜ, coeffs.B4ₜ
     h1ₜ, h2ₜ = coeffs.h1ₜ, coeffs.h2ₜ
@@ -635,9 +830,10 @@ reflection height.
 
 See also: [`ndground`](@ref)
 """
-function dndgrounddC(coeffs::GroundCoefficients)
+function dndgrounddC(ea::EigenAngle, coeffs)
     # Unpack
-    C, W, ng² = coeffs.C, coeffs.W, coeffs.ng²
+    C = ea.cosθ
+    W, ng² = coeffs.W, coeffs.ng²
     K, L, cbrtkoverαsq = coeffs.K, coeffs.L, coeffs.cbrtkoverαsq
     ζ₀, ζₜ = coeffs.ζ₀, coeffs.ζₜ
     n₀², nₜ² = coeffs.n₀², coeffs.nₜ²
@@ -652,7 +848,7 @@ function dndgrounddC(coeffs::GroundCoefficients)
 
     h1″ = -ζ₀*h1₀
     h2″ = -ζ₀*h2₀
-    dzdC = 2*C*cbrtkoverαsq
+    dzdC = 2C*cbrtkoverαsq
 
     dB1dC = h1₀ + (C*h1₀′ + (K*h1″ + L*h1₀′)/n₀²)*dzdC
     dB2dC = h2₀ + (C*h2₀′ + (K*h2″ + L*h2₀′)/n₀²)*dzdC
@@ -666,7 +862,7 @@ function dndgrounddC(coeffs::GroundCoefficients)
 
     h1″ = -ζₜ*h1ₜ
     h2″ = -ζₜ*h2ₜ
-    dzdC = 2*C*cbrtkoverαsq
+    dzdC = 2C*cbrtkoverαsq
 
     dB1dC = h1ₜ + (C*h1ₜ′ + (K*h1″ + L*h1ₜ′)/nₜ²)*dzdC
     dB2dC = h2ₜ + (C*h2ₜ′ + (K*h2″ + L*h2ₜ′)/nₜ²)*dzdC
@@ -729,21 +925,23 @@ No further integration back up to a reference height is done. Zeros are found at
 
 See also: `mf_fctval.for`, `ndground`(@ref)
 """
-function modifiedmodalfunction(θ, ω, k, σ, ϵᵣ,
+function modifiedmodalfunction(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ,
                                bottomheight, topheight, reflectionheight, referenceheight,
                                species,
-                               B, dcl, dcm, dcn)
+                               bfield::BField)
+    # Unpack
+    k = 1000source.k
 
     # Calculate `X` at `bottomheight`
-    Xsol = integratethroughionosphere(θ, ω, k, topheight, bottomheight, referenceheight,
-                                      species, B, dcl, dcm, dcn)
+    Xsol = integratethroughionosphere(ea, source, topheight, bottomheight, referenceheight,
+                                      species, bfield)
     X = Xsol[end]
 
     # Refer `X` from `bottomheight` to `referenceheight`
-    integratethroughfreespace!(X, θ, k, bottomheight, reflectionheight, referenceheight)
+    integratethroughfreespace!(X, ea, k, bottomheight, reflectionheight, referenceheight)
 
     # Calculate ground reflection matrix as `N` and `D` referred to `referenceheight`
-    groundcoeffs = _groundcoeffs(θ, ω, k, σ, ϵᵣ, reflectionheight, referenceheight)
+    groundcoeffs = _groundcoeffs(ea, source, σ, ϵᵣ, reflectionheight, referenceheight)
     N11, N22, D11, D22 = ndground(groundcoeffs)
 
     k1 = N11 - X[1,1]*D11
