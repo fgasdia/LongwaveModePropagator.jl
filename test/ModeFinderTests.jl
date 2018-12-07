@@ -198,23 +198,38 @@ end
     fromheight = 44.2968750
     toheight = 67.3437500
     X₀ = @MMatrix [complex(2.7846940,-0.4330095) complex(0.1893602,0.3993874);
-          complex(0.2345901,0.5070829) complex(2.4297192,0.2463784)]
+                   complex(0.2345901,0.5070829) complex(2.4297192,0.2463784)]
+    dXdC₀ = @MMatrix [complex(-15.3858480,-9.2181177) complex(11.8751659,-7.2130427);
+                      complex(16.8020439,-9.8205147) complex(7.4359517,0.7653041)]
     Xt = [complex(2.0947318,-0.0449929) complex(-0.0275066,-0.2524883);
           complex(-0.0319887,-0.3217891) complex(2.4113691,-0.3457983)]
+    dXt = [complex(-4.1203794,1.4973412) complex(-1.9841124,1.0458319);
+           complex(-3.6317303,1.4457128) complex(-7.6892381,-0.8168259)]
 
     Xttest = LWMS.integratethroughfreespace!(X₀, ea, k, fromheight, toheight, referenceheight)
 
     @test Xttest ≈ Xt atol=1e-5
+
+    X₀ = @MMatrix [complex(2.7846940,-0.4330095) complex(0.1893602,0.3993874);
+                   complex(0.2345901,0.5070829) complex(2.4297192,0.2463784)]
+    Xttest, dXttest = LWMS.integratethroughfreespace_XdXdC!(X₀, dXdC₀, ea, k, fromheight, toheight, referenceheight)
+
+    @test Xttest ≈ Xt atol=1e-5
+    @test dXttest ≈ dXt atol=1e-4
 end
 
 @testset "Ground reflection" begin
     σ = 0.003
     ϵᵣ = 15.
     ω = 150796.453125
-    k = 0.5030022
+    # k = 0.5030022
+    freq = ω/2π
+    source = LWMS.Source(freq)
+    k = 1000source.k
     reflectionheight = 67.3437500
     referenceheight = 50.
     θ = complex(65.2520447,-1.5052794)
+    ea = LWMS.EigenAngle(θ)
 
     num11 = complex(0.0423198,-0.2102124)
     num22 = complex(-0.0373752,0.8087913)
@@ -222,24 +237,24 @@ end
     den22 = complex(-0.0435943,0.2842564)
 
     groundcoeffs = LWMS._groundcoeffs(ea, source, σ, ϵᵣ, reflectionheight, referenceheight)
-    N11, N22, D11, D22 = LWMS.ndground(groundcoeffs)
+    N11, D11, N22, D22 = LWMS.ndground(groundcoeffs)
 
     @test N11 ≈ num11 atol=1e-5
     @test N22 ≈ num22 atol=1e-5
     @test D11 ≈ den11 atol=1e-5
     @test D22 ≈ den22 atol=1e-5
 
-    C = ea.cosθ
+    C, C² = ea.cosθ, ea.cos²θ
     W, ng² = groundcoeffs.W, groundcoeffs.ng²
     n11, n22, d11, d22 = LWMS.fresnelnd(C, W, ng²)
-    dn11dC, dn22dC, dd11dC, dd22dC = LWMS.dfresnelnddC(C, W, ng²)
+    dn11dC, dd11dC, dn22dC, dd22dC = LWMS.dfresnelnddC(C, C², W, ng²)
 
     @test dn11dC ≈ complex(0.)
     @test dn22dC ≈ complex(2.9137998E-006,-2.6495843E-006) atol=1e-6
     @test dd11dC ≈ complex(0.5000014,-1.3253123E-006) atol=1e-6
     @test dd22dC ≈ complex(0.0074829,0.0074347) atol=1e-6
 
-    dn11dC, dn22dC, dd11dC, dd22dC = LWMS.dndgrounddC(ea, groundcoeffs)
+    dn11dC, dd11dC, dn22dC, dd22dC = LWMS.dndgrounddC(ea, groundcoeffs)
 
     @test dn11dC ≈ complex(-11.0291405,-1.0116535) atol=1e-3
     @test dn22dC ≈ complex(18.8285923,1.2034768) atol=1e-3
@@ -249,26 +264,43 @@ end
 
 @testset "modifiedmodalfunction" begin
     σ = 0.003
-    ϵᵣ = 15.
+    ϵᵣ = 15
     ω = 150796.453125
-    k = 0.5030022
+    freq = ω/2π
+    source = LWMS.Source(freq)
+    # k = 0.5030022
     topheight = 90.3906250
     bottomheight = 44.2968750
     reflectionheight = 67.3437500
     referenceheight = 50.
-    θ = complex(65.5882263,-0.9622505)
+    θ = complex(65.2520447,-1.5052794)
+    ea = LWMS.EigenAngle(θ)
 
     B = 0.5172267e-4
-    dcl = -0.2664398716543888
-    dcm = -0.28504757220148297
-    dcn = -0.9207375719361262
+    bfield = LWMS.BField(Bmag, 67.0341492, 226.9324799)
+
+    @test bfield.dcl ≈ -0.2664398716543888
+    @test bfield.dcm ≈ -0.28504757220148297
+    @test bfield.dcn ≈ -0.9207375719361262
 
     electrons = Constituent(-fundamentalcharge, mₑ,
                             h -> waitprofile(h, 75, 0.3), collisionprofile)
 
-    f = LWMS.modifiedmodalfunction(θ, ω, k, σ, ϵᵣ,
-                              bottomheight, topheight, reflectionheight, referenceheight,
-                              electrons,
-                              bfield)
+    flwpc = complex(-8.7927128E-006,-1.3478207E-005)
+    dflwpc = complex(0.0005759,0.0114329)
 
+    f = LWMS.modifiedmodalfunction(ea, source, σ, ϵᵣ,
+                                   bottomheight, topheight, reflectionheight, referenceheight,
+                                   electrons,
+                                   bfield)
+
+    @test f ≈ flwpc atol=1e-3
+
+    f, dfdθ = LWMS.modifiedmodalfunction_XdXdθ(ea, source, σ, ϵᵣ,
+                                  bottomheight, topheight, reflectionheight, referenceheight,
+                                  electrons,
+                                  bfield)
+
+    @test f ≈ flwpc atol=1e-3
+    @test dfdθ ≈ dflwpc atol=1e-3
 end

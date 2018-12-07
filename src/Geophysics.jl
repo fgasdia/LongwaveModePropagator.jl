@@ -22,6 +22,24 @@ struct BField{T}
     dcm::T
     dcn::T
 end
+function BField(B::T, dip::T, azimuth::T) where T<:Number
+    k1 = cosd(dip)
+    BField{T}(B, k1*cosd(azimuth), k1*sind(azimuth), -sind(dip))
+end
+
+struct Source{T} <: AbstractSource
+    freq::T
+    ω::T
+    k::T
+
+    function Source{T}(freq::T) where T<:Number
+        # f, ω, k
+        ω = 2π*freq
+        new(freq, ω, 1000ω/speedoflight) # NOTE: `k` is scalled to `km`
+    end
+end
+Source(freq::T) where T<:Number = Source{T}(freq)
+
 
 struct Ground
     ϵᵣ::Float64

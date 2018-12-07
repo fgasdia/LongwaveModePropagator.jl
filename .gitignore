@@ -1,2 +1,3 @@
 *.svg
 python_tests/
+*.xlsx

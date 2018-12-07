@@ -7,6 +7,8 @@ using Markdown
 
 using ModifiedHankelFunctionsOfOrderOneThird
 
+# TODO: NO MORE IN PLACE! Just use static arrays, they're faster for my small matrices
+
 # """
 # LWPC's MF_WVGD is a medium length subroutine that obtains approximate eigenangles (_modes_)
 # in a single path segment. It calls several secondary routines to accomplish this task.
@@ -36,7 +38,9 @@ struct EigenAngle{T}
     function EigenAngle{T}(θ::T) where T <: Number
         C = cosd(θ)
         S = sind(θ)
-        new(θ, C, S, C^2, S^2)
+        C² = C^2
+        S² = 1 - C²
+        new(θ, C, S, C², S²)
     end
 end
 EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
@@ -90,6 +94,7 @@ function mmatrix!(M, ω, referenceheight, height, spec::Constituent, bfield::BFi
     earthcurvature = 2/earthradius*(height - referenceheight)
 
     # TODO: Add M up for each species
+    # It's fast enough to mutate Static Arrays and easier to have multiple species
     # Constitutive relations (see Budden 1955, pg. 517)
     e, m, N, ν = spec.charge, spec.mass, spec.numberdensity, spec.collisionfrequency
     X = N(height)*e^2/(ϵ₀*m*ω^2)
@@ -366,9 +371,9 @@ function sharplyboundeddXdC!(dXdC, X, D, ea::EigenAngle, M, q, b)
     denom₁, denom₂, P1, P2, T1, T2, Δ = D.denom₁, D.denom₂, D.P1, D.P2, D.T1, D.T2, D.Δ
 
     # Initialize
-    dS = -C/S
+    dS = -C/S  # dS/dC
 
-    # Booker quartic derivatives
+    # Booker quartic derivatives wrt C
     db3 = dS*(M[1,3] + M[3,1])
     db2 = -2C*(2 + M[1,1] + M[3,3])
     db1 = (dS/S)*b1 - 2S*C*(M[1,3] + M[3,1])
@@ -472,7 +477,7 @@ function integratethroughionosphere(ea::EigenAngle, source::AbstractSource, from
                                     species, bfield::BField)
 
     # Unpack
-    ω, k = source.ω, 1000source.k  # k in km
+    ω, k = source.ω, source.k  # k in km
 
     # Initialize
     M = @MMatrix zeros(ComplexF64, 3, 3)
@@ -499,7 +504,7 @@ end
 function integratethroughionosphere_dC(ea::EigenAngle, source::AbstractSource, fromheight, toheight, referenceheight,
                                        species, bfield::BField)
     # Unpack
-    ω, k = source.ω, 1000source.k  # k in km
+    ω, k = source.ω, source.k  # k in km
 
     # Initialize
     M = @MMatrix zeros(ComplexF64, 3, 3)
@@ -577,9 +582,7 @@ Boundary conditions are set at the bottom so we can solve for ``(-A/C)``, ``(-B/
 ``(-Q/C)``, and ``(-G/C)``. Then we use those values to calculate the ``E`` fields at
 `toheight`.
 """
-function integratethroughfreespace!(X, ea, k, fromheight, toheight, referenceheight)
-    abs(toheight - fromheight) < 0.001 && return X
-
+function integratethroughfreespace!(X, ea::EigenAngle, k, fromheight, toheight, referenceheight)
     # Unpack
     C, C² = ea.cosθ, ea.cos²θ
 
@@ -610,7 +613,7 @@ function integratethroughfreespace!(X, ea, k, fromheight, toheight, referencehei
     AC₂ = (X[2,2]*aₕ22 - 2aₕ12)/Δₕ
     BC₂ = (2aₕ11 - X[2,2]*aₕ21)/Δₕ
 
-    # Vertical polarization, BC 1 and 2
+    # Vertical polarization, boundary conditions 1 and 2
     aᵥ11 = h1₀
     aᵥ12 = h2₀
     aᵥ21 = C*h1₀ + (K*h1′₀ + L*h1₀)/n₀²
@@ -650,51 +653,152 @@ function integratethroughfreespace!(X, ea, k, fromheight, toheight, referencehei
 
     # Mutate to `X` at the `toheight` level
     X[1,1] = V₁v*Eyt₂ - V₂v*Eyt₁
-    X[1,2] = V₂v*Ept₁ - V₁v*Ept₂
     X[2,1] = V₁h*Eyt₂ - V₂h*Eyt₁
+    X[1,2] = V₂v*Ept₁ - V₁v*Ept₂
     X[2,2] = V₂h*Ept₁ - V₁h*Ept₂
     X ./= W
+
+    # X = @SMatrix [(V₁v*Eyt₂ - V₂v*Eyt₁)/W   (V₂v*Ept₁ - V₁v*Ept₂)/W;
+    #               (V₁h*Eyt₂ - V₂h*Eyt₁)/W   (V₂h*Ept₁ - V₁h*Ept₂)/W]
 
     return X
 end
 
-function integratethroughfreespace_dC!(dX)
-    dζdC = cbrtkoverαsq*2C
+"""
+NOTE: This function cannot be separated from the X update because we need both `X from` and
+`X to` to solve for `dXdC from` and `dXdC to` but we update `X` in place.
+"""
+function integratethroughfreespace_XdXdC!(X, dXdC, ea::EigenAngle, k, fromheight, toheight, referenceheight)
+    # Unpack
+    C, C² = ea.cosθ, ea.cos²θ
 
+    # Initialize
+    α = 2/earthradius
+    K = im*cbrt(α/k)
+    L = im*(α/2k)
+    cbrtkoverαsq = cbrt(k/α)^2  # (k/α)^(2/3)
+
+    # Complex "heights"
+    ζ₀ = cbrtkoverαsq*(C² + α*(fromheight - referenceheight))
+    dζdC = 2C*cbrtkoverαsq  # irrespective of height
+    n₀² = 1 + α*(fromheight - referenceheight)
+
+    # Computation of height-gain coefficients for two conditions on the upgoing wave from
+    # `fromheight`; E∥ = 1, Ey = 0 and E∥ = 0, Ey = 1
+    h1₀, h2₀, h1′₀, h2′₀ = modifiedhankel(ζ₀)
     h1″₀ = -ζ₀*h1₀
-    h2″₀ - -ζ₀*h2₀
+    h2″₀ = -ζ₀*h2₀
 
-    # Horizontal polarization
+    # Horizontal polarization, BC 1 and 2
+    # NOTE: There is no real advantage to having `a` be even an SMatrix
+    aₕ11 = h1₀
+    aₕ12 = h2₀
+    aₕ21 = C*h1₀ + K*h1′₀
+    aₕ22 = C*h2₀ + K*h2′₀
+    Δₕ = aₕ11*aₕ22 - aₕ21*aₕ12
+
     daₕ11dC = h1′₀*dζdC
     daₕ12dC = h2′₀*dζdC
     daₕ21dC = h1₀ + (C*h1′₀ + K*h1″₀)*dζdC
     daₕ22dC = h2₀ + (C*h2′₀ + K*h2″₀)*dζdC
     dΔₕdC = aₕ11*daₕ22dC + daₕ11dC*aₕ22 - aₕ21*daₕ12dC - daₕ21dC*aₕ12
 
-    # Vertical polarization
+    AC₁ = X[2,1]*aₕ22/Δₕ
+    BC₁ = -X[2,1]*aₕ21/Δₕ
+    AC₂ = (X[2,2]*aₕ22 - 2aₕ12)/Δₕ
+    BC₂ = (2aₕ11 - X[2,2]*aₕ21)/Δₕ
+
+    tmp1 = dΔₕdC/Δₕ
+    dAC₁dC = (X[2,1]*daₕ22dC + dXdC[2,1]*aₕ22)/Δₕ - AC₁*tmp1
+    dBC₁dC = (-X[2,1]*daₕ21dC - dXdC[2,1]*aₕ21)/Δₕ - BC₁*tmp1
+    dAC₂dC = (X[2,2]*daₕ22dC + dXdC[2,2]*aₕ22 - 2daₕ12dC)/Δₕ - AC₂*tmp1
+    dBC₂dC = (2daₕ11dC - X[2,2]*daₕ21dC - dXdC[2,2]*aₕ21)/Δₕ - BC₂*tmp1
+
+    # Vertical polarization, boundary conditions 1 and 2
+    aᵥ11 = h1₀
+    aᵥ12 = h2₀
+    aᵥ21 = C*h1₀ + (K*h1′₀ + L*h1₀)/n₀²
+    aᵥ22 = C*h2₀ + (K*h2′₀ + L*h2₀)/n₀²
+    Δᵥ = aᵥ11*aᵥ22 - aᵥ21*aᵥ12
+
     daᵥ11dC = h1′₀*dζdC
     daᵥ12dC = h2′₀*dζdC
     daᵥ21dC = h1₀ + (C*h1′₀ + (K*h1″₀ + L*h1′₀)/n₀²)*dζdC
     daᵥ22dC = h2₀ + (C*h2′₀ + (K*h2″₀ + L*h2′₀)/n₀²)*dζdC
     dΔᵥdC = aᵥ11*daᵥ22dC + daᵥ11dC*aᵥ22 - aᵥ21*daᵥ12dC - daᵥ21dC*aᵥ12
 
+    QC₁ = (X[1,1]*aᵥ22 - 2aᵥ12)/Δᵥ
+    GC₁ = (2aᵥ11 - X[1,1]*aᵥ21)/Δᵥ
+    QC₂ = X[1,2]*aᵥ22/Δᵥ
+    GC₂ = -X[1,2]*aᵥ21/Δᵥ
+
+    tmp2 = dΔᵥdC/Δᵥ
+    dQC₁dC = (X[1,1]*daᵥ22dC + dXdC[1,1]*aᵥ22 - 2daᵥ12dC)/Δᵥ - QC₁*tmp2
+    dGC₁dC = (2daᵥ11dC - X[1,1]*daᵥ21dC - dXdC[1,1]*aᵥ21)/Δᵥ - GC₁*tmp2
+    dQC₂dC = (X[1,2]*daᵥ22dC + dXdC[1,2]*aᵥ22)/Δᵥ - QC₂*tmp2
+    dGC₂dC = (-X[1,2]*daᵥ21dC - dXdC[1,2]*aᵥ21)/Δᵥ - GC₂*tmp2
+
+    # Computation of upgoing fields E∥ and Ey at `toheight` for the two conditions above.
+    ζₜ = cbrtkoverαsq*(C² + α*(toheight - referenceheight))
+    nₜ² = 1 + α*(toheight - referenceheight)
+
+    h1ₜ, h2ₜ, h1′ₜ, h2′ₜ = modifiedhankel(ζₜ)
     h1″ₜ = -ζₜ*h1ₜ
     h2″ₜ = -ζₜ*h2ₜ
+
+    aₕₜ21 = C*h1ₜ + K*h1′ₜ
+    aₕₜ22 = C*h2ₜ + K*h2′ₜ
 
     daₕₜ21dC = h1ₜ + (C*h1′ₜ + K*h1″ₜ)*dζdC
     daₕₜ22dC = h2ₜ + (C*h2′ₜ + K*h2″ₜ)*dζdC
 
-    dEyt₁dC = (AC₁*daₕₜ21dC +   BC₁*a22)/2
-    dEyt₂dC = (AC₂*a21 + BC₂*a22)/2
+    # Calculate parallel (p) and y fields
+    Eyt₁ = (AC₁*aₕₜ21 + BC₁*aₕₜ22)/2
+    Eyt₂ = (AC₂*aₕₜ21 + BC₂*aₕₜ22)/2
 
-    daᵥₜ21dC = h1ₜ*(C*h1′ₜ + (K*h1″ₜ + L*h1′ₜ)/nₜ²)*dζdC
-    daᵥₜ22dC = h2ₜ*(C*h2′ₜ + (K*h2″ₜ + L*h2′ₜ)/nₜ²)*dζdC
+    dEyt₁dC = (AC₁*daₕₜ21dC + dAC₁dC*aₕₜ21 + BC₁*daₕₜ22dC + dBC₁dC*aₕₜ22)/2
+    dEyt₂dC = (AC₂*daₕₜ21dC + dAC₂dC*aₕₜ21 + BC₂*daₕₜ22dC + dBC₂dC*aₕₜ22)/2
 
-    dEp1dC = (h1*daₕₜ21dC + 1)
+    aᵥₜ21 = C*h1ₜ + (K*h1′ₜ + L*h1ₜ)/nₜ²
+    aᵥₜ22 = C*h2ₜ + (K*h2′ₜ + L*h2ₜ)/nₜ²
+
+    daᵥₜ21dC = h1ₜ + (C*h1′ₜ + (K*h1″ₜ + L*h1′ₜ)/nₜ²)*dζdC
+    daᵥₜ22dC = h2ₜ + (C*h2′ₜ + (K*h2″ₜ + L*h2′ₜ)/nₜ²)*dζdC
+
+    Ept₁ = (QC₁*aᵥₜ21 + GC₁*aᵥₜ22)/2
+    Ept₂ = (QC₂*aᵥₜ21 + GC₂*aᵥₜ22)/2
+
+    dEpt₁dC = (QC₁*daᵥₜ21dC + dQC₁dC*aᵥₜ21 + GC₁*daᵥₜ22dC + dGC₁dC*aᵥₜ22)/2
+    dEpt₂dC = (QC₂*daᵥₜ21dC + dQC₂dC*aᵥₜ21 + GC₂*daᵥₜ22dC + dGC₂dC*aᵥₜ22)/2
+
+    # Reflection matrix at the `toheight` level
+    W = Ept₁*Eyt₂ - Ept₂*Eyt₁
+    V₁h = AC₁*h1ₜ + BC₁*h2ₜ
+    V₂h = AC₂*h1ₜ + BC₂*h2ₜ
+    V₁v = QC₁*h1ₜ + GC₁*h2ₜ
+    V₂v = QC₂*h1ₜ + GC₂*h2ₜ
+
+    dWdC = Ept₁*dEyt₂dC + dEpt₁dC*Eyt₂ - Ept₂*dEyt₁dC - dEpt₂dC*Eyt₁
+    dV₁hdC = (AC₁*h1′ₜ + BC₁*h2′ₜ)*dζdC + dAC₁dC*h1ₜ + dBC₁dC*h2ₜ
+    dV₂hdC = (AC₂*h1′ₜ + BC₂*h2′ₜ)*dζdC + dAC₂dC*h1ₜ + dBC₂dC*h2ₜ
+    dV₁vdC = (QC₁*h1′ₜ + GC₁*h2′ₜ)*dζdC + dQC₁dC*h1ₜ + dGC₁dC*h2ₜ
+    dV₂vdC = (QC₂*h1′ₜ + GC₂*h2′ₜ)*dζdC + dQC₂dC*h1ₜ + dGC₂dC*h2ₜ
+
+    # Mutate to `X` and `dXdC` at the `toheight`
+    X[1,1] = V₁v*Eyt₂ - V₂v*Eyt₁
+    X[2,1] = V₁h*Eyt₂ - V₂h*Eyt₁
+    X[1,2] = V₂v*Ept₁ - V₁v*Ept₂
+    X[2,2] = V₂h*Ept₁ - V₁h*Ept₂
+    X ./= W
+
+    tmp3 = dWdC/W
+    dXdC[1,1] = (V₁v*dEyt₂dC + dV₁vdC*Eyt₂ - V₂v*dEyt₁dC - dV₂vdC*Eyt₁)/W - X[1,1]*tmp3
+    dXdC[2,1] = (V₁h*dEyt₂dC + dV₁hdC*Eyt₂ - V₂h*dEyt₁dC - dV₂hdC*Eyt₁)/W - X[2,1]*tmp3
+    dXdC[1,2] = (V₂v*dEpt₁dC + dV₂vdC*Ept₁ - V₁v*dEpt₂dC - dV₁vdC*Ept₂)/W - X[1,2]*tmp3
+    dXdC[2,2] = (V₂h*dEpt₁dC + dV₂hdC*Ept₁ - V₁h*dEpt₂dC - dV₁hdC*Ept₂)/W - X[2,2]*tmp3
+
+    return X, dXdC
 end
-
-r2x(R,C) = (R+I)/C
-x2r(X,C) = C*X - I
 
 """
     _groundcoeffs(θ, ω, k, σ, ϵᵣ, toheight, referenceheight)
@@ -727,8 +831,8 @@ See also: `mf_rbars.for`, [`ndground`](@ref)
 """
 function _groundcoeffs(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ, toheight, referenceheight)
     # Unpack
-    ω, k = source.ω, 1000source.k
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+    ω, k = source.ω, source.k
+    C, C², S² = ea.cosθ, ea.cos²θ, ea.sin²θ
 
     # Initialize
     α = 2/earthradius
@@ -738,9 +842,9 @@ function _groundcoeffs(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ, toheig
 
     # At the "from" level, ``z = 0`` (ground)
     ng² = complex(ϵᵣ, -σ/(ω*ϵ₀))
-    W = sqrt(ng² - S^2)
+    W = sqrt(ng² - S²)
 
-    n11, n22, d11, d22 = fresnelnd(C, W, ng²)
+    n11, d11, n22, d22 = fresnelnd(C, W, ng²)
 
     # At the ground
     ζ₀ = cbrtkoverαsq*(C² - α*referenceheight)
@@ -821,7 +925,7 @@ function ndground(coeffs)
     D11 = A2*B1ₜ - A1*B2ₜ
     D22 = A4*B3ₜ - A3*B4ₜ
 
-    return N11, N22, D11, D22
+    return N11, D11, N22, D22
 end
 
 """
@@ -832,7 +936,7 @@ See also: [`ndground`](@ref)
 """
 function dndgrounddC(ea::EigenAngle, coeffs)
     # Unpack
-    C = ea.cosθ
+    C, C² = ea.cosθ, ea.cos²θ
     W, ng² = coeffs.W, coeffs.ng²
     K, L, cbrtkoverαsq = coeffs.K, coeffs.L, coeffs.cbrtkoverαsq
     ζ₀, ζₜ = coeffs.ζ₀, coeffs.ζₜ
@@ -843,38 +947,37 @@ function dndgrounddC(ea::EigenAngle, coeffs)
     B1ₜ, B2ₜ, B3ₜ, B4ₜ = coeffs.B1ₜ, coeffs.B2ₜ, coeffs.B3ₜ, coeffs.B4ₜ
     A1, A2, A3, A4 = coeffs.A1, coeffs.A2, coeffs.A3, coeffs.A4
 
-    n11, n22, d11, d22 = fresnelnd(C, W, ng²)
-    dn11dC, dn22dC, dd11dC, dd22dC = dfresnelnddC(C, W, ng²)
+    n11, d11, n22, d22 = fresnelnd(C, W, ng²)
+    dn11dC, dd11dC, dn22dC, dd22dC = dfresnelnddC(C, C², W, ng²)
 
     h1″ = -ζ₀*h1₀
     h2″ = -ζ₀*h2₀
-    dzdC = 2C*cbrtkoverαsq
+    dζdC = 2C*cbrtkoverαsq
 
-    dB1dC = h1₀ + (C*h1₀′ + (K*h1″ + L*h1₀′)/n₀²)*dzdC
-    dB2dC = h2₀ + (C*h2₀′ + (K*h2″ + L*h2₀′)/n₀²)*dzdC
-    dB3dC = h1₀ + (C*h1₀′ + K*h1″)*dzdC
-    dB4dC = h2₀ + (C*h2₀′ + K*h2″)*dzdC
+    dB1dC = h1₀ + (C*h1₀′ + (K*h1″ + L*h1₀′)/n₀²)*dζdC
+    dB2dC = h2₀ + (C*h2₀′ + (K*h2″ + L*h2₀′)/n₀²)*dζdC
+    dB3dC = h1₀ + (C*h1₀′ + K*h1″)*dζdC
+    dB4dC = h2₀ + (C*h2₀′ + K*h2″)*dζdC
 
-    dA1dC = n11*dB1dC + dn11dC*B1₀ - 2(d11*h1₀′*dzdC + dd11dC*h1₀)
-    dA2dC = n11*dB2dC + dn11dC*B2₀ - 2(d11*h2₀′*dzdC + dd11dC*h2₀)
-    dA3dC = n22*dB3dC + dn22dC*B3₀ - 2(d22*h1₀′*dzdC + dd22dC*h1₀)
-    dA4dC = n22*dB4dC + dn22dC*B4₀ - 2(d22*h2₀′*dzdC + dd22dC*h2₀)
+    dA1dC = n11*dB1dC + dn11dC*B1₀ - 2(d11*h1₀′*dζdC + dd11dC*h1₀)
+    dA2dC = n11*dB2dC + dn11dC*B2₀ - 2(d11*h2₀′*dζdC + dd11dC*h2₀)
+    dA3dC = n22*dB3dC + dn22dC*B3₀ - 2(d22*h1₀′*dζdC + dd22dC*h1₀)
+    dA4dC = n22*dB4dC + dn22dC*B4₀ - 2(d22*h2₀′*dζdC + dd22dC*h2₀)
 
     h1″ = -ζₜ*h1ₜ
     h2″ = -ζₜ*h2ₜ
-    dzdC = 2C*cbrtkoverαsq
 
-    dB1dC = h1ₜ + (C*h1ₜ′ + (K*h1″ + L*h1ₜ′)/nₜ²)*dzdC
-    dB2dC = h2ₜ + (C*h2ₜ′ + (K*h2″ + L*h2ₜ′)/nₜ²)*dzdC
-    dB3dC = h1ₜ + (C*h1ₜ′ + K*h1″)*dzdC
-    dB4dC = h2ₜ + (C*h2ₜ′ + K*h2″)*dzdC
+    dB1dC = h1ₜ + (C*h1ₜ′ + (K*h1″ + L*h1ₜ′)/nₜ²)*dζdC
+    dB2dC = h2ₜ + (C*h2ₜ′ + (K*h2″ + L*h2ₜ′)/nₜ²)*dζdC
+    dB3dC = h1ₜ + (C*h1ₜ′ + K*h1″)*dζdC
+    dB4dC = h2ₜ + (C*h2ₜ′ + K*h2″)*dζdC
 
     dd11dC = A2*dB1dC + dA2dC*B1ₜ - A1*dB2dC - dA1dC*B2ₜ
     dd22dC = A4*dB3dC + dA4dC*B3ₜ - A3*dB4dC - dA3dC*B4ₜ
-    dn11dC = 2(A2*h1ₜ′*dzdC + dA2dC*h1ₜ - A1*h2ₜ′*dzdC - dA1dC*h2ₜ)
-    dn22dC = 2(A4*h1ₜ′*dzdC + dA4dC*h1ₜ - A3*h2ₜ′*dzdC - dA3dC*h2ₜ)
+    dn11dC = 2(A2*h1ₜ′*dζdC + dA2dC*h1ₜ - A1*h2ₜ′*dζdC - dA1dC*h2ₜ)
+    dn22dC = 2(A4*h1ₜ′*dζdC + dA4dC*h1ₜ - A3*h2ₜ′*dζdC - dA3dC*h2ₜ)
 
-    return dn11dC, dn22dC, dd11dC, dd22dC
+    return dn11dC, dd11dC, dn22dC, dd22dC
 end
 
 """
@@ -890,7 +993,7 @@ function fresnelnd(C, W, ng²)
     d11 = (C - W/ng²)/2
     d22 = (C/W - 1)/2
 
-    return n11, n22, d11, d22
+    return n11, d11, n22, d22
 end
 
 """
@@ -898,15 +1001,15 @@ Return the derivative of the Fresnel ground reflection terms `n` and `d` wrt cos
 
 See also: [`fresnelgroundcoeffs`](@ref)
 """
-function dfresnelnddC(C, W, ng²)
+function dfresnelnddC(C, C², W, ng²)
     W³ = W^3
 
     dn11dC = zero(ng²)
     dn22dC = -C/W³
     dd11dC = (1 - C/(W*ng²))/2
-    dd22dC = (-C^2/W³ + 1/W)/2
+    dd22dC = (-C²/W³ + 1/W)/2
 
-    return dn11dC, dn22dC, dd11dC, dd22dC
+    return dn11dC, dd11dC, dn22dC, dd22dC
 end
 
 """
@@ -930,7 +1033,7 @@ function modifiedmodalfunction(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ
                                species,
                                bfield::BField)
     # Unpack
-    k = 1000source.k
+    k = source.k
 
     # Calculate `X` at `bottomheight`
     Xsol = integratethroughionosphere(ea, source, topheight, bottomheight, referenceheight,
@@ -942,11 +1045,85 @@ function modifiedmodalfunction(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ
 
     # Calculate ground reflection matrix as `N` and `D` referred to `referenceheight`
     groundcoeffs = _groundcoeffs(ea, source, σ, ϵᵣ, reflectionheight, referenceheight)
-    N11, N22, D11, D22 = ndground(groundcoeffs)
+    N11, D11, N22, D22 = ndground(groundcoeffs)
 
     k1 = N11 - X[1,1]*D11
     k2 = N22 - X[2,2]*D22
     f = k1*k2 - X[2,1]*X[1,2]*D11*D22
+end
+
+function modifiedmodalfunction_XdXdθ(ea::EigenAngle, source::AbstractSource, σ, ϵᵣ,
+                                 bottomheight, topheight, reflectionheight, referenceheight,
+                                 species,
+                                 bfield::BField)
+
+    # Unpack
+    k = source.k
+    S = ea.sinθ
+
+    # Calculate `X` and `dXdC` at `bottomheight`
+    sol = integratethroughionosphere_dC(ea, source,
+                                        topheight, bottomheight, referenceheight,
+                                        species, bfield)
+    X = @view sol[end][1:2,:]
+    dX = @view sol[end][3:4,:]
+
+    # Refer `X` and `dXdC` from `bottomheight` to `referenceheight`
+    integratethroughfreespace_XdXdC!(X, dX, ea, k,
+                                    bottomheight, reflectionheight, referenceheight)
+
+    # Calculate ground reflection matrix as `N` and `D` referred to     referenceheight
+    groundcoeffs = _groundcoeffs(ea, source, σ, ϵᵣ, reflectionheight, referenceheight)
+    N11, D11, N22, D22 = ndground(groundcoeffs)
+    dND = SMatrix{2,2}(dndgrounddC(ea, groundcoeffs))
+
+    D11D22 = D11*D22
+    X21X12 = X[2,1]*X[1,2]
+    k1 = N11 - X[1,1]*D11  # = dfdN11
+    k2 = N22 - X[2,2]*D22  # = dfdN22
+    f = k1*k2 - X21X12*D11D22
+
+    dfdND = @SMatrix [k2                        k1;
+                      -X[1,1]*k2-X21X12*D22     -X[2,2]*k1-X21X12*D11]
+
+    dfdX = @SMatrix [-D11*k2           -X[2,1]*D11D22;
+                     -X[1,2]*D11D22    -D22*k1]
+
+    df = sum(dfdX .* dX + dfdND .* dND)
+
+    dCdθ = deg2rad(-S)
+    dfdθ = df*dCdθ
+
+    return f, dfdθ
+end
+
+R2X(R, C) = (R + I)/C
+X2R(X, C) = C*X - I
+
+function modeparameters(ea::EigenAngle, X)
+    # Unpack
+    C, C², S = ea.cosθ, ea.cos²θ, ea.sinθ
+
+    R = X2R(X, C)
+
+    D11 = C*N11ₘ - D11ₘ
+    D22 = C*N22ₘ - D22ₘ
+
+    Rg = Diagonal(SVector{2}(D11ₘ/D11, D22ₘ/D22))
+    Rgp1 = C*Diagonal(SVector{2}(N11ₘ/D11, N22ₘ/D22))
+
+    dfdθ = rad2deg(dfdθₘ*C²/(D11*D22))
+    factor = sqrt(S)/dfdθ
+
+    # Eigen angle referred to ground level
+    K = sqrt(1 - 2h/earthradius)
+    stp = S/K
+    tp = rad2deg(-log(sqrt(1 - stp^2) + im*stp))
+
+    N = I - Rg*R
+
+    # Excitation terms
+
 end
 
 """
@@ -975,8 +1152,8 @@ end
 """
 Calculate modal height gain terms.
 """
-function heightgain(coeffs::GroundCoefficients)
-    C = cosd(θ)
+function heightgain(ea::EigenAngle, groundcoeffs)
+    C = ea.cosθ
 
     ζ = cbrt(k/α)^2*(C^2 + α*(height - reflectionheight))
     h1, h2, h1′, h2′ = modifiedhankel(ζ)
