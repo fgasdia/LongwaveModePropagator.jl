@@ -27,18 +27,18 @@ function BField(B::T, dip::T, azimuth::T) where T<:Number
     BField{T}(B, k1*cosd(azimuth), k1*sind(azimuth), -sind(dip))
 end
 
-struct Source{T} <: AbstractSource
-    freq::T
-    ω::T
-    k::T
-
-    function Source{T}(freq::T) where T<:Number
-        # f, ω, k
-        ω = 2π*freq
-        new(freq, ω, 1000ω/speedoflight) # NOTE: `k` is scalled to `km`
-    end
-end
-Source(freq::T) where T<:Number = Source{T}(freq)
+# struct Source{T} <: AbstractSource
+#     freq::T
+#     ω::T
+#     k::T
+#
+#     function Source{T}(freq::T) where T<:Number
+#         # f, ω, k
+#         ω = 2π*freq
+#         new(freq, ω, 1000ω/speedoflight) # NOTE: `k` is scalled to `km`
+#     end
+# end
+# Source(freq::T) where T<:Number = Source{T}(freq)
 
 
 struct Ground
@@ -142,7 +142,7 @@ function lwpcdensityprofile(h, h′, β)
     hten = Array{Float64}(undef, 51)
     algen = Array{Float64}(undef, 51)
 
-    hten[2] = 0
+    hten[2] = 0E
     hten[1] = 200
     algen[2] = 25.925-β*h′-9.4517306
     algen[1] = -4.075-β*h′-9.4517306+β*200
