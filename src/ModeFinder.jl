@@ -3,11 +3,9 @@ using LinearAlgebra
 using StaticArrays
 using PolynomialRoots
 using DifferentialEquations
-using Markdown
 
 using ModifiedHankelFunctionsOfOrderOneThird
 
-# TODO: NO MORE IN PLACE! Just use static arrays, they're faster for my small matrices
 
 # """
 # LWPC's MF_WVGD is a medium length subroutine that obtains approximate eigenangles (_modes_)
@@ -68,65 +66,132 @@ end
 Computation of susceptibility `M` matrix as defined by Budden (1955)
 [](10.1098/rspa.1955.0027).
 
-Constitutive relations (see Budden 1955, pg. 517):
-```math
-X = Ne²/ϵ₀mω² = ωₚ²/ω²
-Y = eB/mω = ωₘ/ω
-Z = ν/ω
-U = 1 - iZ
-```
-
-Susceptibility matrix ``M``:
-```math
-\\mathbf{M} = -\\frac{X}{U(U^2-Y^2)}
-    \\begin{pmatrix}
-        U^2 - l^2Y^2 & -iUnY - lmY^2 & iUmY-lnY^2
-        iUnY - lmY^2 & U^2 -m^2Y^2 & -iUlY-mnY^2
-        -iUmY-lnY^2 & iUlY-mnY^2 & U^2-n^2Y^2
-    \\end{pmatrix}
-```
+# TODO: Add M up for each species
 """
-function mmatrix!(M, ω, referenceheight, height, spec::Constituent, bfield::BField)
+function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     # Unpack
-    B, dcl, dcm, dcn = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+    B, l, m, n = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+    l², m², n² = l^2, m^2, n^2
 
-    # Initialize
-    earthcurvature = 2/earthradius*(height - referenceheight)
-
-    # TODO: Add M up for each species
-    # It's fast enough to mutate Static Arrays and easier to have multiple species
     # Constitutive relations (see Budden 1955, pg. 517)
     e, m, N, ν = spec.charge, spec.mass, spec.numberdensity, spec.collisionfrequency
-    X = N(height)*e^2/(ϵ₀*m*ω^2)
+    X = N(z)*e^2/(ϵ₀*m*ω^2)
     Y = e*B/(m*ω)
-    Z = ν(height)/ω
+    Z = ν(z)/ω
     U = 1 - im*Z
 
-    # Construct susceptibility matrix (see Budden 1955, eq. 3)
     U² = U^2
     Y² = Y^2
 
-    M[1,1] = U² - dcl^2*Y²
-    M[2,1] = im*dcn*Y*U - dcl*dcm*Y²
-    M[3,1] = -im*dcm*Y*U - dcl*dcn*Y²
-    M[1,2] = -im*dcn*Y*U - dcl*dcm*Y²
-    M[2,2] = U² - dcm^2*Y²
-    M[3,2] = im*dcl*Y*U - dcm*dcn*Y²
-    M[1,3] = im*dcm*Y*U - dcl*dcn*Y²
-    M[2,3] = -im*dcl*Y*U - dcm*dcn*Y²
-    M[3,3] =  U² - dcn^2*Y²
-
-    M .*= -X/(U*(U² - Y²))
+    earthcurvature = 2(z₀ - z)/earthradius
 
     # In LWPC and Sheddy 1968 Fortran Program `earthcurvature` is not multiplied by capd
     # (the above line), even though it _is_ multiplied in MS 1976.
     # This seems to be supported by Pappert 1968
-    M[1,1] += earthcurvature
-    M[2,2] += earthcurvature
-    M[3,3] += earthcurvature
+    M11 = U² - l²*Y²
+    M21 = im*n*Y*U - l*m*Y²
+    M31 = -im*m*Y*U - l*n*Y²
+    M12 = -im*n*Y*U - l*m*Y²
+    M22 = U² - m²*Y²
+    M32 = im*l*Y*U - m*n*Y²
+    M13 = im*m*Y*U - l*n*Y²
+    M23 = -im*l*Y*U - m*n*Y²
+    M33 =  U² - n²*Y²
+
+    M = SMatrix{3,3}(M11, M21, M31,
+                     M12, M22, M32,
+                     M13, M23, M33)
+
+    M *= -X/(U*(U² - Y²))
+
+    M -= earthcurvature*I  # This correction only occurs once after adding species
 
     return M
 end
+
+"""
+Compute matrix elements for solving differential of reflection matrix `R` wrt `z`.
+
+See Budden 1955 second method.
+
+```math
+e′ = -iTe
+```
+"""
+function smatrix(ea::EigenAngle, M)
+    # Unpack
+    C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
+    Cinv = 1/C
+
+    den = 1/(1 + M[3,3])
+
+    # Temporary matrix elements T
+    T11 = -S*M[3,1]*den
+    T12 = S*M[3,2]*den
+    # T13 = 0
+    T14 = (C² + M[3,3])*den
+    # T21 = 0
+    # T22 = 0
+    # T23 = 1
+    # T24 = 0
+    T31 = M[2,3]*M[3,1]*den - M[2,1]
+    T32 = C² + M[2,2] - M[2,3]*M[3,2]*den
+    # T33 = 0
+    T34 = S*M[2,3]*den
+    T41 = 1 + M[1,1] - M[1,3]*M[3,1]*den
+    T42 = M[3,2]*M[1,3]*den - M[1,2]
+    # T43 = 0
+    T44 = -S*M[1,3]*den
+
+    # Form the four 2x2 submatrices of `S`
+    S11 = @SMatrix [T11+T44+T14*Cinv+C*T41 -T12*Cinv-T42;
+                    -T31-T34*Cinv C+T32*Cinv]
+    S12 = @SMatrix [-T11+T44+T14*Cinv-C*T41 -T12*Cinv-T42;
+                    T31-T34*Cinv -C+T32*Cinv]
+    S21 = @SMatrix [-T11+T44-T14*Cinv+C*T41 T12*Cinv-T42;
+                    T31+T34*Cinv C-T32*Cinv]
+    S22 = @SMatrix [T11+T44-T14*Cinv-C*T41 T12*Cinv-T42;
+                    -T31+T34*Cinv -C-T32*Cinv]
+
+    return S11, S12, S21, S22
+
+    #== Equivalent to (but ~2x faster than):
+    T = SMatrix{4,4}(T11, T21, T31, T41,
+                     T12, T22, T32, T42,
+                     T13, T23, T33, T43,
+                     T14, T24, T34, T44)
+
+    L = SMatrix{4,4}(C, 0, 0, 1,
+                     0, -1, -C, 0,
+                     -C, 0, 0, 1,
+                     0, -1, C, 0)
+
+    Linv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
+                        0, -1, 0, -1,
+                        0, -Cinv, 0, Cinv,
+                        1, 0, 1, 0)
+
+    S = Linv*T*L
+    ==#
+end
+
+"""
+Calculate the derivative of the reflection matrix `R` wrt height `z`.
+
+Expects S to be a tuple of `(S11, S12, S21, S22)`.
+
+The factor of `k` appears explicitly because Budden 1955 derives R′ wrt a height
+variable ``s'' which includes k.
+"""
+function dRdz(R, S, k)
+    return -im*k/2*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
+end
+
+
+
+
+#######################################################
+
 
 """
 Compute the (S matrix) coefficients used in the differential equations for ``(R+1)/C``.
