@@ -1,8 +1,9 @@
 using SpecialFunctions
 using LinearAlgebra
 using StaticArrays
-using PolynomialRoots
 using DifferentialEquations
+
+import PolynomialRoots.roots!
 
 using ModifiedHankelFunctionsOfOrderOneThird
 
@@ -212,46 +213,12 @@ function bookerquartic(ea::EigenAngle, M)
          (1 + M[1,1])*M[2,3]*M[3,2] -
          M[1,2]*M[2,1]*(C² + M[3,3])
 
-    b3 = B3/(4*B4)
-    b2 = B2/(6*B4)
-    b1 = B1/(4*B4)
-    b0 = B0/B4
+    q = @MVector zeros(typeof(S), 4)
+    B = MVector{5}(B0, B1, B2, B3, B4)
 
-    H = b2 - b3^2
-    Iv = b0 - 4*b3*b1 + 3*b2^2
-    G = b1 - 3*b3*b2 + 2*b3^2
-    h = -Iv/12
-    g = -G^2/4 - H*(H^2 + 3h)
-    tmpsqrt = sqrt(g^2 + 4*h^3)
-    p = (-g + tmpsqrt)/2
-    p = ifelse(abs(p) > 1e-10, p, (-g - tmpsqrt)/2)
+    roots!(q, B, NaN, 4, false)  # false = do not polish
 
-    cbrtr = cbrt(abs(p))
-    thirdθ = angle(p)/3
-    s1 = cbrtr*cis(2π*1/3+thirdθ)
-    s2 = cbrtr*cis(2π*2/3+thirdθ)
-    s3 = cbrtr*cis(2π+thirdθ)
-
-    r1 = sqrt(s1 - h/s1 - H)
-    r2 = sqrt(s2 - h/s2 - H)
-    r3 = sqrt(s3 - h/s3 - H)
-    r1 = ifelse(abs(-2*r1*r2*r3/G) > 0, r1, -r1)
-
-    q1 = r1 + r2 + r3 - b3
-    q2 = r1 - r2 - r3 - b3
-    q3 = -r1 + r2 - r3 - b3
-    q4 = -r1 - r2 + r3 - b3
-
-    q = MVector{4}(q1, q2, q3, q4)
     sort!(q, by=anglefrom315)
-
-    #==
-    Similar to (but faster than):
-    bcoeffs = SVector{5}(b0, b1, b2, b3, b4)
-
-    q = MVector{4}(roots([b0, b1, b2, b3, b4]))
-    sort!(q, by=anglefrom315)
-    ==#
 
     return q
 end
