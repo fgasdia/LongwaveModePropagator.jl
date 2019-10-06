@@ -6,26 +6,6 @@ using DifferentialEquations
 
 using ModifiedHankelFunctionsOfOrderOneThird
 
-
-# """
-# LWPC's MF_WVGD is a medium length subroutine that obtains approximate eigenangles (_modes_)
-# in a single path segment. It calls several secondary routines to accomplish this task.
-# """
-# function waveguide(inputs::Inputs)
-# # Unpack
-# azim, dip = inputs.azim, inputs.dip
-#
-# # Initialize
-# dcl = cosd(dip)*cosd(azim)
-# dcm = cosd(dip)*sind(azim)
-# dcn = -sind(dip)
-#
-# # Initialize search area
-# Zb, Ze = boundaries(freq)
-# Δθmesh = sqrt(3.75e3/freq)  # (deg) search grid size
-# tolerance = 0.1  # (deg)
-# end
-
 struct EigenAngle{T}
     θ::T
     cosθ::T
@@ -104,7 +84,7 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
 
     M *= -X/(U*(U² - Y²))
 
-    M -= earthcurvature*I  # This correction only occurs once after adding species
+    M -= earthcurvature*I  # This correction only occurs once after adding species?
 
     return M
 end
@@ -126,36 +106,57 @@ function smatrix(ea::EigenAngle, M)
     den = 1/(1 + M[3,3])
 
     # Temporary matrix elements T
-    T11 = -S*M[3,1]*den
-    T12 = S*M[3,2]*den
+    m31d = M[3,1]*den
+    m32d = M[3,2]*den
+
+    T11 = -S*m31d
+    T12 = S*m32d
     # T13 = 0
     T14 = (C² + M[3,3])*den
     # T21 = 0
     # T22 = 0
     # T23 = 1
     # T24 = 0
-    T31 = M[2,3]*M[3,1]*den - M[2,1]
-    T32 = C² + M[2,2] - M[2,3]*M[3,2]*den
+    T31 = M[2,3]*m31d - M[2,1]
+    T32 = C² + M[2,2] - M[2,3]*m32d
     # T33 = 0
     T34 = S*M[2,3]*den
-    T41 = 1 + M[1,1] - M[1,3]*M[3,1]*den
-    T42 = M[3,2]*M[1,3]*den - M[1,2]
+    T41 = 1 + M[1,1] - M[1,3]*m31d
+    T42 = M[1,3]*m32d - M[1,2]
     # T43 = 0
     T44 = -S*M[1,3]*den
 
+    # S matrix, based on Sheddy et al., 1968, A Fortran Program...
+    t12Cinv = T12*Cinv
+    t14Cinv = T14*Cinv
+    t32Cinv = T32*Cinv
+    t34Cinv = T34*Cinv
+    t41C = C*T41
+
+    s11a = T11 + T44
+    d11a = T11 - T44
+    s11b = t14Cinv + t41C
+    d11b = t14Cinv - t41C
+    s12 = t12Cinv + T42
+    d12 = t12Cinv - T42
+    s21 = T31 + t34Cinv
+    d21 = T31 - t34Cinv
+    s22 = C + t32Cinv
+    d22 = C - t32Cinv
+
     # Form the four 2x2 submatrices of `S`
-    S11 = @SMatrix [T11+T44+T14*Cinv+C*T41 -T12*Cinv-T42;
-                    -T31-T34*Cinv C+T32*Cinv]
-    S12 = @SMatrix [-T11+T44+T14*Cinv-C*T41 -T12*Cinv-T42;
-                    T31-T34*Cinv -C+T32*Cinv]
-    S21 = @SMatrix [-T11+T44-T14*Cinv+C*T41 T12*Cinv-T42;
-                    T31+T34*Cinv C-T32*Cinv]
-    S22 = @SMatrix [T11+T44-T14*Cinv-C*T41 T12*Cinv-T42;
-                    -T31+T34*Cinv -C-T32*Cinv]
+    S11 = @SMatrix [s11a+s11b -s12;
+                    -s21 s22]
+    S12 = @SMatrix [-d11a+d11b -s12;
+                    d21 -d22]
+    S21 = @SMatrix [-d11a-d11b d12;
+                    s21 d22]
+    S22 = @SMatrix [s11a-s11b d12;
+                    -d21 -s22]
 
     return S11, S12, S21, S22
 
-    #== Equivalent to (but ~2x faster than):
+    #== Equivalent to (but faster than):
     T = SMatrix{4,4}(T11, T21, T31, T41,
                      T12, T22, T32, T42,
                      T13, T23, T33, T43,
@@ -187,7 +188,165 @@ function dRdz(R, S, k)
     return -im*k/2*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
 end
 
+"""
+Calculation of Booker quartic for solution of `R` for a sharply bounded ionosphere.
 
+Based on Sheddy 1968 A General Analytic Solution for Reflection from a Sharply...
+
+See also: [`sharplyboundedX!`](@ref)
+"""
+function bookerquartic(ea::EigenAngle, M)
+    # Initialize
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Booker quartic coefficients
+    B4 = 1 + M[3,3]
+    B3 = S*(M[1,3] + M[3,1])
+    B2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
+         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
+    B1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
+         (C² + M[2,2])*(M[1,3] + M[3,1]))
+    B0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
+         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
+         M[1,3]*(C² + M[2,2])*M[3,1] -
+         (1 + M[1,1])*M[2,3]*M[3,2] -
+         M[1,2]*M[2,1]*(C² + M[3,3])
+
+    b3 = B3/(4*B4)
+    b2 = B2/(6*B4)
+    b1 = B1/(4*B4)
+    b0 = B0/B4
+
+    H = b2 - b3^2
+    Iv = b0 - 4*b3*b1 + 3*b2^2
+    G = b1 - 3*b3*b2 + 2*b3^2
+    h = -Iv/12
+    g = -G^2/4 - H*(H^2 + 3h)
+    tmpsqrt = sqrt(g^2 + 4*h^3)
+    p = (-g + tmpsqrt)/2
+    p = ifelse(abs(p) > 1e-10, p, (-g - tmpsqrt)/2)
+
+    cbrtr = cbrt(abs(p))
+    thirdθ = angle(p)/3
+    s1 = cbrtr*cis(2π*1/3+thirdθ)
+    s2 = cbrtr*cis(2π*2/3+thirdθ)
+    s3 = cbrtr*cis(2π+thirdθ)
+
+    r1 = sqrt(s1 - h/s1 - H)
+    r2 = sqrt(s2 - h/s2 - H)
+    r3 = sqrt(s3 - h/s3 - H)
+    r1 = ifelse(abs(-2*r1*r2*r3/G) > 0, r1, -r1)
+
+    q1 = r1 + r2 + r3 - b3
+    q2 = r1 - r2 - r3 - b3
+    q3 = -r1 + r2 - r3 - b3
+    q4 = -r1 - r2 + r3 - b3
+
+    q = MVector{4}(q1, q2, q3, q4)
+    sort!(q, by=anglefrom315)
+
+    #==
+    Similar to (but faster than):
+    bcoeffs = SVector{5}(b0, b1, b2, b3, b4)
+
+    q = MVector{4}(roots([b0, b1, b2, b3, b4]))
+    sort!(q, by=anglefrom315)
+    ==#
+
+    return q
+end
+
+"""
+Calculate angle from 315°.
+
+Used to sort in [`sharplyboundedX!`](@ref).
+"""
+function anglefrom315(qval)
+    angq = rad2deg(angle(qval))
+    angq < 0 && (angq += 360)
+    angq < 135 && (angq += 360)
+    abs(angq - 315)
+end
+
+
+"""
+Common variables for [`sharplyboundedX`](@ref) and [`sharplyboundedXdXdC`](@ref).
+"""
+function _sharplybounded(ea::EigenAngle, M, q)
+    # Initialize
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Dispersion matrix elements for X
+    D12 = M[1,2]
+    D32 = M[3,2]
+    D33 = C² + M[3,3]
+
+    # For `q[1]`
+    D11₁ = 1 + M[1,1] - q[1]^2
+    D13₁ = M[1,3] + q[1]*S
+    D31₁ = M[3,1] + q[1]*S
+    denom₁ = D11₁*D33 - D13₁*D31₁
+    P1 = (-D12*D33 + D13₁*D32)/denom₁
+    T1 = q[1]*P1 - S*(-D11₁*D32 + D12*D31₁)/denom₁
+
+    # For `q[2]`
+    D11₂ = 1 + M[1,1] - q[2]^2
+    D13₂ = M[1,3] + q[2]*S
+    D31₂ = M[3,1] + q[2]*S
+    denom₂ = D11₂*D33 - D13₂*D31₂
+    P2 = (-D12*D33 + D13₂*D32)/denom₂
+    T2 = q[2]*P2 - S*(-D11₂*D32 + D12*D31₂)/denom₂
+
+    Δ = (T1*C + P1)*(C + q[2]) - (T2*C + P2)*(C + q[1])
+
+    return (D12=D12, D32=D32, D33=D33,
+            D11₁=D11₁, D13₁=D13₁, D31₁=D31₁, denom₁=denom₁, P1=P1, T1=T1,
+            D11₂=D11₂, D13₂=D13₂, D31₂=D31₂, denom₂=denom₂, P2=P2, T2=T2,
+            Δ=Δ)
+end
+
+"""
+Computation of ``X = (R+1)/C`` for reflection from a sharply bounded anisotropic ionosphere of
+semi-infinite extent where R is the reflection coefficient matrix as defined by Budden. The
+solution is used as the initial condition for integration. This solution is derived from the
+one in Radio Science Vol. 3, Aug 1968 pg. 792-795, although makes use of a different solver.
+
+The physics is described by ``D\\mathbf{E} = 0`` where ``E`` is the electric vector of the
+elm wave and ``D`` is the dispersion matrix ``I + M + L`` where ``I`` is the unit matrix and
+```math
+L = \\begin{pmatrix}
+        -q^2 & 0 & qS \\
+        0 & -q^2 - S^2 & 0 \\
+        qS & 0 & -S^2
+    \\end{pmatrix}
+q = nₜ\\cos θₜ
+θₜ = \\mathrm{angle of refraction}
+S = \\sin θ
+θ = \\mathrm{angle of incidence}
+```
+If ``D\\mathbf{E} = 0`` is to have nontrivial solutions, the determinant of ``D`` must be zero.
+The equation ``|D| = 0`` is a 4th order polynomial ("quartic") in `q`. The two roots of the
+quartic closest to the positive real and negative imaginary axis are calculated and chosen
+to form ``D``, which are then used to form the reflection coefficient matrix ``R`` (or ``X``).
+
+See LWPC: `mf_initr.for`
+
+See also: [`bookerquartic`](@ref)
+"""
+function sharplyboundedX!(X, D, ea::EigenAngle, q)
+    # Unpack
+    C = ea.cosθ
+    P1, P2, T1, T2, Δ = D.P1, D.P2, D.T1, D.T2, D.Δ
+
+    X[1,1] = T1*(C + q[2]) - T2*(C +q[1])
+    X[2,1] = -(q[1] - q[2])
+    X[1,2] = -(T1*P2 - T2*P1)
+    X[2,2] = (T1*C + P1) - (T2*C + P2)
+
+    X .*= 2/Δ
+
+    return X
+end
 
 
 #######################################################
@@ -295,128 +454,6 @@ function dsmatrixdC(ea::EigenAngle, M)
                    -T31+ds*M[2,3]/oneplusM33                                        0]
 
     return dB, dC, dD
-end
-
-"""
-Calculate angle from 315°.
-
-Used to sort in [`sharplyboundedX!`](@ref).
-"""
-function anglefrom315(qval)
-    angq = rad2deg(angle(qval))
-    angq < 0 && (angq += 360)
-    angq < 135 && (angq += 360)
-    abs(angq - 315)
-end
-
-"""
-Calculation of Booker quartic for solution of `X` for a sharply bounded ionosphere.
-
-See also: [`sharplyboundedX!`](@ref)
-"""
-function bookerquartic(ea::EigenAngle, M)
-    # Initialize
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    # Booker quartic coefficients
-    b4 = 1 + M[3,3]
-    b3 = S*(M[1,3] + M[3,1])
-    b2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
-         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
-    b1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
-         (C² + M[2,2])*(M[1,3] + M[3,1]))
-    b0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
-         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
-         M[1,3]*(C² + M[2,2])*M[3,1] -
-         (1 + M[1,1])*M[2,3]*M[3,2] -
-         M[1,2]*M[2,1]*(C² + M[3,3])
-
-    bcoeffs = SVector{5}(b0, b1, b2, b3, b4)
-
-    # TODO: (Once supported- MVector stays as MVector through ops) input bcoeffs to roots
-    q = MVector{4}(roots([b0, b1, b2, b3, b4]))
-    sort!(q, by=anglefrom315)
-
-    return q, bcoeffs
-end
-
-"""
-Common variables for [`sharplyboundedX`](@ref) and [`sharplyboundedXdXdC`](@ref).
-"""
-function _sharplybounded(ea::EigenAngle, M, q)
-    # Initialize
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    # Dispersion matrix elements for X
-    D12 = M[1,2]
-    D32 = M[3,2]
-    D33 = C² + M[3,3]
-
-    # For `q[1]`
-    D11₁ = 1 + M[1,1] - q[1]^2
-    D13₁ = M[1,3] + q[1]*S
-    D31₁ = M[3,1] + q[1]*S
-    denom₁ = D11₁*D33 - D13₁*D31₁
-    P1 = (-D12*D33 + D13₁*D32)/denom₁
-    T1 = q[1]*P1 - S*(-D11₁*D32 + D12*D31₁)/denom₁
-
-    # For `q[2]`
-    D11₂ = 1 + M[1,1] - q[2]^2
-    D13₂ = M[1,3] + q[2]*S
-    D31₂ = M[3,1] + q[2]*S
-    denom₂ = D11₂*D33 - D13₂*D31₂
-    P2 = (-D12*D33 + D13₂*D32)/denom₂
-    T2 = q[2]*P2 - S*(-D11₂*D32 + D12*D31₂)/denom₂
-
-    Δ = (T1*C + P1)*(C + q[2]) - (T2*C + P2)*(C + q[1])
-
-    return (D12=D12, D32=D32, D33=D33,
-            D11₁=D11₁, D13₁=D13₁, D31₁=D31₁, denom₁=denom₁, P1=P1, T1=T1,
-            D11₂=D11₂, D13₂=D13₂, D31₂=D31₂, denom₂=denom₂, P2=P2, T2=T2,
-            Δ=Δ)
-end
-
-"""
-Computation of ``X = (R+1)/C`` for reflection from a sharply bounded anisotropic ionosphere of
-semi-infinite extent where R is the reflection coefficient matrix as defined by Budden. The
-solution is used as the initial condition for integration. This solution is derived from the
-one in Radio Science Vol. 3, Aug 1968 pg. 792-795, although makes use of a different solver.
-
-The physics is described by ``D\\mathbf{E} = 0`` where ``E`` is the electric vector of the
-elm wave and ``D`` is the dispersion matrix ``I + M + L`` where ``I`` is the unit matrix and
-```math
-L = \\begin{pmatrix}
-        -q^2 & 0 & qS \\
-        0 & -q^2 - S^2 & 0 \\
-        qS & 0 & -S^2
-    \\end{pmatrix}
-q = nₜ\\cos θₜ
-θₜ = \\mathrm{angle of refraction}
-S = \\sin θ
-θ = \\mathrm{angle of incidence}
-```
-If ``D\\mathbf{E} = 0`` is to have nontrivial solutions, the determinant of ``D`` must be zero.
-The equation ``|D| = 0`` is a 4th order polynomial ("quartic") in `q`. The two roots of the
-quartic closest to the positive real and negative imaginary axis are calculated and chosen
-to form ``D``, which are then used to form the reflection coefficient matrix ``R`` (or ``X``).
-
-See LWPC: `mf_initr.for`
-
-See also: [`bookerquartic`](@ref)
-"""
-function sharplyboundedX!(X, D, ea::EigenAngle, q)
-    # Unpack
-    C = ea.cosθ
-    P1, P2, T1, T2, Δ = D.P1, D.P2, D.T1, D.T2, D.Δ
-
-    X[1,1] = T1*(C + q[2]) - T2*(C +q[1])
-    X[2,1] = -(q[1] - q[2])
-    X[1,2] = -(T1*P2 - T2*P1)
-    X[2,2] = (T1*C + P1) - (T2*C + P2)
-
-    X .*= 2/Δ
-
-    return X
 end
 
 """
