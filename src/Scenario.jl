@@ -13,11 +13,14 @@ struct Source{T} <: AbstractSource
     freq::T
     ω::T
     k::T
+    λ::T
 
     function Source{T}(freq::T) where T<:Number
         # f, ω, k
         ω = 2π*freq
-        new(freq, ω, ω/speedoflight)
+        k = ω/speedoflight
+        λ = speedoflight/freq
+        new(freq, ω, k, λ)
     end
 end
 Source(freq::T) where T<:Number = Source{T}(freq)

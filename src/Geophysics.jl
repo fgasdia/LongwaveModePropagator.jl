@@ -65,8 +65,8 @@ Note:
 - `h′` must be in km
 - `β` must be in km⁻¹
 """
-function waitprofile(h, h′, β)
-    return 1.43e13*exp(-0.15h′)*exp((β-0.15)*(h-h′))
+function waitprofile(z, h′, β)
+    return 1.43e13*exp(-0.15h′)*exp((β-0.15)*(z-h′))
 end
 
 """
@@ -76,8 +76,8 @@ per second.
 Note:
 - `h` must be in km
 """
-function collisionprofile(h)
-    return 1.86e11*exp(-0.15h)
+function collisionprofile(z)
+    return 1.86e11*exp(-0.15z)
 end
 
 """
@@ -142,7 +142,7 @@ function lwpcdensityprofile(h, h′, β)
     hten = Array{Float64}(undef, 51)
     algen = Array{Float64}(undef, 51)
 
-    hten[2] = 0E
+    hten[2] = 0
     hten[1] = 200
     algen[2] = 25.925-β*h′-9.4517306
     algen[1] = -4.075-β*h′-9.4517306+β*200
