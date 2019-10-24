@@ -124,6 +124,12 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     return M
 end
 
+
+function _common_smatrix(ea::EigenAngle, M)
+
+end
+
+
 """
 Compute matrix elements for solving differential of reflection matrix `R` wrt `z`.
 
@@ -209,6 +215,85 @@ function smatrix(ea::EigenAngle, M)
 
     S = Linv*T*L
     ==#
+end
+
+function dsmatrixdθ(ea::EigenAngle, M)
+    # Unpack
+    C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
+    Cinv = 1/C
+    C²inv = 1/C²
+
+    dS = C
+    dC = -S
+    dC² = -2*S*C
+
+    den = 1/(1 + M[3,3])
+
+    # Temporary matrix elements T
+    m31d = M[3,1]*den
+    m32d = M[3,2]*den
+
+    dT11 = -dS*M[3,1]*den
+    dT12 = dS*M[3,2]*den
+    # dT13 = 0
+    dT14 = dC²*den
+    # dT21 = 0
+    # dT22 = 0
+    # dT23 = 1
+    # dT24 = 0
+    # dT31 = 0
+    dT32 = dC²
+    # dT33 = 0
+    dT34 = dS*M[2,3]*den
+    # dT41 = 0
+    # dT42 = 0
+    # dT43 = 0
+    dT44 = -dS*M[1,3]*den
+
+    T11 = -S*m31d
+    T12 = S*m32d
+    # T13 = 0
+    T14 = (C² + M[3,3])*den
+    # T21 = 0
+    # T22 = 0
+    # T23 = 1
+    # T24 = 0
+    T31 = M[2,3]*m31d - M[2,1]
+    T32 = C² + M[2,2] - M[2,3]*m32d
+    # T33 = 0
+    T34 = S*M[2,3]*den
+    T41 = 1 + M[1,1] - M[1,3]*m31d
+    T42 = M[1,3]*m32d - M[1,2]
+    # T43 = 0
+    T44 = -S*M[1,3]*den
+
+
+    dS11_11 = dT11 + dT44 + (dT14*C - T41*dC)*C²inv
+    dS11_21 = -(dT34*C - T34*dC)*C²inv
+    dS11_12 = -(dT12*C - T12*dC)*C²inv
+    dS11_22 = dC + (dT32*C - T32*dC)*C²inv
+
+    dS21_11 = -dT11 + dT44 - (dT14*C - T14*dC)*C²inv + dC*T41
+    dS21_21 = (dT34*C - T34*dC)*C²inv
+    dS21_12 = (dT12*C - T12*dC)*C²inv
+    dS21_22 = dC - (dT32*C - T32*dC)*C²inv
+
+    dS12_11 = -dT11 + dT44 + (dT14*C - T14*dC)*C²inv - dC*T41
+    dS12_21 = -(dT34*C - T34*dC)*C²inv
+    dS12_12 = -(dT12*C - T12*dC)*C²inv
+    dS12_22 = -dC + (dT32*C - T32*dC)*C²inv
+
+    dS22_11 = dT11 + dT44 - (dT14*C - T14*dC)*C²inv
+    dS22_21 = (dT34*C - T34*dC)*C²inv
+    dS22_12 = (dT12*C - T12*dC)*C²inv
+    dS22_22 = -dC - (dT32*C - T32*dC)*C²inv
+
+    dS11 = SMatrix{2,2}(dS11_11, dS11_21, dS11_12, dS11_22)
+    dS21 = SMatrix{2,2}(dS21_11, dS21_21, dS21_12, dS21_22)
+    dS12 = SMatrix{2,2}(dS12_11, dS12_21, dS12_12, dS12_22)
+    dS22 = SMatrix{2,2}(dS22_11, dS22_21, dS22_12, dS22_22)
+
+    return dS11, dS12, dS21, dS22
 end
 
 """
@@ -457,6 +542,8 @@ XXX: Maybe hardcode this?
 """
 F(R, Rg) = det(Rg*R .- 1)
 
+# dFdθ(dR, dRg) =
+
 """
 Adjugate of A
 
@@ -474,11 +561,10 @@ at height `z` with reference height `H`. `d` is reference height for solving F(�
 function heightgains(z, ea::EigenAngle)
     C² = ea.cos²θ
 
-    # TODO: Rather than calling these functions, just insert `ζd` into equations for fpar, fperp, g
-
     ζ = (k/α)^(2/3)*(C² + α*(z - H))
     ζd = (k/α)^(2/3)*(C² + α*(d - H))
 
+    # TODO: Rather than calling these functions, just insert `ζd` into equations for fpar, fperp, g
     # height gain for vertical electric field cponent (Ez)
     fpar(z) = (QC1*h1(ζ) + GC*h2(ζ))*exp((z - d)/earthradius)
 
