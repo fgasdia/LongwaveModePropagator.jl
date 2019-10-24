@@ -55,6 +55,19 @@ end
     invΔ
 end
 
+# TODO: Make this inherit from AbstractSparseArray
+@with_kw struct TMatrix{T<:Number} @deftype T
+    T11
+    T12
+    T14
+    T31
+    T32
+    T34
+    T41
+    T42
+    T44
+end
+
 """
 Search boundary for zeros in complex plane.
 
@@ -124,29 +137,11 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     return M
 end
 
-
-function _common_smatrix(ea::EigenAngle, M)
-
-end
-
-
-"""
-Compute matrix elements for solving differential of reflection matrix `R` wrt `z`.
-
-See Budden 1955 second method.
-
-```math
-e′ = -iTe
-```
-"""
-function smatrix(ea::EigenAngle, M)
-    # Unpack
-    C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
-    Cinv = 1/C
+function tmatrix(ea::EigenAngle, M)
+    S, C² = ea.sinθ, ea.cos²θ
 
     den = 1/(1 + M[3,3])
 
-    # Temporary matrix elements T
     m31d = M[3,1]*den
     m32d = M[3,2]*den
 
@@ -167,7 +162,27 @@ function smatrix(ea::EigenAngle, M)
     # T43 = 0
     T44 = -S*M[1,3]*den
 
-    # S matrix, based on Sheddy et al., 1968, A Fortran Program...
+    return TMatrix(T11, T12, T14, T31, T32, T34, T41, T42, T44)
+end
+
+
+"""
+Compute matrix elements for solving differential of reflection matrix `R` wrt `z`.
+
+See Budden 1955 second method.
+
+```math
+e′ = -iTe
+```
+"""
+function smatrix(ea::EigenAngle, T::TMatrix)
+    C = ea.cosθ
+    Cinv = 1/C
+
+    # Temporary matrix elements T
+    @unpack T11, T12, T14, T31, T32, T34, T41, T42, T44 = T
+
+    # based on Sheddy et al., 1968, A Fortran Program...
     t12Cinv = T12*Cinv
     t14Cinv = T14*Cinv
     t32Cinv = T32*Cinv
@@ -217,7 +232,7 @@ function smatrix(ea::EigenAngle, M)
     ==#
 end
 
-function dsmatrixdθ(ea::EigenAngle, M)
+function dsmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     # Unpack
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
     Cinv = 1/C
@@ -226,12 +241,12 @@ function dsmatrixdθ(ea::EigenAngle, M)
     dS = C
     dC = -S
     dC² = -2*S*C
-
-    den = 1/(1 + M[3,3])
+    dCinv = S/C²
 
     # Temporary matrix elements T
-    m31d = M[3,1]*den
-    m32d = M[3,2]*den
+    @unpack T12, T14, T32, T34, T41 = T
+
+    den = 1/(1 + M[3,3])
 
     dT11 = -dS*M[3,1]*den
     dT12 = dS*M[3,2]*den
@@ -239,7 +254,7 @@ function dsmatrixdθ(ea::EigenAngle, M)
     dT14 = dC²*den
     # dT21 = 0
     # dT22 = 0
-    # dT23 = 1
+    # dT23 = 0
     # dT24 = 0
     # dT31 = 0
     dT32 = dC²
@@ -250,48 +265,32 @@ function dsmatrixdθ(ea::EigenAngle, M)
     # dT43 = 0
     dT44 = -dS*M[1,3]*den
 
-    T11 = -S*m31d
-    T12 = S*m32d
-    # T13 = 0
-    T14 = (C² + M[3,3])*den
-    # T21 = 0
-    # T22 = 0
-    # T23 = 1
-    # T24 = 0
-    T31 = M[2,3]*m31d - M[2,1]
-    T32 = C² + M[2,2] - M[2,3]*m32d
-    # T33 = 0
-    T34 = S*M[2,3]*den
-    T41 = 1 + M[1,1] - M[1,3]*m31d
-    T42 = M[1,3]*m32d - M[1,2]
-    # T43 = 0
-    T44 = -S*M[1,3]*den
+    dt12Cinv = dT12*Cinv + T12*dCinv
+    dt14Cinv = dT14*Cinv + T14*dCinv
+    dt32Cinv = dT32*Cinv + T32*dCinv
+    dt34Cinv = dT34*Cinv + T34*dCinv
+    dt41C = dC*T41
 
+    ds11a = dT11 + dT44
+    dd11a = dT11 - dT44
+    ds11b = dt14Cinv + dt41C
+    dd11b = dt14Cinv - dt41C
+    ds12 = dt12Cinv
+    dd12 = dt12Cinv
+    ds21 = dt34Cinv
+    dd21 = -dt34Cinv
+    ds22 = dC + dt32Cinv
+    dd22 = dC - dt32Cinv
 
-    dS11_11 = dT11 + dT44 + (dT14*C - T41*dC)*C²inv
-    dS11_21 = -(dT34*C - T34*dC)*C²inv
-    dS11_12 = -(dT12*C - T12*dC)*C²inv
-    dS11_22 = dC + (dT32*C - T32*dC)*C²inv
-
-    dS21_11 = -dT11 + dT44 - (dT14*C - T14*dC)*C²inv + dC*T41
-    dS21_21 = (dT34*C - T34*dC)*C²inv
-    dS21_12 = (dT12*C - T12*dC)*C²inv
-    dS21_22 = dC - (dT32*C - T32*dC)*C²inv
-
-    dS12_11 = -dT11 + dT44 + (dT14*C - T14*dC)*C²inv - dC*T41
-    dS12_21 = -(dT34*C - T34*dC)*C²inv
-    dS12_12 = -(dT12*C - T12*dC)*C²inv
-    dS12_22 = -dC + (dT32*C - T32*dC)*C²inv
-
-    dS22_11 = dT11 + dT44 - (dT14*C - T14*dC)*C²inv
-    dS22_21 = (dT34*C - T34*dC)*C²inv
-    dS22_12 = (dT12*C - T12*dC)*C²inv
-    dS22_22 = -dC - (dT32*C - T32*dC)*C²inv
-
-    dS11 = SMatrix{2,2}(dS11_11, dS11_21, dS11_12, dS11_22)
-    dS21 = SMatrix{2,2}(dS21_11, dS21_21, dS21_12, dS21_22)
-    dS12 = SMatrix{2,2}(dS12_11, dS12_21, dS12_12, dS12_22)
-    dS22 = SMatrix{2,2}(dS22_11, dS22_21, dS22_12, dS22_22)
+    # Form the four 2x2 submatrices of `dS`
+    dS11 = @SMatrix [ds11a+ds11b -ds12;
+                     -ds21 ds22]
+    dS12 = @SMatrix [-dd11a+dd11b -ds12;
+                     dd21 -dd22]
+    dS21 = @SMatrix [-dd11a-dd11b dd12;
+                     ds21 dd22]
+    dS22 = @SMatrix [ds11a-ds11b dd12;
+                     -dd21 -ds22]
 
     return dS11, dS12, dS21, dS22
 end

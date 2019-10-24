@@ -24,7 +24,7 @@ spec = LWMS.Constituent(-LWMS.fundamentalcharge, LWMS.electronmass,
 bfield = LWMS.BField(0.5e-4, -0.2, -0.3, -0.9)
 M = LWMS.susceptibility(ω, z₀, z, spec, bfield)
 
-h = 0.01*π/180
+h = 0.1*π/180
 eas = [LWMS.EigenAngle(th) for th in complex.(range(0.0, π/2; step=h), 10π/180)]
 qBs = [LWMS.bookerquartic(ea, M) for ea in eas]
 qs = getindex.(qBs, 1)
@@ -625,3 +625,87 @@ pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
 v |> SVG("C:\\Users\\forrest\\Desktop\\Rs.svg", 12inch, 7inch)
+
+
+#===
+S Matrix
+===#
+
+Ts = [LWMS.tmatrix(ea, M) for ea in eas]
+Ss = [LWMS.smatrix(ea, T) for (ea, T) in zip(eas, Ts)]
+dSs = [LWMS.dsmatrixdθ(ea, M, T) for (ea, T) in zip(eas, Ts)]
+
+S1s = getfield.(Ss, 1)
+S2s = getfield.(Ss, 2)
+S3s = getfield.(Ss, 3)
+S4s = getfield.(Ss, 4)
+
+dS1s = getfield.(dSs, 1)
+dS2s = getfield.(dSs, 2)
+dS3s = getfield.(dSs, 3)
+dS4s = getfield.(dSs, 4)
+
+realS1s, imagS1s = unzip(reim.(S1s))
+realS2s, imagS2s = unzip(reim.(S2s))
+realS3s, imagS3s = unzip(reim.(S3s))
+realS4s, imagS4s = unzip(reim.(S4s))
+
+realdS1s, imagdS1s = unzip(reim.(dS1s))
+realdS2s, imagdS2s = unzip(reim.(dS2s))
+realdS3s, imagdS3s = unzip(reim.(dS3s))
+realdS4s, imagdS4s = unzip(reim.(dS4s))
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S11_$i")] = getfield.(Tuple.(realS1s), i)
+end
+realS1df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S11_$i")] = getfield.(Tuple.(imagS1s), i)
+end
+imagS1df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS11_$i")] = getfield.(Tuple.(realdS1s), i)
+end
+for i = 1:4
+    realfdR = finitediff(getfield.(Tuple.(realS1s), i), h)
+    tmpdf[!,Symbol("finite_dS11_$i")] = [realfdR; realfdR[end]]
+end
+realdS1df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS11_$i")] = getfield.(Tuple.(imagdS1s), i)
+end
+for i = 1:4
+    imagfdR = finitediff(getfield.(Tuple.(imagS1s), i), h)
+    tmpdf[!,Symbol("finite_dS11_$i")] = [imagfdR; imagfdR[end]]
+end
+imagdS1df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+pr = plot(realS1df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pi = plot(imagS1df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+pdr = plot(realdS1df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pdi = plot(imagdS1df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+v = gridstack([pr pi; pdr pdi]);
+v |> SVG("C:\\Users\\forrest\\Desktop\\S1s.svg", 12inch, 7inch)
