@@ -243,14 +243,13 @@ function bookerquartic(ea::EigenAngle, M)
     return q, B
 end
 
-
 """
 Calculate angle from 315°.
 
 Used to sort in [`sharplyboundedX!`](@ref).
 """
 function anglefrom315(qval)
-    angq = rad2deg(angle(qval))  # rad2deg adds a few ns (negligible)
+    angq = rad2deg(angle(qval))
     angq < 0 && (angq += 360)
     angq < 135 && (angq += 360)
     return abs(angq - 315)
@@ -347,7 +346,8 @@ function sharplybounded_R_dRdθ(ea::EigenAngle, M)
     dP_1 = (-D12*dD33 + dD13_1*D32)*invΔ_1 + (D13_1*D32 - D12*D33)*dinvΔ_1
     dT_1 = dq_1*P_1 + q[1]*dP_1 -
         dS*(-D11_1*D32 + D12*D31_1)*invΔ_1 -
-        S*((-dD11_1*D32 + D12*dD31_1)*invΔ_1 + (D11_1*D32 - D12*D31_1)*dinvΔ_1)
+        S*(-dD11_1*D32 + D12*dD31_1)*invΔ_1 -
+        S*(-D11_1*D32 + D12*D31_1)*dinvΔ_1
 
     dD11_2 = -2*q[2]*dq_2
     dD13_2 = dq_2*S + q[2]*dS
@@ -374,16 +374,7 @@ function sharplybounded_R_dRdθ(ea::EigenAngle, M)
     R12 = -2*C*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
     R21 = -2*C*(q[1] - q[2])*invΔ  # ∥R⟂
 
-    # dR11 = invΔ*(dT_1*C² + T_1*dC² + dT_1*C*q[2] + T_1*dC*q[2] + T_1*dC*q[2] + T_1*C*dq_2 -
-    #     (dP_1*C + P_1*dC) - (dP_1*q[2] + P_1*dq_2) - (dT_2*C² + T_2*dC²) -
-    #     (dT_2*C*q[1] + T_2*dC*q[1] + T_2*C*dq_1) +
-    #     (dP_2*C + P_2*dC) + (dP_2*q[1] + P_2*dq_1)) +
-    #     dinvΔ*(T_1*C² + T_1*C*q[2] - P_1*C - P_1*q[2] - T_2*C² - T_2*C*q[1] + P_2*C + P_2*q[1])
-
-    # dR11 = dinvΔ*(C²*(T_1 - T_2) + C*(T_1*q[2] - T_2*q[1] + P_2 - P_1) + P_2*q[1] - P_1*q[2]) +
-    #     invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_1*q[2] - P_1 - T_2*q[1] + P_2) +
-    #         C*(dT_1*q[2] + T_1*dq_2 + dP_2 - dP_1 - dT_2*q[1] - T_2*dq_1) +
-    #         dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
+    # dR
     dR11 = dinvΔ*R11*Δ +
         invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_1*q[2] - P_1 - T_2*q[1] + P_2) +
             C*(dT_1*q[2] + T_1*dq_2 + dP_2 - dP_1 - dT_2*q[1] - T_2*dq_1) +

@@ -37,4 +37,17 @@ tmp.subs(dC²*(-M12*M21 - M13*M31 + (M11 + 1)*(M22 + C²) +
     (M11 + 1) * (M33 + C²)), Sym("dB0"))
 
 
-@vars q B4 B3 B2 B1 B0
+@vars θ
+q1 = sympy.Function("q1")(θ)
+q2 = sympy.Function("q2")(θ)
+den = sympy.Function("den")(θ)
+C = cos(θ)
+
+T1 = sympy.Function("T1")(θ)
+T2 = sympy.Function("T2")(θ)
+P1 = sympy.Function("P1")(θ)
+P2 = sympy.Function("P2")(θ)
+
+diff(-2*C*(q1-q2)*den, θ)  # R21
+
+diff(-2*C*(T1*P2 - T2*P1)*den, θ)  # R12

@@ -5,7 +5,8 @@ using Gadfly
 using Parameters
 using Printf
 
-include("..\\src\\LongwaveModeSolver.jl")
+# include("..\\src\\LongwaveModeSolver.jl")
+using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
 
 finitediff(v, h) = diff(v)./h
@@ -23,8 +24,8 @@ spec = LWMS.Constituent(-LWMS.fundamentalcharge, LWMS.electronmass,
 bfield = LWMS.BField(0.5e-4, -0.2, -0.3, -0.9)
 M = LWMS.susceptibility(ω, z₀, z, spec, bfield)
 
-h = 0.2*π/180
-eas = [LWMS.EigenAngle(th) for th in deg2rad.(complex.(range(0.0, 90.0; step=0.2), 10.0))]
+h = 0.01*π/180
+eas = [LWMS.EigenAngle(th) for th in complex.(range(0.0, π/2; step=h), 10π/180)]
 qBs = [LWMS.bookerquartic(ea, M) for ea in eas]
 qs = getindex.(qBs, 1)
 Bs = getindex.(qBs, 2)
@@ -33,6 +34,10 @@ sort!.(qs, by=LWMS.anglefrom315)
 Ss = getfield.(eas, :sinθ)
 Cs = getfield.(eas, :cosθ)
 C²s = getfield.(eas, :cos²θ)
+
+θs = getfield.(eas, :θ)
+
+xticks = deg2rad.(range(0.0, 100.0; step=15))
 
 # B
 function dB(S, C, C², B1, M)
@@ -53,10 +58,6 @@ function dB(S, C, C², B1, M)
 end
 
 dBs = [dB(Ss[i], Cs[i], C²s[i], Bs[i][2], M) for i in 1:length(Ss)]
-
-θs = getfield.(eas, :θ)
-
-xticks = deg2rad.(range(0.0, 100.0; step=15))
 
 realBs = [real.(b) for b in Bs]
 realdBs = [real.(db) for db in dBs]
@@ -141,16 +142,24 @@ imagqdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=2), var=stack(tmpdf[!,2:end], 
 tmpdf = DataFrame(θ=abs.(θs))
 tmpdf[!,Symbol("dq1")] = real.(dq_1)
 tmpdf[!,Symbol("dq2")] = real.(dq_2)
+fdq_1 = finitediff(real.(getfield.(Tuple.(qs), 1)), h)
+fdq_2 = finitediff(real.(getfield.(Tuple.(qs), 2)), h)
+tmpdf[!,Symbol("finite_dq_1")] = [fdq_1; fdq_1[end]]
+tmpdf[!,Symbol("finite_dq_2")] = [fdq_2; fdq_2[end]]
 
-realdqdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=2), var=stack(tmpdf[!,2:end], [:dq1, :dq2])[!,1],
-    val=stack(tmpdf[!,2:end], [:dq1, :dq2])[!,2])
+realdqdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
 
 tmpdf = DataFrame(θ=abs.(θs))
 tmpdf[!,Symbol("dq1")] = imag.(dq_1)
 tmpdf[!,Symbol("dq2")] = imag.(dq_2)
+fdq_1 = finitediff(imag.(getfield.(Tuple.(qs), 1)), h)
+fdq_2 = finitediff(imag.(getfield.(Tuple.(qs), 2)), h)
+tmpdf[!,Symbol("finite_dq_1")] = [fdq_1; fdq_1[end]]
+tmpdf[!,Symbol("finite_dq_2")] = [fdq_2; fdq_2[end]]
 
-imagdqdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=2), var=stack(tmpdf[!,2:end], [:dq1, :dq2])[!,1],
-    val=stack(tmpdf[!,2:end], [:dq1, :dq2])[!,2])
+imagdqdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
 
 pr = plot(realqdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
@@ -575,9 +584,10 @@ for i = 1:4
     tmpdf[!,Symbol("dR$i")] = getfield.(realdRs, i)
 end
 for i = 1:4
-    # realfdR = finitediff(getfield.(realRs, 1), π/180)
-    realfdR = symmetricdiff(getfield.(realRs, i), h)
-    tmpdf[!,Symbol("finite_dR$i")] = [realfdR[1]; realfdR; realfdR[end]]
+    realfdR = finitediff(getfield.(realRs, i), h)
+    tmpdf[!,Symbol("finite_dR$i")] = [realfdR; realfdR[end]]
+    # realfdR = symmetricdiff(getfield.(realRs, i), h)
+    # tmpdf[!,Symbol("finite_dR$i")] = [realfdR[1]; realfdR; realfdR[end]]
 end
 
 realdRdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
@@ -588,9 +598,10 @@ for i = 1:4
     tmpdf[!,Symbol("dR$i")] = getfield.(imagdRs, i)
 end
 for i = 1:4
-    # imagfdR = finitediff(getfield.(imagRs, i), π/180)
-    imagfdR = symmetricdiff(getfield.(imagRs, i), h)
-    tmpdf[!,Symbol("finite_dR$i")] = [imagfdR[1]; imagfdR; imagfdR[end]]
+    imagfdR = finitediff(getfield.(imagRs, i), h)
+    tmpdf[!,Symbol("finite_dR$i")] = [imagfdR; imagfdR[end]]
+    # imagfdR = symmetricdiff(getfield.(imagRs, i), h)
+    # tmpdf[!,Symbol("finite_dR$i")] = [imagfdR[1]; imagfdR; imagfdR[end]]
 end
 
 imagdRdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
