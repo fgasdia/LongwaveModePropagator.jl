@@ -1,4 +1,4 @@
-export Receiver, Transmitter, Inputs, Source
+export Receiver, Transmitter, Inputs, Source, ExcitationDipole
 
 abstract type AbstractSource end
 
@@ -9,18 +9,26 @@ struct Receiver
     alt::Float64
 end
 
+@enum ExcitationDipole begin
+    vertical
+    horizontal_endon
+    horizontal_broadside
+end
+
 struct Source{T} <: AbstractSource
     freq::T
     ω::T
     k::T
     λ::T
+    exciter::ExcitationDipole
 
-    function Source{T}(freq::T) where T<:Number
+    function Source{T}(freq::T, exciter::ExcitationDipole) where T<:Real
         # f, ω, k
         ω = 2π*freq
         k = ω/speedoflight
         λ = speedoflight/freq
-        new(freq, ω, k, λ)
+
+        new(freq, ω, k, λ, exciter)
     end
 end
 Source(freq::T) where T<:Number = Source{T}(freq)

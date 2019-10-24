@@ -26,7 +26,7 @@ const LWMS = LongwaveModeSolver
     referenceheight = 50.0
     topheight = 90.3906250
     bottomheight = 44.2968750
-    height = 44.2968826
+    height = 70.0
 
     sol = LWMS.integratethroughionosphere(ea, source, topheight, bottomheight, referenceheight,
                                           electrons, bfield)

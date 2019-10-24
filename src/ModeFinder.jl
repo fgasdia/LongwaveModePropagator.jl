@@ -1,28 +1,59 @@
 using SpecialFunctions
 using LinearAlgebra
 using StaticArrays
-using OrdinaryDiffEq
+using DiffEqBase, OrdinaryDiffEq
+using Parameters
 
 using PolynomialRoots: roots!
 
 using ModifiedHankelFunctionsOfOrderOneThird
 
 struct EigenAngle{T}
-    θ::T
+    θ::T  # radians, because df/dθ are in radians
     cosθ::T
     sinθ::T
     cos²θ::T
     sin²θ::T
 
     function EigenAngle{T}(θ::T) where T <: Number
-        C = cosd(θ)
-        S = sind(θ)
+        C = cos(θ)
+        S = sin(θ)
         C² = C^2
         S² = 1 - C²
         new(θ, C, S, C², S²)
     end
 end
 EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
+
+@enum FieldComponent begin
+    Ez
+    Ey
+    Ex
+end
+
+@with_kw struct SharplyBoundedR{T<:Number} @deftype T
+    q::MVector{4, ComplexF64}
+    B::MVector{5, T}
+    D12
+    D32
+    D33
+    D11_1
+    D13_1
+    D31_1
+    Δ_1
+    invΔ_1
+    P_1
+    T_1
+    D11_2
+    D13_2
+    D31_2
+    Δ_2
+    invΔ_2
+    P_2
+    T_2
+    Δ
+    invΔ
+end
 
 """
 Search boundary for zeros in complex plane.
@@ -204,13 +235,14 @@ function bookerquartic(ea::EigenAngle, M)
          (1 + M[1,1])*M[2,3]*M[3,2] -
          M[1,2]*M[2,1]*(C² + M[3,3])
 
-    q = @MVector zeros(complex(typeof(S)), 4)  # algorithm requires complex type
+    q = @MVector zeros(ComplexF64, 4)  # algorithm requires complex type
     B = MVector{5}(B0, B1, B2, B3, B4)
 
     roots!(q, B, NaN, 4, false)
 
-    return q
+    return q, B
 end
+
 
 """
 Calculate angle from 315°.
@@ -224,15 +256,11 @@ function anglefrom315(qval)
     return abs(angq - 315)
 end
 
-"""
-From Sheddy 1968, A General Analytic Solution for Reflection ...
-"""
-function sharplyboundedR(ea::EigenAngle, M)
-    # Unpack
+function _common_sharplyboundedR(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Solve equation `D = 0` as a quartic
-    q = bookerquartic(ea, M)
+    q, B = bookerquartic(ea, M)
 
     # For high in the ionosphere, we choose 2 solutions that lie close to positive real and
     # negative imaginary axis (315° on the complex plane)
@@ -249,20 +277,34 @@ function sharplyboundedR(ea::EigenAngle, M)
     D31_1 = M[3,1] + q[1]*S
 
     Δ_1 = D11_1*D33 - D13_1*D31_1
-    P_1 = (-D12*D33 + D13_1*D32)/Δ_1
-    T_1 = q[1]*P_1
+    invΔ_1 = 1/Δ_1
+    P_1 = (-D12*D33 + D13_1*D32)*invΔ_1
+    T_1 = q[1]*P_1 - S*(-D11_1*D32 + D12*D31_1)*invΔ_1
 
     D11_2 = 1 + M[1,1] - q[2]^2
     D13_2 = M[1,3] + q[2]*S
     D31_2 = M[3,1] + q[2]*S
 
     Δ_2 = D11_2*D33 - D13_2*D31_2
-    P_2 = (-D12*D33 + D13_2*D32)/Δ_2
-    T_2 = q[2]*P_2
+    invΔ_2 = 1/Δ_2
+    P_2 = (-D12*D33 + D13_2*D32)*invΔ_2
+    T_2 = q[2]*P_2 - S*(-D11_2*D32 + D12*D31_2)*invΔ_2
 
     # Computation of entries of reflection matrix `R`
     Δ = (T_1*C + P_1)*(C + q[2]) - (T_2*C + P_2)*(C + q[1])
     invΔ = 1/Δ
+
+    return SharplyBoundedR(q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
+        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ)
+end
+
+"""
+From Sheddy 1968, A General Analytic Solution for Reflection ...
+"""
+function sharplybounded_R(ea::EigenAngle, M)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    @unpack q, P_1, T_1, P_2, T_2, invΔ = _common_sharplyboundedR(ea, M)
 
     R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
     R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
@@ -270,6 +312,90 @@ function sharplyboundedR(ea::EigenAngle, M)
     R21 = -2*C*(q[1] - q[2])*invΔ  # ∥R⟂
 
     return SMatrix{2,2}(R11, R21, R12, R22)
+end
+
+function sharplybounded_R_dRdθ(ea::EigenAngle, M)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    @unpack q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
+        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = _common_sharplyboundedR(ea, M)
+
+    # Additional calculations required for dR/dθ
+    dS = C
+    dC = -S
+    dC² = -2*S*C
+    dB3 = dS*(M[1,3] + M[3,1])
+    dB2 = -dC²*(2 + M[1,1] + M[3,3])
+    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
+    dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
+        M[1,3]*M[3,1] - M[1,2]*M[2,1])
+
+    dq_1 = -(((dB3*q[1] + dB2)*q[1] + dB1)*q[1] + dB0) /
+        (((4*B[5]*q[1] + 3*B[4])*q[1] + 2*B[3])*q[1] + B[2])
+    dq_2 = -(((dB3*q[2] + dB2)*q[2] + dB1)*q[2] + dB0) /
+        (((4*B[5]*q[2] + 3*B[4])*q[2] + 2*B[3])*q[2] + B[2])
+
+    dD33 = dC²
+
+    dD11_1 = -2*q[1]*dq_1
+    dD13_1 = dq_1*S + q[1]*dS
+    dD31_1 = dD13_1  # dq_1*S + q[1]*dS
+
+    dΔ_1 = dD11_1*D33 + D11_1*dD33 - dD13_1*D31_1 - D13_1*dD31_1
+    dinvΔ_1 = -dΔ_1/Δ_1^2
+
+    dP_1 = (-D12*dD33 + dD13_1*D32)*invΔ_1 + (D13_1*D32 - D12*D33)*dinvΔ_1
+    dT_1 = dq_1*P_1 + q[1]*dP_1 -
+        dS*(-D11_1*D32 + D12*D31_1)*invΔ_1 -
+        S*((-dD11_1*D32 + D12*dD31_1)*invΔ_1 + (D11_1*D32 - D12*D31_1)*dinvΔ_1)
+
+    dD11_2 = -2*q[2]*dq_2
+    dD13_2 = dq_2*S + q[2]*dS
+    dD31_2 = dD13_2  # dq_2*S + q[2]*dS
+
+    dΔ_2 = dD11_2*D33 + D11_2*dD33 - dD13_2*D31_2 - D13_2*dD31_2
+    dinvΔ_2 = -dΔ_2/Δ_2^2
+
+    dP_2 = (-D12*dD33 + dD13_2*D32)*invΔ_2 + (D13_2*D32 - D12*D33)*dinvΔ_2
+    dT_2 = dq_2*P_2 + q[2]*dP_2 -
+        dS*(-D11_2*D32 + D12*D31_2)*invΔ_2 -
+        S*(-dD11_2*D32 + D12*dD31_2)*invΔ_2 -
+        S*(-D11_2*D32 + D12*D31_2)*dinvΔ_2
+
+    dΔ = dT_1*C² + T_1*dC² + dT_1*C*q[2] + T_1*dC*q[2] + T_1*C*dq_2 + dP_1*C + P_1*dC +
+        dP_1*q[2] + P_1*dq_2 - (dT_2*C² + T_2*dC²) -
+        (dT_2*C*q[1] + T_2*dC*q[1] + T_2*C*dq_1) -
+        (dP_2*C + P_2*dC) - (dP_2*q[1] + P_2*dq_1)
+    dinvΔ = -dΔ/Δ^2
+
+    # R
+    R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
+    R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
+    R12 = -2*C*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
+    R21 = -2*C*(q[1] - q[2])*invΔ  # ∥R⟂
+
+    # dR11 = invΔ*(dT_1*C² + T_1*dC² + dT_1*C*q[2] + T_1*dC*q[2] + T_1*dC*q[2] + T_1*C*dq_2 -
+    #     (dP_1*C + P_1*dC) - (dP_1*q[2] + P_1*dq_2) - (dT_2*C² + T_2*dC²) -
+    #     (dT_2*C*q[1] + T_2*dC*q[1] + T_2*C*dq_1) +
+    #     (dP_2*C + P_2*dC) + (dP_2*q[1] + P_2*dq_1)) +
+    #     dinvΔ*(T_1*C² + T_1*C*q[2] - P_1*C - P_1*q[2] - T_2*C² - T_2*C*q[1] + P_2*C + P_2*q[1])
+
+    # dR11 = dinvΔ*(C²*(T_1 - T_2) + C*(T_1*q[2] - T_2*q[1] + P_2 - P_1) + P_2*q[1] - P_1*q[2]) +
+    #     invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_1*q[2] - P_1 - T_2*q[1] + P_2) +
+    #         C*(dT_1*q[2] + T_1*dq_2 + dP_2 - dP_1 - dT_2*q[1] - T_2*dq_1) +
+    #         dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
+    dR11 = dinvΔ*R11*Δ +
+        invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_1*q[2] - P_1 - T_2*q[1] + P_2) +
+            C*(dT_1*q[2] + T_1*dq_2 + dP_2 - dP_1 - dT_2*q[1] - T_2*dq_1) +
+            dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
+    dR12 = dinvΔ*R12*Δ + dC/C*R12 - 2*C*(dT_1*P_2 + T_1*dP_2 - dT_2*P_1 - T_2*dP_1)*invΔ
+    dR21 = dinvΔ*R21*Δ + dC/C*R21 - 2*C*(dq_1 - dq_2)*invΔ
+    dR22 = dinvΔ*R22*Δ +
+        invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_2*q[1] - T_1*q[2] + P_1 - P_2) +
+            C*(dP_1 - dT_1*q[2] + dT_2*q[1] - T_1*dq_2 + T_2*dq_1 - dP_2) +
+            dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
+
+    return SMatrix{2,2}(R11, R21, R12, R22), SMatrix{2,2}(dR11, dR21, dR12, dR22)
 end
 
 """
@@ -280,7 +406,10 @@ Expects S to be a tuple of `(S11, S12, S21, S22)`.
 The factor of `k` appears explicitly because Budden 1955 derives R′ wrt a height
 variable ``s'' which includes k.
 """
-function dRdz(dR, R, params, z)
+function dRdz(R, params, z)
+    # TODO: BUG: This function needs a redesign, maybe don't use `params`
+    # The function takes more than twice as long as the sum of its components
+
     ω, k = params.ω, params.k
     ea = params.ea
     z0, species, bfield = params.referenceheight, params.species, params.bfield
@@ -288,7 +417,7 @@ function dRdz(dR, R, params, z)
     M = susceptibility(ω, z0, z, species, bfield)
     S = smatrix(ea, M)
 
-    return -im*k/2*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
+    return -im/2*k*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
 end
 
 function integratethroughionosphere(
@@ -300,37 +429,126 @@ function integratethroughionosphere(
     species,
     bfield::BField
 )
-    # Unpack
     ω, k, λ = source.ω, source.k, source.λ  # k in km
 
     M = susceptibility(ω, referenceheight, fromheight, species, bfield)
     R0 = sharplyboundedR(ea, M)
 
     params = (ω=ω, k=k, ea=ea, referenceheight=referenceheight, species=species, bfield=bfield)
-    prob = ODEProblem(dRdz, R0, (fromheight, toheight), params)
-    sol = solve(prob, reltol=1e-6)#, dtmax=λ/20)
+    prob = ODEProblem{false}(dRdz, R0, (fromheight, toheight), params)
+    sol = solve(prob, Tsit5(), dtmax=λ/50_000) #, reltol=1e-6)#, dtmax=λ/20)
 end
 
+"""
+Fresnel reflection coefficients for the ground free-space interface at the ground (z=0).
 
+From Morfitt Shellman 1976 pg 25 (eq 71)
+"""
+function fresnelreflection(ea::EigenAngle, source::AbstractSource, ground::Ground)
+    C, S² = ea.cosθ, ea.sin²θ
 
-# Values taken from the end of a random homogeneous exponential LWPC run
-θ = complex(65.2520447, -1.5052794)
-ω = 150796.4531250  # rad/s
-freq = ω/2π
+    ng² = ground.ϵᵣ - im*ground.σ/(source.ω*ϵ₀)
 
-ea = EigenAngle(θ)
-source = Source(freq)
+    tmp1 = C*ng²
+    tmp2 = sqrt(ng² - S²)
 
-Bmag = 0.5172267e-4  # (T) LWPC is actually using Gauss, despite their claim of W/m²=T
-dcl = -0.2664399
-dcm = -0.2850476
-dcn = -0.9207376
-bfield = BField(Bmag, dcl, dcm, dcn)
+    Rg11 = (tmp1 - tmp2)/(tmp1 + tmp2)
+    Rg22 = (C - tmp2)/(C + tmp2)
 
-species = Constituent(-fundamentalcharge, mₑ,
-                        h -> waitprofile(h, 75, 0.3), collisionprofile)
+    return SMatrix{2,2}(Rg11, 0, 0, Rg22)
+end
 
-referenceheight = 50.0
-fromheight = 90.3906250
-toheight = 44.2968750
-height = 70.0
+"""
+Determinental mode equation assuming `R` and `Rg` at θ
+
+XXX: Maybe explicitly make this F(θ) and have it calculate Rg and R?
+XXX: Maybe hardcode this?
+"""
+F(R, Rg) = det(Rg*R .- 1)
+
+"""
+Adjugate of A
+
+https://github.com/JuliaDiff/ForwardDiff.jl/issues/197
+
+# TODO: Hardcode for 2x2 or otherwise a more efficient implementation?
+"""
+adj(A) = det(A)*inv(A)
+
+"""
+Height gain terms from MS 76 (pg 38)
+
+at height `z` with reference height `H`. `d` is reference height for solving F(θ) = 0
+"""
+function heightgains(z, ea::EigenAngle)
+    C² = ea.cos²θ
+
+    # TODO: Rather than calling these functions, just insert `ζd` into equations for fpar, fperp, g
+
+    ζ = (k/α)^(2/3)*(C² + α*(z - H))
+    ζd = (k/α)^(2/3)*(C² + α*(d - H))
+
+    # height gain for vertical electric field cponent (Ez)
+    fpar(z) = (QC1*h1(ζ) + GC*h2(ζ))*exp((z - d)/earthradius)
+
+    # height gain for horizontal electric field component (Ey) normal to plane of propagation
+    fperp(z) = AC2*h1(ζ) + BC2*h2(ζ)
+
+    # height gain for horizontal electric field component (Ex) in plane of propagation
+    #  ``1/(im*k) * d/dz(f∥(z))
+    g(z) = -im*exp((z-d)/a) * (cbrt(2/(a*k))*(QC1*h1′(ζ) + Gc1*h2′(ζ)) +
+        (2/(a*k))*(QC1*h1(ζ) + GC1*h2(ζ)))
+
+    # We calculate D11, D12, and D22 because pairs of these are needed in excitation factor
+    D11 = fpar(ζd)^2
+    D12 = fpar(ζd)*fperp(ζd)
+    D22 = fperp(ζd)^2
+
+    return D11, D12, D22
+end
+
+"""
+Excitation factors from MS 76 (pg 37)
+"""
+function excitationfactor(ea::EigenAngle, R, Rg, component::FieldComponent, source::Source)
+    θ, S = ea.θ, ea.sinθ
+
+    B1 = S^(5/2)/dFdθ(θ)
+    B2 = -B1/S
+
+    D11, D12, D22 = heightgains(z)  # z should be `d` which is height we evaluate F(θ) at
+
+    if component == Ez
+        if source.exciter == vertical
+            return B1*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
+        elseif source.exciter == horizontal_endon
+            return B2*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
+        elseif source.exciter == horizontal_broadside
+            return B2*R11*(1 + Rg22)*(1 + Rg11)/D12
+        else
+            error("Source exciter not supported")
+        end
+    elseif component == Ey
+        if source.exciter == vertical
+            return -B1/S*R21*(1 + Rg11)*(1 + Rg22)/D12
+        elseif source.exciter == horizontal_endon
+            return -B2/S*R21*(1 + Rg11)*(1 + Rg22)/D12
+        elseif source.exciter == horizontal_broadside
+            return -B2/S*(1 + Rg22)^2*(1 - Rg11*R11)/(Rg22*D22)
+        else
+            error("Source exciter not supported")
+        end
+    elseif component == Ex
+        if source.exciter == vertical
+            return B1/S*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
+        elseif source.exciter == horizontal_endon
+            return B2/S*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
+        elseif source.exciter == horizontal_broadside
+            return B2/S*R12*(1 + Rg22)*(1 + Rg11)/D12
+        else
+            error("Source exciter not supported")
+        end
+    else
+        error("FieldComponent not supported")
+    end
+end

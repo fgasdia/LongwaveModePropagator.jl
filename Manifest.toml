@@ -41,9 +41,9 @@ version = "0.5.6"
 
 [[BlockArrays]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "87b72cb71d7306b767d175ece832bf8a7f3b6dc8"
+git-tree-sha1 = "f58a4335816434b7c283bb9933b374b158a25b34"
 uuid = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
-version = "0.10.0"
+version = "0.10.1"
 
 [[BlockBandedMatrices]]
 deps = ["BandedMatrices", "BlockArrays", "Distributed", "FillArrays", "LazyArrays", "LinearAlgebra", "MatrixFactorizations", "Pkg", "Profile", "Random", "SharedArrays", "SparseArrays", "Statistics", "Test"]
@@ -71,15 +71,15 @@ version = "0.2.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "84aa74986c5b9b898b0d1acaf3258741ee64754f"
+git-tree-sha1 = "ed2c4abadf84c53d9e58510b5fc48912c2336fbb"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "2.1.0"
+version = "2.2.0"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "f94423c68f2e47db0d6f626a26d4872266e0ec3d"
+git-tree-sha1 = "2103e504f427e54ffa19af9ada225733a21f951f"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.2"
+version = "0.17.3"
 
 [[Dates]]
 deps = ["Printf"]
@@ -91,9 +91,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "Compat", "DiffEqDiffTools", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "Printf", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews"]
-git-tree-sha1 = "72b6ffef7720c669606b282984b3efd9bd7973d9"
+git-tree-sha1 = "00e8324c89fcbbaf43ca7b1986bb9f4ca9c9cf5d"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.3.4"
+version = "6.3.5"
 
 [[DiffEqDiffTools]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
@@ -137,9 +137,9 @@ version = "1.5.1"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "16974065d5bfa867446d3228bc63f05a440e910b"
+git-tree-sha1 = "a2e22cd210dfa3ad1e1e6291fb733741dfabcc9f"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.7.2"
+version = "0.7.3"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "InteractiveUtils", "LinearAlgebra", "NaNMath", "Random", "SparseArrays", "SpecialFunctions", "StaticArrays", "Test"]
