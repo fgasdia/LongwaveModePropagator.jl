@@ -24,7 +24,7 @@ spec = LWMS.Constituent(-LWMS.fundamentalcharge, LWMS.electronmass,
 bfield = LWMS.BField(0.5e-4, -0.2, -0.3, -0.9)
 M = LWMS.susceptibility(ω, z₀, z, spec, bfield)
 
-h = 0.1*π/180
+h = 0.5*π/180
 eas = [LWMS.EigenAngle(th) for th in complex.(range(0.0, π/2; step=h), 10π/180)]
 qBs = [LWMS.bookerquartic(ea, M) for ea in eas]
 qs = getindex.(qBs, 1)
@@ -709,3 +709,173 @@ pdi = plot(imagdS1df, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
 v |> SVG("C:\\Users\\forrest\\Desktop\\S1s.svg", 12inch, 7inch)
+
+
+# S12
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S12_$i")] = getfield.(Tuple.(realS2s), i)
+end
+realS2df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S12_$i")] = getfield.(Tuple.(imagS2s), i)
+end
+imagS2df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS12_$i")] = getfield.(Tuple.(realdS2s), i)
+end
+for i = 1:4
+    realfdR = finitediff(getfield.(Tuple.(realS2s), i), h)
+    tmpdf[!,Symbol("finite_dS12_$i")] = [realfdR; realfdR[end]]
+end
+realdS2df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS12_$i")] = getfield.(Tuple.(imagdS2s), i)
+end
+for i = 1:4
+    imagfdR = finitediff(getfield.(Tuple.(imagS2s), i), h)
+    tmpdf[!,Symbol("finite_dS12_$i")] = [imagfdR; imagfdR[end]]
+end
+imagdS2df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+pr = plot(realS2df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pi = plot(imagS2df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+pdr = plot(realdS2df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pdi = plot(imagdS2df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+v = gridstack([pr pi; pdr pdi]);
+v |> SVG("C:\\Users\\forrest\\Desktop\\S2s.svg", 12inch, 7inch)
+
+
+# S21
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S21_$i")] = getfield.(Tuple.(realS3s), i)
+end
+realS3df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S21_$i")] = getfield.(Tuple.(imagS3s), i)
+end
+imagS3df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS21_$i")] = getfield.(Tuple.(realdS3s), i)
+end
+for i = 1:4
+    realfdR = finitediff(getfield.(Tuple.(realS3s), i), h)
+    tmpdf[!,Symbol("finite_dS21_$i")] = [realfdR; realfdR[end]]
+end
+realdS3df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS21_$i")] = getfield.(Tuple.(imagdS3s), i)
+end
+for i = 1:4
+    imagfdR = finitediff(getfield.(Tuple.(imagS3s), i), h)
+    tmpdf[!,Symbol("finite_dS21_$i")] = [imagfdR; imagfdR[end]]
+end
+imagdS3df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+pr = plot(realS3df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pi = plot(imagS3df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+pdr = plot(realdS3df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pdi = plot(imagdS3df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+v = gridstack([pr pi; pdr pdi]);
+v |> SVG("C:\\Users\\forrest\\Desktop\\S3s.svg", 12inch, 7inch)
+
+# S22
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S22_$i")] = getfield.(Tuple.(realS4s), i)
+end
+realS4df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("S22_$i")] = getfield.(Tuple.(imagS4s), i)
+end
+imagS4df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS22_$i")] = getfield.(Tuple.(realdS4s), i)
+end
+for i = 1:4
+    realfdR = finitediff(getfield.(Tuple.(realS4s), i), h)
+    tmpdf[!,Symbol("finite_dS22_$i")] = [realfdR; realfdR[end]]
+end
+realdS4df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dS22_$i")] = getfield.(Tuple.(imagdS4s), i)
+end
+for i = 1:4
+    imagfdR = finitediff(getfield.(Tuple.(imagS4s), i), h)
+    tmpdf[!,Symbol("finite_dS22_$i")] = [imagfdR; imagfdR[end]]
+end
+imagdS4df = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+pr = plot(realS4df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pi = plot(imagS4df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+pdr = plot(realdS4df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pdi = plot(imagdS4df, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+v = gridstack([pr pi; pdr pdi]);
+v |> SVG("C:\\Users\\forrest\\Desktop\\S4s.svg", 12inch, 7inch)
