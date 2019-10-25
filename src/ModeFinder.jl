@@ -68,24 +68,6 @@ end
     T44
 end
 
-"""
-Search boundary for zeros in complex plane.
-
-TODO: This seems a little arbitrary...
-
-See also: `lwp_input.for`
-"""
-function boundaries(freq)
-    if freq < 20e3
-        Zb = complex(60, 0)
-        Ze = complex(90, -9)
-        return Zb, Ze
-    else
-        Zb = complex(40, 0)
-        Ze = complex(90, -6)
-        return Zb, Ze
-    end
-end
 
 """
 Computation of susceptibility `M` matrix as defined by Budden (1955)
@@ -108,22 +90,31 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     Z = ν(z)/ω
     U = 1 - im*Z
 
+    earthcurvature = 2(z₀ - z)/earthradius
+
+    # Temporary variables
     U² = U^2
     Y² = Y^2
 
-    earthcurvature = 2(z₀ - z)/earthradius
+    YU = Y*U
+    nYU = n*YU
+    mYU = m*YU
+    lYU = l*YU
 
-    # In LWPC and Sheddy 1968 Fortran Program `earthcurvature` is not multiplied by capd
-    # (the above line), even though it _is_ multiplied in MS 1976.
-    # This seems to be supported by Pappert 1968
+    nY² = n*Y²
+    lmY² = l*m*Y²
+    lnY² = l*nY²
+    mnY² = m*nY²
+
+    # Elements of `M`
     M11 = U² - l²*Y²
-    M21 = im*n*Y*U - l*m*Y²
-    M31 = -im*m*Y*U - l*n*Y²
-    M12 = -im*n*Y*U - l*m*Y²
+    M21 = im*nYU - lmY²
+    M31 = -im*mYU - lnY²
+    M12 = -im*nYU - lmY²
     M22 = U² - m²*Y²
-    M32 = im*l*Y*U - m*n*Y²
-    M13 = im*m*Y*U - l*n*Y²
-    M23 = -im*l*Y*U - m*n*Y²
+    M32 = im*lYU - mnY²
+    M13 = im*mYU - lnY²
+    M23 = -im*lYU - mnY²
     M33 =  U² - n²*Y²
 
     M = SMatrix{3,3}(M11, M21, M31,
@@ -137,7 +128,7 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     return M
 end
 
-function tmatrix(ea::EigenAngle, M)
+function tmatrix(ea::EigenAngle, M::AbstractArray)
     S, C² = ea.sinθ, ea.cos²θ
 
     den = 1/(1 + M[3,3])

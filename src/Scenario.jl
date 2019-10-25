@@ -43,14 +43,3 @@ struct Transmitter{T} <: AbstractSource
     freq::T
     k::T
 end
-
-# TEMP: Only need to be mutable and have internal constructor for incomplete initialization
-mutable struct Inputs
-    transmitter::Transmitter
-    receiver::Receiver
-    maxrange::Float64
-    deltarange::Float64
-    topheight::Float64
-    bottomheight::Float64
-    Inputs() = new()
-end
