@@ -490,9 +490,31 @@ function dRdz(R, params, z)
     z0, species, bfield = params.referenceheight, params.species, params.bfield
 
     M = susceptibility(ω, z0, z, species, bfield)
-    S = smatrix(ea, M)
+    T = tmatrix(ea, M)
+    S = smatrix(ea, T)
 
     return -im/2*k*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
+end
+
+function dRdθdz(RdRdθ, params, z)
+    ω, k = params.ω, params.k
+    ea = params.ea
+    z0, species, bfield = params.referenceheight, params.species, params.bfield
+
+    M = susceptibility(ω, z0, z, species, bfield)
+    T = tmatrix(ea, M)
+    S = smatrix(ea, T)
+    dS = dsmatrixdθ(ea, M, T)
+
+    R = RdRdθ[1:4]
+    dRdθ = RdRθ[5:end]
+
+    dz = -im/2*k*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
+    dzdθ = -im/2*k*(dS[3] + dS[4]*R + S[4]*dR -
+        (dRdθ*S[1] + R*dS[1]) -
+        (dRdθ*S[2]*R + R*dS[2]*R + R*S[2]*dRdθ))
+
+    return vcat(dz, dzdθ)
 end
 
 function integratethroughionosphere(
@@ -502,22 +524,31 @@ function integratethroughionosphere(
     toheight,
     referenceheight,
     species,
-    bfield::BField
+    bfield::BField;
+    deriv=false
 )
     ω, k, λ = source.ω, source.k, source.λ  # k in km
 
     M = susceptibility(ω, referenceheight, fromheight, species, bfield)
-    R0 = sharplyboundedR(ea, M)
 
     params = (ω=ω, k=k, ea=ea, referenceheight=referenceheight, species=species, bfield=bfield)
-    prob = ODEProblem{false}(dRdz, R0, (fromheight, toheight), params)
-    sol = solve(prob, Tsit5(), dtmax=λ/50_000) #, reltol=1e-6)#, dtmax=λ/20)
+
+    if deriv
+        R0, dR0 = sharplybounded_R_dRdθ(ea, M)
+        prob = ODEProblem{false}(dRdθdz, vcat(R0, dR0), (fromheight, toheight), params)
+        sol = solve(prob, Tsit5())
+    else
+        R0 = sharplyboundedR(ea, M)
+
+        prob = ODEProblem{false}(dRdz, R0, (fromheight, toheight), params)
+        sol = solve(prob, Tsit5()) #, reltol=1e-6)#, dtmax=λ/20)
+    end
 end
 
 """
 Fresnel reflection coefficients for the ground free-space interface at the ground (z=0).
 
-From Morfitt Shellman 1976 pg 25 (eq 71)
+From Morfitt Shellman 1976 pg 25 (eq 71 & 72)
 """
 function fresnelreflection(ea::EigenAngle, source::AbstractSource, ground::Ground)
     C, S² = ea.cosθ, ea.sin²θ
@@ -530,7 +561,26 @@ function fresnelreflection(ea::EigenAngle, source::AbstractSource, ground::Groun
     Rg11 = (tmp1 - tmp2)/(tmp1 + tmp2)
     Rg22 = (C - tmp2)/(C + tmp2)
 
+    # TODO: Custom type
     return SMatrix{2,2}(Rg11, 0, 0, Rg22)
+end
+
+function fresnelreflectiondθ(ea::EigenAngle, source::AbstractSource, ground::Ground)
+    C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
+
+    ng² = ground.ϵᵣ - im*ground.σ/(source.ω*ϵ₀)
+
+    tmp1 = C*ng²
+    tmp2 = sqrt(ng² - S²)
+
+    Rg11 = (tmp1 - tmp2)/(tmp1 + tmp2)
+    Rg22 = (C - tmp2)/(C + tmp2)
+
+    dRg11 = (2*ng²*(1 - ng²)*S)/(tmp2*(tmp1 + tmp2)^2)
+    dRg22 = (2*(C - tmp2)*S)/(tmp2*(tmp2 + C))
+
+    # TODO: Custom type
+    return SMatrix{2,2}(Rg11, 0, 0, Rg22), SMatrix{2,2}(dRg11, 0, 0, dRg22)
 end
 
 """
@@ -541,8 +591,6 @@ XXX: Maybe hardcode this?
 """
 F(R, Rg) = det(Rg*R .- 1)
 
-# dFdθ(dR, dRg) =
-
 """
 Adjugate of A
 
@@ -550,7 +598,11 @@ https://github.com/JuliaDiff/ForwardDiff.jl/issues/197
 
 # TODO: Hardcode for 2x2 or otherwise a more efficient implementation?
 """
-adj(A) = det(A)*inv(A)
+adjugate(A) = det(A)*inv(A)
+
+function dFdθ(R, dR, Rg, dRg)
+    return adjugate(dRg*R + Rg*dR)'
+end
 
 """
 Height gain terms from MS 76 (pg 38)

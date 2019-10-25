@@ -24,6 +24,9 @@ spec = LWMS.Constituent(-LWMS.fundamentalcharge, LWMS.electronmass,
 bfield = LWMS.BField(0.5e-4, -0.2, -0.3, -0.9)
 M = LWMS.susceptibility(ω, z₀, z, spec, bfield)
 
+source = LWMS.Source(24e3)
+ground = LWMS.Ground(15, 0.003)
+
 h = 0.5*π/180
 eas = [LWMS.EigenAngle(th) for th in complex.(range(0.0, π/2; step=h), 10π/180)]
 qBs = [LWMS.bookerquartic(ea, M) for ea in eas]
@@ -879,3 +882,73 @@ pdi = plot(imagdS4df, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
 v |> SVG("C:\\Users\\forrest\\Desktop\\S4s.svg", 12inch, 7inch)
+
+
+
+#===
+Ground reflection
+===#
+
+# Rgs = [LWMS.fresnelreflection(ea, source, ground) for ea in eas]
+RgsdRgs = [LWMS.fresnelreflectiondθ(ea, source, ground) for ea in eas]
+
+Rgs, dRgs = unzip(RgsdRgs)
+
+realRgs, imagRgs = unzip(reim.(Rgs))
+realdRgs, imagdRgs = unzip(reim.(dRgs))
+
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("Rg_$i")] = getfield.(Tuple.(realRgs), i)
+end
+realRdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("Rg_$i")] = getfield.(Tuple.(imagRgs), i)
+end
+imagRdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=4), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dRg_$i")] = getfield.(Tuple.(realdRgs), i)
+end
+for i = 1:4
+    realfdR = finitediff(getfield.(Tuple.(realRgs), i), h)
+    tmpdf[!,Symbol("finite_dRg_$i")] = [realfdR; realfdR[end]]
+end
+realdRdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+for i = 1:4
+    tmpdf[!,Symbol("dRg_$i")] = getfield.(Tuple.(imagdRgs), i)
+end
+for i = 1:4
+    imagfdR = finitediff(getfield.(Tuple.(imagRgs), i), h)
+    tmpdf[!,Symbol("finite_dRg_$i")] = [imagfdR; imagfdR[end]]
+end
+imagdRdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=8), var=stack(tmpdf[!,2:end])[!,1],
+    val=stack(tmpdf[!,2:end])[!,2])
+
+pr = plot(realRdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pi = plot(imagRdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+pdr = plot(realdRdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+v = gridstack([pr pi; pdr pdi]);
+v |> SVG("C:\\Users\\forrest\\Desktop\\Rgs.svg", 12inch, 7inch)

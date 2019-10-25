@@ -30,10 +30,9 @@ function BField(B::T, dip::T, azimuth::T) where T<:Number
     BField{T}(B, k1*cosd(azimuth), k1*sind(azimuth), -sind(dip))
 end
 
-
-struct Ground
-    ϵᵣ::Float64
-    σ::Float64
+struct Ground{S,T}
+    ϵᵣ::S  # usually happens to be an int
+    σ::T
 end
 
 """

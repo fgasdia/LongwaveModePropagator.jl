@@ -31,7 +31,8 @@ struct Source{T} <: AbstractSource
         new(freq, ω, k, λ, exciter)
     end
 end
-Source(freq::T) where T<:Number = Source{T}(freq)
+Source(freq::T) where T<:Number = Source{T}(freq, vertical)
+Source(freq::T, exciter::ExcitationDipole) where T<:Number = Source{T}(freq, exciter)
 
 struct Transmitter{T} <: AbstractSource
     name::String

@@ -51,3 +51,19 @@ P2 = sympy.Function("P2")(θ)
 diff(-2*C*(q1-q2)*den, θ)  # R21
 
 diff(-2*C*(T1*P2 - T2*P1)*den, θ)  # R12
+
+# Ground R
+
+@vars θ ng²
+
+C = cos(θ)
+S = sin(θ)
+
+tmp1 = C*ng²
+tmp2 = sqrt(ng² - S^2)
+
+# diff((C*ng^2 - sqrt(ng^2 - S^2))/(C*ng^2 + sqrt(ng^2 - S^2)), θ)
+
+diff((tmp1 - tmp2)/(tmp1 + tmp2), θ)  # rg11
+
+diff((C - tmp2)/(C + tmp2), θ)  # rg22  factor() for simplification
