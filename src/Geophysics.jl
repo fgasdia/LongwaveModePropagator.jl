@@ -8,6 +8,7 @@ const μ₀ = 4e-7π  # H/m
 const ϵ₀ = 1/(μ₀*speedoflight^2)  # F/m
 const electronmass = 9.10938356e-31  # kg
 const fundamentalcharge = 1.602176621e-19  # C
+const H = 50e3  # reference height for Earth curvature
 
 struct Constituent{T<:Number, F<:Function, G<:Function}
     charge::T  # C

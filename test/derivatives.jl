@@ -952,3 +952,51 @@ pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
 v |> SVG("C:\\Users\\forrest\\Desktop\\Rgs.svg", 12inch, 7inch)
+
+
+
+#==
+F and dFdθ
+==#
+F = [LWMS.modalequation(r, rg) for (r, rg) in zip(Rs, Rgs)]
+dF = [LWMS.modalequationdθ(r, dr, rg, drg)  for (r, dr, rg, drg) in zip(Rs, dRs, Rgs, dRgs)]
+
+realFs, imagFs = unzip(reim.(F))
+realdFs, imagdFs = unzip(reim.(dF))
+
+realFdf = DataFrame(θ=abs.(θs), var=Symbol("F"), val=realFs)
+imagFdf = DataFrame(θ=abs.(θs), var=Symbol("F"), val=imagFs)
+
+tmpdf = DataFrame(θ=abs.(θs))
+tmpdf[!,Symbol("dF")] = realdFs
+realfdf = finitediff(realFs, h)
+tmpdf[!,Symbol("finite_dF")] = [realfdf; realfdf[end]]
+realdFdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=2), var=stack(tmpdf[!,2:end], [:dF, :finite_dF])[!,1],
+    val=stack(tmpdf[!,2:end], [:dF, :finite_dF])[!,2])
+
+tmpdf = DataFrame(θ=abs.(θs))
+tmpdf[!,Symbol("dF")] = imagdFs
+imagfdf = finitediff(imagFs, h)
+tmpdf[!,Symbol("finite_dF")] = [imagfdf; imagfdf[end]]
+imagdFdf = DataFrame(θ=repeat(tmpdf[!,:θ], outer=2), var=stack(tmpdf[!,2:end], [:dF, :finite_dF])[!,1],
+    val=stack(tmpdf[!,2:end], [:dF, :finite_dF])[!,2])
+
+
+pr = plot(realFdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pi = plot(imagFdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+pdr = plot(realdFdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
+pdi = plot(imagdFdf, x=:θ, y=:val, color=:var,
+    yintercept=[0], Geom.hline(color="black", size=1pt),
+    Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
+    Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
+v = gridstack([pr pi; pdr pdi]);
+v |> SVG("C:\\Users\\forrest\\Desktop\\Fs.svg", 12inch, 7inch)

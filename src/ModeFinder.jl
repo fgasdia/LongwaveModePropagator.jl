@@ -7,6 +7,7 @@ using Parameters
 using PolynomialRoots: roots!
 
 using ModifiedHankelFunctionsOfOrderOneThird
+using GRPF
 
 struct EigenAngle{T}
     θ::T  # radians, because df/dθ are in radians
@@ -25,11 +26,10 @@ struct EigenAngle{T}
 end
 EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
 
-@enum FieldComponent begin
-    Ez
-    Ey
-    Ex
-end
+abstract type FieldComponent end
+struct Ez <: FieldComponent end
+struct Ey <: FieldComponent end
+struct Ex <: FieldComponent end
 
 @with_kw struct SharplyBoundedR{T<:Number} @deftype T
     q::MVector{4, ComplexF64}
@@ -580,94 +580,138 @@ Determinental mode equation assuming `R` and `Rg` at θ
 XXX: Maybe explicitly make this F(θ) and have it calculate Rg and R?
 XXX: Maybe hardcode this?
 """
-F(R, Rg) = det(Rg*R .- 1)
+modalequation(R, Rg) = det(Rg*R .- 1)
 
 """
-Adjugate of A
-
-https://github.com/JuliaDiff/ForwardDiff.jl/issues/197
-
-# TODO: Hardcode for 2x2 or otherwise a more efficient implementation?
+See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
 """
-adjugate(A) = det(A)*inv(A)
+function modalequationdθ(R, dR, Rg, dRg)
+    A = Rg*R .- 1
+    dA = dRg*R + Rg*dR
+    return det(A)*tr(inv(A)*dA)
+end
 
-function dFdθ(R, dR, Rg, dRg)
-    return adjugate(dRg*R + Rg*dR)'
+
+"""
+MS 76 (pg 38)
+Pappert et al 1970 A FORTRAN program...
+Pappert and Shockey 1971 WKB Mode Summing Program...
+
+fvert = height gain for vertical electric field cponent (Ez)
+fhorz = height gain for horizontal electric field component (Ey) normal to plane of propagation
+g = height gain for horizontal electric field component (Ex) in plane of propagation
+"""
+function heightgain(z, ea::EigenAngle, ground::Ground)
+    C², S² = ea.cos²θ, ea.sin²θ
+
+    α = 2/earthradius
+    tmp = (α/k)^(2/3)
+
+    n₀² = 1 - α*(H - z)
+    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
+
+    q = h -> (C² - α*(H - h))/tmp
+    q₀ = q(0)
+    qd = q(d)
+
+    h₁q₀ = h₁(q₀)
+    h₂q₀ = h₂(q₀)
+    h₁′q₀ = h₁p(q₀)
+    h₂′q₀ = h₂p(q₀)
+
+    h₁qd = h₁(qd)
+    h₂qd = h₂(qd)
+
+    H₁q₀ = h₁′q₀ + tmp*h₁q₀
+    H₂q₀ = h₂′q₀ + tmp*h₂q₀
+
+    H₁qd = h₁p(qd) + tmp*h₁qd
+    H₂qd = h₂p(qd) + tmp*h₂qd
+
+    t1 = n₀²/Ng²
+    t2 = cbrt(k/α)
+    t3 = sqrt(Ng²-S²)
+
+    F₁ = -(H₂qd - im*t1*t2*t3*h₂q₀)
+    F₂ = H₁q₀ - im*t1*t2*t3*h₁q₀
+    F₃ = -(h₂′q₀ - im*t2*t3*h₂q₀)
+    F₄ = h₁′q₀ - im*t2*t3*h₂q₀
+
+    fvert = h -> exp((h-d)/earthradius)*(F₁*h₁(q(h)) + F₂*h₂(q(h)))/(F₁*h₁qd + F₂*h₂qd)
+    fhorz = h -> (F₃*h₁(q(h)) + F₄*h₂(q(h)))/(F₃*h₁qd + F₄*h₂qd)
+    # g = h -> 1/(im*k)
+end
+
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::FieldComponent, source::AbstractSource)
+    k = k(source)
+    exciter = exciter(source)
+
+    ζ = (2/(earthradius*k))^(-2/3)*(C² - 2/earthradius*(H - z))
+
+    return excitationfactor(z, ea, R, Rg, component, exciter)
 end
 
 """
-Height gain terms from MS 76 (pg 38)
+    excitationfactor(z, ea, R, Rg, Ex, VerticalDipole)
 
-at height `z` with reference height `H`. `d` is reference height for solving F(θ) = 0
+Return excitation factor for common configuration of `Ez` field with `VerticalDipole` exciter.
+
+See Pappert et al 1970 A FORTRAN program...
 """
-function heightgains(z, ea::EigenAngle)
-    C² = ea.cos²θ
-
-    ζ = (k/α)^(2/3)*(C² + α*(z - H))
-    ζd = (k/α)^(2/3)*(C² + α*(d - H))
-
-    # TODO: Rather than calling these functions, just insert `ζd` into equations for fpar, fperp, g
-    # height gain for vertical electric field cponent (Ez)
-    fpar(z) = (QC1*h1(ζ) + GC*h2(ζ))*exp((z - d)/earthradius)
-
-    # height gain for horizontal electric field component (Ey) normal to plane of propagation
-    fperp(z) = AC2*h1(ζ) + BC2*h2(ζ)
-
-    # height gain for horizontal electric field component (Ex) in plane of propagation
-    #  ``1/(im*k) * d/dz(f∥(z))
-    g(z) = -im*exp((z-d)/a) * (cbrt(2/(a*k))*(QC1*h1′(ζ) + Gc1*h2′(ζ)) +
-        (2/(a*k))*(QC1*h1(ζ) + GC1*h2(ζ)))
-
-    # We calculate D11, D12, and D22 because pairs of these are needed in excitation factor
-    D11 = fpar(ζd)^2
-    D12 = fpar(ζd)*fperp(ζd)
-    D22 = fperp(ζd)^2
-
-    return D11, D12, D22
-end
-
-"""
-Excitation factors from MS 76 (pg 37)
-"""
-function excitationfactor(ea::EigenAngle, R, Rg, component::FieldComponent, source::Source)
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::Ez, exciter::VerticalDipole)
     θ, S = ea.θ, ea.sinθ
+    alt = exciter.alt
 
-    B1 = S^(5/2)/dFdθ(θ)
-    B2 = -B1/S
+    B = S^(5/2)/dFdθ(θ)
 
-    D11, D12, D22 = heightgains(z)  # z should be `d` which is height we evaluate F(θ) at
+    # TODO: Special case for exciter and receiver at the ground?
+    return B*(1+Rg[1,1])^2*(2-Rg[2,2]*R[2,2])/Rg[1,1]*hg_fvert(alt)*hg_fvert(z)
+end
 
-    if component == Ez
-        if source.exciter == vertical
-            return B1*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
-        elseif source.exciter == horizontal_endon
-            return B2*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
-        elseif source.exciter == horizontal_broadside
-            return B2*R11*(1 + Rg22)*(1 + Rg11)/D12
-        else
-            error("Source exciter not supported")
-        end
-    elseif component == Ey
-        if source.exciter == vertical
-            return -B1/S*R21*(1 + Rg11)*(1 + Rg22)/D12
-        elseif source.exciter == horizontal_endon
-            return -B2/S*R21*(1 + Rg11)*(1 + Rg22)/D12
-        elseif source.exciter == horizontal_broadside
-            return -B2/S*(1 + Rg22)^2*(1 - Rg11*R11)/(Rg22*D22)
-        else
-            error("Source exciter not supported")
-        end
-    elseif component == Ex
-        if source.exciter == vertical
-            return B1/S*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
-        elseif source.exciter == horizontal_endon
-            return B2/S*(1 + Rg11)^2*(1 - Rg22*R22)/(Rg11*D11)
-        elseif source.exciter == horizontal_broadside
-            return B2/S*R12*(1 + Rg22)*(1 + Rg11)/D12
-        else
-            error("Source exciter not supported")
-        end
-    else
-        error("FieldComponent not supported")
-    end
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::Ey, exciter::VerticalDipole)
+    θ, S = ea.θ, ea.sinθ
+    alt = exciter.alt
+
+    B = S^(3/2)/dFdθ(θ)
+
+    return -B*R[2,1]*(1+Rg[1,1])*(1+Rg[2,2])*hg_fvert(alt)*hg_fhorz(z)
+end
+
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::Ex, exciter::VerticalDipole)
+    θ, S = ea.θ, ea.sinθ
+    alt = exciter.alt
+
+    B = S^(3/2)/dFdθ(θ)
+
+    return B*(1+Rg[1,1])^2*(1-Rg[2,2]*R[2,2])/Rg[1,1]*hg_fvert(alt)*hg_g(z)
+end
+
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::Ez, exciter::HorizontalDipole)
+    θ, S = ea.θ, ea.sinθ
+    alt, ϕ = exciter.alt, exciter.ϕ
+
+    B = -im*S^(3/2)/dFdθ(θ)
+
+    return B*(sin(ϕ)*R[1,2]*(1+Rg[2,2])*(1+Rg[1,1])*hg_fhorz(alt)*hg_fvert(z) +
+        cos(ϕ)*(1+Rg[1,1])^2/Rg[1,1]*(1-Rg[2,2]*R[2,2])*hg_g(alt)*hg_fvert(z))
+end
+
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::Ey, exciter::HorizontalDipole)
+    θ, S = ea.θ, ea.sinθ
+    alt, ϕ = exciter.alt, exciter.ϕ
+
+    B = im*sqrt(S)/dFdθ(θ)
+
+    return B*(sin(ϕ)*(1+Rg[2,2])^2/Rg[2,2]*(1-Rg[1,1]*R[1,1])*hg_fhorz(alt)*hg_fhorz(z) +
+        cos(ϕ)*R[2,1]*(1+Rg[1,1])*(1+Rg[2,2])*hg_g(alt)*hg_fhorz(z))
+end
+
+function excitationfactor(z, ea::EigenAngle, R, Rg, component::Ex, exciter::HorizontalDipole)
+    θ, S = ea.θ, ea.sinθ
+    alt, ϕ = exciter.alt, exciter.ϕ
+
+    B = -im*sqrt(S)/dFdθ(θ)
+
+    return B*(sin(ϕ)*R[1,2]*(1+Rg[2,2])*(1+Rg[1,1])*hg_fhorz(alt)*hg_g(z) +
+        cos(ϕ)*R[2,1]*(1+Rg[1,1])*(1+Rg[2,2])*hg_g(alt)*hg_fhorz(z))
 end
