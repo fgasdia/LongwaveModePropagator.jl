@@ -591,11 +591,114 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(inv(A)*dA)
 end
 
+"""
+See Morfitt 1980 Simplified ... Eqs 26-32
+
+Morfitt specifies that `S` is the sine of θ at reference height `h` which is apparently(?)
+not the same as his `b`, which is Wait's effective reflection height. But the `R`s and `Rg`s
+are elements of the reflection matrix looking into iono and towards ground from the level `d`.
+Therefore `T`s are also at `d`. BUT (on page 20) "the mode conversion program, as they are
+now programmed, require that the height variable `d` be at the ground so that in equations
+(26) through (32), `z = d = 0`".
+
+TODO: These names are confusing - this function also returns height gains?
+
+sw_wvgd.for
+"""
+function modeparameters(ea::EigenAngle)
+    S = ea.sinθ
+
+    sqrtS = sqrt(S)
+
+    F₁, F₂, F₃, F₄ = heightgain()
+    h₁qd, h₂qd, h₁′qd, h₂′qd = modhankel(qd)
+
+    D11 = (F₁*h₁qd + F₂*h₂qd)^2
+    D12 = (F₁*h₁qd + F₂*h₂qd)*(F₃*h₁qd + F₄h₂qd)
+    D22 = (F₃h₁qd + F₄*h₂qd)^2
+
+    T₁ = (sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])) / (dFdθ*Rg[1,1]*D11)
+    T₂ = (sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])) / (dFdθ*Rg[2,2]*D22)
+    T₃ = (sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]) / (dFdθ*D12)
+    T₄ = R[1,2]/R[2,1]
+
+    τ₁ = D11*T₁
+    τ₂ = D22*T₂
+    τ₃ = D12*T₃
+
+    # `f` = `Ey/Hy` at the ground
+    # In LWPC (not sure where this requirement comes from). M 1980 says either (eq 33)
+    if abs2(1 - R[1,1]*Rg[1,1]) > abs2(1 - R[2,2]*Rg[2,2])
+        f = T2/(T3*T4)
+    else
+        f = T3/T1
+    end
+
+    # height gain for vertical electric field Ez
+    f₁(z) = exp((z-d)/a)*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
+    # horizontal electric field Ex
+    f₂(z) = 1/(im*k)*df₁dz  # TODO
+    # Ey, normal to plane of propagation
+    f₃(z) = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
+
+    if vertical
+        λ_Ez = τ₁*S²
+        λ_Ex = τ₁*S
+        λ_Ey = -τ₃*S/f
+    elseif endon
+        λ_Ez = -τ₁*S
+        λ_Ex = -τ₁
+        λ_Ey = τ₃/f
+    elseif broadside
+        λ_Ez = -τ₃*T₄*S/f
+        λ_Ex = -τ₃*T₄/f
+        λ_Ey = τ₂/f^2
+    end
+
+    return f₁, f₂, f₃, λ_Ez, λ_Ex, λ_Ey
+end
+
+"""
+Morfitt 1980
+
+NOTE: LWPC and Morfitt 1980 have different conventions for (1,2,3). Morfitt has (1,2,3) → (z, x, y)
+LWPC has (1,2,3) → (z, y, x) at least for heightgains...
+
+E field strength amplitude in dB above μV/m for 1 kW radiator. Phase relative to free space
+
+TODO: Special function for vertical Ez only, zt=zr=0, and γ=φ=0. (Like GRNDMC)
+"""
+function Efield()
+    Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units
+    tmp = Q/sqrt(sin(x/a))
+
+    # Transmit antenna orientation (electric dipole)
+    # See Morfitt 1980 pg 22
+    Sγ, Cγ = sincos(γ)
+    Sφ, Cφ = sincos(φ)
+
+    ρ = rcvrrange  # NOTE: don't actually multiply this on this function, so we can generalize
+    # within the guide later
+
+    modesum = zero()
+    for ea in modes
+        # calculate mode params. Note: All 3 directions needed for xmtr, only "wanted" term needed for rcvr
+        xmtrterm = λ_Ez*f₁(zt)*Cγ + λ_Ex*f₂(zt)*Sγ*Cφ + λ_Ey*f₃(zt)*Sγ*Sφ
+        rcvrterm = f₁(zr)  # choose which coordinate is wanted
+        modsum += xmtrterm*rcvrterm*exp(-im*k)*(S - 1)*ρ
+    end
+end
 
 """
 MS 76 (pg 38)
 Pappert et al 1970 A FORTRAN program...
 Pappert and Shockey 1971 WKB Mode Summing Program...
+
+Morfitt 1980 Simplified Eqs 16-23
+According to Morfitt, `H` (his `b`) is the effective ionospheric height. The value to be
+assigned to this variable has been determined to be that height level for which the conductivity
+parameter ωᵣ is ``2.5×10⁵`` sec⁻¹. This value of `b` is the reference height (`h'`) as
+defined by Wait in terms of exponential profiles.
 
 fvert = height gain for vertical electric field cponent (Ez)
 fhorz = height gain for horizontal electric field component (Ey) normal to plane of propagation
@@ -614,31 +717,28 @@ function heightgain(z, ea::EigenAngle, ground::Ground)
     q₀ = q(0)
     qd = q(d)
 
-    h₁q₀ = h₁(q₀)
-    h₂q₀ = h₂(q₀)
-    h₁′q₀ = h₁p(q₀)
-    h₂′q₀ = h₂p(q₀)
+    h₁q₀, h₂q₀, h₁′q₀, h₂′q₀ = modhankel(q₀)
+    h₁qd, h₂qd, h₁′qd, h₂′qd = modhankel(qd)
 
-    h₁qd = h₁(qd)
-    h₂qd = h₂(qd)
+    H₁q₀ = h₁′q₀ + tmp*h₁q₀/2
+    H₂q₀ = h₂′q₀ + tmp*h₂q₀/2
 
-    H₁q₀ = h₁′q₀ + tmp*h₁q₀
-    H₂q₀ = h₂′q₀ + tmp*h₂q₀
-
-    H₁qd = h₁p(qd) + tmp*h₁qd
-    H₂qd = h₂p(qd) + tmp*h₂qd
+    H₁qd = h₁′qd + tmp*h₁qd/2
+    H₂qd = h₂′qd + tmp*h₂qd/2
 
     t1 = n₀²/Ng²
     t2 = cbrt(k/α)
     t3 = sqrt(Ng²-S²)
 
-    F₁ = -(H₂qd - im*t1*t2*t3*h₂q₀)
+    F₁ = -(H₂q₀ - im*t1*t2*t3*h₂q₀)
     F₂ = H₁q₀ - im*t1*t2*t3*h₁q₀
     F₃ = -(h₂′q₀ - im*t2*t3*h₂q₀)
-    F₄ = h₁′q₀ - im*t2*t3*h₂q₀
+    F₄ = h₁′q₀ - im*t2*t3*h₁q₀  # NOTE: Typo in P&S 71 eq 9
 
-    fvert = h -> exp((h-d)/earthradius)*(F₁*h₁(q(h)) + F₂*h₂(q(h)))/(F₁*h₁qd + F₂*h₂qd)
-    fhorz = h -> (F₃*h₁(q(h)) + F₄*h₂(q(h)))/(F₃*h₁qd + F₄*h₂qd)
+    return F₁, F₂, F₃, F₄
+
+    # fvert = h -> exp((h-d)/earthradius)*(F₁*h₁(q(h)) + F₂*h₂(q(h)))/(F₁*h₁qd + F₂*h₂qd)
+    # fhorz = h -> (F₃*h₁(q(h)) + F₄*h₂(q(h)))/(F₃*h₁qd + F₄*h₂qd)
     # g = h -> 1/(im*k)
 end
 
