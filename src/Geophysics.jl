@@ -1,13 +1,14 @@
 export Constituent
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export earthradius, speedoflight, fundamentalcharge, electronmass, μ₀, ϵ₀
+export Rₑ, c₀, fundamentalcharge, electronmass, μ₀, ϵ₀
 
-const earthradius = 6369427  # m
-const speedoflight = 299792458  # m/s
-const μ₀ = 4e-7π  # H/m
-const ϵ₀ = 1/(μ₀*speedoflight^2)  # F/m
-const electronmass = 9.10938356e-31  # kg
-const fundamentalcharge = 1.602176621e-19  # C
+# CODATA 2018 NIST SP 961
+const Rₑ = 6369427  # m
+const c₀ = 299792458  # m/s
+const μ₀ = 1.25663706212e-6  # H/m
+const ϵ₀ = 1/(μ₀*c₀^2)  # F/m
+const mₑ = 9.1093837015e-31  # kg  TODO: This shouldn't be a const
+const qₑ = 1.602176634e-19  # C  fundamental charge  # maybe this shouldn't be either
 const H = 50e3  # reference height for Earth curvature
 
 struct Constituent{T<:Number, F<:Function, G<:Function}

@@ -90,7 +90,7 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     Z = ν(z)/ω
     U = 1 - im*Z
 
-    earthcurvature = 2(z₀ - z)/earthradius
+    earthcurvature = 2(z₀ - z)/Rₑ
 
     # Temporary variables
     U² = U^2
@@ -592,6 +592,43 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 """
+MS 76 (pg 38)
+Pappert et al 1970 A FORTRAN program...
+Pappert and Shockey 1971 WKB Mode Summing Program...
+
+Morfitt 1980 Simplified Eqs 16-23 <=
+
+Assumes `d` = 0.
+"""
+function heightgainconstants(ea::EigenAngle, ground::Ground, source::AbstractSource)
+    C², S² = ea.cos²θ, ea.sin²θ
+    k = source.k
+
+    α = 2/Rₑ
+    tmp = (α/k)^(2/3)
+
+    n₀² = 1 - α*H
+    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
+
+    q₀ = (C² - α*H)/tmp
+
+    h₁q₀, h₂q₀, h₁′q₀, h₂′q₀ = modifiedhankel(q₀)
+
+    H₁q₀ = h₁′q₀ + tmp*h₁q₀/2
+    H₂q₀ = h₂′q₀ + tmp*h₂q₀/2
+
+    tmp1 = n₀²/Ng²
+    tmp2 = cbrt(k/α)*sqrt(Ng²-S²)
+
+    F₁ = -(H₂q₀ - im*tmp1*tmp2*h₂q₀)
+    F₂ = H₁q₀ - im*tmp1*tmp2*h₁q₀
+    F₃ = -(h₂′q₀ - im*tmp2*h₂q₀)
+    F₄ = h₁′q₀ - im*tmp2*h₁q₀  # NOTE: Typo in P&S 71 eq 9
+
+    return h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄
+end
+
+"""
 See Morfitt 1980 Simplified ... Eqs 26-32
 
 Morfitt specifies that `S` is the sine of θ at reference height `h` which is apparently(?)
@@ -605,17 +642,16 @@ TODO: These names are confusing - this function also returns height gains?
 
 sw_wvgd.for
 """
-function modeparameters(ea::EigenAngle)
+function excitationfactors(ea::EigenAngle, ground::Ground, souce::AbstractSource)
     S = ea.sinθ
 
     sqrtS = sqrt(S)
 
-    F₁, F₂, F₃, F₄ = heightgain()
-    h₁qd, h₂qd, h₁′qd, h₂′qd = modhankel(qd)
+    h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = heightgainconstants(ea, ground, source)
 
-    D11 = (F₁*h₁qd + F₂*h₂qd)^2
-    D12 = (F₁*h₁qd + F₂*h₂qd)*(F₃*h₁qd + F₄h₂qd)
-    D22 = (F₃h₁qd + F₄*h₂qd)^2
+    D11 = (F₁*h₁q₀ + F₂*h₂q₀)^2
+    D12 = (F₁*h₁q₀ + F₂*h₂q₀)*(F₃*h₁q₀ + F₄h₂q₀)
+    D22 = (F₃h₁q₀ + F₄*h₂q₀)^2
 
     T₁ = (sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])) / (dFdθ*Rg[1,1]*D11)
     T₂ = (sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])) / (dFdθ*Rg[2,2]*D22)
@@ -634,13 +670,6 @@ function modeparameters(ea::EigenAngle)
         f = T3/T1
     end
 
-    # height gain for vertical electric field Ez
-    f₁(z) = exp((z-d)/a)*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
-    # horizontal electric field Ex
-    f₂(z) = 1/(im*k)*df₁dz  # TODO
-    # Ey, normal to plane of propagation
-    f₃(z) = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
-
     if vertical
         λ_Ez = τ₁*S²
         λ_Ex = τ₁*S
@@ -656,6 +685,31 @@ function modeparameters(ea::EigenAngle)
     end
 
     return f₁, f₂, f₃, λ_Ez, λ_Ex, λ_Ey
+end
+
+function heightgains(z)
+    C², S² = ea.cos²θ, ea.sin²θ
+    k = source.k
+
+    α = 2/Rₑ
+    tmp = (α/k)^(2/3)
+
+    q = (C² - α*(H-z))/tmp
+
+    h₁q, h₂q, h₁′q, h₂′q = modifiedhankel(q)
+
+    tmp2 = exp(z/Rₑ)
+
+    # height gain for vertical electric field Ez, f₁
+    f_Ez = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
+
+    # horizontal electric field Ex, f₂
+    f_Ex = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
+
+    # Ey, normal to plane of propagation, f₃
+    f_Ey = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
+
+    return f_Ez, f_Ex, f_Ey
 end
 
 """
@@ -682,62 +736,14 @@ function Efield()
 
     modesum = zero()
     for ea in modes
+        λ_Ez, λ_Ex, λ_Ey = excitationfactors()
+
+
         # calculate mode params. Note: All 3 directions needed for xmtr, only "wanted" term needed for rcvr
         xmtrterm = λ_Ez*f₁(zt)*Cγ + λ_Ex*f₂(zt)*Sγ*Cφ + λ_Ey*f₃(zt)*Sγ*Sφ
         rcvrterm = f₁(zr)  # choose which coordinate is wanted
-        modsum += xmtrterm*rcvrterm*exp(-im*k)*(S - 1)*ρ
+        modesum += xmtrterm*rcvrterm*exp(-im*k)*(S - 1)*ρ
     end
-end
 
-"""
-MS 76 (pg 38)
-Pappert et al 1970 A FORTRAN program...
-Pappert and Shockey 1971 WKB Mode Summing Program...
-
-Morfitt 1980 Simplified Eqs 16-23
-According to Morfitt, `H` (his `b`) is the effective ionospheric height. The value to be
-assigned to this variable has been determined to be that height level for which the conductivity
-parameter ωᵣ is ``2.5×10⁵`` sec⁻¹. This value of `b` is the reference height (`h'`) as
-defined by Wait in terms of exponential profiles.
-
-fvert = height gain for vertical electric field cponent (Ez)
-fhorz = height gain for horizontal electric field component (Ey) normal to plane of propagation
-g = height gain for horizontal electric field component (Ex) in plane of propagation
-"""
-function heightgain(z, ea::EigenAngle, ground::Ground)
-    C², S² = ea.cos²θ, ea.sin²θ
-
-    α = 2/earthradius
-    tmp = (α/k)^(2/3)
-
-    n₀² = 1 - α*(H - z)
-    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
-
-    q = h -> (C² - α*(H - h))/tmp
-    q₀ = q(0)
-    qd = q(d)
-
-    h₁q₀, h₂q₀, h₁′q₀, h₂′q₀ = modhankel(q₀)
-    h₁qd, h₂qd, h₁′qd, h₂′qd = modhankel(qd)
-
-    H₁q₀ = h₁′q₀ + tmp*h₁q₀/2
-    H₂q₀ = h₂′q₀ + tmp*h₂q₀/2
-
-    H₁qd = h₁′qd + tmp*h₁qd/2
-    H₂qd = h₂′qd + tmp*h₂qd/2
-
-    t1 = n₀²/Ng²
-    t2 = cbrt(k/α)
-    t3 = sqrt(Ng²-S²)
-
-    F₁ = -(H₂q₀ - im*t1*t2*t3*h₂q₀)
-    F₂ = H₁q₀ - im*t1*t2*t3*h₁q₀
-    F₃ = -(h₂′q₀ - im*t2*t3*h₂q₀)
-    F₄ = h₁′q₀ - im*t2*t3*h₁q₀  # NOTE: Typo in P&S 71 eq 9
-
-    return F₁, F₂, F₃, F₄
-
-    # fvert = h -> exp((h-d)/earthradius)*(F₁*h₁(q(h)) + F₂*h₂(q(h)))/(F₁*h₁qd + F₂*h₂qd)
-    # fhorz = h -> (F₃*h₁(q(h)) + F₄*h₂(q(h)))/(F₃*h₁qd + F₄*h₂qd)
-    # g = h -> 1/(im*k)
+    return modesum
 end
