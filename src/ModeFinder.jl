@@ -3,35 +3,26 @@ using LinearAlgebra
 using StaticArrays
 using DiffEqBase, OrdinaryDiffEq
 using Parameters
+using GRPF
 
 using PolynomialRoots: roots!
 
 using ModifiedHankelFunctionsOfOrderOneThird
-using GRPF
 
-struct EigenAngle{T}
-    θ::T  # radians, because df/dθ are in radians
-    cosθ::T
-    sinθ::T
-    cos²θ::T
-    sin²θ::T
+struct Derivative end
 
-    function EigenAngle{T}(θ::T) where T <: Number
-        C = cos(θ)
-        S = sin(θ)
-        C² = C^2
-        S² = 1 - C²
-        new(θ, C, S, C², S²)
-    end
+@with_kw struct HeightGainConstants{T<:Number} @deftype T
+    h₁q₀
+    h₂q₀
+    h₁′q₀
+    h₂′q₀
+    F₁
+    F₂
+    F₃
+    F₄
 end
-EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
 
-abstract type FieldComponent end
-struct Ez <: FieldComponent end
-struct Ey <: FieldComponent end
-struct Ex <: FieldComponent end
-
-@with_kw struct SharplyBoundedR{T<:Number} @deftype T
+@with_kw struct SharpBoundary{T<:Number} @deftype T
     q::MVector{4, ComplexF64}
     B::MVector{5, T}
     D12
@@ -70,27 +61,41 @@ end
 
 
 """
-Computation of susceptibility `M` matrix as defined by Budden (1955)
-[](10.1098/rspa.1955.0027).
+    susceptibility(z, ω, bfield, species)
 
-`z` is "current" height
-`z₀` is reference height for earth curvature where the index of refraction ≈ 1
+Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
 
-# TODO: Add M up for each species
+TODO: Handle multiple species
+
+TODO: additional references on curvature correction
+Includes first order correction for earth curvature by means of a fictitious refractive index.
+
+Budden's formalism [^Budden1955a] assumes that the ionosphere is horizontally stratified and contains
+electrons whose motion is influenced by the earth's magnetic field and is damped by collisions.
+A plane wave of specified polarization is incident at some (generally oblique) angle from
+below and we wish to find the amplitude, phase, and polarization of the reflected wave.
+
+The differential equations for calculating the reflection coefficient are derived from
+Maxwell's equations together with the constitutive relations for the ionosphere. The
+constitutive relations for the ionosphere may be written ``P = ϵ₀ M ⋅ E`` where ``P`` is the
+electric polarization vector, ``E`` is the electric field vector, and ``M`` is a 3×3
+susceptibility matrix calculated by this function.
+
+# References
+
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
-function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
-    # Unpack
+function susceptibility(z, ω, bfield::BField, species::Constituent)
     B, l, m, n = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     l², m², n² = l^2, m^2, n^2
 
-    # Constitutive relations (see Budden 1955, pg. 517)
-    e, m, N, ν = spec.charge, spec.mass, spec.numberdensity, spec.collisionfrequency
-    X = N(z)*e^2/(ϵ₀*m*ω^2)
-    Y = e*B/(m*ω)
-    Z = ν(z)/ω
+    # Constitutive relations (see Budden1955a, pg. 517)
+    e, m, N, ν = species.charge, species.mass, species.numberdensity, species.collisionfrequency
+    mω = m*ω
+    X = N(z)*e^2/(ϵ₀*mω*ω)  # ωₚ²/ω² plasma frequency / ω
+    Y = e*B/mω  # ωₘ²/ω  gyrofrequency / ω
+    Z = ν(z)/ω  # collision frequency / ω
     U = 1 - im*Z
-
-    earthcurvature = 2(z₀ - z)/Rₑ
 
     # Temporary variables
     U² = U^2
@@ -102,9 +107,9 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
     lYU = l*YU
 
     nY² = n*Y²
-    lmY² = l*m*Y²
     lnY² = l*nY²
     mnY² = m*nY²
+    lmY² = l*m*Y²
 
     # Elements of `M`
     M11 = U² - l²*Y²
@@ -123,11 +128,33 @@ function susceptibility(ω, z₀, z, spec::Constituent, bfield::BField)
 
     M *= -X/(U*(U² - Y²))
 
-    M -= earthcurvature*I  # This correction only occurs once after adding species?
+    earthcurvature = 2/Rₑ*(H - z)
+    M -= earthcurvature*I  # This correction occurs once after summing species
 
     return M
 end
 
+"""
+    tmatrix(ea, M)
+
+Return the intermediate matrix components of `T` whose elements are used in the calculation
+of matrix `S` for the differential equations for the ionospheric reflection coefficient `R`.
+
+Following Budden's formalism [^Budden1955a] the differential equations for calculating the
+reflection coefficient for a radio wave obliquely incident on a horizontally stratified
+ionosphere are derived from Maxwell's equations in conjunction with the constitutive relations
+for the ionosphere, represented by the matrix `M`. After eliminating the vertically directed
+components ``Ez`` and ``Hz``, the equations can be written ``∂e/∂s = -i T e`` where ``s`` is
+a proxy for height `z`, and ``e = (Ex -Ey Hx Hy)``, as detailed by [^Clemmow1954]. This
+function calculates components of the matrix `T`.
+
+See also: [`smatrix`](@ref), [`susceptibility`](@ref)
+
+# References
+
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
+[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations governing radio propagation in the ionosphere,” Mathematical Proceedings of the Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
+"""
 function tmatrix(ea::EigenAngle, M::AbstractArray)
     S, C² = ea.sinθ, ea.cos²θ
 
@@ -156,24 +183,39 @@ function tmatrix(ea::EigenAngle, M::AbstractArray)
     return TMatrix(T11, T12, T14, T31, T32, T34, T41, T42, T44)
 end
 
-
 """
-Compute matrix elements for solving differential of reflection matrix `R` wrt `z`.
+    smatrix(ea, T)
 
-See Budden 1955 second method.
+Compute submatrix elements of `S` for solving the differential equation of reflection matrix
+`R` wrt `z`.
 
-```math
-e′ = -iTe
-```
+Following Budden's [^Budden1955a] formalism for the reflection matrix of a plane wave
+obliquely incident on the ionosphere, the wave below the ionosphere can be resolved into
+upgoing and downgoing waves of elliptical polarization, each of whose components are
+themselves resolved into a component with the electric field in the plane of propagation and
+a component perpendicular to the plane of propagation. The total field can be written in
+matrix form as ``e = L q`` where ``L`` is a 4×4 matrix that simply selects and specifies the
+incident angle of the components and ``q`` is a column matrix of the complex amplitudes of
+the component waves. By inversion, ``q = L⁻¹ e`` and its derivative wrt height `z` is
+``q′ = -i L⁻¹ T L q = -½ i S q``. Then ``S = 2 L⁻¹ T L``, which is calculated by this
+function, describes the change in amplitude of the upgoing and downgoing component waves.
+
+See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
+
+# References
+
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
+
+[^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
 """
 function smatrix(ea::EigenAngle, T::TMatrix)
     C = ea.cosθ
-    Cinv = 1/C
+    Cinv = inv(C)
 
-    # Temporary matrix elements T
+    # Temporary matrix elements `T`
     @unpack T11, T12, T14, T31, T32, T34, T41, T42, T44 = T
 
-    # based on Sheddy et al., 1968, A Fortran Program...
+    # based on Sheddy1968
     t12Cinv = T12*Cinv
     t14Cinv = T14*Cinv
     t32Cinv = T32*Cinv
@@ -201,9 +243,9 @@ function smatrix(ea::EigenAngle, T::TMatrix)
     S22 = @SMatrix [s11a-s11b d12;
                     -d21 -s22]
 
-    return S11, S12, S21, S22
+    return S11, S21, S12, S22
 
-    #== Equivalent to (but faster than):
+    #== The above is equivalent to (but faster than):
     T = SMatrix{4,4}(T11, T21, T31, T41,
                      T12, T22, T32, T42,
                      T13, T23, T33, T43,
@@ -223,16 +265,22 @@ function smatrix(ea::EigenAngle, T::TMatrix)
     ==#
 end
 
+"""
+    dsmatrixdθ(ea, M, T)
+
+Return the 4 submatrix elements of the derivative of the `S` matrix wrt θ.
+
+See also: [`smatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
+"""
 function dsmatrixdθ(ea::EigenAngle, M, T::TMatrix)
-    # Unpack
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
-    Cinv = 1/C
-    C²inv = 1/C²
+    Cinv = inv(C)
+    C²inv = inv(C²)
 
     dS = C
     dC = -S
     dC² = -2*S*C
-    dCinv = S/C²
+    dCinv = S*C²inv
 
     # Temporary matrix elements T
     @unpack T12, T14, T32, T34, T41 = T
@@ -283,18 +331,24 @@ function dsmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     dS22 = @SMatrix [ds11a-ds11b dd12;
                      -dd21 -ds22]
 
-    return dS11, dS12, dS21, dS22
+    return dS11, dS21, dS12, dS22
 end
 
 """
-Calculation of Booker quartic for solution of `R` for a sharply bounded ionosphere.
+    bookerquartic(ea, M)
 
-Based on Sheddy 1968 A General Analytic Solution for Reflection from a Sharply...
+Return roots `q` and the coefficients `B` of the Booker quartic.
 
-See also: [`sharplyboundedX!`](@ref)
+The Booker quartic is used in the solution of `R` for a sharply bounded ionosphere. This
+function uses the `PolynomialRoots` package to find the roots.
+
+See also: [`sharplybounded_R`](@ref)
+
+# References
+
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
 function bookerquartic(ea::EigenAngle, M)
-    # Initialize
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Booker quartic coefficients
@@ -319,18 +373,22 @@ function bookerquartic(ea::EigenAngle, M)
 end
 
 """
-Calculate angle from 315°.
+    anglefrom315(v)
 
-Used to sort in [`sharplyboundedX!`](@ref).
+Calculate the angle of `v` in radians from 315° on the complex plane.
 """
-function anglefrom315(qval)
-    angq = rad2deg(angle(qval))
-    angq < 0 && (angq += 360)
-    angq < 135 && (angq += 360)
-    return abs(angq - 315)
+function anglefrom315(v::Complex)
+    ang = rad2deg(angle(v))
+    ang < 0 && (ang += 360)
+    ang < 135 && (ang += 360)
+    return abs(ang - 315)
 end
 
-function _common_sharplyboundedR(ea::EigenAngle, M)
+function anglefrom315(v::Real)
+    return oftype(v, 45)
+end
+
+function _common_sharplyboundedreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Solve equation `D = 0` as a quartic
@@ -341,58 +399,78 @@ function _common_sharplyboundedR(ea::EigenAngle, M)
     sort!(q, by=anglefrom315)
 
     # Constant entries of dispersion matrix `D`
+    q1S = q[1]*S
+    q2S = q[2]*S
+
+    M11p1 = 1 + M[1,1]
+
     D12 = M[1,2]
     D32 = M[3,2]
     D33 = C² + M[3,3]
 
     # Values for two solutions of the Booker quartic corresponding to upgoing waves
-    D11_1 = 1 + M[1,1] - q[1]^2
-    D13_1 = M[1,3] + q[1]*S
-    D31_1 = M[3,1] + q[1]*S
+    D11_1 = M11p1 - q[1]^2
+    D13_1 = M[1,3] + q1S
+    D31_1 = M[3,1] + q1S
 
     Δ_1 = D11_1*D33 - D13_1*D31_1
-    invΔ_1 = 1/Δ_1
+    invΔ_1 = inv(Δ_1)
     P_1 = (-D12*D33 + D13_1*D32)*invΔ_1
     T_1 = q[1]*P_1 - S*(-D11_1*D32 + D12*D31_1)*invΔ_1
 
-    D11_2 = 1 + M[1,1] - q[2]^2
-    D13_2 = M[1,3] + q[2]*S
-    D31_2 = M[3,1] + q[2]*S
+    D11_2 = M11p1 - q[2]^2
+    D13_2 = M[1,3] + q2S
+    D31_2 = M[3,1] + q2S
 
     Δ_2 = D11_2*D33 - D13_2*D31_2
-    invΔ_2 = 1/Δ_2
+    invΔ_2 = inv(Δ_2)
     P_2 = (-D12*D33 + D13_2*D32)*invΔ_2
     T_2 = q[2]*P_2 - S*(-D11_2*D32 + D12*D31_2)*invΔ_2
 
     # Computation of entries of reflection matrix `R`
     Δ = (T_1*C + P_1)*(C + q[2]) - (T_2*C + P_2)*(C + q[1])
-    invΔ = 1/Δ
+    invΔ = inv(Δ)
 
-    return SharplyBoundedR(q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
+    return SharpBoundary(q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
         D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ)
 end
 
 """
-From Sheddy 1968, A General Analytic Solution for Reflection ...
-"""
-function sharplybounded_R(ea::EigenAngle, M)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+    sharplyboundedreflection(ea, M)
 
-    @unpack q, P_1, T_1, P_2, T_2, invΔ = _common_sharplyboundedR(ea, M)
+Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere.
+
+[^Sheddy1968a] introduces the matrix equation ``D E = 0`` in the coordinate system of Budden
+where the dispersion matrix ``D = I + M + L``. Nontrivial solutions to the equation require
+``det(D) = 0``, which may be written as a quartic in ``q = n cos(θ)``. Elements of the
+dispersion matrix are then used to calculate the reflection matrix `R`.
+
+The reflection coefficient matrix for the sharply bounded case is used as a starting solution
+for integration of the reflection coefficient matrix through the ionosphere.
+
+# References
+
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
+"""
+function sharplyboundedreflection(ea::EigenAngle, M)
+    C = ea.cosθ
+    C2 = 2*C
+
+    @unpack q, P_1, T_1, P_2, T_2, invΔ = _common_sharplyboundedreflection(ea, M)
 
     R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
     R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
-    R12 = -2*C*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
-    R21 = -2*C*(q[1] - q[2])*invΔ  # ∥R⟂
+    R12 = -C2*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
+    R21 = -C2*(q[1] - q[2])*invΔ  # ∥R⟂
 
     return SMatrix{2,2}(R11, R21, R12, R22)
 end
 
-function sharplybounded_R_dRdθ(ea::EigenAngle, M)
+function sharplyboundedreflection(ea::EigenAngle, M, ::Derivative)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     @unpack q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
-        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = _common_sharplyboundedR(ea, M)
+        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = _common_sharplyboundedreflection(ea, M)
 
     # Additional calculations required for dR/dθ
     dS = C
@@ -461,90 +539,120 @@ function sharplybounded_R_dRdθ(ea::EigenAngle, M)
             C*(dP_1 - dT_1*q[2] + dT_2*q[1] - T_1*dq_2 + T_2*dq_1 - dP_2) +
             dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
 
-    return SMatrix{2,2}(R11, R21, R12, R22), SMatrix{2,2}(dR11, dR21, dR12, dR22)
+    # return SMatrix{2,2}(R11, R21, R12, R22), SMatrix{2,2}(dR11, dR21, dR12, dR22)
+    return @SMatrix [R11 R12;
+                     R21 R22;
+                     dR11 dR12;
+                     dR21 dR22]
 end
 
 """
-Calculate the derivative of the reflection matrix `R` wrt height `z`.
+    dRdz(R, params, z)
 
-Expects S to be a tuple of `(S11, S12, S21, S22)`.
+Return the differential of the reflection matrix `R` wrt height `z`.
 
-The factor of `k` appears explicitly because Budden 1955 derives R′ wrt a height
-variable ``s'' which includes k.
+Following the Budden [^Budden1955a] formalism for the reflection of an (obliquely) incident
+plane wave from a horizontally stratified ionosphere, the differential of the reflection
+matrix `R` with height `z` can be described by ``2i R′ = S⁽²¹⁾ + S⁽²²⁾R - RS⁽¹¹⁾ - RS⁽¹²⁾R``.
+Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the ionosphere.
+
+# References
+
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, params, z)
-    # TODO: BUG: This function needs a redesign, maybe don't use `params`
-    # The function takes more than twice as long as the sum of its components
-
     ω, k = params.ω, params.k
     ea = params.ea
-    z0, species, bfield = params.referenceheight, params.species, params.bfield
+    species, bfield = params.species, params.bfield
 
-    M = susceptibility(ω, z0, z, species, bfield)
+    M = susceptibility(z, ω, bfield, species)
     T = tmatrix(ea, M)
     S = smatrix(ea, T)
 
-    return -im/2*k*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
+    # the factor k/(2i) isn't explicitly in Budden1955a b/c of his change of variable ``s = kz``
+    return -im/2*k*(S[2] + S[4]*R - R*S[1] - R*S[3]*R)
 end
 
 function dRdθdz(RdRdθ, params, z)
     ω, k = params.ω, params.k
     ea = params.ea
-    z0, species, bfield = params.referenceheight, params.species, params.bfield
+    species, bfield = params.species, params.bfield
 
-    M = susceptibility(ω, z0, z, species, bfield)
+    M = susceptibility(z, ω, bfield, species)
     T = tmatrix(ea, M)
     S = smatrix(ea, T)
     dS = dsmatrixdθ(ea, M, T)
 
-    R = RdRdθ[1:4]
-    dRdθ = RdRθ[5:end]
+    R = @view RdRdθ[1:2,:]
+    dRdθ = @view RdRθ[3:4,:]
 
-    dz = -im/2*k*(S[3] + S[4]*R - R*S[1] - R*S[2]*R)
-    dzdθ = -im/2*k*(dS[3] + dS[4]*R + S[4]*dR -
+    dz = -im/2*k*(S[2] + S[4]*R - R*S[1] - R*S[3]*R)
+    dθdz = -im/2*k*(dS[2] + dS[4]*R + S[4]*dR -
         (dRdθ*S[1] + R*dS[1]) -
-        (dRdθ*S[2]*R + R*dS[2]*R + R*S[2]*dRdθ))
+        (dRdθ*S[3]*R + R*dS[3]*R + R*S[3]*dRdθ))
 
-    return vcat(dz, dzdθ)
+    return vcat(dz, dθdz)
+end
+
+function integratedreflection(
+    ea::EigenAngle,
+    topheight,
+    bottomheight,
+    bfield::BField,
+    species,
+    tx::AbstractSource
+)
+    ω, k = tx.ω, tx.k
+
+    Mtop = susceptibility(topheight, ω, bfield, species)
+
+    params = (ω=ω, k=k, ea=ea, species=species, bfield=bfield)
+
+    Rtop = sharplyboundedreflection(ea, Mtop)
+
+    prob = ODEProblem{false}(dRdz, Rtop, (topheight, bottomheight), params)
+    sol = solve(prob, Tsit5(), reltol=1e-6, save_everystep=false, save_start=false)
+
+    return sol[end]
 end
 
 function integratethroughionosphere(
     ea::EigenAngle,
-    source::AbstractSource,
-    fromheight,
-    toheight,
-    referenceheight,
+    topheight,
+    bottomheight,
+    bfield::BField,
     species,
-    bfield::BField;
-    deriv=false
+    tx::AbstractSource,
+    ::Derivative
 )
-    ω, k, λ = source.ω, source.k, source.λ  # k in km
+    ω, k = tx.ω, tx.k
 
-    M = susceptibility(ω, referenceheight, fromheight, species, bfield)
+    Mtop = susceptibility(topheight, ω, bfield, species)
 
-    params = (ω=ω, k=k, ea=ea, referenceheight=referenceheight, species=species, bfield=bfield)
+    params = (ω=ω, k=k, ea=ea, species=species, bfield=bfield)
 
-    if deriv
-        R0, dR0 = sharplybounded_R_dRdθ(ea, M)
-        prob = ODEProblem{false}(dRdθdz, vcat(R0, dR0), (fromheight, toheight), params)
-        sol = solve(prob, Tsit5())
-    else
-        R0 = sharplyboundedR(ea, M)
+    RdRdθtop = sharplyboundedreflection(ea, Mtop, Derivative())
 
-        prob = ODEProblem{false}(dRdz, R0, (fromheight, toheight), params)
-        sol = solve(prob, Tsit5()) #, reltol=1e-6)#, dtmax=λ/20)
-    end
+    prob = ODEProblem{false}(dRdθdz, RdRtop, (topheight, bottomheight), params)
+    sol = solve(prob, Tsit5(), reltol=1e-6, save_everystep=false, save_start=false)
+
+    return sol[end]
 end
 
 """
-Fresnel reflection coefficients for the ground free-space interface at the ground (z=0).
+    fresnelreflection(ea, tx, ground)
 
-From Morfitt Shellman 1976 pg 25 (eq 71 & 72)
+Return the Fresnel reflection coefficient matrix for the ground free-space interface at the
+ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
+
+# References
+
+[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
-function fresnelreflection(ea::EigenAngle, source::AbstractSource, ground::Ground)
+function fresnelreflection(ea::EigenAngle, ground::Ground, ω)
     C, S² = ea.cosθ, ea.sin²θ
 
-    ng² = ground.ϵᵣ - im*ground.σ/(source.ω*ϵ₀)
+    ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
 
     tmp1 = C*ng²
     tmp2 = sqrt(ng² - S²)
@@ -556,10 +664,10 @@ function fresnelreflection(ea::EigenAngle, source::AbstractSource, ground::Groun
     return SMatrix{2,2}(Rg11, 0, 0, Rg22)
 end
 
-function fresnelreflectiondθ(ea::EigenAngle, source::AbstractSource, ground::Ground)
+function fresnelreflection(ea::EigenAngle, ground::Ground, ω, ::Derivative)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
 
-    ng² = ground.ϵᵣ - im*ground.σ/(source.ω*ϵ₀)
+    ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
 
     tmp1 = C*ng²
     tmp2 = sqrt(ng² - S²)
@@ -575,20 +683,88 @@ function fresnelreflectiondθ(ea::EigenAngle, source::AbstractSource, ground::Gr
 end
 
 """
-Determinental mode equation assuming `R` and `Rg` at θ
+    modalequation(R, Rg)
 
-XXX: Maybe explicitly make this F(θ) and have it calculate Rg and R?
-XXX: Maybe hardcode this?
+Return value of the determinental mode equation ``det(Rg R - I)`` given `R` and `Rg`.
+
+If the reflection matrix ``R₁`` represents the reflection coefficient at height ``z₁``, then
+the reflection coefficient at ``z₂`` is ``R₂ = R₁ exp(2ik(z₂ - z₁) sin(θ))``. For a wave that
+starts at the ground, reflects off the ionosphere at level ``h`` with ``R``, and then at the
+ground with ``Rg``, the fields must be multiplied by ``̅Rg R exp(-2ikh sin(θ))``. For a
+self-consistent waveguide mode, the resulting wave must be identifcal with the original
+wave, and a necessary and sufficient condition for this is that one eigenvalue of this matrix
+is unity. This leads to the mode equation [^Budden1962].
+
+# References
+
+[^Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
+radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A.
+Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962.
 """
-modalequation(R, Rg) = det(Rg*R .- 1)
+modalequation(R, Rg) = det(Rg*R - I)
 
 """
 See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
 """
 function modalequationdθ(R, dR, Rg, dRg)
-    A = Rg*R .- 1
+    A = Rg*R - I
     dA = dRg*R + Rg*dR
     return det(A)*tr(inv(A)*dA)
+end
+
+function solvemodalequation(
+    θ,
+    topheight,
+    bfield::BField,
+    tx::AbstractSource,
+    ground::Ground,
+    species::Constituent
+)
+    bottomheight = zero(topheight)
+
+    ea = EigenAngle(θ)
+
+    R = LWMS.integratedreflection(ea, topheight, bottomheight, bfield, electrons, tx)
+    Rg = LWMS.fresnelreflection(ea, ground, tx.ω)
+
+    f = modalequation(R, Rg)
+    return f
+end
+
+function solvemodalequationdθ(
+    θ,
+    topheight,
+    bfield::BField,
+    tx::AbstractSource,
+    ground::Ground,
+    species::Constituent
+)
+    bottomheight = zero(topheight)
+
+    ea = EigenAngle(θ)
+
+    RdR = LWMS.integratedreflection(ea, topheight, bottomheight, bfield, electrons, tx, Derivative())
+    R = @view RdR[1:2,:]
+    dR = @view RdR[3:4,:]
+
+    Rg, dRg = LWMS.fresnelreflection(ea, ground, tx.ω, Derivative())
+
+    df = modalequationdθ(R, dR, Rg, dRg)
+    return df
+end
+
+function findmodes(
+    origcoords,
+    topheight,
+    bfield::BField,
+    tx::AbstractSource,
+    ground::Ground,
+    species::Constituent,
+    tolerance=1e-4
+)
+    zroots, zpoles = grpf(z->solvemodalequation(z, topheight, bfield, tx, ground, species),
+                          origcoords, tolerance, 15000)
+    return @SVector [EigenAngle(r) for r in zroots]
 end
 
 """
@@ -600,9 +776,9 @@ Morfitt 1980 Simplified Eqs 16-23 <=
 
 Assumes `d` = 0.
 """
-function heightgainconstants(ea::EigenAngle, ground::Ground, source::AbstractSource)
+function heightgainconstants(ea::EigenAngle, ground::Ground, tx::AbstractSource)
     C², S² = ea.cos²θ, ea.sin²θ
-    k = source.k
+    k, ω = tx.k, tx.ω
 
     α = 2/Rₑ
     tmp = (α/k)^(2/3)
@@ -625,7 +801,7 @@ function heightgainconstants(ea::EigenAngle, ground::Ground, source::AbstractSou
     F₃ = -(h₂′q₀ - im*tmp2*h₂q₀)
     F₄ = h₁′q₀ - im*tmp2*h₁q₀  # NOTE: Typo in P&S 71 eq 9
 
-    return h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄
+    return HeightGainConstants(h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄)
 end
 
 """
@@ -638,20 +814,21 @@ Therefore `T`s are also at `d`. BUT (on page 20) "the mode conversion program, a
 now programmed, require that the height variable `d` be at the ground so that in equations
 (26) through (32), `z = d = 0`".
 
-TODO: These names are confusing - this function also returns height gains?
+TODO: Return all field components, but have separate path for vertical only.
 
 sw_wvgd.for
 """
-function excitationfactors(ea::EigenAngle, ground::Ground, souce::AbstractSource)
-    S = ea.sinθ
-
+function excitationfactors(ea::EigenAngle, R, Rg, hgc::HeightGainConstants, fc::FieldComponent)
+    θ, S = ea.θ, ea.sinθ
     sqrtS = sqrt(S)
 
-    h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = heightgainconstants(ea, ground, source)
+    @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
     D11 = (F₁*h₁q₀ + F₂*h₂q₀)^2
     D12 = (F₁*h₁q₀ + F₂*h₂q₀)*(F₃*h₁q₀ + F₄h₂q₀)
     D22 = (F₃h₁q₀ + F₄*h₂q₀)^2
+
+    dFdθ = modalequationdθ(θ)
 
     T₁ = (sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])) / (dFdθ*Rg[1,1]*D11)
     T₂ = (sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])) / (dFdθ*Rg[2,2]*D22)
@@ -670,15 +847,15 @@ function excitationfactors(ea::EigenAngle, ground::Ground, souce::AbstractSource
         f = T3/T1
     end
 
-    if vertical
+    if fc isa Ez
         λ_Ez = τ₁*S²
         λ_Ex = τ₁*S
         λ_Ey = -τ₃*S/f
-    elseif endon
+    elseif fc isa Ex
         λ_Ez = -τ₁*S
         λ_Ex = -τ₁
         λ_Ey = τ₃/f
-    elseif broadside
+    elseif fc isa Ey
         λ_Ez = -τ₃*T₄*S/f
         λ_Ex = -τ₃*T₄/f
         λ_Ey = τ₂/f^2
@@ -687,15 +864,16 @@ function excitationfactors(ea::EigenAngle, ground::Ground, souce::AbstractSource
     return f₁, f₂, f₃, λ_Ez, λ_Ex, λ_Ey
 end
 
-function heightgains(z)
+function heightgains(z, ea::EigenAngle, tx::AbstractSource, hgc::HeightGainConstants)
     C², S² = ea.cos²θ, ea.sin²θ
-    k = source.k
+    k = tx.k
 
     α = 2/Rₑ
     tmp = (α/k)^(2/3)
 
-    q = (C² - α*(H-z))/tmp
+    @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
+    q = (C² - α*(H-z))/tmp
     h₁q, h₂q, h₁′q, h₂′q = modifiedhankel(q)
 
     tmp2 = exp(z/Rₑ)
@@ -712,6 +890,34 @@ function heightgains(z)
     return f_Ez, f_Ex, f_Ey
 end
 
+function heightgains(z, ea::EigenAngle, tx::AbstractSource, hgc::HeightGainConstants, fc::FieldComponent)
+    C², S² = ea.cos²θ, ea.sin²θ
+    k = tx.k
+
+    α = 2/Rₑ
+    tmp = (α/k)^(2/3)
+
+    @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
+
+    q = (C² - α*(H-z))/tmp
+    h₁q, h₂q, h₁′q, h₂′q = modifiedhankel(q)
+
+    tmp2 = exp(z/Rₑ)
+
+    if fc isa Ez
+        # height gain for vertical electric field Ez, f₁
+        f = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
+    elseif fc isa Ex
+        # horizontal electric field Ex, f₂
+        f = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
+    elseif fc isa Ey
+        # Ey, normal to plane of propagation, f₃
+        f = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
+    end
+
+    return f
+end
+
 """
 Morfitt 1980
 
@@ -720,11 +926,14 @@ LWPC has (1,2,3) → (z, y, x) at least for heightgains...
 
 E field strength amplitude in dB above μV/m for 1 kW radiator. Phase relative to free space
 
+see lw_sum_modes.for
+
 TODO: Special function for vertical Ez only, zt=zr=0, and γ=φ=0. (Like GRNDMC)
+essentially, zt=zr=0, f₁=f₂=f₃=1, γ=ϕ=0
 """
-function Efield()
-    Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units
-    tmp = Q/sqrt(sin(x/a))
+function Efield(x, modes::AbstractVector{EigenAngle}, ground::Ground, tx::AbstractSource, fc::FieldComponent)
+    Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
+    expik = exp(-im*k)
 
     # Transmit antenna orientation (electric dipole)
     # See Morfitt 1980 pg 22
@@ -734,16 +943,50 @@ function Efield()
     ρ = rcvrrange  # NOTE: don't actually multiply this on this function, so we can generalize
     # within the guide later
 
+    sin(θ)h = (1 - H/Rₑ)*sin(θ0)
+
     modesum = zero()
     for ea in modes
-        λ_Ez, λ_Ex, λ_Ey = excitationfactors()
+        S = ea.sinθ
 
+        hgc = heightgainconstants(ea, ground, tx)
+
+        λ_Ez, λ_Ex, λ_Ey = excitationfactors(ea, R, Rg, hgc, fc)
+        f_Ez, f_Ex, f_Ey = heightgains(altitude(tx), ea, tx, hgc)
 
         # calculate mode params. Note: All 3 directions needed for xmtr, only "wanted" term needed for rcvr
-        xmtrterm = λ_Ez*f₁(zt)*Cγ + λ_Ex*f₂(zt)*Sγ*Cφ + λ_Ey*f₃(zt)*Sγ*Sφ
-        rcvrterm = f₁(zr)  # choose which coordinate is wanted
-        modesum += xmtrterm*rcvrterm*exp(-im*k)*(S - 1)*ρ
+        xmtrterm = λ_Ez*f_Ez*Cγ + λ_Ex*f_Ex*Sγ*Cφ + λ_Ey*f_Ey*Sγ*Sφ
+
+        rcvrterm = heightgains(altitude(tx), ea, tx, hgc, fc)
+
+        modesum += xmtrterm*rcvrterm*expik*(S - 1)*x
     end
 
-    return modesum
+    return Q/sqrt(sin(x/Rₑ))*modesum
+end
+
+"""
+Sheddy 1968 specifies this is the phase velocity at the ground (ea at ground)
+
+MS76 pg 82
+
+Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
+
+in m/s
+"""
+function phasevelocity(ea::EigenAngle)
+    return c₀/real(ea.sinθ)
+end
+
+"""
+ms 76 pg 82 and sheddy 1968
+
+Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
+
+The strange factor in front converts 1 neper to dB
+
+in dB/Mm
+"""
+function attenuationrate(ea::EigenAngle, tx::AbstractSource)
+    return -20*log10(exp(1))*tx.k*imag(ea.sinθ)
 end

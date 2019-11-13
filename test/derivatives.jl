@@ -2,6 +2,7 @@ using LinearAlgebra
 using StaticArrays
 using DataFrames
 using Gadfly
+import Cairo, Fontconfig
 using Parameters
 using Printf
 
@@ -13,22 +14,34 @@ finitediff(v, h) = diff(v)./h
 symmetricdiff(v, h) = (v[3:end]-v[1:end-2])./(2*h)
 unzip(a) = map(x->getfield.(a, x), fieldnames(eltype(a)))
 
+set_default_plot_size(12inch, 7inch)
+font = "Segoe UI Symbol"
+basetheme = Theme(major_label_font=font, major_label_font_size=14pt,
+                  minor_label_font=font, minor_label_font_size=12pt,
+                  key_label_font=font, key_label_font_size=12pt,
+                  line_width=2pt)
+Gadfly.push_theme(basetheme)
+
 #==
 Bookerquartic and initial R
 ==#
-ω = 2π*24e3
-z₀ = 50e3
-z = 75e3
-spec = LWMS.Constituent(-LWMS.fundamentalcharge, LWMS.electronmass,
-    h -> LWMS.waitprofile(h, 75, 0.3), LWMS.electroncollisionfrequency)
-bfield = LWMS.BField(0.5e-4, -0.2, -0.3, -0.9)
-M = LWMS.susceptibility(ω, z₀, z, spec, bfield)
-
-source = LWMS.Source(24e3)
+tx = LWMS.Source(24e3)
 ground = LWMS.Ground(15, 0.003)
 
+mₑ = 9.1093837015e-31  # kg
+qₑ = -1.602176634e-19  # C
+electrons = Constituent(qₑ, mₑ,
+                        h -> waitprofile(h, 75, 0.3), LWMS.electroncollisionfrequency)
+bfield = LWMS.BField(50_000e-9, deg2rad(70), deg2rad(-20))
+
+topheight = 92e3
+bottomheight = 0.0
+
+z = 75e3
+M = LWMS.susceptibility(z, tx.ω, bfield, electrons)
+
 h = 0.5*π/180
-eas = [LWMS.EigenAngle(th) for th in complex.(range(0.0, π/2; step=h), 10π/180)]
+eas = [LWMS.EigenAngle(th) for th in complex.(range(0.0, π/2; step=h), -4π/180)]
 qBs = [LWMS.bookerquartic(ea, M) for ea in eas]
 qs = getindex.(qBs, 1)
 Bs = getindex.(qBs, 2)
@@ -43,24 +56,20 @@ C²s = getfield.(eas, :cos²θ)
 xticks = deg2rad.(range(0.0, 100.0; step=15))
 
 # B
-function dB(S, C, C², B1, M)
+function dB(S, C, C², B, M)
     dS = C
+    dC = -S
     dC² = -2*S*C
     dB3 = dS*(M[1,3] + M[3,1])
-    # dB2 = dC²*(-M[3,3] - 1) - dC²*(M[1,1] + 1)
     dB2 = -dC²*(2 + M[1,1] + M[3,3])
-    # dB1 = dC²*(-M[1,3] - M[3,1])*S + dS*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
-        # (M[1,3] + M[3,1])*(M[1,2] + C²))
-    dB1 = dS/S*B1 - S*dC²*(M[1,3] + M[3,1])
-    # dB0 = dC²*(-M[1,2]*M[2,1] - M[1,3]*M[3,1] + (M[1,1] + 1)*(M[2,2] + C²) +
-    #     (M[1,1] + 1) * (M[3,3] + C²))
+    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
     dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
         M[1,3]*M[3,1] - M[1,2]*M[2,1])
 
     return (dB0, dB1, dB2, dB3)
 end
 
-dBs = [dB(Ss[i], Cs[i], C²s[i], Bs[i][2], M) for i in 1:length(Ss)]
+dBs = [dB(Ss[i], Cs[i], C²s[i], Bs[i], M) for i in 1:length(Ss)]
 
 realBs = [real.(b) for b in Bs]
 realdBs = [real.(db) for db in dBs]
@@ -119,7 +128,7 @@ pdi = plot(imagddf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Bs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Bs.pdf")
 
 #########
 # q
@@ -174,14 +183,16 @@ pi = plot(imagqdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 pdr = plot(realdqdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
 pdi = plot(imagdqdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\qs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\qs.pdf")
 
 ########
 # Auxiliaries (Δ, T, P)
@@ -190,7 +201,7 @@ function dPTdelta(ea, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     @unpack q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
-        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = LWMS._common_sharplyboundedR(ea, M)
+        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = LWMS._common_sharplyboundedreflection(ea, M)
 
     # Additional calculations required for dR/dθ
     dS = C
@@ -319,14 +330,16 @@ pi = plot(imagD11df, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 pdr = plot(realdD11df, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
 pdi = plot(imagdD11df, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\D11s.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\D11s.pdf")
 
 # Δ_1 and Δ_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -378,7 +391,7 @@ pdi = plot(imagdΔdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Δs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Δs.pdf")
 
 # invΔ_1 and invΔ_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -435,14 +448,16 @@ pi = plot(imaginvΔdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 pdr = plot(realdinvΔdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("real(val)"), style(line_width=2pt));
 pdi = plot(imagdinvΔdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\invΔs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\invΔs.pdf")
 
 # P_1 and P_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -491,14 +506,16 @@ pi = plot(imagPdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 pdr = plot(realdPdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("real(val)"), style(line_width=2pt));
 pdi = plot(imagdPdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Ps.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Ps.pdf")
 
 # T_1 and T_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -547,20 +564,22 @@ pi = plot(imagPdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 pdr = plot(realdPdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("real(val)"), style(line_width=2pt));
 pdi = plot(imagdPdf, x=:θ, y=:val, color=:var,
     yintercept=[0], Geom.hline(color="black", size=1pt),
+    Coord.Cartesian(ymin=-1, ymax=1),
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Ts.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Ts.pdf")
 
 ########
 # Rs
-RdRs = [LWMS.sharplybounded_R_dRdθ(ea, M) for ea in eas]
-Rs = getfield.(RdRs, 1)
-dRs = getfield.(RdRs, 2)
+RdRs = [LWMS.sharplyboundedreflection(ea, M, LWMS.Derivative()) for ea in eas]
+Rs = [rdr[1:2,:] for rdr in RdRs]
+dRs = [rdr[3:4,:] for rdr in RdRs]
 
 realRs = Tuple.(real.(Rs))
 realdRs = Tuple.(real.(dRs))
@@ -627,7 +646,7 @@ pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Rs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Rs.pdf")
 
 
 #===
@@ -711,7 +730,7 @@ pdi = plot(imagdS1df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\S1s.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\S1s.pdf")
 
 
 # S12
@@ -768,7 +787,7 @@ pdi = plot(imagdS2df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\S2s.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\S3s.pdf")
 
 
 # S21
@@ -825,7 +844,7 @@ pdi = plot(imagdS3df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\S3s.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\S2s.pdf")
 
 # S22
 tmpdf = DataFrame(θ=abs.(θs))
@@ -881,7 +900,7 @@ pdi = plot(imagdS4df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\S4s.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\S4s.pdf")
 
 
 
@@ -890,7 +909,7 @@ Ground reflection
 ===#
 
 # Rgs = [LWMS.fresnelreflection(ea, source, ground) for ea in eas]
-RgsdRgs = [LWMS.fresnelreflectiondθ(ea, source, ground) for ea in eas]
+RgsdRgs = [LWMS.fresnelreflection(ea, ground, tx.ω, LWMS.Derivative()) for ea in eas]
 
 Rgs, dRgs = unzip(RgsdRgs)
 
@@ -951,7 +970,7 @@ pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Rgs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Rgs.pdf")
 
 
 
@@ -999,4 +1018,4 @@ pdi = plot(imagdFdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> SVG("C:\\Users\\forrest\\Desktop\\Fs.svg", 12inch, 7inch)
+v |> PDF("C:\\Users\\forrest\\Desktop\\Fs.pdf")

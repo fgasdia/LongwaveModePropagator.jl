@@ -8,7 +8,13 @@ struct Receiver
 end
 
 abstract type Exciter end
+altitude(exc::Exciter) = exc.alt
 
+"""
+    VerticalDipole
+
+Dipole antenna emitter at `alt` altitude in meters above ground.
+"""
 struct VerticalDipole <: Exciter
     alt::Float64  # m
 end
@@ -40,14 +46,14 @@ struct Source{T<:Number} <: AbstractSource
 
     function Source(freq::T, exciter::Exciter) where T <: Number
         ω = 2π*freq
-        k = ω/speedoflight
-        λ = speedoflight/freq
+        k = ω/c₀
+        λ = c₀/freq
 
         new{T}(freq, ω, k, λ, exciter)
     end
 end
-Source(freq) = Source(freq, VerticalDipole())
-Source(freq, exciter::Exciter) = Source(freq, exciter)
+Source(freq) = Source(float(freq), VerticalDipole())
+Source(freq, exciter::Exciter) = Source(float(freq), exciter)
 source(s::Source) = s
 
 struct Transmitter{S,T} <: AbstractSource

@@ -1,15 +1,13 @@
 export Constituent
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export Rₑ, c₀, fundamentalcharge, electronmass, μ₀, ϵ₀
+export Rₑ, c₀, μ₀, ϵ₀, H
 
 # CODATA 2018 NIST SP 961
-const Rₑ = 6369427  # m
-const c₀ = 299792458  # m/s
-const μ₀ = 1.25663706212e-6  # H/m
-const ϵ₀ = 1/(μ₀*c₀^2)  # F/m
-const mₑ = 9.1093837015e-31  # kg  TODO: This shouldn't be a const
-const qₑ = 1.602176634e-19  # C  fundamental charge  # maybe this shouldn't be either
-const H = 50e3  # reference height for Earth curvature
+const Rₑ = 6369427  # earth radius, m
+const c₀ = 299792458  # speed of light in vacuum, m/s
+const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
+const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
+const H = 50.0e3  # reference height for Earth curvature  # TODO: Should this be a const?
 
 struct Constituent{T<:Number, F<:Function, G<:Function}
     charge::T  # C
@@ -19,7 +17,7 @@ struct Constituent{T<:Number, F<:Function, G<:Function}
 end
 
 """
-`B` should be in Teslas
+`B` should be in Teslas, angles in radians!
 """
 struct BField{T}
     B::T
@@ -28,14 +26,38 @@ struct BField{T}
     dcn::T
 end
 function BField(B::T, dip::T, azimuth::T) where T<:Number
-    k1 = cosd(dip)
-    BField{T}(B, k1*cosd(azimuth), k1*sind(azimuth), -sind(dip))
+    k1 = cos(dip)
+    BField{T}(B, k1*cos(azimuth), k1*sin(azimuth), -sin(dip))
 end
+# TODO: Function that returns dip and azimuth from direction cosines
 
 struct Ground{S,T}
     ϵᵣ::S  # usually happens to be an int
     σ::T
 end
+
+abstract type FieldComponent end
+struct Ez <: FieldComponent end
+struct Ey <: FieldComponent end
+struct Ex <: FieldComponent end
+
+struct EigenAngle{T}
+    θ::T  # radians, because df/dθ are in radians
+    cosθ::T
+    sinθ::T
+    cos²θ::T
+    sin²θ::T
+
+    function EigenAngle{T}(θ::T) where T <: Number
+        (abs(real(θ)) > 2π || abs(imag(θ)) > 2π) && @warn "θ in radians?"
+        C = cos(θ)
+        S = sin(θ)
+        C² = C^2
+        S² = 1 - C²
+        new(θ, C, S, C², S²)
+    end
+end
+EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
 
 
 """
@@ -48,7 +70,7 @@ Note:
 - `β` must be in km⁻¹
 """
 function waitprofile(z, h′, β)
-    return 1.43e13*exp(-0.15h′)*exp((β - 0.15)*(z*1e-3 - h′))
+    return 1.43e13*exp(-0.15*h′)*exp((β - 0.15)*(z*1e-3 - h′))
 end
 
 """
