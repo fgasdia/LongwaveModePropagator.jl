@@ -1,12 +1,5 @@
 export Receiver, Transmitter, Inputs, Source, ExcitationDipole
 
-struct Receiver
-    name::String
-    lat::Float64
-    lon::Float64
-    alt::Float64
-end
-
 abstract type Exciter end
 altitude(exc::Exciter) = exc.alt
 
@@ -64,3 +57,13 @@ struct Transmitter{S,T} <: AbstractSource
 end
 Transmitter(name, lat, lon, alt) = Transmitter(name, lat, lon, VerticalDipole(alt))
 source(xmtr::Transmitter) = xmtr.source
+
+abstract type AbstractReceiver end
+altitude(r::AbstractReceiver) = r.alt
+
+struct Receiver{S<:Real,T<:Real} <: AbstractReceiver
+    name::String
+    lat::S
+    lon::S
+    alt::T
+end

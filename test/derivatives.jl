@@ -128,7 +128,7 @@ pdi = plot(imagddf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Bs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Bs.svg")
 
 #########
 # q
@@ -192,7 +192,7 @@ pdi = plot(imagdqdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\qs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\qs.svg")
 
 ########
 # Auxiliaries (Δ, T, P)
@@ -339,7 +339,7 @@ pdi = plot(imagdD11df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\D11s.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\D11s.svg")
 
 # Δ_1 and Δ_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -391,7 +391,7 @@ pdi = plot(imagdΔdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Δs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Δs.svg")
 
 # invΔ_1 and invΔ_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -457,7 +457,7 @@ pdi = plot(imagdinvΔdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\invΔs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\invΔs.svg")
 
 # P_1 and P_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -515,7 +515,7 @@ pdi = plot(imagdPdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Ps.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Ps.svg")
 
 # T_1 and T_2
 tmpdf = DataFrame(θ=abs.(θs))
@@ -573,7 +573,7 @@ pdi = plot(imagdPdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (deg)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Ts.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Ts.svg")
 
 ########
 # Rs
@@ -646,7 +646,7 @@ pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Rs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Rs.svg")
 
 
 #===
@@ -730,7 +730,7 @@ pdi = plot(imagdS1df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\S1s.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\S1s.svg")
 
 
 # S12
@@ -787,7 +787,7 @@ pdi = plot(imagdS2df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\S3s.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\S3s.svg")
 
 
 # S21
@@ -844,7 +844,7 @@ pdi = plot(imagdS3df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\S2s.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\S2s.svg")
 
 # S22
 tmpdf = DataFrame(θ=abs.(θs))
@@ -900,7 +900,7 @@ pdi = plot(imagdS4df, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\S4s.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\S4s.svg")
 
 
 
@@ -970,7 +970,7 @@ pdi = plot(imagdRdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Rgs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Rgs.svg")
 
 
 
@@ -1018,4 +1018,4 @@ pdi = plot(imagdFdf, x=:θ, y=:val, color=:var,
     Guide.xticks(ticks=xticks), Scale.x_continuous(labels=x->@sprintf("%0.3f", x)),
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
-v |> PDF("C:\\Users\\forrest\\Desktop\\Fs.pdf")
+v |> SVG("C:\\Users\\forrest\\Desktop\\Fs.svg")

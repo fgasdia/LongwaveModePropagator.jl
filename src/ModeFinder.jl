@@ -11,6 +11,15 @@ using ModifiedHankelFunctionsOfOrderOneThird
 
 struct Derivative end
 
+@with_kw struct IntegrationParameters{T<:AbstractSource}
+    bottomheight::Float64
+    topheight::Float64
+    bfield::BField
+    tx::T
+    ground::Ground
+    species::Constituent
+end
+
 @with_kw struct HeightGainConstants{T<:Number} @deftype T
     h₁q₀
     h₂q₀
@@ -565,6 +574,7 @@ function dRdz(R, params, z)
     ea = params.ea
     species, bfield = params.species, params.bfield
 
+    # TODO: M should be in params. Because it isn't a function of theta, we don't need to keep calculating it
     M = susceptibility(z, ω, bfield, species)
     T = tmatrix(ea, M)
     S = smatrix(ea, T)
@@ -583,25 +593,19 @@ function dRdθdz(RdRdθ, params, z)
     S = smatrix(ea, T)
     dS = dsmatrixdθ(ea, M, T)
 
-    R = @view RdRdθ[1:2,:]
-    dRdθ = @view RdRθ[3:4,:]
+    R = RdRdθ[SVector(1,2),:]
+    dRdθ = RdRdθ[SVector(3,4),:]
 
     dz = -im/2*k*(S[2] + S[4]*R - R*S[1] - R*S[3]*R)
-    dθdz = -im/2*k*(dS[2] + dS[4]*R + S[4]*dR -
+    dθdz = -im/2*k*(dS[2] + dS[4]*R + S[4]*dRdθ -
         (dRdθ*S[1] + R*dS[1]) -
         (dRdθ*S[3]*R + R*dS[3]*R + R*S[3]*dRdθ))
 
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(
-    ea::EigenAngle,
-    topheight,
-    bottomheight,
-    bfield::BField,
-    species,
-    tx::AbstractSource
-)
+function integratedreflection(ea::EigenAngle, integrationparams::IntegrationParameters)
+    @unpack bottomheight, topheight, bfield, species, tx = integrationparams
     ω, k = tx.ω, tx.k
 
     Mtop = susceptibility(topheight, ω, bfield, species)
@@ -616,15 +620,8 @@ function integratedreflection(
     return sol[end]
 end
 
-function integratethroughionosphere(
-    ea::EigenAngle,
-    topheight,
-    bottomheight,
-    bfield::BField,
-    species,
-    tx::AbstractSource,
-    ::Derivative
-)
+function integratedreflection(ea::EigenAngle, integrationparams::IntegrationParameters, ::Derivative)
+    @unpack bottomheight, topheight, bfield, species, tx = integrationparams
     ω, k = tx.ω, tx.k
 
     Mtop = susceptibility(topheight, ω, bfield, species)
@@ -633,7 +630,7 @@ function integratethroughionosphere(
 
     RdRdθtop = sharplyboundedreflection(ea, Mtop, Derivative())
 
-    prob = ODEProblem{false}(dRdθdz, RdRtop, (topheight, bottomheight), params)
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (topheight, bottomheight), params)
     sol = solve(prob, Tsit5(), reltol=1e-6, save_everystep=false, save_start=false)
 
     return sol[end]
@@ -712,59 +709,43 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(inv(A)*dA)
 end
 
-function solvemodalequation(
-    θ,
-    topheight,
-    bfield::BField,
-    tx::AbstractSource,
-    ground::Ground,
-    species::Constituent
-)
-    bottomheight = zero(topheight)
+function solvemodalequation(θ, integrationparams::IntegrationParameters)
+    @unpack tx, ground = integrationparams
 
     ea = EigenAngle(θ)
 
-    R = LWMS.integratedreflection(ea, topheight, bottomheight, bfield, electrons, tx)
-    Rg = LWMS.fresnelreflection(ea, ground, tx.ω)
+    R = integratedreflection(ea, integrationparams)
+    Rg = fresnelreflection(ea, ground, tx.ω)
 
     f = modalequation(R, Rg)
     return f
 end
 
-function solvemodalequationdθ(
-    θ,
-    topheight,
-    bfield::BField,
-    tx::AbstractSource,
-    ground::Ground,
-    species::Constituent
-)
-    bottomheight = zero(topheight)
+"""
+This returns R and Rg in addition to df because the only time this function is needed, we also
+need R and Rg (in excitationfactors).
+"""
+function solvemodalequationdθ(θ, integrationparams::IntegrationParameters)
+    @unpack tx, ground = integrationparams
 
     ea = EigenAngle(θ)
 
-    RdR = LWMS.integratedreflection(ea, topheight, bottomheight, bfield, electrons, tx, Derivative())
-    R = @view RdR[1:2,:]
-    dR = @view RdR[3:4,:]
+    RdR = integratedreflection(ea, integrationparams, Derivative())
+    R = RdR[SVector(1,2),:]
+    dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = LWMS.fresnelreflection(ea, ground, tx.ω, Derivative())
+    Rg, dRg = fresnelreflection(ea, ground, tx.ω, Derivative())
 
     df = modalequationdθ(R, dR, Rg, dRg)
-    return df
+    return df, R, Rg
 end
 
-function findmodes(
-    origcoords,
-    topheight,
-    bfield::BField,
-    tx::AbstractSource,
-    ground::Ground,
-    species::Constituent,
-    tolerance=1e-4
-)
-    zroots, zpoles = grpf(z->solvemodalequation(z, topheight, bfield, tx, ground, species),
+function findmodes(origcoords, integrationparams::IntegrationParameters, tolerance=1e-4)
+    zroots, zpoles = grpf(z->solvemodalequation(z, integrationparams),
                           origcoords, tolerance, 15000)
-    return @SVector [EigenAngle(r) for r in zroots]
+
+    # TODO: do this with SVector
+    return [EigenAngle(r) for r in zroots]
 end
 
 """
@@ -818,23 +799,29 @@ TODO: Return all field components, but have separate path for vertical only.
 
 sw_wvgd.for
 """
-function excitationfactors(ea::EigenAngle, R, Rg, hgc::HeightGainConstants, fc::FieldComponent)
-    θ, S = ea.θ, ea.sinθ
+function excitationfactors(
+    ea::EigenAngle,
+    R,
+    Rg,
+    dFdθ,
+    hgc::HeightGainConstants,
+    fc::FieldComponent
+)
+    θ, S, S² = ea.θ, ea.sinθ, ea.sin²θ
     sqrtS = sqrt(S)
 
     @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
     D11 = (F₁*h₁q₀ + F₂*h₂q₀)^2
-    D12 = (F₁*h₁q₀ + F₂*h₂q₀)*(F₃*h₁q₀ + F₄h₂q₀)
-    D22 = (F₃h₁q₀ + F₄*h₂q₀)^2
-
-    dFdθ = modalequationdθ(θ)
+    D12 = (F₁*h₁q₀ + F₂*h₂q₀)*(F₃*h₁q₀ + F₄*h₂q₀)
+    D22 = (F₃*h₁q₀ + F₄*h₂q₀)^2
 
     T₁ = (sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])) / (dFdθ*Rg[1,1]*D11)
     T₂ = (sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])) / (dFdθ*Rg[2,2]*D22)
     T₃ = (sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]) / (dFdθ*D12)
     T₄ = R[1,2]/R[2,1]
 
+    # TODO: This is just "undoing" the division by D11, D22, and D12 that are in the def of T₁, etc
     τ₁ = D11*T₁
     τ₂ = D22*T₂
     τ₃ = D12*T₃
@@ -842,31 +829,31 @@ function excitationfactors(ea::EigenAngle, R, Rg, hgc::HeightGainConstants, fc::
     # `f` = `Ey/Hy` at the ground
     # In LWPC (not sure where this requirement comes from). M 1980 says either (eq 33)
     if abs2(1 - R[1,1]*Rg[1,1]) > abs2(1 - R[2,2]*Rg[2,2])
-        f = T2/(T3*T4)
+        f = T₂/(T₃*T₄)
     else
-        f = T3/T1
+        f = T₃/T₁
     end
+    finv = inv(f)
 
     if fc isa Ez
         λ_Ez = τ₁*S²
         λ_Ex = τ₁*S
-        λ_Ey = -τ₃*S/f
+        λ_Ey = -τ₃*S*finv
     elseif fc isa Ex
         λ_Ez = -τ₁*S
         λ_Ex = -τ₁
         λ_Ey = τ₃/f
     elseif fc isa Ey
-        λ_Ez = -τ₃*T₄*S/f
-        λ_Ex = -τ₃*T₄/f
-        λ_Ey = τ₂/f^2
+        λ_Ez = -τ₃*T₄*S*finv
+        λ_Ex = -τ₃*T₄*finv
+        λ_Ey = τ₂*finv/f
     end
 
-    return f₁, f₂, f₃, λ_Ez, λ_Ex, λ_Ey
+    return λ_Ez, λ_Ex, λ_Ey
 end
 
-function heightgains(z, ea::EigenAngle, tx::AbstractSource, hgc::HeightGainConstants)
+function heightgains(z, ea::EigenAngle, k, hgc::HeightGainConstants)
     C², S² = ea.cos²θ, ea.sin²θ
-    k = tx.k
 
     α = 2/Rₑ
     tmp = (α/k)^(2/3)
@@ -890,9 +877,8 @@ function heightgains(z, ea::EigenAngle, tx::AbstractSource, hgc::HeightGainConst
     return f_Ez, f_Ex, f_Ey
 end
 
-function heightgains(z, ea::EigenAngle, tx::AbstractSource, hgc::HeightGainConstants, fc::FieldComponent)
+function heightgains(z, ea::EigenAngle, k, hgc::HeightGainConstants, fc::FieldComponent)
     C², S² = ea.cos²θ, ea.sin²θ
-    k = tx.k
 
     α = 2/Rₑ
     tmp = (α/k)^(2/3)
@@ -928,41 +914,131 @@ E field strength amplitude in dB above μV/m for 1 kW radiator. Phase relative t
 
 see lw_sum_modes.for
 
-TODO: Special function for vertical Ez only, zt=zr=0, and γ=φ=0. (Like GRNDMC)
-essentially, zt=zr=0, f₁=f₂=f₃=1, γ=ϕ=0
+amp in dB relative to 1 μV/m for 1000 kW radiator? according to Morfitt 1980, but can't confirm
+phase is "relative" phase
 """
-function Efield(x, modes::AbstractVector{EigenAngle}, ground::Ground, tx::AbstractSource, fc::FieldComponent)
+function Efield(
+    x,
+    modes::AbstractVector{EigenAngle},
+    ground::Ground,
+    tx::AbstractSource,
+    rx::AbstractReceiver,
+    fc::FieldComponent
+)
+    k, f = tx.k, tx.freq
+
     Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
-    expik = exp(-im*k)
 
     # Transmit antenna orientation (electric dipole)
     # See Morfitt 1980 pg 22
     Sγ, Cγ = sincos(γ)
     Sφ, Cφ = sincos(φ)
 
-    ρ = rcvrrange  # NOTE: don't actually multiply this on this function, so we can generalize
-    # within the guide later
+    modesum = zero(ComplexF64)
+    for ea₀ in modes
+        eaₕ = referenceheight(ea₀)
+        S = eaₕ.sinθ
 
-    sin(θ)h = (1 - H/Rₑ)*sin(θ0)
+        hgc = heightgainconstants(eaₕ, ground, tx)
 
-    modesum = zero()
-    for ea in modes
-        S = ea.sinθ
+        λ_Ez, λ_Ex, λ_Ey = excitationfactors(eaₕ, R, Rg, dFdθ, hgc, fc)
+        f_Ez, f_Ex, f_Ey = heightgains(altitude(tx), eaₕ, k, hgc)
 
-        hgc = heightgainconstants(ea, ground, tx)
-
-        λ_Ez, λ_Ex, λ_Ey = excitationfactors(ea, R, Rg, hgc, fc)
-        f_Ez, f_Ex, f_Ey = heightgains(altitude(tx), ea, tx, hgc)
-
-        # calculate mode params. Note: All 3 directions needed for xmtr, only "wanted" term needed for rcvr
+        # calculate mode params
+        # NOTE: All 3 directions needed for xmtr, only "wanted" term needed for rcvr
         xmtrterm = λ_Ez*f_Ez*Cγ + λ_Ex*f_Ex*Sγ*Cφ + λ_Ey*f_Ey*Sγ*Sφ
 
-        rcvrterm = heightgains(altitude(tx), ea, tx, hgc, fc)
+        rcvrterm = heightgains(altitude(rx), eaₕ, k, hgc, fc)
 
-        modesum += xmtrterm*rcvrterm*expik*(S - 1)*x
+        modesum += xmtrterm*rcvrterm*cis(-k*(S - 1)*x)  # BUG: Pappert et al 1983 has more in the exp()
     end
 
-    return Q/sqrt(sin(x/Rₑ))*modesum
+    E = Q/sqrt(sin(x/Rₑ))*modesum
+    phase = angle(E)
+    amp = 10*log10(norm(E))
+
+    return E, phase, amp
+end
+
+"""
+Special function for vertical Ez only, zt=zr=0, and γ=φ=0. (Like GRNDMC)
+essentially, zt=zr=0, f₁=f₂=f₃=1, γ=ϕ=0
+
+Q is also in Pappert Snyder 1972
+"""
+function Efield(x, modes::AbstractVector{EigenAngle{T}}, integrationparams::IntegrationParameters) where T
+    @unpack tx, ground = integrationparams
+    k, f = tx.k, tx.freq
+
+    # Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
+    # QM = 9.023e-8*complex(f)^(3/2)  #  Pappert et al 1983
+    Q = 0.03248*k/sqrt(f)*sqrt(1000)
+
+    modesum = zero(ComplexF64)
+    for eaₕ in modes
+        ea₀ = referenceground(eaₕ)
+        # ea₀ = eaₕ # BUG: why does this work better than including the conversion???
+        S = ea₀.sinθ
+
+        hgc = heightgainconstants(eaₕ, ground, tx)
+
+        # Excitation factors require `z = d = 0`
+        if integrationparams.bottomheight != 0
+            integrationparams = IntegrationParameters(zero(integrationparams.topheight),
+                                                      integrationparams.topheight,
+                                                      integrationparams.bfield,
+                                                      integrationparams.tx,
+                                                      integrationparams.ground,
+                                                      integrationparams.species)
+        end
+        # TODO: what θ should this be? (θ at ground or H)
+        dFdθ, R, Rg = solvemodalequationdθ(eaₕ.θ, integrationparams)
+
+        λ_Ez, λ_Ex, λ_Ey = excitationfactors(eaₕ, R, Rg, dFdθ, hgc, Ez())
+
+        xmtrterm = λ_Ez
+
+        modesum += xmtrterm*cis(-k*(S - 1)*x)
+    end
+
+    E = Q/sqrt(abs(sin(x/Rₑ)))*modesum
+    phase = angle(E)
+    amp = 10*log10(norm(E))
+
+    return E, phase, amp
+end
+
+function Efield(
+    X::AbstractArray,
+    modes::AbstractVector{EigenAngle{T}},
+    integrationparams::IntegrationParameters
+) where T
+    Xlength = length(X)
+    E = Array{ComplexF64}(undef, Xlength)
+    phase = Array{Float64}(undef, Xlength)
+    amp = Array{Float64}(undef, Xlength)
+    for i in eachindex(X)
+        e, p, a = Efield(X[i], modes, integrationparams)
+        E[i] = e
+        phase[i] = p
+        amp[i] = a
+    end
+    return E, phase, amp
+end
+
+"""
+Convert `ea` at ground to `ea` at reference height `H`.
+
+See Morfitt 1980 pg 26
+"""
+function referenceheight(ea::EigenAngle)
+    θₕ = asin((1 - H/Rₑ)*ea.sinθ)
+    return EigenAngle(θₕ)
+end
+
+function referenceground(ea::EigenAngle)
+    θ₀ = asin(ea.sinθ/(1 - H/Rₑ))
+    return EigenAngle(θ₀)
 end
 
 """
@@ -972,10 +1048,13 @@ MS76 pg 82
 
 Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
 
+See Pappert et al 1967 Numerical Investigation...
+
 in m/s
 """
-function phasevelocity(ea::EigenAngle)
-    return c₀/real(ea.sinθ)
+function phasevelocity(ea::EigenAngle{T}) where T
+    K = 1 + H/Rₑ
+    return c₀*K/real(ea.sinθ)
 end
 
 """
@@ -985,8 +1064,12 @@ Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
 
 The strange factor in front converts 1 neper to dB
 
+See Pappert et al 1967 Numerical Investigation...
+
+
 in dB/Mm
 """
 function attenuationrate(ea::EigenAngle, tx::AbstractSource)
-    return -20*log10(exp(1))*tx.k*imag(ea.sinθ)
+    K = 1 + H/Rₑ
+    return -20*log10(exp(1))*K*tx.k*imag(ea.sinθ)
 end
