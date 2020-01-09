@@ -15,7 +15,7 @@ struct Derivative end
     bottomheight::Float64
     topheight::Float64
     bfield::BField
-    tx::T
+    frequency::Frequency
     ground::Ground
     species::Constituent
 end
@@ -164,7 +164,7 @@ See also: [`smatrix`](@ref), [`susceptibility`](@ref)
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 [^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations governing radio propagation in the ionosphere,” Mathematical Proceedings of the Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """
-function tmatrix(ea::EigenAngle, M::AbstractArray)
+function tmatrix(ea::EigenAngle{<:Number}, M)
     S, C² = ea.sinθ, ea.cos²θ
 
     den = 1/(1 + M[3,3])
@@ -217,7 +217,7 @@ See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
 
 [^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
 """
-function smatrix(ea::EigenAngle, T::TMatrix)
+function smatrix(ea::EigenAngle{<:Number}, T::TMatrix{<:Number})
     C = ea.cosθ
     Cinv = inv(C)
 
@@ -281,7 +281,7 @@ Return the 4 submatrix elements of the derivative of the `S` matrix wrt θ.
 
 See also: [`smatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
 """
-function dsmatrixdθ(ea::EigenAngle, M, T::TMatrix)
+function dsmatrixdθ(ea::EigenAngle{<:Number}, M, T::TMatrix{<:Number})
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
     Cinv = inv(C)
     C²inv = inv(C²)
@@ -357,7 +357,7 @@ See also: [`sharplybounded_R`](@ref)
 
 [^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
-function bookerquartic(ea::EigenAngle, M)
+function bookerquartic(ea::EigenAngle{T}, M) where T<:Number
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Booker quartic coefficients
@@ -373,7 +373,7 @@ function bookerquartic(ea::EigenAngle, M)
          (1 + M[1,1])*M[2,3]*M[3,2] -
          M[1,2]*M[2,1]*(C² + M[3,3])
 
-    q = @MVector zeros(ComplexF64, 4)  # algorithm requires complex type
+    q = @MVector zeros(complex(T), 4)  # algorithm requires complex type
     B = MVector{5}(B0, B1, B2, B3, B4)
 
     roots!(q, B, NaN, 4, false)
@@ -397,7 +397,7 @@ function anglefrom315(v::Real)
     return oftype(v, 45)
 end
 
-function _common_sharplyboundedreflection(ea::EigenAngle, M)
+function _common_sharplyboundedreflection(ea::EigenAngle{<:Number}, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Solve equation `D = 0` as a quartic
@@ -461,7 +461,7 @@ for integration of the reflection coefficient matrix through the ionosphere.
 
 [^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
-function sharplyboundedreflection(ea::EigenAngle, M)
+function sharplyboundedreflection(ea::EigenAngle{<:Number}, M)
     C = ea.cosθ
     C2 = 2*C
 
@@ -475,7 +475,7 @@ function sharplyboundedreflection(ea::EigenAngle, M)
     return SMatrix{2,2}(R11, R21, R12, R22)
 end
 
-function sharplyboundedreflection(ea::EigenAngle, M, ::Derivative)
+function sharplyboundedreflection(ea::EigenAngle{<:Number}, M, ::Derivative)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     @unpack q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
@@ -574,7 +574,6 @@ function dRdz(R, params, z)
     ea = params.ea
     species, bfield = params.species, params.bfield
 
-    # TODO: M should be in params. Because it isn't a function of theta, we don't need to keep calculating it
     M = susceptibility(z, ω, bfield, species)
     T = tmatrix(ea, M)
     S = smatrix(ea, T)
@@ -604,9 +603,9 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(ea::EigenAngle, integrationparams::IntegrationParameters)
-    @unpack bottomheight, topheight, bfield, species, tx = integrationparams
-    ω, k = tx.ω, tx.k
+function integratedreflection(ea::EigenAngle{<:Number}, integrationparams::IntegrationParameters)
+    @unpack bottomheight, topheight, bfield, species, freq = integrationparams
+    ω, k = freq.ω, freq.k
 
     Mtop = susceptibility(topheight, ω, bfield, species)
 
@@ -620,9 +619,9 @@ function integratedreflection(ea::EigenAngle, integrationparams::IntegrationPara
     return sol[end]
 end
 
-function integratedreflection(ea::EigenAngle, integrationparams::IntegrationParameters, ::Derivative)
-    @unpack bottomheight, topheight, bfield, species, tx = integrationparams
-    ω, k = tx.ω, tx.k
+function integratedreflection(ea::EigenAngle{<:Number}, integrationparams::IntegrationParameters, ::Derivative)
+    @unpack bottomheight, topheight, bfield, species, freq = integrationparams
+    ω, k = freq.ω, freq.k
 
     Mtop = susceptibility(topheight, ω, bfield, species)
 
@@ -646,7 +645,7 @@ ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
 
 [^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
-function fresnelreflection(ea::EigenAngle, ground::Ground, ω)
+function fresnelreflection(ea::EigenAngle{<:Number}, ground::Ground, ω)
     C, S² = ea.cosθ, ea.sin²θ
 
     ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
@@ -661,7 +660,7 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, ω)
     return SMatrix{2,2}(Rg11, 0, 0, Rg22)
 end
 
-function fresnelreflection(ea::EigenAngle, ground::Ground, ω, ::Derivative)
+function fresnelreflection(ea::EigenAngle{<:Number}, ground::Ground, ω, ::Derivative)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
 
     ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
@@ -675,7 +674,6 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, ω, ::Derivative)
     dRg11 = (2*ng²*(1 - ng²)*S)/(tmp2*(tmp1 + tmp2)^2)
     dRg22 = (2*(C - tmp2)*S)/(tmp2*(tmp2 + C))
 
-    # TODO: Custom type
     return SMatrix{2,2}(Rg11, 0, 0, Rg22), SMatrix{2,2}(dRg11, 0, 0, dRg22)
 end
 
@@ -710,12 +708,12 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 function solvemodalequation(θ, integrationparams::IntegrationParameters)
-    @unpack tx, ground = integrationparams
+    @unpack freq, ground = integrationparams
 
     ea = EigenAngle(θ)
 
     R = integratedreflection(ea, integrationparams)
-    Rg = fresnelreflection(ea, ground, tx.ω)
+    Rg = fresnelreflection(ea, ground, freq.ω)
 
     f = modalequation(R, Rg)
     return f
@@ -726,7 +724,7 @@ This returns R and Rg in addition to df because the only time this function is n
 need R and Rg (in excitationfactors).
 """
 function solvemodalequationdθ(θ, integrationparams::IntegrationParameters)
-    @unpack tx, ground = integrationparams
+    @unpack freq, ground = integrationparams
 
     ea = EigenAngle(θ)
 
@@ -734,7 +732,7 @@ function solvemodalequationdθ(θ, integrationparams::IntegrationParameters)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = fresnelreflection(ea, ground, tx.ω, Derivative())
+    Rg, dRg = fresnelreflection(ea, ground, freq.ω, Derivative())
 
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg
@@ -744,7 +742,7 @@ function findmodes(origcoords, integrationparams::IntegrationParameters, toleran
     zroots, zpoles = grpf(z->solvemodalequation(z, integrationparams),
                           origcoords, tolerance, 15000)
 
-    # TODO: do this with SVector
+    # TODO: do this with SVector?
     return [EigenAngle(r) for r in zroots]
 end
 
@@ -757,9 +755,9 @@ Morfitt 1980 Simplified Eqs 16-23 <=
 
 Assumes `d` = 0.
 """
-function heightgainconstants(ea::EigenAngle, ground::Ground, tx::AbstractSource)
+function heightgainconstants(ea::EigenAngle{<:Number}, ground::Ground, freq::Frequency)
     C², S² = ea.cos²θ, ea.sin²θ
-    k, ω = tx.k, tx.ω
+    k, ω = freq.k, freq.ω
 
     α = 2/Rₑ
     tmp = (α/k)^(2/3)
@@ -788,8 +786,7 @@ end
 """
 See Morfitt 1980 Simplified ... Eqs 26-32
 
-Morfitt specifies that `S` is the sine of θ at reference height `h` which is apparently(?)
-not the same as his `b`, which is Wait's effective reflection height. But the `R`s and `Rg`s
+Morfitt specifies that `S` is the sine of θ at reference height `h`. The `R`s and `Rg`s
 are elements of the reflection matrix looking into iono and towards ground from the level `d`.
 Therefore `T`s are also at `d`. BUT (on page 20) "the mode conversion program, as they are
 now programmed, require that the height variable `d` be at the ground so that in equations
@@ -800,7 +797,7 @@ TODO: Return all field components, but have separate path for vertical only.
 sw_wvgd.for
 """
 function excitationfactors(
-    ea::EigenAngle,
+    ea::EigenAngle{<:Number},
     R,
     Rg,
     dFdθ,
@@ -812,47 +809,50 @@ function excitationfactors(
 
     @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
+    # Referenced to ground, but `θ` at `h`
     D11 = (F₁*h₁q₀ + F₂*h₂q₀)^2
     D12 = (F₁*h₁q₀ + F₂*h₂q₀)*(F₃*h₁q₀ + F₄*h₂q₀)
     D22 = (F₃*h₁q₀ + F₄*h₂q₀)^2
 
+    # Referenced to ground, but `θ` at `h`
     T₁ = (sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])) / (dFdθ*Rg[1,1]*D11)
     T₂ = (sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])) / (dFdθ*Rg[2,2]*D22)
     T₃ = (sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]) / (dFdθ*D12)
     T₄ = R[1,2]/R[2,1]
 
-    # TODO: This is just "undoing" the division by D11, D22, and D12 that are in the def of T₁, etc
+    # This is "undoing" the division by D11, D22, and D12 that are in the definition of the
+    # `T`s, but otherwise `f` (below) would be very expensive to calculate directly, so it's
+    # worth defining the `T`s as they are.
     τ₁ = D11*T₁
     τ₂ = D22*T₂
     τ₃ = D12*T₃
 
-    # `f` = `Ey/Hy` at the ground
-    # In LWPC (not sure where this requirement comes from). M 1980 says either (eq 33)
+    # `f` = `Ey/Hy` at the ground (Morfitt 1980, eq. 33)
+    # LWPC uses the following criteria for choosing `f`
     if abs2(1 - R[1,1]*Rg[1,1]) > abs2(1 - R[2,2]*Rg[2,2])
         f = T₂/(T₃*T₄)
     else
         f = T₃/T₁
     end
-    finv = inv(f)
 
-    if fc isa Ez
-        λ_Ez = τ₁*S²
-        λ_Ex = τ₁*S
-        λ_Ey = -τ₃*S*finv
-    elseif fc isa Ex
-        λ_Ez = -τ₁*S
-        λ_Ex = -τ₁
-        λ_Ey = τ₃/f
-    elseif fc isa Ey
-        λ_Ez = -τ₃*T₄*S*finv
-        λ_Ex = -τ₃*T₄*finv
-        λ_Ey = τ₂*finv/f
+    if fc == FC_Ez
+        λ₁ = τ₁*S²
+        λ₂ = -τ₁*S
+        λ₃ = -τ₃*T₄*S/f
+    elseif fc == FC_Ex
+        λ₁ = τ₁*S
+        λ₂ = -τ₁
+        λ₃ = -τ₃*T₄/f
+    elseif fc == FC_Ey
+        λ₁ = -τ₃*S/f
+        λ₂ = τ₃/f
+        λ₃ = τ₂/f^2
     end
 
-    return λ_Ez, λ_Ex, λ_Ey
+    return λ₁, λ₂, λ₃, f
 end
 
-function heightgains(z, ea::EigenAngle, k, hgc::HeightGainConstants)
+function heightgains(z, ea::EigenAngle{<:Number}, k, f, hgc::HeightGainConstants)
     C², S² = ea.cos²θ, ea.sin²θ
 
     α = 2/Rₑ
@@ -866,18 +866,18 @@ function heightgains(z, ea::EigenAngle, k, hgc::HeightGainConstants)
     tmp2 = exp(z/Rₑ)
 
     # height gain for vertical electric field Ez, f₁
-    f_Ez = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
+    f₁ = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
 
     # horizontal electric field Ex, f₂
-    f_Ex = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
+    f₂ = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
 
     # Ey, normal to plane of propagation, f₃
-    f_Ey = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
+    f₃ = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
 
-    return f_Ez, f_Ex, f_Ey
+    return f₁, f₂, f₃
 end
 
-function heightgains(z, ea::EigenAngle, k, hgc::HeightGainConstants, fc::FieldComponent)
+function heightgains(z, ea::EigenAngle{<:Number}, k, f, hgc::HeightGainConstants, fc::FieldComponent)
     C², S² = ea.cos²θ, ea.sin²θ
 
     α = 2/Rₑ
@@ -890,13 +890,13 @@ function heightgains(z, ea::EigenAngle, k, hgc::HeightGainConstants, fc::FieldCo
 
     tmp2 = exp(z/Rₑ)
 
-    if fc isa Ez
+    if fc == FC_Ez
         # height gain for vertical electric field Ez, f₁
         f = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
-    elseif fc isa Ex
+    elseif fc == FC_Ex
         # horizontal electric field Ex, f₂
         f = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
-    elseif fc isa Ey
+    elseif fc == FC_Ey
         # Ey, normal to plane of propagation, f₃
         f = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
     end
@@ -919,40 +919,57 @@ phase is "relative" phase
 """
 function Efield(
     x,
-    modes::AbstractVector{EigenAngle},
-    ground::Ground,
-    tx::AbstractSource,
-    rx::AbstractReceiver,
+    modes::AbstractVector{EigenAngle{<:Number}},
+    integrationparams::IntegrationParameters,
+    tx::Exciter,
+    rx::AbstractSampler,
     fc::FieldComponent
 )
-    k, f = tx.k, tx.freq
 
-    Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
-
-    # Transmit antenna orientation (electric dipole)
-    # See Morfitt 1980 pg 22
-    Sγ, Cγ = sincos(γ)
-    Sφ, Cφ = sincos(φ)
-
-    modesum = zero(ComplexF64)
-    for ea₀ in modes
-        eaₕ = referenceheight(ea₀)
-        S = eaₕ.sinθ
-
-        hgc = heightgainconstants(eaₕ, ground, tx)
-
-        λ_Ez, λ_Ex, λ_Ey = excitationfactors(eaₕ, R, Rg, dFdθ, hgc, fc)
-        f_Ez, f_Ex, f_Ey = heightgains(altitude(tx), eaₕ, k, hgc)
-
-        # calculate mode params
-        # NOTE: All 3 directions needed for xmtr, only "wanted" term needed for rcvr
-        xmtrterm = λ_Ez*f_Ez*Cγ + λ_Ex*f_Ex*Sγ*Cφ + λ_Ey*f_Ey*Sγ*Sφ
-
-        rcvrterm = heightgains(altitude(rx), eaₕ, k, hgc, fc)
-
-        modesum += xmtrterm*rcvrterm*cis(-k*(S - 1)*x)  # BUG: Pappert et al 1983 has more in the exp()
+    # Excitation factors require `z = d = 0`
+    if integrationparams.bottomheight != 0
+        integrationparams = IntegrationParameters(zero(integrationparams.topheight),
+                                                  integrationparams.topheight,
+                                                  integrationparams.bfield,
+                                                  integrationparams.freq,
+                                                  integrationparams.ground,
+                                                  integrationparams.species)
     end
 
+    @unpack freq, ground = integrationparams
+
+    talt = altitude(tx)
+    ralt = altitude(rx)
+
+    # Transmit dipole antenna orientation with respect to propagation direction
+    # See Morfitt 1980 pg 22
+    Sγ, Cγ = sincos(elevation(tx))
+    Sϕ, Cϕ = sincos(azimuth(tx))
+
+    modesum = zero(ComplexF64)
+    for ea in modes
+        S = ea.sinθ  # Morfitt 1980 pg 19 specifies S is the sine of \theta at `H`
+
+        hgc = heightgainconstants(ea, ground, tx)
+        dFdθ, R, Rg = solvemodalequationdθ(ea.θ, integrationparams)
+
+        λ₁, λ₂, λ₃, f = excitationfactors(ea, R, Rg, dFdθ, hgc, fc)
+        f₁, f₂, f₃ = heightgains(talt, ea, k, f, hgc)  # at transmitter
+
+        # All 3 directions needed for xmtr, only "wanted" term needed for rcvr
+        xmtrterm = λ₁*f₁*Cγ + λ₂*f₂*Sγ*Cϕ + λ₃*f₃*Sγ*Sϕ
+        rcvrterm = heightgains(ralt, ea, k, f, hgc, fc)  # at receiver
+
+        # NOTE: Morfitt 1980 eq 39 is different from Pappert et al 1983 which is also
+        # different from Pappert and Ferguson 1986
+        modesum += xmtrterm*rcvrterm*cis(-k*(S - 1)*x)
+    end
+
+    # Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
+    # Express field components in volts/meter/kW of radiated power
+    Q = 6.808e-4*sqrt(f/1000)  # Pappert and Ferguson 1986, pg 553, adjusted for MKS
+
+    # Total electric field
     E = Q/sqrt(sin(x/Rₑ))*modesum
     phase = angle(E)
     amp = 10*log10(norm(E))
@@ -966,13 +983,14 @@ essentially, zt=zr=0, f₁=f₂=f₃=1, γ=ϕ=0
 
 Q is also in Pappert Snyder 1972
 """
-function Efield(x, modes::AbstractVector{EigenAngle{T}}, integrationparams::IntegrationParameters) where T
+function Efield(x, modes::AbstractVector{EigenAngle{<:Number}}, integrationparams::IntegrationParameters)
     @unpack tx, ground = integrationparams
     k, f = tx.k, tx.freq
 
     # Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
     # QM = 9.023e-8*complex(f)^(3/2)  #  Pappert et al 1983
-    Q = 0.03248*k/sqrt(f)*sqrt(1000)
+    # Q = 0.03248*k/sqrt(f)*sqrt(1000)  # TODO: find an explicit reference for this
+    Q = 6.808e-4*sqrt(f/1000)  # Pappert and Ferguson 1986, pg 553
 
     modesum = zero(ComplexF64)
     for eaₕ in modes
@@ -991,7 +1009,6 @@ function Efield(x, modes::AbstractVector{EigenAngle{T}}, integrationparams::Inte
                                                       integrationparams.ground,
                                                       integrationparams.species)
         end
-        # TODO: what θ should this be? (θ at ground or H)
         dFdθ, R, Rg = solvemodalequationdθ(eaₕ.θ, integrationparams)
 
         λ_Ez, λ_Ex, λ_Ey = excitationfactors(eaₕ, R, Rg, dFdθ, hgc, Ez())
@@ -1010,9 +1027,9 @@ end
 
 function Efield(
     X::AbstractArray,
-    modes::AbstractVector{EigenAngle{T}},
+    modes::AbstractVector{EigenAngle{<:Number}},
     integrationparams::IntegrationParameters
-) where T
+)
     Xlength = length(X)
     E = Array{ComplexF64}(undef, Xlength)
     phase = Array{Float64}(undef, Xlength)
@@ -1020,7 +1037,27 @@ function Efield(
     for i in eachindex(X)
         e, p, a = Efield(X[i], modes, integrationparams)
         E[i] = e
-        phase[i] = p
+        phase[i] = p  # TODO: Wrap phase and find explicit reference (e.g. wrt antenna current phase)
+        amp[i] = a
+    end
+    return E, phase, amp
+end
+
+function Efield(
+    X::AbstractArray,
+    modes::AbstractVector{EigenAngle{<:Number}},
+    integrationparams::IntegrationParameters,
+    rx::AbstractReceiver,
+    fc::FieldComponent
+)
+    Xlength = length(X)
+    E = Array{ComplexF64}(undef, Xlength)
+    phase = Array{Float64}(undef, Xlength)
+    amp = Array{Float64}(undef, Xlength)
+    for i in eachindex(X)
+        e, p, a = Efield(X[i], modes, integrationparams, rx, fc)
+        E[i] = e
+        phase[i] = p  # TODO: Wrap phase and find explicit reference (e.g. wrt antenna current phase)
         amp[i] = a
     end
     return E, phase, amp
@@ -1031,12 +1068,12 @@ Convert `ea` at ground to `ea` at reference height `H`.
 
 See Morfitt 1980 pg 26
 """
-function referenceheight(ea::EigenAngle)
+function referenceheight(ea::EigenAngle{<:Number})
     θₕ = asin((1 - H/Rₑ)*ea.sinθ)
     return EigenAngle(θₕ)
 end
 
-function referenceground(ea::EigenAngle)
+function referenceground(ea::EigenAngle{<:Number})
     θ₀ = asin(ea.sinθ/(1 - H/Rₑ))
     return EigenAngle(θ₀)
 end
@@ -1052,7 +1089,7 @@ See Pappert et al 1967 Numerical Investigation...
 
 in m/s
 """
-function phasevelocity(ea::EigenAngle{T}) where T
+function phasevelocity(ea::EigenAngle{<:Number})
     K = 1 + H/Rₑ
     return c₀*K/real(ea.sinθ)
 end
@@ -1069,7 +1106,7 @@ See Pappert et al 1967 Numerical Investigation...
 
 in dB/Mm
 """
-function attenuationrate(ea::EigenAngle, tx::AbstractSource)
+function attenuationrate(ea::EigenAngle{<:Number}, tx::AbstractSource)
     K = 1 + H/Rₑ
     return -20*log10(exp(1))*K*tx.k*imag(ea.sinθ)
 end

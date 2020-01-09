@@ -1,69 +1,126 @@
 export Receiver, Transmitter, Inputs, Source, ExcitationDipole
 
+"""
+    Exciter
+
+Abstract type for types that energize the waveguide with electromagnetic energy.
+"""
 abstract type Exciter end
-altitude(exc::Exciter) = exc.alt
+# exciter(exc::Exciter) = exc
+
+"""
+    Antenna
+
+Abstract type for antenna designs.
+
+Subtypes of `Antenna` have an orientation `azimuth_angle` (``ϕ``) and
+`elevation_angle` (``γ``) where
+
+|     |     ϕ     |     γ      |
+| --- | --------- | ---------- |
+|  0  | end fire  | vertical   |
+| π/2 | broadside | horizontal |
+
+"""
+abstract type Antenna end
+
+abstract type AbstractDipole <: Antenna end
+
+"""
+    Dipole
+
+Dipole antenna with arbitrary `azimuth_angle` and `elevation_angle` orientation.
+"""
+struct Dipole <: AbstractDipole
+    azimuth_angle::Float64
+    elevation_angle::Float64
+end
+azimuth(d::Dipole) = d.azimuth_angle
+elevation(d::Dipole) = d.elevation_angle
+fieldcomponent(d::Dipole) = FC_ALL
 
 """
     VerticalDipole
 
-Dipole antenna emitter at `alt` altitude in meters above ground.
+Dipole antenna with elevation angle ``γ = 0``.
 """
-struct VerticalDipole <: Exciter
-    alt::Float64  # m
-end
-VerticalDipole() = VerticalDipole(0.0)
+struct VerticalDipole <: AbstractDipole end
+azimuth(d::VerticalDipole) = 0
+elevation(d::VerticalDipole) = 0
+fieldcomponent(d::VerticalDipole) = FC_Ez
 
 """
     HorizontalDipole
 
-`ψ` is the angle between the direction of the horizontal dipole and the direction of
-propagation, i.e. ``ψ=0`` represents end fire while ``ψ=π/2`` represents broadside launching.
+Dipole antenna with elevation angle ``γ = π/2`` and `azimuth_angle` orientation ``ϕ`` where
+
+|     |     ϕ     |
+| --- | --------- |
+|  0  | end fire  |
+| π/2 | broadside |
 """
-struct HorizontalDipole <: Exciter
-    ψ::Float64  # radians
-    alt::Float64  # m
+struct HorizontalDipole <: AbstractDipole
+    azimuth_angle::Float64  # radians
 end
-HorizontalDipole(ψ) = HorizontalDipole(ψ, 0.0)
+azimuth(d::HorizontalDipole) = d.azimuth_angle
+elevation(d::HorizontalDipole) = π/2
+fieldcomponent(d::HorizontalDipole) = FC_ALL
 
-abstract type AbstractSource end
+"""
+    Frequency
 
-exciter(s::AbstractSource) = source(s).exciter
-k(s::AbstractSource) = source(s).k
-
-struct Source{T<:Number} <: AbstractSource
-    freq::T
-    ω::T
-    k::T
-    λ::T
-    exciter::Exciter
-
-    function Source(freq::T, exciter::Exciter) where T <: Number
-        ω = 2π*freq
-        k = ω/c₀
-        λ = c₀/freq
-
-        new{T}(freq, ω, k, λ, exciter)
-    end
+Electromagnetic wave component defined by frequency `f`, but also carrying angular wave
+frequency, wavenumber, and wavelength.
+"""
+struct Frequency
+    f::Float64
+    ω::Float64
+    k::Float64
+    λ::Float64
 end
-Source(freq) = Source(float(freq), VerticalDipole())
-Source(freq, exciter::Exciter) = Source(float(freq), exciter)
-source(s::Source) = s
+function Frequency(f)
+    ω = 2π*f
+    k = ω/c₀
+    λ = c₀/f
 
-struct Transmitter{S,T} <: AbstractSource
+    Frequency(f, ω, k, λ)
+end
+
+# TODO: Custom "range" of Frequencies to form a spectrum for, e.g. lightning sferic
+
+"""
+    Transmitter
+"""
+struct Transmitter{A<:Antenna} <: Exciter
     name::String
-    lat::S
-    lon::S
-    source::Source{T}
+    latitude::Float64
+    longitude::Float64
+    altitude::Float64
+    antenna::A
+    frequency::Frequency
+    power::Float64
 end
-Transmitter(name, lat, lon, alt) = Transmitter(name, lat, lon, VerticalDipole(alt))
-source(xmtr::Transmitter) = xmtr.source
+Transmitter(name, lat, lon, freq) = Transmitter(name, lat, lon, 0, VerticalDipole(),
+                                                Frequency(freq), 1)
+altitude(t::Transmitter) = t.altitude
+frequency(t::Transmitter) = t.frequency
+azimuth(t::Transmitter) = azimuth(t.antenna)
+elevation(t::Transmitter) = elevation(t.antenna)
 
-abstract type AbstractReceiver end
-altitude(r::AbstractReceiver) = r.alt
+"""
+    AbstractSampler
 
-struct Receiver{S<:Real,T<:Real} <: AbstractReceiver
+Abstract supertype for sampling fields in the waveguide.
+
+Subtypes of AbstractSampler should have a position in the guide.
+"""
+abstract type AbstractSampler end
+
+struct Receiver{A<:Antenna} <: AbstractSampler
     name::String
-    lat::S
-    lon::S
-    alt::T
+    latitude::Float64
+    longitude::Float64
+    altitude::Float64
+    antenna::A
 end
+altitude(r::Receiver) = r.altitude

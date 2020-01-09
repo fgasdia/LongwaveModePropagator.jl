@@ -86,6 +86,7 @@ Vertical B field
 ==#
 bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
 tx = LWMS.Source(24e3)
+rx = LWMS.Receiver("",0.0,0.0,0.0)
 ground = LWMS.Ground(15, 0.001)
 
 mₑ = 9.1093837015e-31  # kg
@@ -101,7 +102,7 @@ integrationparams = LWMS.IntegrationParameters(0.0, 91e3, bfield, tx, ground, el
 modes = LWMS.findmodes(origcoords,integrationparams, 1e-6)
 
 X = range(10e3, 5000e3; step=10e3)
-E, phase, amp = LWMS.Efield(X, modes, integrationparams)
+E, phase, amp = LWMS.Efield(X, modes, integrationparams, rx, LWMS.Ez())
 
 raw = CSV.File("C:\\users\\forrest\\research\\LAIR\\ModeSolver\\verticalb_day.log";
                skipto=65, delim=' ', ignorerepeated=true, header=false)

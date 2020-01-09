@@ -7,11 +7,11 @@ const Rₑ = 6369427  # earth radius, m
 const c₀ = 299792458  # speed of light in vacuum, m/s
 const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
 const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
-const H = 50.0e3  # reference height for Earth curvature  # TODO: Should this be a const?
+const H = 50e3  # reference height for Earth curvature  # TODO: Should this be a const?
 
-struct Constituent{T<:Number, F<:Function, G<:Function}
-    charge::T  # C
-    mass::T  # kg
+struct Constituent{F<:Function, G<:Function}
+    charge::Float64  # C
+    mass::Float64  # kg
     numberdensity::F  # function that obtains number density (m⁻³)
     collisionfrequency::G  # function that obtains collision frequency
 end
@@ -19,15 +19,15 @@ end
 """
 `B` should be in Teslas, angles in radians!
 """
-struct BField{T}
-    B::T
-    dcl::T
-    dcm::T
-    dcn::T
+struct BField
+    B::Float64
+    dcl::Float64
+    dcm::Float64
+    dcn::Float64
 end
-function BField(B::T, dip::T, azimuth::T) where T<:Number
-    k1 = cos(dip)
-    BField{T}(B, k1*cos(azimuth), k1*sin(azimuth), -sin(dip))
+function BField(B, dip, azimuth)
+    Cdip = cos(dip)
+    BField(B, Cdip*cos(azimuth), Cdip*sin(azimuth), -sin(dip))
 end
 # TODO: Function that returns dip and azimuth from direction cosines
 
@@ -36,10 +36,19 @@ struct Ground{S,T}
     σ::T
 end
 
-abstract type FieldComponent end
-struct Ez <: FieldComponent end
-struct Ey <: FieldComponent end
-struct Ex <: FieldComponent end
+# NOTE:
+# @kristoffer.carlson suggests this is faster than e.g. dispatch
+# https://discourse.julialang.org/t/dispatch-and-symbols/21162/5
+# However, there are limitations to enum in Julia 1.0, mainly the enum fields are in scope
+# everywhere.
+# TODO: Use SuperEnum or something else with improved scoping? >
+# https://discourse.julialang.org/t/encapsulating-enum-access-via-dot-syntax/11785/9
+@enum FieldComponent begin
+    FC_Ez
+    FC_Ey
+    FC_Ex
+    FC_ALL
+end
 
 struct EigenAngle{T}
     θ::T  # radians, because df/dθ are in radians
