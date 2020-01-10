@@ -9,13 +9,13 @@ using PolynomialRoots: roots!
 
 using ModifiedHankelFunctionsOfOrderOneThird
 
+const BOTTOMHEIGHT = 0.0  # should this be an actual const? Nothing works if it's not 0...
+const TOPHEIGHT = 91e3  # temporary - should be part of an actual IntegrationParameters
+
 struct Derivative end
 
-@with_kw struct IntegrationParameters{T<:AbstractSource}
-    bottomheight::Float64
-    topheight::Float64
+@with_kw struct WaveguideParameters
     bfield::BField
-    frequency::Frequency
     ground::Ground
     species::Constituent
 end
@@ -68,6 +68,225 @@ end
     T44
 end
 
+##########
+# Reflection coefficient matrix from a sharply bounded ionosphere
+##########
+
+"""
+    bookerquartic(ea, M)
+
+Return roots `q` and the coefficients `B` of the Booker quartic.
+
+The Booker quartic is used in the solution of `R` for a sharply bounded ionosphere. This
+function uses the `PolynomialRoots` package to find the roots.
+
+See also: [`sharplybounded_R`](@ref)
+
+# References
+
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
+"""
+function bookerquartic(ea::EigenAngle{T}, M) where T<:Number
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Booker quartic coefficients
+    B4 = 1 + M[3,3]
+    B3 = S*(M[1,3] + M[3,1])
+    B2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
+         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
+    B1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
+         (C² + M[2,2])*(M[1,3] + M[3,1]))
+    B0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
+         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
+         M[1,3]*(C² + M[2,2])*M[3,1] -
+         (1 + M[1,1])*M[2,3]*M[3,2] -
+         M[1,2]*M[2,1]*(C² + M[3,3])
+
+    q = @MVector zeros(complex(T), 4)  # algorithm requires complex type
+    B = MVector{5}(B0, B1, B2, B3, B4)
+
+    roots!(q, B, NaN, 4, false)
+
+    return q, B
+end
+
+"""
+    anglefrom315(v)
+
+Calculate the angle of `v` in radians from 315° on the complex plane.
+"""
+function anglefrom315(v::Complex)
+    ang = rad2deg(angle(v))
+    ang < 0 && (ang += 360)
+    ang < 135 && (ang += 360)
+    return abs(ang - 315)
+end
+
+function anglefrom315(v::Real)
+    return oftype(v, 45)
+end
+
+function _common_sharplyboundedreflection(ea::EigenAngle{<:Number}, M)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Solve equation `D = 0` as a quartic
+    q, B = bookerquartic(ea, M)
+
+    # For high in the ionosphere, we choose 2 solutions that lie close to positive real and
+    # negative imaginary axis (315° on the complex plane)
+    sort!(q, by=anglefrom315)
+
+    # Constant entries of dispersion matrix `D`
+    q1S = q[1]*S
+    q2S = q[2]*S
+
+    M11p1 = 1 + M[1,1]
+
+    D12 = M[1,2]
+    D32 = M[3,2]
+    D33 = C² + M[3,3]
+
+    # Values for two solutions of the Booker quartic corresponding to upgoing waves
+    D11_1 = M11p1 - q[1]^2
+    D13_1 = M[1,3] + q1S
+    D31_1 = M[3,1] + q1S
+
+    Δ_1 = D11_1*D33 - D13_1*D31_1
+    invΔ_1 = inv(Δ_1)
+    P_1 = (-D12*D33 + D13_1*D32)*invΔ_1
+    T_1 = q[1]*P_1 - S*(-D11_1*D32 + D12*D31_1)*invΔ_1
+
+    D11_2 = M11p1 - q[2]^2
+    D13_2 = M[1,3] + q2S
+    D31_2 = M[3,1] + q2S
+
+    Δ_2 = D11_2*D33 - D13_2*D31_2
+    invΔ_2 = inv(Δ_2)
+    P_2 = (-D12*D33 + D13_2*D32)*invΔ_2
+    T_2 = q[2]*P_2 - S*(-D11_2*D32 + D12*D31_2)*invΔ_2
+
+    # Computation of entries of reflection matrix `R`
+    Δ = (T_1*C + P_1)*(C + q[2]) - (T_2*C + P_2)*(C + q[1])
+    invΔ = inv(Δ)
+
+    return SharpBoundary(q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
+        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ)
+end
+
+"""
+    sharplyboundedreflection(ea, M)
+
+Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere.
+
+[^Sheddy1968a] introduces the matrix equation ``D E = 0`` in the coordinate system of Budden
+where the dispersion matrix ``D = I + M + L``. Nontrivial solutions to the equation require
+``det(D) = 0``, which may be written as a quartic in ``q = n cos(θ)``. Elements of the
+dispersion matrix are then used to calculate the reflection matrix `R`.
+
+The reflection coefficient matrix for the sharply bounded case is used as a starting solution
+for integration of the reflection coefficient matrix through the ionosphere.
+
+# References
+
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
+"""
+function sharplyboundedreflection(ea::EigenAngle{<:Number}, M)
+    C = ea.cosθ
+    C2 = 2*C
+
+    @unpack q, P_1, T_1, P_2, T_2, invΔ = _common_sharplyboundedreflection(ea, M)
+
+    R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
+    R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
+    R12 = -C2*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
+    R21 = -C2*(q[1] - q[2])*invΔ  # ∥R⟂
+
+    return SMatrix{2,2}(R11, R21, R12, R22)
+end
+
+function sharplyboundedreflection(ea::EigenAngle{<:Number}, M, ::Derivative)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    @unpack q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
+        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = _common_sharplyboundedreflection(ea, M)
+
+    # Additional calculations required for dR/dθ
+    dS = C
+    dC = -S
+    dC² = -2*S*C
+    dB3 = dS*(M[1,3] + M[3,1])
+    dB2 = -dC²*(2 + M[1,1] + M[3,3])
+    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
+    dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
+        M[1,3]*M[3,1] - M[1,2]*M[2,1])
+
+    dq_1 = -(((dB3*q[1] + dB2)*q[1] + dB1)*q[1] + dB0) /
+        (((4*B[5]*q[1] + 3*B[4])*q[1] + 2*B[3])*q[1] + B[2])
+    dq_2 = -(((dB3*q[2] + dB2)*q[2] + dB1)*q[2] + dB0) /
+        (((4*B[5]*q[2] + 3*B[4])*q[2] + 2*B[3])*q[2] + B[2])
+
+    dD33 = dC²
+
+    dD11_1 = -2*q[1]*dq_1
+    dD13_1 = dq_1*S + q[1]*dS
+    dD31_1 = dD13_1  # dq_1*S + q[1]*dS
+
+    dΔ_1 = dD11_1*D33 + D11_1*dD33 - dD13_1*D31_1 - D13_1*dD31_1
+    dinvΔ_1 = -dΔ_1/Δ_1^2
+
+    dP_1 = (-D12*dD33 + dD13_1*D32)*invΔ_1 + (D13_1*D32 - D12*D33)*dinvΔ_1
+    dT_1 = dq_1*P_1 + q[1]*dP_1 -
+        dS*(-D11_1*D32 + D12*D31_1)*invΔ_1 -
+        S*(-dD11_1*D32 + D12*dD31_1)*invΔ_1 -
+        S*(-D11_1*D32 + D12*D31_1)*dinvΔ_1
+
+    dD11_2 = -2*q[2]*dq_2
+    dD13_2 = dq_2*S + q[2]*dS
+    dD31_2 = dD13_2  # dq_2*S + q[2]*dS
+
+    dΔ_2 = dD11_2*D33 + D11_2*dD33 - dD13_2*D31_2 - D13_2*dD31_2
+    dinvΔ_2 = -dΔ_2/Δ_2^2
+
+    dP_2 = (-D12*dD33 + dD13_2*D32)*invΔ_2 + (D13_2*D32 - D12*D33)*dinvΔ_2
+    dT_2 = dq_2*P_2 + q[2]*dP_2 -
+        dS*(-D11_2*D32 + D12*D31_2)*invΔ_2 -
+        S*(-dD11_2*D32 + D12*dD31_2)*invΔ_2 -
+        S*(-D11_2*D32 + D12*D31_2)*dinvΔ_2
+
+    dΔ = dT_1*C² + T_1*dC² + dT_1*C*q[2] + T_1*dC*q[2] + T_1*C*dq_2 + dP_1*C + P_1*dC +
+        dP_1*q[2] + P_1*dq_2 - (dT_2*C² + T_2*dC²) -
+        (dT_2*C*q[1] + T_2*dC*q[1] + T_2*C*dq_1) -
+        (dP_2*C + P_2*dC) - (dP_2*q[1] + P_2*dq_1)
+    dinvΔ = -dΔ/Δ^2
+
+    # R
+    R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
+    R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
+    R12 = -2*C*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
+    R21 = -2*C*(q[1] - q[2])*invΔ  # ∥R⟂
+
+    # dR
+    dR11 = dinvΔ*R11*Δ +
+        invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_1*q[2] - P_1 - T_2*q[1] + P_2) +
+            C*(dT_1*q[2] + T_1*dq_2 + dP_2 - dP_1 - dT_2*q[1] - T_2*dq_1) +
+            dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
+    dR12 = dinvΔ*R12*Δ + dC/C*R12 - 2*C*(dT_1*P_2 + T_1*dP_2 - dT_2*P_1 - T_2*dP_1)*invΔ
+    dR21 = dinvΔ*R21*Δ + dC/C*R21 - 2*C*(dq_1 - dq_2)*invΔ
+    dR22 = dinvΔ*R22*Δ +
+        invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_2*q[1] - T_1*q[2] + P_1 - P_2) +
+            C*(dP_1 - dT_1*q[2] + dT_2*q[1] - T_1*dq_2 + T_2*dq_1 - dP_2) +
+            dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
+
+    # return SMatrix{2,2}(R11, R21, R12, R22), SMatrix{2,2}(dR11, dR21, dR12, dR22)
+    return @SMatrix [R11 R12;
+                     R21 R22;
+                     dR11 dR12;
+                     dR21 dR22]
+end
+
+##########
+# Reflection coefficient matrix for a vertically stratified ionosphere
+##########
 
 """
     susceptibility(z, ω, bfield, species)
@@ -94,9 +313,10 @@ susceptibility matrix calculated by this function.
 
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
-function susceptibility(z, ω, bfield::BField, species::Constituent)
+function susceptibility(z, frequency::Frequency, bfield::BField, species::Constituent)
     B, l, m, n = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     l², m², n² = l^2, m^2, n^2
+    ω = frequency.ω
 
     # Constitutive relations (see Budden1955a, pg. 517)
     e, m, N, ν = species.charge, species.mass, species.numberdensity, species.collisionfrequency
@@ -344,218 +564,6 @@ function dsmatrixdθ(ea::EigenAngle{<:Number}, M, T::TMatrix{<:Number})
 end
 
 """
-    bookerquartic(ea, M)
-
-Return roots `q` and the coefficients `B` of the Booker quartic.
-
-The Booker quartic is used in the solution of `R` for a sharply bounded ionosphere. This
-function uses the `PolynomialRoots` package to find the roots.
-
-See also: [`sharplybounded_R`](@ref)
-
-# References
-
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
-"""
-function bookerquartic(ea::EigenAngle{T}, M) where T<:Number
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    # Booker quartic coefficients
-    B4 = 1 + M[3,3]
-    B3 = S*(M[1,3] + M[3,1])
-    B2 = -(C² + M[3,3])*(1 + M[1,1]) + M[1,3]*M[3,1] -
-         (1 + M[3,3])*(C² + M[2,2]) + M[2,3]*M[3,2]
-    B1 = S*(M[1,2]*M[2,3] + M[2,1]*M[3,2] -
-         (C² + M[2,2])*(M[1,3] + M[3,1]))
-    B0 = (1 + M[1,1])*(C² + M[2,2])*(C² + M[3,3]) +
-         M[1,2]*M[2,3]*M[3,1] + M[1,3]*M[2,1]*M[3,2] -
-         M[1,3]*(C² + M[2,2])*M[3,1] -
-         (1 + M[1,1])*M[2,3]*M[3,2] -
-         M[1,2]*M[2,1]*(C² + M[3,3])
-
-    q = @MVector zeros(complex(T), 4)  # algorithm requires complex type
-    B = MVector{5}(B0, B1, B2, B3, B4)
-
-    roots!(q, B, NaN, 4, false)
-
-    return q, B
-end
-
-"""
-    anglefrom315(v)
-
-Calculate the angle of `v` in radians from 315° on the complex plane.
-"""
-function anglefrom315(v::Complex)
-    ang = rad2deg(angle(v))
-    ang < 0 && (ang += 360)
-    ang < 135 && (ang += 360)
-    return abs(ang - 315)
-end
-
-function anglefrom315(v::Real)
-    return oftype(v, 45)
-end
-
-function _common_sharplyboundedreflection(ea::EigenAngle{<:Number}, M)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    # Solve equation `D = 0` as a quartic
-    q, B = bookerquartic(ea, M)
-
-    # For high in the ionosphere, we choose 2 solutions that lie close to positive real and
-    # negative imaginary axis (315° on the complex plane)
-    sort!(q, by=anglefrom315)
-
-    # Constant entries of dispersion matrix `D`
-    q1S = q[1]*S
-    q2S = q[2]*S
-
-    M11p1 = 1 + M[1,1]
-
-    D12 = M[1,2]
-    D32 = M[3,2]
-    D33 = C² + M[3,3]
-
-    # Values for two solutions of the Booker quartic corresponding to upgoing waves
-    D11_1 = M11p1 - q[1]^2
-    D13_1 = M[1,3] + q1S
-    D31_1 = M[3,1] + q1S
-
-    Δ_1 = D11_1*D33 - D13_1*D31_1
-    invΔ_1 = inv(Δ_1)
-    P_1 = (-D12*D33 + D13_1*D32)*invΔ_1
-    T_1 = q[1]*P_1 - S*(-D11_1*D32 + D12*D31_1)*invΔ_1
-
-    D11_2 = M11p1 - q[2]^2
-    D13_2 = M[1,3] + q2S
-    D31_2 = M[3,1] + q2S
-
-    Δ_2 = D11_2*D33 - D13_2*D31_2
-    invΔ_2 = inv(Δ_2)
-    P_2 = (-D12*D33 + D13_2*D32)*invΔ_2
-    T_2 = q[2]*P_2 - S*(-D11_2*D32 + D12*D31_2)*invΔ_2
-
-    # Computation of entries of reflection matrix `R`
-    Δ = (T_1*C + P_1)*(C + q[2]) - (T_2*C + P_2)*(C + q[1])
-    invΔ = inv(Δ)
-
-    return SharpBoundary(q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
-        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ)
-end
-
-"""
-    sharplyboundedreflection(ea, M)
-
-Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere.
-
-[^Sheddy1968a] introduces the matrix equation ``D E = 0`` in the coordinate system of Budden
-where the dispersion matrix ``D = I + M + L``. Nontrivial solutions to the equation require
-``det(D) = 0``, which may be written as a quartic in ``q = n cos(θ)``. Elements of the
-dispersion matrix are then used to calculate the reflection matrix `R`.
-
-The reflection coefficient matrix for the sharply bounded case is used as a starting solution
-for integration of the reflection coefficient matrix through the ionosphere.
-
-# References
-
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
-"""
-function sharplyboundedreflection(ea::EigenAngle{<:Number}, M)
-    C = ea.cosθ
-    C2 = 2*C
-
-    @unpack q, P_1, T_1, P_2, T_2, invΔ = _common_sharplyboundedreflection(ea, M)
-
-    R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
-    R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
-    R12 = -C2*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
-    R21 = -C2*(q[1] - q[2])*invΔ  # ∥R⟂
-
-    return SMatrix{2,2}(R11, R21, R12, R22)
-end
-
-function sharplyboundedreflection(ea::EigenAngle{<:Number}, M, ::Derivative)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    @unpack q, B, D12, D32, D33, D11_1, D13_1, D31_1, Δ_1, invΔ_1, P_1, T_1,
-        D11_2, D13_2, D31_2, Δ_2, invΔ_2, P_2, T_2, Δ, invΔ = _common_sharplyboundedreflection(ea, M)
-
-    # Additional calculations required for dR/dθ
-    dS = C
-    dC = -S
-    dC² = -2*S*C
-    dB3 = dS*(M[1,3] + M[3,1])
-    dB2 = -dC²*(2 + M[1,1] + M[3,3])
-    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
-    dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
-        M[1,3]*M[3,1] - M[1,2]*M[2,1])
-
-    dq_1 = -(((dB3*q[1] + dB2)*q[1] + dB1)*q[1] + dB0) /
-        (((4*B[5]*q[1] + 3*B[4])*q[1] + 2*B[3])*q[1] + B[2])
-    dq_2 = -(((dB3*q[2] + dB2)*q[2] + dB1)*q[2] + dB0) /
-        (((4*B[5]*q[2] + 3*B[4])*q[2] + 2*B[3])*q[2] + B[2])
-
-    dD33 = dC²
-
-    dD11_1 = -2*q[1]*dq_1
-    dD13_1 = dq_1*S + q[1]*dS
-    dD31_1 = dD13_1  # dq_1*S + q[1]*dS
-
-    dΔ_1 = dD11_1*D33 + D11_1*dD33 - dD13_1*D31_1 - D13_1*dD31_1
-    dinvΔ_1 = -dΔ_1/Δ_1^2
-
-    dP_1 = (-D12*dD33 + dD13_1*D32)*invΔ_1 + (D13_1*D32 - D12*D33)*dinvΔ_1
-    dT_1 = dq_1*P_1 + q[1]*dP_1 -
-        dS*(-D11_1*D32 + D12*D31_1)*invΔ_1 -
-        S*(-dD11_1*D32 + D12*dD31_1)*invΔ_1 -
-        S*(-D11_1*D32 + D12*D31_1)*dinvΔ_1
-
-    dD11_2 = -2*q[2]*dq_2
-    dD13_2 = dq_2*S + q[2]*dS
-    dD31_2 = dD13_2  # dq_2*S + q[2]*dS
-
-    dΔ_2 = dD11_2*D33 + D11_2*dD33 - dD13_2*D31_2 - D13_2*dD31_2
-    dinvΔ_2 = -dΔ_2/Δ_2^2
-
-    dP_2 = (-D12*dD33 + dD13_2*D32)*invΔ_2 + (D13_2*D32 - D12*D33)*dinvΔ_2
-    dT_2 = dq_2*P_2 + q[2]*dP_2 -
-        dS*(-D11_2*D32 + D12*D31_2)*invΔ_2 -
-        S*(-dD11_2*D32 + D12*dD31_2)*invΔ_2 -
-        S*(-D11_2*D32 + D12*D31_2)*dinvΔ_2
-
-    dΔ = dT_1*C² + T_1*dC² + dT_1*C*q[2] + T_1*dC*q[2] + T_1*C*dq_2 + dP_1*C + P_1*dC +
-        dP_1*q[2] + P_1*dq_2 - (dT_2*C² + T_2*dC²) -
-        (dT_2*C*q[1] + T_2*dC*q[1] + T_2*C*dq_1) -
-        (dP_2*C + P_2*dC) - (dP_2*q[1] + P_2*dq_1)
-    dinvΔ = -dΔ/Δ^2
-
-    # R
-    R11 = ((T_1*C - P_1)*(C + q[2]) - (T_2*C - P_2)*(C + q[1]))*invΔ  # ∥R∥
-    R22 = ((T_1*C + P_1)*(C - q[2]) - (T_2*C + P_2)*(C - q[1]))*invΔ  # ⟂R⟂
-    R12 = -2*C*(T_1*P_2 - T_2*P_1)*invΔ  # ⟂R∥
-    R21 = -2*C*(q[1] - q[2])*invΔ  # ∥R⟂
-
-    # dR
-    dR11 = dinvΔ*R11*Δ +
-        invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_1*q[2] - P_1 - T_2*q[1] + P_2) +
-            C*(dT_1*q[2] + T_1*dq_2 + dP_2 - dP_1 - dT_2*q[1] - T_2*dq_1) +
-            dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
-    dR12 = dinvΔ*R12*Δ + dC/C*R12 - 2*C*(dT_1*P_2 + T_1*dP_2 - dT_2*P_1 - T_2*dP_1)*invΔ
-    dR21 = dinvΔ*R21*Δ + dC/C*R21 - 2*C*(dq_1 - dq_2)*invΔ
-    dR22 = dinvΔ*R22*Δ +
-        invΔ*(C²*(dT_1 - dT_2) + dC²*(T_1 - T_2) + dC*(T_2*q[1] - T_1*q[2] + P_1 - P_2) +
-            C*(dP_1 - dT_1*q[2] + dT_2*q[1] - T_1*dq_2 + T_2*dq_1 - dP_2) +
-            dP_2*q[1] + P_2*dq_1 - dP_1*q[2] - P_1*dq_2)
-
-    # return SMatrix{2,2}(R11, R21, R12, R22), SMatrix{2,2}(dR11, dR21, dR12, dR22)
-    return @SMatrix [R11 R12;
-                     R21 R22;
-                     dR11 dR12;
-                     dR21 dR22]
-end
-
-"""
     dRdz(R, params, z)
 
 Return the differential of the reflection matrix `R` wrt height `z`.
@@ -605,10 +613,10 @@ end
 
 function integratedreflection(ea::EigenAngle{<:Number}, integrationparams::IntegrationParameters)
     @unpack bottomheight, topheight, bfield, species, freq = integrationparams
+
+    Mtop = susceptibility(topheight, freq, bfield, species)
+
     ω, k = freq.ω, freq.k
-
-    Mtop = susceptibility(topheight, ω, bfield, species)
-
     params = (ω=ω, k=k, ea=ea, species=species, bfield=bfield)
 
     Rtop = sharplyboundedreflection(ea, Mtop)
@@ -621,10 +629,10 @@ end
 
 function integratedreflection(ea::EigenAngle{<:Number}, integrationparams::IntegrationParameters, ::Derivative)
     @unpack bottomheight, topheight, bfield, species, freq = integrationparams
+
+    Mtop = susceptibility(topheight, freq, bfield, species)
+
     ω, k = freq.ω, freq.k
-
-    Mtop = susceptibility(topheight, ω, bfield, species)
-
     params = (ω=ω, k=k, ea=ea, species=species, bfield=bfield)
 
     RdRdθtop = sharplyboundedreflection(ea, Mtop, Derivative())
@@ -635,8 +643,13 @@ function integratedreflection(ea::EigenAngle{<:Number}, integrationparams::Integ
     return sol[end]
 end
 
+
+##########
+# Ground reflection coefficient matrix
+##########
+
 """
-    fresnelreflection(ea, tx, ground)
+    fresnelreflection(ea, ground, frequency)
 
 Return the Fresnel reflection coefficient matrix for the ground free-space interface at the
 ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
@@ -645,37 +658,43 @@ ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
 
 [^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
-function fresnelreflection(ea::EigenAngle{<:Number}, ground::Ground, ω)
+function fresnelreflection(ea::EigenAngle{<:Number}, ground::Ground, frequency::Frequency)
     C, S² = ea.cosθ, ea.sin²θ
+    ω = frequency.ω
 
-    ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
+    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
 
-    tmp1 = C*ng²
-    tmp2 = sqrt(ng² - S²)
+    CNg² = C*Ng²
+    sqrtNg²S² = sqrt(Ng² - S²)
 
-    Rg11 = (tmp1 - tmp2)/(tmp1 + tmp2)
-    Rg22 = (C - tmp2)/(C + tmp2)
+    Rg11 = (CNg² - sqrtNg²S²)/(CNg² + sqrtNg²S²)
+    Rg22 = (C - sqrtNg²S²)/(C + sqrtNg²S²)
 
     # TODO: Custom type
     return SMatrix{2,2}(Rg11, 0, 0, Rg22)
 end
 
-function fresnelreflection(ea::EigenAngle{<:Number}, ground::Ground, ω, ::Derivative)
+function fresnelreflection(ea::EigenAngle{<:Number}, ground::Ground, frequency::Frequency, ::Derivative)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
+    ω = frequency.ω
 
-    ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
+    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
 
-    tmp1 = C*ng²
-    tmp2 = sqrt(ng² - S²)
+    CNg² = C*Ng²
+    sqrtNg²S² = sqrt(Ng² - S²)
 
-    Rg11 = (tmp1 - tmp2)/(tmp1 + tmp2)
-    Rg22 = (C - tmp2)/(C + tmp2)
+    Rg11 = (CNg² - sqrtNg²S²)/(CNg² + sqrtNg²S²)
+    Rg22 = (C - sqrtNg²S²)/(C + sqrtNg²S²)
 
-    dRg11 = (2*ng²*(1 - ng²)*S)/(tmp2*(tmp1 + tmp2)^2)
-    dRg22 = (2*(C - tmp2)*S)/(tmp2*(tmp2 + C))
+    dRg11 = (2*Ng²*(1 - Ng²)*S)/(sqrtNg²S²*(CNg² + sqrtNg²S²)^2)
+    dRg22 = (2*(C - sqrtNg²S²)*S)/(sqrtNg²S²*(tmsqrtNg²S²p2 + C))
 
     return SMatrix{2,2}(Rg11, 0, 0, Rg22), SMatrix{2,2}(dRg11, 0, 0, dRg22)
 end
+
+##########
+# Identify EigenAngles
+##########
 
 """
     modalequation(R, Rg)
@@ -696,7 +715,9 @@ is unity. This leads to the mode equation [^Budden1962].
 radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A.
 Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962.
 """
-modalequation(R, Rg) = det(Rg*R - I)
+function modalequation(R, Rg)
+    return det(Rg*R - I)
+end
 
 """
 See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
@@ -707,13 +728,11 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(inv(A)*dA)
 end
 
-function solvemodalequation(θ, integrationparams::IntegrationParameters)
-    @unpack freq, ground = integrationparams
-
-    ea = EigenAngle(θ)
+function solvemodalequation(ea::EigenAngle{<:Number}, integrationparams::IntegrationParameters)
+    @unpack frequency, ground = integrationparams
 
     R = integratedreflection(ea, integrationparams)
-    Rg = fresnelreflection(ea, ground, freq.ω)
+    Rg = fresnelreflection(ea, ground, frequency)
 
     f = modalequation(R, Rg)
     return f
@@ -723,16 +742,14 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequationdθ(θ, integrationparams::IntegrationParameters)
-    @unpack freq, ground = integrationparams
-
-    ea = EigenAngle(θ)
+function solvemodalequationdθ(ea::EigenAngle{<:Number}, integrationparams::IntegrationParameters)
+    @unpack frequency, ground = integrationparams
 
     RdR = integratedreflection(ea, integrationparams, Derivative())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = fresnelreflection(ea, ground, freq.ω, Derivative())
+    Rg, dRg = fresnelreflection(ea, ground, frequency, Derivative())
 
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg
@@ -745,6 +762,11 @@ function findmodes(origcoords, integrationparams::IntegrationParameters, toleran
     # TODO: do this with SVector?
     return [EigenAngle(r) for r in zroots]
 end
+
+
+################
+# Mode Sum Electric Fields
+################
 
 """
 MS 76 (pg 38)
@@ -760,25 +782,25 @@ function heightgainconstants(ea::EigenAngle{<:Number}, ground::Ground, freq::Fre
     k, ω = freq.k, freq.ω
 
     α = 2/Rₑ
-    tmp = (α/k)^(2/3)
+    αk23 = (α/k)^(2/3)
 
     n₀² = 1 - α*H
     Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
 
-    q₀ = (C² - α*H)/tmp
+    q₀ = (C² - α*H)/αk23
 
     h₁q₀, h₂q₀, h₁′q₀, h₂′q₀ = modifiedhankel(q₀)
 
-    H₁q₀ = h₁′q₀ + tmp*h₁q₀/2
-    H₂q₀ = h₂′q₀ + tmp*h₂q₀/2
+    H₁q₀ = h₁′q₀ + αk23*h₁q₀/2
+    H₂q₀ = h₂′q₀ + αk23*h₂q₀/2
 
-    tmp1 = n₀²/Ng²
-    tmp2 = cbrt(k/α)*sqrt(Ng²-S²)
+    n₀²Ng² = n₀²/Ng²
+    cbrtkα_sqrtNg²S² = cbrt(k/α)*sqrt(Ng²-S²)
 
-    F₁ = -(H₂q₀ - im*tmp1*tmp2*h₂q₀)
-    F₂ = H₁q₀ - im*tmp1*tmp2*h₁q₀
-    F₃ = -(h₂′q₀ - im*tmp2*h₂q₀)
-    F₄ = h₁′q₀ - im*tmp2*h₁q₀  # NOTE: Typo in P&S 71 eq 9
+    F₁ = -(H₂q₀ - im*n₀²Ng²*cbrtkα_sqrtNg²S²*h₂q₀)
+    F₂ = H₁q₀ - im*n₀²Ng²*cbrtkα_sqrtNg²S²*h₁q₀
+    F₃ = -(h₂′q₀ - im*cbrtkα_sqrtNg²S²*h₂q₀)
+    F₄ = h₁′q₀ - im*cbrtkα_sqrtNg²S²*h₁q₀  # NOTE: Typo in P&S 71 eq 9
 
     return HeightGainConstants(h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄)
 end
@@ -810,9 +832,13 @@ function excitationfactors(
     @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
     # Referenced to ground, but `θ` at `h`
-    D11 = (F₁*h₁q₀ + F₂*h₂q₀)^2
-    D12 = (F₁*h₁q₀ + F₂*h₂q₀)*(F₃*h₁q₀ + F₄*h₂q₀)
-    D22 = (F₃*h₁q₀ + F₄*h₂q₀)^2
+    F₁h₁q₀ = F₁*h₁q₀
+    F₂h₂q₀ = F₂*h₂q₀
+    F₃h₁q₀ = F₃*h₁q₀
+    F₄h₂q₀ = F₄*h₂q₀
+    D11 = (F₁h₁q₀ + F₂h₂q₀)^2
+    D12 = (F₁h₁q₀ + F₂h₂q₀)*(F₃h₁q₀ + F₄h₂q₀)
+    D22 = (F₃h₁q₀ + F₄h₂q₀)^2
 
     # Referenced to ground, but `θ` at `h`
     T₁ = (sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])) / (dFdθ*Rg[1,1]*D11)
@@ -852,24 +878,25 @@ function excitationfactors(
     return λ₁, λ₂, λ₃, f
 end
 
-function heightgains(z, ea::EigenAngle{<:Number}, k, f, hgc::HeightGainConstants)
+function heightgains(z, ea::EigenAngle{<:Number}, frequency::Frequency, f, hgc::HeightGainConstants)
     C², S² = ea.cos²θ, ea.sin²θ
+    k = frequency.k
 
     α = 2/Rₑ
-    tmp = (α/k)^(2/3)
+    αk23 = (α/k)^(2/3)
 
     @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
-    q = (C² - α*(H-z))/tmp
+    q = (C² - α*(H-z))/αk23
     h₁q, h₂q, h₁′q, h₂′q = modifiedhankel(q)
 
-    tmp2 = exp(z/Rₑ)
+    expzRₑ = exp(z/Rₑ)
 
     # height gain for vertical electric field Ez, f₁
-    f₁ = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
+    f₁ = expzRₑ*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
 
     # horizontal electric field Ex, f₂
-    f₂ = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
+    f₂ = -im*expzRₑ/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
 
     # Ey, normal to plane of propagation, f₃
     f₃ = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
@@ -877,25 +904,26 @@ function heightgains(z, ea::EigenAngle{<:Number}, k, f, hgc::HeightGainConstants
     return f₁, f₂, f₃
 end
 
-function heightgains(z, ea::EigenAngle{<:Number}, k, f, hgc::HeightGainConstants, fc::FieldComponent)
+function heightgains(z, ea::EigenAngle{<:Number}, frequency::Frequency, f, hgc::HeightGainConstants, fc::FieldComponent)
     C², S² = ea.cos²θ, ea.sin²θ
+    k = frequency.k
 
     α = 2/Rₑ
-    tmp = (α/k)^(2/3)
+    αk23 = (α/k)^(2/3)
 
     @unpack h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄ = hgc
 
-    q = (C² - α*(H-z))/tmp
+    q = (C² - α*(H-z))/αk23
     h₁q, h₂q, h₁′q, h₂′q = modifiedhankel(q)
 
-    tmp2 = exp(z/Rₑ)
+    expzRₑ = exp(z/Rₑ)
 
     if fc == FC_Ez
         # height gain for vertical electric field Ez, f₁
-        f = tmp2*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
+        f = expzRₑ*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
     elseif fc == FC_Ex
         # horizontal electric field Ex, f₂
-        f = -im*tmp2/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
+        f = -im*expzRₑ/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
     elseif fc == FC_Ey
         # Ey, normal to plane of propagation, f₃
         f = (F₃*h₁q + F₄*h₂q)*f/(F₃*h₁q₀ + F₄*h₂q₀)
@@ -922,8 +950,7 @@ function Efield(
     modes::AbstractVector{EigenAngle{<:Number}},
     integrationparams::IntegrationParameters,
     tx::Exciter,
-    rx::AbstractSampler,
-    fc::FieldComponent
+    rx::AbstractSampler
 )
 
     # Excitation factors require `z = d = 0`
@@ -936,10 +963,11 @@ function Efield(
                                                   integrationparams.species)
     end
 
-    @unpack freq, ground = integrationparams
+    @unpack frequency, ground = integrationparams
 
     talt = altitude(tx)
     ralt = altitude(rx)
+    rxfc = fieldcomponent(rx)
 
     # Transmit dipole antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
@@ -948,17 +976,17 @@ function Efield(
 
     modesum = zero(ComplexF64)
     for ea in modes
-        S = ea.sinθ  # Morfitt 1980 pg 19 specifies S is the sine of \theta at `H`
+        S = ea.sinθ  # Morfitt 1980 pg 19 specifies S is the sine of θ at `H`
 
         hgc = heightgainconstants(ea, ground, tx)
-        dFdθ, R, Rg = solvemodalequationdθ(ea.θ, integrationparams)
+        dFdθ, R, Rg = solvemodalequationdθ(ea, integrationparams)
 
-        λ₁, λ₂, λ₃, f = excitationfactors(ea, R, Rg, dFdθ, hgc, fc)
-        f₁, f₂, f₃ = heightgains(talt, ea, k, f, hgc)  # at transmitter
+        λ₁, λ₂, λ₃, f = excitationfactors(ea, R, Rg, dFdθ, hgc, rxfc)
+        f₁, f₂, f₃ = heightgains(talt, ea, frequency, f, hgc)  # at transmitter
 
         # All 3 directions needed for xmtr, only "wanted" term needed for rcvr
         xmtrterm = λ₁*f₁*Cγ + λ₂*f₂*Sγ*Cϕ + λ₃*f₃*Sγ*Sϕ
-        rcvrterm = heightgains(ralt, ea, k, f, hgc, fc)  # at receiver
+        rcvrterm = heightgains(ralt, ea, frequency, f, hgc, rxfc)  # at receiver
 
         # NOTE: Morfitt 1980 eq 39 is different from Pappert et al 1983 which is also
         # different from Pappert and Ferguson 1986
@@ -980,6 +1008,8 @@ end
 """
 Special function for vertical Ez only, zt=zr=0, and γ=φ=0. (Like GRNDMC)
 essentially, zt=zr=0, f₁=f₂=f₃=1, γ=ϕ=0
+
+TODO: Efield function wrapper should automatically call this one if criteria are met
 
 Q is also in Pappert Snyder 1972
 """
