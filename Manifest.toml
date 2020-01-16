@@ -39,9 +39,9 @@ version = "0.4.0"
 
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "b41d0f666d46ba128c6a0fc632d6e33fbfc03604"
+git-tree-sha1 = "b9de8dc6106e09c79f3f776c27c62360d30e5eb8"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.9.0"
+version = "0.9.1"
 
 [[Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "InteractiveUtils", "Printf", "Reexport"]
@@ -63,9 +63,9 @@ version = "2.2.0"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "f784254f428fb8fd7ac15982e5862a38a44523d3"
+git-tree-sha1 = "b7720de347734f4716d1815b00ce5664ed6bbfd4"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.7"
+version = "0.17.9"
 
 [[Dates]]
 deps = ["Printf"]
@@ -77,9 +77,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "Compat", "DataStructures", "DiffEqDiffTools", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LinearAlgebra", "MuladdMacro", "Parameters", "Printf", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews", "ZygoteRules"]
-git-tree-sha1 = "2bb222b5dd4b138a3ce285693b1360c7b04e3fb8"
+git-tree-sha1 = "8a570215581a2c87d6e9717fde59ec9df453d1c4"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.10.2"
+version = "6.12.2"
 
 [[DiffEqDiffTools]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
@@ -94,10 +94,10 @@ uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
 version = "1.0.2"
 
 [[DiffRules]]
-deps = ["NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "10dca52cf6d4a62d82528262921daf63b99704a2"
+deps = ["Random", "Test"]
+git-tree-sha1 = "dc0869fb2f5b23466b32ea799bd82c76480167f7"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.0.0"
+version = "0.0.10"
 
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -122,9 +122,9 @@ version = "0.7.1"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "840700059391d36e2498d89c2e82c08f261f2a2a"
+git-tree-sha1 = "88b082d492be6b63f967b6c96b352e25ced1a34c"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.8"
+version = "0.10.9"
 
 [[FunctionWrappers]]
 deps = ["Compat"]
@@ -235,9 +235,9 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqDiffTools", "ExponentialUtilities", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MacroTools", "MuladdMacro", "Parameters", "RecursiveArrayTools", "Reexport", "SparseArrays", "SparseDiffTools", "StaticArrays"]
-git-tree-sha1 = "143b4d228d3a2e84c45a4acf937f1b0d6788da65"
+git-tree-sha1 = "5db16a7027d2c807175634f215369d35296306c6"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.26.8"
+version = "5.27.1"
 
 [[Parameters]]
 deps = ["OrderedCollections"]
@@ -281,9 +281,9 @@ version = "0.7.0"
 
 [[RecursiveArrayTools]]
 deps = ["ArrayInterface", "RecipesBase", "Requires", "StaticArrays", "Statistics"]
-git-tree-sha1 = "35a01ee8529e84d1ca4c7131fee30e7f61047fc8"
+git-tree-sha1 = "f795d0f557ff9f40a16e2b0634fc709ceb59c0d5"
 uuid = "731186ca-8d62-57ce-b412-fbd966d074cd"
-version = "1.2.1"
+version = "2.0.0"
 
 [[RecursiveFactorization]]
 deps = ["LinearAlgebra"]
@@ -340,9 +340,9 @@ version = "1.2.0"
 
 [[SpecialFunctions]]
 deps = ["OpenSpecFun_jll"]
-git-tree-sha1 = "268052ee908b2c086cc0011f528694f02f3e2408"
+git-tree-sha1 = "e19b98acb182567bcb7b75bb5d9eedf3a3b5ec6c"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "0.9.0"
+version = "0.10.0"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
@@ -383,9 +383,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[VertexSafeGraphs]]
 deps = ["LightGraphs"]
-git-tree-sha1 = "08137053c117afb92f59497160ac2d12abec66d8"
+git-tree-sha1 = "35060f8047a2b79bdc8e4961bbbd2b7e30e62709"
 uuid = "19fa3120-7c27-5ec5-8db8-b0b0aa330d6f"
-version = "0.1.0"
+version = "0.1.1"
 
 [[VoronoiDelaunay]]
 deps = ["Colors", "GeometricalPredicates", "Random"]

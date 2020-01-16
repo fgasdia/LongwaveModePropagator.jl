@@ -1,12 +1,4 @@
-export Receiver, Transmitter, Inputs, Source, ExcitationDipole
-
-"""
-    Exciter
-
-Abstract type for types that energize the waveguide with electromagnetic energy.
-"""
-abstract type Exciter end
-# exciter(exc::Exciter) = exc
+export Receiver, Transmitter, Inputs, ExcitationDipole
 
 """
     Antenna
@@ -86,8 +78,15 @@ function Frequency(f)
     Frequency(f, ω, k, λ)
 end
 
-# TODO: Custom "range" of Frequencies to form a spectrum for, e.g. lightning sferic
+"""
+    Exciter
 
+Abstract type for types that energize the waveguide with electromagnetic energy.
+"""
+abstract type Exciter end
+# exciter(exc::Exciter) = exc
+
+# TODO: Custom "range" of Frequencies to form a spectrum for, e.g. lightning sferic
 """
     Transmitter
 """
@@ -100,12 +99,14 @@ struct Transmitter{A<:Antenna} <: Exciter
     frequency::Frequency
     power::Float64
 end
-Transmitter(name, lat, lon, freq) = Transmitter(name, lat, lon, 0, VerticalDipole(),
-                                                Frequency(freq), 1)
+Transmitter(freq) = Transmitter("", 0, 0, freq)
+Transmitter(name, lat, lon, freq) = Transmitter{VerticalDipole}(name, lat, lon, 0, VerticalDipole(),
+                                                Frequency(freq), 1000)
 altitude(t::Transmitter) = t.altitude
 frequency(t::Transmitter) = t.frequency
 azimuth(t::Transmitter) = azimuth(t.antenna)
 elevation(t::Transmitter) = elevation(t.antenna)
+power(t::Transmitter) = t.power
 
 """
     AbstractSampler
@@ -116,11 +117,12 @@ Subtypes of AbstractSampler should have a position in the guide and a FieldCompo
 """
 abstract type AbstractSampler end
 
-struct GroundSampler{T,S} <: AbstractSampler
-    distance::OrdinalRange{T,S}
+struct GroundSampler{T} <: AbstractSampler
+    distance::AbstractRange{T}
     fieldcomponent::FieldComponent
 end
 altitude(g::GroundSampler) = 0
+distance(g::GroundSampler) = g.distance
 fieldcomponent(g::GroundSampler) = g.fieldcomponent
 
 struct Receiver{A<:Antenna} <: AbstractSampler

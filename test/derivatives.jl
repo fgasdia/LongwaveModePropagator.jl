@@ -1019,3 +1019,8 @@ pdi = plot(imagdFdf, x=:θ, y=:val, color=:var,
     Geom.line, Guide.xlabel("θ (rad)"), Guide.ylabel("imag(val)"), style(line_width=2pt));
 v = gridstack([pr pi; pdr pdi]);
 v |> SVG("C:\\Users\\forrest\\Desktop\\Fs.svg")
+
+
+#===
+Height gain
+===#

@@ -25,7 +25,7 @@ basepath = "C:\\Users\\forrest\\Desktop"
 
     ea = LWMS.EigenAngle(θ)
     ground = LWMS.Ground(15, 0.003)
-    tx = LWMS.Source(freq)
+    tx = LWMS.Transmitter(freq)
 
     Bmag = 0.5172267e-4
     dcl = -0.2664399
@@ -33,76 +33,115 @@ basepath = "C:\\Users\\forrest\\Desktop"
     dcn = -0.9207376
     bfield = LWMS.BField(Bmag, dcl, dcm, dcn)
 
-    bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
+    # bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
 
     mₑ = 9.1093837015e-31  # kg
     qₑ = -1.602176634e-19  # C
     electrons = Constituent(qₑ, mₑ,
                             h -> waitprofile(h, 75, 0.32), electroncollisionfrequency)
 
-    topheight = 92e3
-    bottomheight = 0.0
-
-    sol = LWMS.integratedreflection(ea, topheight, bottomheight, bfield, electrons, tx)
-
     #==
     Breaking out integratedreflection into pieces
     ==#
-    Mtop = susceptibility(topheight, tx.ω, bfield, electrons)
-
-    params = (ω=tx.ω, k=tx.k, ea=ea, species=electrons, bfield=bfield)
+    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, electrons)
 
     # called by `sharplyboundedreflection` and dominates its runtime
-    jnk = _common_sharplyboundedreflection(ea, Mtop)
+    jnk = LWMS._sharplyboundedreflection(ea, Mtop)
 
     # responsible for ~1/2 of _common_sharplyboundedreflection, probably because of creation of
     # MArray and call to `roots!`
-    q, B = bookerquartic(ea, Mtop)
+    q, B = LWMS.bookerquartic(ea, Mtop)
+
+    Rtop = LWMS.sharplyboundedreflection(ea, Mtop)
 
     # called by dRdz
-    T = tmatrix(ea, Mtop)
-    S = smatrix(ea, T)
+    T = LWMS.tmatrix(ea, Mtop)
+    S = LWMS.smatrix(ea, T)
 
-    Rtop = sharplyboundedreflection(ea, Mtop)
+    integrationparams = LWMS.IntegrationParameters(bfield, tx.frequency, ground, electrons)
+    jnk = LWMS.dRdz(Rtop, (ea, integrationparams), LWMS.TOPHEIGHT)
 
-    jnk = dRdz(Rtop, params, topheight)
+    prob = LWMS.ODEProblem{false}(LWMS.dRdz, Rtop, (LWMS.TOPHEIGHT, LWMS.BOTTOMHEIGHT), (ea, integrationparams))
+    sol = LWMS.solve(prob, LWMS.Tsit5(), reltol=1e-8, abstol=1e-8, save_start=false)
 
-    prob = ODEProblem{false}(dRdz, Rtop, (topheight, bottomheight), params)
-    sol = solve(prob, Tsit5(), save_everystep=false, save_start=false)
-end
+    sol = LWMS.integratedreflection(ea, integrationparams)
 
-
-function unwrap!(X)
-    @inbounds for i in 2:length(X)
-        d = X[i] - X[i-1]
-        d = d > π ? d - 2π : (d < -π ? d + 2π : d)
-        X[i] = X[i-1] + d
-    end
-    nothing
+    Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+    jnk = LWMS.solvemodalequation(ea, integrationparams)
 end
 
 #==
 Vertical B field
 ==#
 bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
-tx = LWMS.Source(24e3)
-rx = LWMS.Receiver("",0.0,0.0,0.0)
+tx = LWMS.Transmitter(24e3)
+rx = LWMS.GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
 ground = LWMS.Ground(15, 0.001)
+
+θ = deg2rad(complex(78.2520447, -3.5052794))
+ea = LWMS.EigenAngle(θ)
 
 mₑ = 9.1093837015e-31  # kg
 qₑ = -1.602176634e-19  # C
-electrons = Constituent(qₑ, mₑ,
-                        h -> waitprofile(h, 75, 0.32), electroncollisionfrequency)
 
-origcoords = rectangulardomain(complex(20., -20.), complex(90.0, 0.0), 1)
+function customwaitprofile(z, h′, β, cutoff)
+    if z < cutoff
+        return 0
+    else
+        return waitprofile(z, h′, β)
+    end
+end
+electrons = Constituent(qₑ, mₑ,
+                        h -> customwaitprofile(h, 75, 0.32, 50e3), electroncollisionfrequency)
+
+# Based on lwp_input.for
+origcoords = rectangulardomain(complex(20, -20.0), complex(89.9, 0.0), 1)
 origcoords .= deg2rad.(origcoords)
 
-integrationparams = LWMS.IntegrationParameters(0.0, 91e3, bfield, tx, ground, electrons)
+integrationparams = LWMS.IntegrationParameters(bfield, tx.frequency, ground, electrons)
 
-modes = LWMS.findmodes(origcoords,integrationparams, 1e-6)
+# angletype = eltype(origcoords)
+# zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{angletype}(θ), integrationparams),
+#                   origcoords, tolerance, 15000)
 
-X = range(10e3, 5000e3; step=10e3)
-E, phase, amp = LWMS.Efield(X, modes, integrationparams, rx, LWMS.Ez())
+modes = LWMS.findmodes(origcoords, integrationparams)
+
+@testset "Electric field" begin
+    talt = LWMS.altitude(tx)
+    ralt = LWMS.altitude(rx)
+    rxfc = LWMS.fieldcomponent(rx)
+
+    # Transmit dipole antenna orientation with respect to propagation direction
+    # See Morfitt 1980 pg 22
+    Sγ, Cγ = sincos(LWMS.elevation(tx))
+    Sϕ, Cϕ = sincos(LWMS.azimuth(tx))
+
+    ea = modes[1]
+
+    S = ea.sinθ  # Morfitt 1980 pg 19 specifies S is the sine of θ at `H`
+
+    hgc = LWMS.heightgainconstants(ea, ground, tx.frequency)
+
+    jnk = LWMS.fresnelreflection(ea, ground, tx.frequency, LWMS.Derivative_dθ())
+
+    dFdθ, R, Rg = LWMS.solvemodalequationdθ(ea, integrationparams)
+
+    λ₁, λ₂, λ₃, f = LWMS.excitationfactors(ea, R, Rg, dFdθ, hgc, rxfc)
+    f₁, f₂, f₃ = LWMS.heightgains(talt, ea, tx.frequency, f, hgc)  # at transmitter
+
+    # All 3 directions needed for xmtr, only "wanted" term needed for rcvr
+    xmtrterm = λ₁*f₁*Cγ + λ₂*f₂*Sγ*Cϕ + λ₃*f₃*Sγ*Sϕ
+    rcvrterm = LWMS.heightgains(ralt, ea, tx.frequency, f, hgc, rxfc)  # at receiver
+
+    # NOTE: Morfitt 1980 eq 39 is different from Pappert et al 1983 which is also
+    # different from Pappert and Ferguson 1986
+    modesum += xmtrterm*rcvrterm*cis(-tx.frequency.k*(S - 1)*1000e3)
+    end
+end
+
+E, phase, amp = LWMS.Efield(1500e3, modes, integrationparams, tx, rx)
+
+E, phase, amp = LWMS.Efield(modes, integrationparams, tx, rx)
 
 raw = CSV.File("C:\\users\\forrest\\research\\LAIR\\ModeSolver\\verticalb_day.log";
                skipto=65, delim=' ', ignorerepeated=true, header=false)
@@ -111,8 +150,9 @@ dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
                 amp=vcat(raw.Column2, raw.Column5, raw.Column8),
                 phase=vcat(raw.Column3, raw.Column6, raw.Column9))
 
+X = rx.distance
 df = DataFrame(dist=vcat(X./1000, dat.dist),
-               amp=vcat(amp.+150, dat.amp),
+               amp=vcat(amp.+100, dat.amp),
                phase=vcat(rad2deg.(phase), dat.phase),
                model=vcat(fill("LWMS", length(X)), fill("LWPC", length(dat.dist))))
 
@@ -128,11 +168,13 @@ p = plot(df, x=:dist, y=:amp, color=:model, Geom.path,
 
 p |> SVGJS(joinpath(basepath, "verticalb_amp.svg"))
 
-p = plot(df, x=df[!,:x]/1000, y=:phase, Geom.path, Scale.color_discrete,
+p = plot(df, x=:dist, y=:phase, color=:model, Geom.path, Scale.color_discrete,
         Guide.ylabel("phase (deg)"), Guide.xlabel("distance (km)"),
+        Scale.color_discrete_manual(colors...),
         Scale.x_continuous(format=:plain),
+        Coord.cartesian(xmax=5e3),
         # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.003"));
+        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.001"));
 
 p |> SVGJS(joinpath(basepath, "verticalb_phase.svg"))
 

@@ -3,10 +3,12 @@ export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 export Rₑ, c₀, μ₀, ϵ₀, H
 
 # CODATA 2018 NIST SP 961
-const Rₑ = 6369427  # earth radius, m
+# const Rₑ = 6369427  # earth radius, m
+const Rₑ = 6366e3  # roughly LWPC
 const c₀ = 299792458  # speed of light in vacuum, m/s
 const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
 const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
+const Z₀ = 376.730313668  # vacuum impedance, Ω
 const H = 50e3  # reference height for Earth curvature  # TODO: Should this be a const?
 
 struct Constituent{F<:Function, G<:Function}
@@ -31,9 +33,9 @@ function BField(B, dip, azimuth)
 end
 # TODO: Function that returns dip and azimuth from direction cosines
 
-struct Ground{S,T}
-    ϵᵣ::S  # usually happens to be an int
-    σ::T
+struct Ground
+    ϵᵣ::Int
+    σ::Float64
 end
 
 # NOTE:
