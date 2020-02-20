@@ -87,7 +87,7 @@ h1 = sympy.Function("h1")(z)
 h2 = sympy.Function("h2")(z)
 
 f1 = exp(z/a)*(F1*h1 + F2*h2)/(F1*h10 + F2*h20)
--1/(im*k)*diff(f1, z)
+1/(im*k)*diff(f1, z)
 
 
-# = im/(a*k)*exp(z/a)*(F1*h1(z) + F2*h2(z) + a*(F1*h1p(z) + F2*h2p(z)))/(F1*h10 + F2h20)
+# = -im/(a*k)*exp(z/a)*(F1*h1(z) + F2*h2(z) + a*(F1*h1p(z) + F2*h2p(z)))/(F1*h10 + F2h20)

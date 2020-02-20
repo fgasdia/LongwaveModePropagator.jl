@@ -793,7 +793,7 @@ function solvemodalequationdθ(ea::EigenAngle, integrationparams::IntegrationPar
     return df, R, Rg
 end
 
-function findmodes(origcoords, integrationparams::IntegrationParameters, tolerance=1e-8)
+function findmodes(origcoords, integrationparams::IntegrationParameters, tolerance=1e-6)
     angletype = eltype(origcoords)
     zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{angletype}(θ), integrationparams),
                           origcoords, tolerance, 15000)
@@ -813,7 +813,7 @@ Pappert et al 1970 A FORTRAN program...
 Pappert and Shockey 1971 WKB Mode Summing Program...
 
 Morfitt 1980 Simplified Eqs 16-23 <=
-
+Morfitt 1980 pg 17 "cosine of θ at height H", but alter q and n² in Pappert Shockey 76 (uses H=0)
 Assumes `d` = 0.
 """
 function heightgainconstants(ea::EigenAngle, ground::Ground, freq::Frequency)
@@ -830,16 +830,17 @@ function heightgainconstants(ea::EigenAngle, ground::Ground, freq::Frequency)
 
     h₁q₀, h₂q₀, h₁′q₀, h₂′q₀ = modifiedhankel(q₀)
 
+    # Precompute variables
     H₁q₀ = h₁′q₀ + αk23*h₁q₀/2
     H₂q₀ = h₂′q₀ + αk23*h₂q₀/2
 
-    n₀²Ng² = n₀²/Ng²
-    cbrtkα_sqrtNg²S² = cbrt(k/α)*sqrt(Ng²-S²)
+    tmp1 = im*cbrt(Rₑ/2*k)*sqrt(Ng²-S²)
+    tmp2 = tmp1*n₀²/Ng²
 
-    F₁ = -H₂q₀ + im*n₀²Ng²*cbrtkα_sqrtNg²S²*h₂q₀
-    F₂ = H₁q₀ - im*n₀²Ng²*cbrtkα_sqrtNg²S²*h₁q₀
-    F₃ = -h₂′q₀ + im*cbrtkα_sqrtNg²S²*h₂q₀
-    F₄ = h₁′q₀ - im*cbrtkα_sqrtNg²S²*h₁q₀  # NOTE: Typo in P&S 71 eq 9
+    F₁ = -H₂q₀ + tmp2*h₂q₀
+    F₂ = H₁q₀ - tmp2*h₁q₀
+    F₃ = -h₂′q₀ + tmp1*h₂q₀
+    F₄ = h₁′q₀ - tmp1*h₁q₀  # NOTE: Typo in P&S 71 eq 9
 
     return HeightGainConstants(h₁q₀, h₂q₀, h₁′q₀, h₂′q₀, F₁, F₂, F₃, F₄)
 end
@@ -889,10 +890,12 @@ now programmed, require that the height variable `d` be at the ground so that in
 
 TODO: Return all field components, but have separate path for vertical only.
 
+Morfitt 1980 pg 19 specifies S is at reference height `H`
+
 sw_wvgd.for
 """
 function excitationfactors(
-    ea::EigenAngle{<:Number},
+    ea::EigenAngle,
     R,
     Rg,
     dFdθ,
@@ -1034,7 +1037,7 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, f, hgc::HeightGain
     # according to Pappert Ferguson 1986.
     # f₂ is for Ex
     # f₂ = -im*expzRₑ/(Rₑ*k*(F₁*h₁q₀ + F₂*h₂q₀))
-    f₂ = im/(Rₑ*k)*expzRₑ*(F₁*h₁q₀ + F₂*h₂q₀ + Rₑ*(F₁*h₁′q + F₂*h₂′q))/(F₁*h₁q₀ + F₂*h₂q₀)
+    f₂ = -im*expzRₑ*(F₁*h₁q + F₂*h₂q + Rₑ*(F₁*h₁′q + F₂*h₂′q))/(k*Rₑ*(F₁*h₁q₀ + F₂*h₂q₀))
 
     # Ey, normal to plane of propagation, f₃
     # according to Pappert Ferguson 1986,
@@ -1085,8 +1088,7 @@ end
 #     return f
 # end
 
-
-function heightgains(z, ea::EigenAngle, frequency::Frequency, f, hgc::HeightGainConstants, fc::FieldComponent)
+function heightgains(z, ea::EigenAngle, frequency::Frequency, f0fr, hgc::HeightGainConstants, fc::FieldComponent)
     C², S² = ea.cos²θ, ea.sin²θ
     k = frequency.k
 
@@ -1105,10 +1107,11 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, f, hgc::HeightGain
         f = expzRₑ*(F₁*h₁q + F₂*h₂q)/(F₁*h₁q₀ + F₂*h₂q₀)
     elseif fc == FC_Ex
         # horizontal electric field Ex, f₂
-        f = im/(Rₑ*k)*expzRₑ*(F₁*h₁q₀ + F₂*h₂q₀ + Rₑ*(F₁*h₁′q + F₂*h₂′q))/(F₁*h₁q₀ + F₂*h₂q₀)
+        # f = im/(Rₑ*k)*expzRₑ*(F₁*h₁q₀ + F₂*h₂q₀ + Rₑ*(F₁*h₁′q + F₂*h₂′q))/(F₁*h₁q₀ + F₂*h₂q₀)
+        f = -im*expzRₑ*(F₁*h₁q + F₂*h₂q + Rₑ*(F₁*h₁′q + F₂*h₂′q))/(k*Rₑ*(F₁*h₁q₀ + F₂*h₂q₀))
     elseif fc == FC_Ey
         # Ey, normal to plane of propagation, f₃
-        f = f*(F₃*h₁q + F₄*h₂q)/(F₃*h₁q₀ + F₄*h₂q₀)
+        f = f0fr*(F₃*h₁q + F₄*h₂q)/(F₃*h₁q₀ + F₄*h₂q₀)
     end
 
     return f
@@ -1151,7 +1154,7 @@ function Efield(
     for m in eachindex(modes)
         ea = modes[m]
         ea₀ = refertoground(ea)
-        S = ea₀.sinθ  # Morfitt 1980 pg 19 specifies S is the sine of θ at `H`
+        S = ea₀.sinθ  # see, e.g. Pappert 1981 LF Daytime pg 10 ...
 
         hgc = heightgainconstants(ea, ground, frequency)
         dFdθ, R, Rg = solvemodalequationdθ(ea, integrationparams)
@@ -1163,19 +1166,20 @@ function Efield(
         xmtrterm = λv*fz*Cγ + λe*fx*Sγ*Cϕ + λb*fy*Sγ*Sϕ
         rcvrterm = heightgains(ralt, ea, frequency, f, hgc, rxfc)  # at receiver
 
-        modesum += xmtrterm*rcvrterm*cis(-k*(S-1)*x)
+        modesum += xmtrterm*rcvrterm*exp(-im*k*(S-1)*x)
     end
 
     # Q = 3.248e-5*sqrt(1000)*k/sqrt(f)  # Morfitt 1980 eq 41, adjusted for MKS units. power is also probably included in this
     # Express field components in volts/meter/kW of radiated power
-    Q = 6.808e-4*sqrt(frequency.f/1000)  # Pappert and Ferguson 1986, pg 553, adjusted for MKS
-    # Q = 682.2408*sqrt(frequency.f/1000*txpower/1000)  # In lw_sum_modes
+    # Q = 6.808e-4*sqrt(frequency.f/1000)  # Pappert and Ferguson 1986, pg 553, adjusted for MKS, equivalent to above
+    # Q = 2.1529e-5*sqrt(frequency.f)  # above, but incorporating 1/sqrt(1000) into coeff
+    Q = 682.2408*sqrt(frequency.f/1000*txpower/1000)  # In lw_sum_modes
     # The below matches lw_sum_modes const*80 (see that file's line 278)
     # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
 
     # Total electric field
     # NOTE: Some references have (S-1) and sqrt(sin(x/Rₑ)), others have S and sqrt(a*sin(x/Rₑ))
-    E = Q/sqrt(sin(x/Rₑ))*modesum
+    E = Q/sqrt(abs(sin(x/Rₑ)))*modesum
     phase = angle(E)  # ranges between -180 : 180 deg (but returns in rad)
     amp = 10*log10(abs(E))
 
@@ -1293,15 +1297,17 @@ function lwpcatten(ea::EigenAngle, frequency::Frequency)
 end
 
 """
-Sheddy 1968 specifies this is the phase velocity at the ground (ea at ground)
+    phasevelocity(ea)
 
-MS76 pg 82
+Return the phase velocity [m/s] at the ground given the eigenangle `ea` at `H`.
 
-Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
+See:
+    Sheddy 1968 specifies this is the phase velocity at the ground
+    Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
 
-See Pappert et al 1967 Numerical Investigation...
+    MS76 pg 82
 
-in m/s
+    Pappert et al 1967 Numerical Investigation... is explicit
 """
 function phasevelocity(ea::EigenAngle{<:Number})
     K = 1 + H/Rₑ
@@ -1309,15 +1315,19 @@ function phasevelocity(ea::EigenAngle{<:Number})
 end
 
 """
-ms 76 pg 82 and sheddy 1968
+    attenuationrate(ea, freq)
 
-Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
+Return the attenuation rate [dB/Mm] at the ground given eigenangle `ea` at `H`.
 
-The strange factor in front converts 1 neper to dB
+# TODO: Confirm unit is dB/Mm
 
-See Pappert et al 1967 Numerical Investigation...
+See:
+    ms 76 pg 82 and sheddy 1968
+    Sheddy includes K where K = 1 + α H/2 presumably to correct for earth curvature
 
-in dB/Mm
+    See Pappert et al 1967 Numerical Investigation...
+
+    The strange factor in front converts 1 neper to dB
 """
 function attenuationrate(ea::EigenAngle{<:Number}, freq::Frequency)
     K = 1 + H/Rₑ

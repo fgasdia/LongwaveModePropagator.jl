@@ -74,7 +74,8 @@ end
 Vertical B field
 ==#
 bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
-tx = LWMS.Transmitter(24e3)
+# tx = LWMS.Transmitter(24e3)
+naa = LWMS.Transmitter("NAA", 44.646, -67.281, 0.0, LWMS.VerticalDipole(), LWMS.Frequency(24e3), 100e3)
 rx = LWMS.GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
 ground = LWMS.Ground(15, 0.001)
 
@@ -98,7 +99,7 @@ electrons = Constituent(qₑ, mₑ,
 origcoords = rectangulardomain(complex(20, -20.0), complex(89.9, 0.0), 1)
 origcoords .= deg2rad.(origcoords)
 
-integrationparams = LWMS.IntegrationParameters(bfield, tx.frequency, ground, electrons)
+integrationparams = LWMS.IntegrationParameters(bfield, naa.frequency, ground, electrons)
 
 # angletype = eltype(origcoords)
 # zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{angletype}(θ), integrationparams),
@@ -139,9 +140,9 @@ modes = LWMS.findmodes(origcoords, integrationparams)
     end
 end
 
-E, phase, amp = LWMS.Efield(1500e3, modes, integrationparams, tx, rx)
+E, phase, amp = LWMS.Efield(1500e3, modes, integrationparams, naa, rx)
 
-E, phase, amp = LWMS.Efield(modes, integrationparams, tx, rx)
+E, phase, amp = LWMS.Efield(modes, integrationparams, naa, rx)
 
 raw = CSV.File("C:\\users\\forrest\\research\\LAIR\\ModeSolver\\verticalb_day.log";
                skipto=65, delim=' ', ignorerepeated=true, header=false)
@@ -152,7 +153,7 @@ dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
 
 X = rx.distance
 df = DataFrame(dist=vcat(X./1000, dat.dist),
-               amp=vcat(amp.+100, dat.amp),
+               amp=vcat(amp, dat.amp),
                phase=vcat(rad2deg.(phase), dat.phase),
                model=vcat(fill("LWMS", length(X)), fill("LWPC", length(dat.dist))))
 
