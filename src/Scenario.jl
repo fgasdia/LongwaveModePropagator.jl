@@ -22,6 +22,8 @@ abstract type AbstractDipole <: Antenna end
     Dipole
 
 Dipole antenna with arbitrary `azimuth_angle` and `elevation_angle` orientation.
+
+Note: these are physical orientation angles of the antenna, not the radiation pattern.
 """
 struct Dipole <: AbstractDipole
     azimuth_angle::Float64
@@ -29,7 +31,6 @@ struct Dipole <: AbstractDipole
 end
 azimuth(d::Dipole) = d.azimuth_angle
 elevation(d::Dipole) = d.elevation_angle
-fieldcomponent(d::Dipole) = FC_ALL
 
 """
     VerticalDipole
@@ -38,8 +39,7 @@ Dipole antenna with elevation angle ``γ = 0``.
 """
 struct VerticalDipole <: AbstractDipole end
 azimuth(d::VerticalDipole) = 0
-elevation(d::VerticalDipole) = 0
-fieldcomponent(d::VerticalDipole) = FC_Ez
+elevation(d::VerticalDipole) = π/2
 
 """
     HorizontalDipole
@@ -56,7 +56,6 @@ struct HorizontalDipole <: AbstractDipole
 end
 azimuth(d::HorizontalDipole) = d.azimuth_angle
 elevation(d::HorizontalDipole) = π/2
-fieldcomponent(d::HorizontalDipole) = FC_ALL
 
 """
     Frequency
@@ -117,8 +116,8 @@ Subtypes of AbstractSampler should have a position in the guide and a FieldCompo
 """
 abstract type AbstractSampler end
 
-struct GroundSampler{T} <: AbstractSampler
-    distance::AbstractRange{T}
+struct GroundSampler{R<:AbstractRange} <: AbstractSampler
+    distance::R
     fieldcomponent::FieldComponent
 end
 altitude(g::GroundSampler) = 0

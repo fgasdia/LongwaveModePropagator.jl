@@ -3,13 +3,13 @@ export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 export Rₑ, c₀, μ₀, ϵ₀, H
 
 # CODATA 2018 NIST SP 961
-# const Rₑ = 6369427  # earth radius, m
-const Rₑ = 6366e3  # roughly LWPC
+const Rₑ = 6366e3  # earth radius, m
 const c₀ = 299792458  # speed of light in vacuum, m/s
 const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
 const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
 const Z₀ = 376.730313668  # vacuum impedance, Ω
-const H = 50e3  # reference height for Earth curvature  # TODO: Should this be a const?
+const H = 50e3  # reference height for Earth curvature, m
+# const H = 0
 
 struct Constituent{F<:Function, G<:Function}
     charge::Float64  # C
@@ -28,8 +28,9 @@ struct BField
     dcn::Float64
 end
 function BField(B, dip, azimuth)
-    Cdip = cos(dip)
-    BField(B, Cdip*cos(azimuth), Cdip*sin(azimuth), -sin(dip))
+    Sdip, Cdip = sincos(dip)
+    Saz, Caz = sincos(azimuth)
+    BField(B, Cdip*Caz, Cdip*Saz, -Sdip)
 end
 # TODO: Function that returns dip and azimuth from direction cosines
 
@@ -60,20 +61,23 @@ struct EigenAngle{T}
     sin²θ::T
 
     function EigenAngle{T}(θ::T) where T <: Number
-        (abs(real(θ)) > 2π || abs(imag(θ)) > 2π) && @warn "θ in radians?"
-        C = cos(θ)
-        S = sin(θ)
+        rθ, iθ = reim(θ)
+        (abs(rθ) > 2π) || (abs(iθ) > 2π) && @warn "θ in radians?"
+        S, C = sincos(θ)
         C² = C^2
         S² = 1 - C²
         new(θ, C, S, C², S²)
     end
 end
 EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
+Base.eltype(::Type{EigenAngle{T}}) where {T} = T
 
 
 """
 Calculate electron number density using Wait's profile (Wait 1964, Ferguson 1980). Returns
 in m⁻³.
+
+``Nₑ = 1.43e13*exp(-0.15*h′)*exp((β - 0.15)*(z/1000 - h′))``
 
 Note:
 - `z` must be in m
@@ -81,7 +85,15 @@ Note:
 - `β` must be in km⁻¹
 """
 function waitprofile(z, h′, β)
-    return 1.43e13*exp(-0.15*h′)*exp((β - 0.15)*(z*1e-3 - h′))
+    # Using form with single `exp` for speed
+    return 1.43e13*exp(-0.15h′ - (β-0.15)*(h′ - z/1000))
+end
+function waitprofile(z, h′, β, cutoff_low)
+    if z > cutoff_low
+        return waitprofile(z, h′, β)
+    else
+        return zero(Float64)
+    end
 end
 
 """
@@ -93,6 +105,13 @@ Note:
 """
 function electroncollisionfrequency(z)
     return 1.86e11*exp(-0.15e-3*z)  # converts `z` to km
+end
+function electroncollisionfrequency(z, cutoff_low)
+    if z > cutoff_low
+        return electroncollisionfrequency(z)
+    else
+        return zero(Float64)
+    end
 end
 
 """
