@@ -2,6 +2,8 @@ using Test
 using LinearAlgebra
 using Statistics
 using StaticArrays
+using CSV
+using DataFrames
 using GRPF
 using NLsolve
 
@@ -413,22 +415,26 @@ Ecom, phase, amp = LWMS.Efield(modes, modeparams, tx, rx)
 
 
 
-# @test isapprox(sum(MnoB), sum(diag(MnoB)), atol=1e-12)
 
 
 
-using CSV
-using DataFrames
-using Gadfly
+tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
+ground = Ground(15, 0.001)
+bfield = BField(50e-6, deg2rad(90), 0)
+electrons = Constituent(qₑ, mₑ,
+        z -> waitprofile(z, 75, 0.32, H),
+        z -> electroncollisionfrequency(z, H))
 
+modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
 
-set_default_plot_size(8inch, 6inch)
-font = "Segoe UI Symbol"
-basetheme = Theme(major_label_font=font, major_label_font_size=14pt,
-                  minor_label_font=font, minor_label_font_size=12pt,
-                  key_label_font=font, key_label_font_size=12pt,
-                  line_width=2pt)
-Gadfly.push_theme(basetheme)
+# TODO: Make a `triangulardomain` for this problem o avoid the low right
+# origcoords = rectangulardomain(complex(30, -10.0), complex(89.9, 0.0), 0.5)
+origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+origcoords .= deg2rad.(origcoords)
+tolerance = 1e-6
+
+# XXX: GRPF overhead is small (<10%?) compared to time spent integrating for `R`
+modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
 basepath = "C:\\Users\\forrest\\Desktop"
 
@@ -439,30 +445,40 @@ dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
                 amp=vcat(raw.Column2, raw.Column5, raw.Column8),
                 phase=vcat(raw.Column3, raw.Column6, raw.Column9))
 
-X = LWMS.distance(rx)
-df = DataFrame(dist=vcat(X./1000, dat.dist),
-               amp=vcat(amp, dat.amp),
-               phase=vcat(rad2deg.(phase), dat.phase),
-               model=vcat(fill("LWMS", length(X)), fill("LWPC", length(dat.dist))))
+rx = GroundSampler(dat.dist*1000, LWMS.FC_Ez)
+Ecom, phase, amp = LWMS.Efield(modes, modeparams, tx, rx)
 
-# colors = Scale.default_discrete_colors(2);
-colors = ["deepskyblue", "orange"]
-p = plot(df, x=:dist, y=:amp, color=:model, Geom.path,
-        Guide.ylabel("amp (dBu)"), Guide.xlabel("distance (km)"),
-        Scale.color_discrete_manual(colors...),
-        Scale.x_continuous(format=:plain),
-        Coord.cartesian(xmax=5e3),
-        # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.001"));
+widedf = DataFrame(dist=dat.dist,
+    lwpc_amp=dat.amp, lwpc_phase=dat.phase,
+    lwms_amp=amp, lwms_phase=rad2deg.(phase))
 
-p |> SVGJS(joinpath(basepath, "verticalb_amp.svg"))
+CSV.write(joinpath(basepath, "vertical.csv"), widedf)
 
-p = plot(df, x=:dist, y=:phase, color=:model, Geom.path, Scale.color_discrete,
-        Guide.ylabel("phase (deg)"), Guide.xlabel("distance (km)"),
-        Scale.color_discrete_manual(colors...),
-        Scale.x_continuous(format=:plain),
-        Coord.cartesian(xmax=5e3),
-        # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.001"));
 
-p |> SVGJS(joinpath(basepath, "verticalb_phase.svg"))
+outpath = "C:\\Users\\forrest\\UCB\\SP_2020\\PropagationModeling\\figures"
+
+function plot(bfield, ground, tx)
+    f = tx.frequency.f/1000
+    B = Int(bfield.B/1e-9)
+    dip = Int(rad2deg(LWMS.dip(bfield)))
+    az = Int(rad2deg(LWMS.azimuth(bfield)))
+    epsr = ground.ϵᵣ
+    sigma = ground.σ
+
+    gp_title = """
+    TITLE = '"$f kHz\\n\\
+    |B|: $B nT, dip: $(dip)°, az: $(az)°\\n\\
+    h\'\': 75 km, β: 0.32\\n\\
+    ϵ_r: $epsr, σ: $sigma"'"""
+
+    open("gp_title", "w") do io
+        write(io, gp_title)
+    end
+
+    ga = `gnuplot -c "$(joinpath(outpath,"vertical_amp.gp"))" "$(joinpath(basepath,"vertical.csv"))"`
+    run(ga)
+
+    gp = `gnuplot -c "$(joinpath(outpath,"vertical_phase.gp"))" "$(joinpath(basepath,"vertical.csv"))"`
+    run(gp)
+end
+plot(bfield, ground, tx)
