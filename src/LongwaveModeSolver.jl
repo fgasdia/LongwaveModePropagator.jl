@@ -3,8 +3,8 @@ Main program/scratch file
 """
 module LongwaveModeSolver
 
-include("scenario.jl")
-include("geophysics.jl")
-include("modefinder.jl")
+include("Scenario.jl")
+include("Geophysics.jl")
+include("ModeFinder.jl")
 
 end
