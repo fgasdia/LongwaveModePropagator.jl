@@ -1,4 +1,5 @@
-export Receiver, Transmitter, Inputs, ExcitationDipole
+export Receiver, GroundSampler
+export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
 
 """
     Antenna
@@ -116,7 +117,7 @@ Subtypes of AbstractSampler should have a position in the guide and a FieldCompo
 """
 abstract type AbstractSampler end
 
-struct GroundSampler{R<:AbstractRange} <: AbstractSampler
+struct GroundSampler{R<:AbstractArray} <: AbstractSampler
     distance::R
     fieldcomponent::FieldComponent
 end
