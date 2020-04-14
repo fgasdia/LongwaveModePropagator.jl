@@ -76,6 +76,7 @@ end
     T42
     T44
 end
+Base.eltype(t::TMatrix{T}) where T = T
 function Base.show(io::IO, ::MIME"text/plain", t::TMatrix{T}) where {T}
     println(io, "TMatrix{$T}: ")
     for n in fieldnames(TMatrix)
@@ -93,6 +94,8 @@ function Base.Array(t::TMatrix{T}) where {T}
             t.T31 t.T32 0 t.T34;
             t.T41 t.T42 0 t.T44]
 end
+Base.Matrix(t::TMatrix) = Matrix(Array(t))
+# TODO: Define matrix multiplication by T and make T <: AbstractArray
 
 @with_kw struct ExcitationFactor{T} @deftype T
     F₁
@@ -161,10 +164,35 @@ function bookerquartic(ea::EigenAngle{T}, M) where T<:Number
 end
 
 """
+    bookerquartic(T::TMatrix)
+
+Solves the depressed quartic in terms of `T`. This technique is used in LWPC's
+wavefield subroutines, e.g. "wf_init.for".
+"""
+function bookerquartic(T::TMatrix)
+    # Temporary matrix elements `T`
+    @unpack T11, T12, T14, T31, T32, T34, T41, T42, T44 = T
+
+    # This is the depressed form of the quartic
+    b3 = -(T11 + T44)
+    b2 = T11*T44 - T14*T41 - T32
+    b1 = -(-T32*(T11 + T44) + T12*T31*T34*T42)
+    b0 = -T11*(T32*T44 - T34*T42) + T12*(T31*T44 - T34*T41) - T14*(T31*T42 - T32*T41)
+
+    q = @MVector zeros(complex(eltype(T)), 4)
+    B = MVector{5}(b0, b1, b2, b3, 1)
+
+    roots!(q, B, NaN, 4, false)
+
+    return q, B
+end
+
+
+"""
     upgoing(v)
 
-Calculate the absolute angle of `v` in radians from 315° on the complex plane. Smaller values
-indicate upgoing waves.
+Calculate the absolute angle of `v` in radians from 315°×π/180 rad on the
+complex plane. Smaller values indicate upgoing waves.
 """
 function upgoing(v::Complex)
     # -π/4 is 315°
@@ -888,6 +916,11 @@ function findmodes(origcoords, modeparams::ModeParameters, tolerance=1e-6)
 
     return [EigenAngle{angletype}(r) for r in zroots]
 end
+
+################
+# Wavefields
+################
+
 
 ################
 # Excitation and Mode Sum
