@@ -5,7 +5,6 @@ module LongwaveModeSolver
 
 include("Geophysics.jl")
 include("Scenario.jl")
-# include("modefinder.jl")
-include("propagation.jl")
+include("PropagationModel.jl")
 
 end
