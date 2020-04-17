@@ -1,6 +1,3 @@
-export Receiver, GroundSampler
-export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
-
 """
     Antenna
 
@@ -58,6 +55,8 @@ end
 azimuth(d::HorizontalDipole) = d.azimuth_angle
 elevation(d::HorizontalDipole) = π/2
 
+########
+
 """
     Frequency
 
@@ -77,6 +76,9 @@ function Frequency(f)
 
     Frequency(f, ω, k, λ)
 end
+Frequency(f::Frequency) = f
+
+########
 
 """
     Exciter
@@ -100,13 +102,18 @@ struct Transmitter{A<:Antenna} <: Exciter
     power::Float64
 end
 Transmitter(freq) = Transmitter("", 0, 0, freq)
-Transmitter(name, lat, lon, freq) = Transmitter{VerticalDipole}(name, lat, lon, 0, VerticalDipole(),
-                                                Frequency(freq), 1000)
+Transmitter(name, lat, lon, freq) =
+    Transmitter{VerticalDipole}(name, lat, lon, 0, VerticalDipole(), Frequency(freq), 1000)
+Transmitter(freq, power, antenna::A) where {A<:Antenna} =
+    Transmitter{A}("", 0, 0, 0, antenna, Frequency(freq), power)
+
 altitude(t::Transmitter) = t.altitude
 frequency(t::Transmitter) = t.frequency
 azimuth(t::Transmitter) = azimuth(t.antenna)
 elevation(t::Transmitter) = elevation(t.antenna)
 power(t::Transmitter) = t.power
+
+########
 
 """
     AbstractSampler
@@ -134,6 +141,7 @@ struct Receiver{A<:Antenna} <: AbstractSampler
 end
 altitude(r::Receiver) = r.altitude
 fieldcomponent(r::Receiver) = fieldcomponent(r.antenna)
+
 """
 Calculate distance from emitter
 how do I do this without requiring to pass the transmitter?

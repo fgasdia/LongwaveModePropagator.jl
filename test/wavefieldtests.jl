@@ -40,18 +40,23 @@ z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
 M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 
-qM, BM = LWMS.bookerquartic(ea, M)
+LWMS.bookerquartic!(ea, M)
+qM, BM = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
 
-qT, BT = LWMS.bookerquartic(T)
+LWMS.bookerquartic!(T)
+qT, BT = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
 
 @test sort(qM, by=real) ≈ sort(qT, by=real)
-@test sort(eigvals(Array(T)), by=real) ≈ sort(qT, by=real)  # eigvals is ~7 times slower than bookerquartic
+@test sort(eigvals(Array(T)), by=real) ≈ sort(qT, by=real)  # eigvals is >20 times slower than bookerquartic
 
 # Confirm Booker quartic is directly satisfied
 for i in eachindex(qT)
     booker = qT[i]^4 + BT[4]*qT[i]^3 + BT[3]*qT[i]^2 + BT[2]*qT[i] + BT[1]
     @test isapprox(booker, 0, atol=sqrt(eps()))
 end
+
+# eigvecs `e` can be found with e.g. `nullspace(T-q*I)`
+
 
 # We choose the 2 roots corresponding to upward travelling waves as being those that lie
 # close to the positive real and negative imaginary axis (315° on the complex plane)

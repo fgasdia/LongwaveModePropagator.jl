@@ -21,23 +21,23 @@ const qₑ = -1.602176634e-19  # C
 # Derivatives
 ########
 @testset "Derivatives" begin
-    finitediff(v, Δθ) = diff(v)./Δθ  # doesn't have as clear an align: eithe [1:end-1] or [2:end]
     centereddiff(v, Δθ) = (v[3:end] - v[1:end-2])/(2Δθ)  # aligns to [2:end-1]
 
     # NOTE: as a finite diff, Δθ determines the accuracy
     # Setting too small will _greatly_ increase test runtime
     Δθ = 1e-2*π/180
-    eas = [LWMS.EigenAngle(th) for th in complex.(range(0, π/2; step=Δθ), -4π/180)]
+    eas = [EigenAngle(th) for th in complex.(range(0, π/2; step=Δθ), -4π/180)]
 
-    freq = LWMS.Frequency(24e3)
-    bfield = LWMS.BField(50e-6, π/2, 0)
-    ground = LWMS.Ground(15, 0.001)
+    freq = Frequency(24e3)
+    bfield = BField(50e-6, π/2, 0)
+    ground = Ground(15, 0.001)
     electrons = Constituent(qₑ, mₑ,
             z -> waitprofile(z, 75, 0.32, H),
             z -> electroncollisionfrequency(z, H))
 
 
     M = LWMS.susceptibility(70e3, freq, bfield, electrons)
+
     function eval_wmatrix(eas, Δθ, M)
         Ws = NTuple{4,SArray{Tuple{2,2},ComplexF64,2,4}}[]
         dWs = NTuple{4,SArray{Tuple{2,2},ComplexF64,2,4}}[]
@@ -240,13 +240,13 @@ end
 #
 # Setup scenario
 #
-ea = LWMS.EigenAngle(deg2rad(complex(85.0, -1.0)))
+ea = EigenAngle(deg2rad(complex(85.0, -1.0)))
 @test isbits(ea)
-tx = Transmitter{LWMS.VerticalDipole}("", 0, 0, 0, LWMS.VerticalDipole(), LWMS.Frequency(24e3), 100e3)
+tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
 # `tx` isn't just bits
-ground = LWMS.Ground(15, 0.001)
+ground = Ground(15, 0.001)
 @test isbits(ground)
-bfield = LWMS.BField(50e-6, deg2rad(90), 0)
+bfield = BField(50e-6, deg2rad(90), 0)
 @test isbits(bfield)
 electrons = Constituent(qₑ, mₑ,
         z -> waitprofile(z, 75, 0.32, H),
@@ -267,18 +267,20 @@ T = LWMS.tmatrix(ea, M)
 # wmatrix
 #
 # Make sure "analytical" solution for W matches numerical
-Tdense = Array(T)
+# Tdense = Array(T)
 C = ea.cosθ
-S = [C 0 -C 0;
-     0 -1 0 -1;
-     0 -C 0 C;
-     1 0 1 0]
+L = @SMatrix [C 0 -C 0;
+              0 -1 0 -1;
+              0 -C 0 C;
+              1 0 1 0]
 
 W = LWMS.wmatrix(ea, T)
 
-@test [W[1] W[3]; W[2] W[4]] ≈ 2*(S\Tdense)*S
+@test [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
 
-q, B = LWMS.bookerquartic(ea, M)
+LWMS.bookerquartic!(ea, M)
+
+q, B = LWMS.BOOKER_QUARTIC_ROOTS, LWMS.BOOKER_QUARTIC_COEFFS
 
 # Confirm roots of Booker quartic satisfy ``det(Γ² + I + M) = 0``
 S = ea.sinθ
@@ -303,7 +305,7 @@ end
 M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 W = LWMS.wmatrix(ea, T)
-q, B = LWMS.bookerquartic(ea, M)
+LWMS.bookerquartic!(ea, M)
 
 tmp = LWMS._sharpboundaryreflection(ea, M)
 initR = LWMS.sharpboundaryreflection(ea, M)
@@ -354,7 +356,6 @@ modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
 
 dR = LWMS.dRdz(initR, (ea, modeparams), 95e3)
 
-# XXX: ~10.5 KiB in 128 allocations - due entirely to sharplyboundedreflection?
 R = LWMS.integratedreflection(ea, modeparams)
 
 @test R[1,2] ≈ R[2,1]
@@ -376,8 +377,8 @@ vertical_ea = LWMS.EigenAngle(0)  # not necessary for PEC test?
 f = LWMS.solvemodalequation(ea, modeparams)
 
 # known solution w/ tolerance=1e-10
-ea = LWMS.EigenAngle(complex(1.48962303345607, -0.0127254395865))
-@test isapprox(LWMS.solvemodalequation(ea, modeparams), complex(0), atol=1e-3)
+# ea = LWMS.EigenAngle(complex(1.48962303345607, -0.0127254395865))
+# @test isapprox(LWMS.solvemodalequation(ea, modeparams), complex(0), atol=1e-3)
 
 #
 # Find modes
@@ -392,7 +393,7 @@ tolerance = 1e-6
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
 for m in modes
-    @test isapprox(LWMS.solvemodalequation(m, modeparams), complex(0), atol=1000tolerance)
+    @test isapprox(LWMS.solvemodalequation(m, modeparams), complex(0), rtol=1e-3, atol=1e-3)
 end
 
 #
@@ -436,9 +437,16 @@ tolerance = 1e-6
 # XXX: GRPF overhead is small (<10%?) compared to time spent integrating for `R`
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
-basepath = "C:\\Users\\forrest\\Desktop"
 
-raw = CSV.File("C:\\users\\forrest\\research\\LAIR\\ModeSolver\\verticalb_day.log";
+using GRUtils
+
+
+
+basepath = "/home/forrest/research/LAIR/ModeSolver"
+# basepath = "C:\\Users\\forrest\\Desktop"
+# basepath = "C:\\users\\forrest\\research\\LAIR\\ModeSolver"
+
+raw = CSV.File(joinpath(basepath, "verticalb_day.log");
                skipto=65, delim=' ', ignorerepeated=true, header=false)
 
 dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
@@ -452,8 +460,18 @@ widedf = DataFrame(dist=dat.dist,
     lwpc_amp=dat.amp, lwpc_phase=dat.phase,
     lwms_amp=amp, lwms_phase=rad2deg.(phase))
 
-CSV.write(joinpath(basepath, "vertical.csv"), widedf)
 
+plot(dat.dist, rad2deg.(phase))
+hold(true)
+plot(dat.dist, dat.phase)
+
+Figure()
+plot(dat.dist, dat.phase-rad2deg.(phase), yticks=(1,2))
+ylim(-5, 5)
+
+
+
+CSV.write(joinpath(basepath, "vertical.csv"), widedf)
 
 outpath = "C:\\Users\\forrest\\UCB\\SP_2020\\PropagationModeling\\figures"
 

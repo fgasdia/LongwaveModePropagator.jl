@@ -1,7 +1,3 @@
-export BField, Constituent, EigenAngle, FieldComponent, Ground
-export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export Rₑ, c₀, μ₀, ϵ₀, H
-
 # CODATA 2018 NIST SP 961
 const c₀ = 299792458  # speed of light in vacuum, m/s
 const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
@@ -25,6 +21,10 @@ struct Constituent{F<:Function, G<:Function}
     numberdensity::F  # function that obtains number density (m⁻³)
     collisionfrequency::G  # function that obtains collision frequency (s⁻¹)
 end
+# TODO: Suggest to user that F (and maybe G) be an interpolated object, which
+# may be faster than the calls to `exp` that will likely appear in F. The calls
+# to `exp` accounts for ~30% of `susceptibility` runtime. `G` also has a call to
+# exp typically, but this is much less time.
 
 ########
 
@@ -122,6 +122,13 @@ struct EigenAngle{T}
 end
 EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
 Base.eltype(::Type{EigenAngle{T}}) where {T} = T
+
+function Base.isless(lhs::EigenAngle{T}, rhs::EigenAngle{T}) where {T <: Complex}
+    # Compare complex EigenAngle by real and then imag
+    # By defining `isless()`, we get the wanted sorting of `EigenAngle`s
+    return isless((real(lhs.θ), imag(lhs.θ)), (real(rhs.θ), imag(rhs.θ)))
+end
+
 
 ########
 

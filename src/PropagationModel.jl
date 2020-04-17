@@ -1,16 +1,22 @@
-using SpecialFunctions
-using LinearAlgebra
-using StaticArrays
-using DiffEqBase, OrdinaryDiffEq
-using Parameters
-using GRPF
-
-using PolynomialRoots: roots!
-
-using ModifiedHankelFunctionsOfOrderOneThird
-
 const TOPHEIGHT = 95e3  # temporary - should be part of an actual IntegrationParameters
 const BOTTOMHEIGHT = zero(TOPHEIGHT)  # should this be an actual const? Nothing works if it's not 0...
+
+#==
+A struct like this could be used in place of the `const`s below.
+It would allow us to parameterize the Complex type, but realistically it will
+never be anything other than ComplexF64.
+
+# PolynomialRoots package requires complex floats of arbitrary precision
+struct BookerQuartic{T<:Complex{<:AbstractFloat}}
+    roots::MVector{4,T}
+    coeffs::MVector{5,T}
+end
+==#
+
+# Passing MArrays between functions causes allocations. They are avoided by
+# mutating this const in place. `roots!` requires Complex values.
+const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(ComplexF64, 4))
+const BOOKER_QUARTIC_COEFFS = MVector{5,ComplexF64}(undef)
 
 struct Derivative_dθ end
 
@@ -29,9 +35,7 @@ end
 end
 
 # TODO: G as its own type contained within this?
-@with_kw struct SharpBoundaryVariables{Tq,T<:Number} @deftype T
-    q::MVector{4,Tq}  # Tq is complex(T), but that isn't allowed here
-    B::MVector{5,T}
+@with_kw struct SharpBoundaryVariables{T<:Number} @deftype T
     G12
     G32
     G33
@@ -64,39 +68,6 @@ function Base.show(io::IO, ::MIME"text/plain", s::SharpBoundaryVariables{T}) whe
     end
 end
 
-# TODO: Make this inherit from AbstractSparseArray
-@with_kw struct TMatrix{T<:Number} @deftype T
-    T11
-    T12
-    T14
-    T31
-    T32
-    T34
-    T41
-    T42
-    T44
-end
-Base.eltype(t::TMatrix{T}) where T = T
-function Base.show(io::IO, ::MIME"text/plain", t::TMatrix{T}) where {T}
-    println(io, "TMatrix{$T}: ")
-    for n in fieldnames(TMatrix)
-        if n != last(fieldnames(TMatrix))
-            println(io, " $n: ", getfield(t, n))
-        else
-            # To avoid double newlines (one is automatic), use `print` on last field
-            print(io, " $n: ", getfield(t, n))
-        end
-    end
-end
-function Base.Array(t::TMatrix{T}) where {T}
-    return [t.T11 t.T12 0 t.T14;
-            0 0 1 0;
-            t.T31 t.T32 0 t.T34;
-            t.T41 t.T42 0 t.T44]
-end
-Base.Matrix(t::TMatrix) = Matrix(Array(t))
-# TODO: Define matrix multiplication by T and make T <: AbstractArray
-
 @with_kw struct ExcitationFactor{T} @deftype T
     F₁
     F₂
@@ -124,7 +95,7 @@ See also: [`sharplybounded_R`](@ref)
 
 [^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
-function bookerquartic(ea::EigenAngle{T}, M) where T<:Number
+function bookerquartic!(ea::EigenAngle, M::AbstractArray{ComplexF64})
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Precompute
@@ -154,13 +125,13 @@ function bookerquartic(ea::EigenAngle{T}, M) where T<:Number
          M11p1*M23M32 -
          M[1,2]*M[2,1]*C²pM33
 
-    q = @MVector zeros(complex(T), 4)  # roots! algorithm requires complex type
-    B = MVector{5}(B0, B1, B2, B3, B4)
+    BOOKER_QUARTIC_COEFFS.data = (B0, B1, B2, B3, B4)
 
-    # XXX: `roots!` dominates this functions runtime
-    roots!(q, B, NaN, 4, false)
+    # NOTE: `roots!` dominates this functions runtime
+    # It may be worthwhile to replace this with my own or improve PolynomialRoots.
+    roots!(BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS, NaN, 4, false)
 
-    return q, B
+    return nothing
 end
 
 """
@@ -168,23 +139,23 @@ end
 
 Solves the depressed quartic in terms of `T`. This technique is used in LWPC's
 wavefield subroutines, e.g. "wf_init.for".
+
+This function is ~2× as fast as [`bookerquartic(ea, M)`](@ref).
 """
-function bookerquartic(T::TMatrix)
-    # Temporary matrix elements `T`
-    @unpack T11, T12, T14, T31, T32, T34, T41, T42, T44 = T
-
+function bookerquartic!(T::TMatrix{ComplexF64})
     # This is the depressed form of the quartic
-    b3 = -(T11 + T44)
-    b2 = T11*T44 - T14*T41 - T32
-    b1 = -(-T32*(T11 + T44) + T12*T31*T34*T42)
-    b0 = -T11*(T32*T44 - T34*T42) + T12*(T31*T44 - T34*T41) - T14*(T31*T42 - T32*T41)
+    b3 = -(T[1,1] + T[4,4])
+    b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]
+    b1 = -(-T[3,2]*(T[1,1] + T[4,4]) + T[1,2]*T[3,1] + T[3,4]*T[4,2])
+    b0 = -T[1,1]*(T[3,2]*T[4,4] - T[3,4]*T[4,2]) +
+        T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
+        T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
 
-    q = @MVector zeros(complex(eltype(T)), 4)
-    B = MVector{5}(b0, b1, b2, b3, 1)
+    BOOKER_QUARTIC_COEFFS.data = (b0, b1, b2, b3, one(ComplexF64))
 
-    roots!(q, B, NaN, 4, false)
+    roots!(BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS, NaN, 4, false)
 
-    return q, B
+    return nothing
 end
 
 
@@ -212,11 +183,11 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # XXX: `bookerquartic` (really `roots!`) dominates this functions runtime
-    q, B = bookerquartic(ea, M)
+    bookerquartic!(ea, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being those that lie
     # close to the positive real and negative imaginary axis (315° on the complex plane)
-    sort!(q, by=upgoing)
+    sort!(BOOKER_QUARTIC_ROOTS, by=upgoing)
 
     #==
     Γ = [0 -q 0;
@@ -229,6 +200,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     ==#
 
     # Precompute
+    q = BOOKER_QUARTIC_ROOTS
     q₁S = q[1]*S
     q₂S = q[2]*S
 
@@ -264,7 +236,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     Δ = (T₁*C + P₁)*(C + q[2]) - (T₂*C + P₂)*(C + q[1])
     Δ⁻¹ = 1/Δ
 
-    return SharpBoundaryVariables(q, B, G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
+    return SharpBoundaryVariables(G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
                                   G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹)
 end
 
@@ -289,7 +261,8 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     C = ea.cosθ
     C2 = 2*C
 
-    @unpack q, P₁, T₁, P₂, T₂, Δ⁻¹ = _sharpboundaryreflection(ea, M)
+    @unpack P₁, T₁, P₂, T₂, Δ⁻¹ = _sharpboundaryreflection(ea, M)
+    q = BOOKER_QUARTIC_ROOTS
 
     T₁C = T₁*C
     T₂C = T₂*C
@@ -302,11 +275,13 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     return SMatrix{2,2}(R11, R21, R12, R22)
 end
 
+# TODO: Autodiff with Zygote?
 function sharpboundaryreflection(ea::EigenAngle, M, ::Derivative_dθ)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
-    @unpack q, B, G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
+    @unpack G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
         G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹ = _sharpboundaryreflection(ea, M)
+    q, B = BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS
 
     # Precompute some variables
     C2 = 2*C
@@ -473,6 +448,7 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Consti
     M23 = -ixYUD - yzY²D
     M33 = U²D - lz²*Y²D - earthcurvature
 
+    # Remember, column major
     M = SMatrix{3,3}(M11, M21, M31,
                      M12, M22, M32,
                      M13, M23, M33)
@@ -504,9 +480,8 @@ See also: [`wmatrix`](@ref), [`susceptibility`](@ref)
 function tmatrix(ea::EigenAngle, M)
     S, C² = ea.sinθ, ea.cos²θ
 
-    # TODO: Can I skip bounds checking or does it make it faster to use @inbounds?
-
     # Denominator of most of the entries of `T`
+    # This expression dominates the function runtime
     den = inv(1 + M[3,3])
 
     M31den = M[3,1]*den
@@ -529,7 +504,10 @@ function tmatrix(ea::EigenAngle, M)
     # T43 = 0
     T44 = -S*M[1,3]*den
 
-    return TMatrix(T11, T12, T14, T31, T32, T34, T41, T42, T44)
+    # Remember, column major
+    return TMatrix(T11, T31, T41,
+                   T12, T32, T42,
+                   T14, T34, T44)
 end
 
 """
@@ -562,15 +540,12 @@ function wmatrix(ea::EigenAngle, T::TMatrix)
     C = ea.cosθ
     Cinv = inv(C)
 
-    # Temporary matrix elements `T`
-    @unpack T11, T12, T14, T31, T32, T34, T41, T42, T44 = T
-
     # Precompute
-    T12Cinv = T12*Cinv
-    T14Cinv = T14*Cinv
-    T32Cinv = T32*Cinv
-    T34Cinv = T34*Cinv
-    CT41 = C*T41
+    T12Cinv = T[1,2]*Cinv
+    T14Cinv = T[1,4]*Cinv
+    T32Cinv = T[3,2]*Cinv
+    T34Cinv = T[3,4]*Cinv
+    CT41 = C*T[4,1]
 
     #==
     Sheddy 1968 has at least 1 "typo": S11b should be written T14/C+CT41
@@ -594,6 +569,8 @@ function wmatrix(ea::EigenAngle, T::TMatrix)
                         1, 0, 1, 0)
     W = Linv2*T*L
 
+    # W = 2*(L\T)*L
+
     ---
 
     W = | W11 | W12 |
@@ -601,27 +578,30 @@ function wmatrix(ea::EigenAngle, T::TMatrix)
 
     W11 = | a11+a11r | -b11 |
           | -c11     | d11  |
+
     W12 = | a21+a21r | -b11 |
           | c12      | d12  |
+
     W21 = | a21-a21r | b21  |
           | c11      | -d12 |
+
     W22 = | a11-a11r | b21  |
-          | -c12     | -d11  |
+          | -c12     | -d11 |
     ==#
 
-    a11 = T11 + T44
+    a11 = T[1,1] + T[4,4]
     a11r = T14Cinv + CT41
-    a21 = -T11 + T44
+    a21 = T[4,4] - T[1,1]
     a21r = T14Cinv - CT41
 
-    b11 = T12Cinv + T42
-    b21 = T12Cinv - T42
+    b11 = T12Cinv + T[4,2]
+    b21 = T12Cinv - T[4,2]
 
-    c11 = T31 + T34Cinv
-    c12 = T31 - T34Cinv
+    c11 = T[3,1] + T34Cinv
+    c12 = T[3,1] - T34Cinv
 
     d11 = C + T32Cinv
-    d12 = -C + T32Cinv
+    d12 = T32Cinv - C
 
     # Form the four 2x2 submatrices of `S`
     W11 = @SMatrix [a11+a11r -b11;
@@ -653,9 +633,6 @@ function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     dC² = -2*S*C
     dCinv = S*C²inv
 
-    # Temporary matrix elements T
-    @unpack T12, T14, T32, T34, T41 = T
-
     den = inv(1 + M[3,3])
 
     dT11 = -dS*M[3,1]*den
@@ -675,11 +652,11 @@ function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     # dT43 = 0
     dT44 = -dS*M[1,3]*den
 
-    dt12Cinv = dT12*Cinv + T12*dCinv
-    dt14Cinv = dT14*Cinv + T14*dCinv
-    dt32Cinv = dT32*Cinv + T32*dCinv
-    dt34Cinv = dT34*Cinv + T34*dCinv
-    dt41C = dC*T41
+    dt12Cinv = dT12*Cinv + T[1,2]*dCinv
+    dt14Cinv = dT14*Cinv + T[1,4]*dCinv
+    dt32Cinv = dT32*Cinv + T[3,2]*dCinv
+    dt34Cinv = dT34*Cinv + T[3,4]*dCinv
+    dt41C = dC*T[4,1]
 
     ds11a = dT11 + dT44
     dd11a = dT11 - dT44
