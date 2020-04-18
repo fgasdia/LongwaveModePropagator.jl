@@ -162,7 +162,7 @@ end
 """
     upgoing(v)
 
-Calculate the absolute angle of `v` in radians from 315°×π/180 rad on the
+Calculate the absolute angle of `v` in radians from 315°×π/180 on the
 complex plane. Smaller values indicate upgoing waves.
 """
 function upgoing(v::Complex)
@@ -179,6 +179,82 @@ function upgoing(v::Real)
     return oftype(v, π/4)
 end
 
+"""
+
+          Im
+      3 . |
+          |
+          |
+  . 4     |
+ ------------------Re
+          |      . 2
+          |
+          |
+          | . 1
+
+General locations of the four roots of the Booker quartic `q`:
+    1) upgoing evanescent wave
+    2) upgoing travelling wave
+    3) downgoing evanescent wave
+    4) downgoing travelling wave
+
+From Pitteway 1967 fig 5. Sheddy 1968 also mentions that the two upgoing waves
+correspond to the two solutions that lie close to the positive real axis and the
+negative imaginary axis, respectively.
+
+NOTE: It looks like we could just `sort!(q, by=real)`, but the quadrants of each
+root are not fixed and the positions in the Argand diagram are just approximate.
+
+See also [`sortquarticroots!`](@ref)
+"""
+function sortquarticroots(v::AbstractArray{T}) where {T <: Complex}
+    # Array where we order roots
+    swap = copy(v)
+
+    sortquarticroots!(swap)
+
+    if v isa MVector
+        return SVector(swap)
+    else
+        return swap
+    end
+end
+
+function sortquarticroots!(v::AbstractArray{Complex{T}}) where {T}
+
+    # Calculate and sort by distance from 315°
+    # The two closest are upgoing and the two others are downgoing
+    # This is faster than `sort!(v, by=upgoing)`
+    dist = MVector{length(v),T}(undef)
+    for i in eachindex(v)
+        dist[i] = upgoing(v[i])
+    end
+
+    i = length(v)
+    while i > 1
+        if dist[i] < dist[i-1]
+            dist[i], dist[i-1] = dist[i-1], dist[i]
+            v[i], v[i-1] = v[i-1], v[i]
+            i = length(v) # Need to restart at the end
+        else
+            i -= 1
+        end
+    end
+
+    # Now arrange the roots so that they correspond to:
+    # 1) upgoing evanescent, 2) upgoing travelling
+    # 3) downgoing evanescent, and 4) downgoing travelling
+    if imag(v[1]) > imag(v[2])
+        v[2], v[1] = v[1], v[2]
+    end
+    if imag(v[3]) < imag(v[4])
+        v[4], v[3] = v[3], v[4]
+    end
+
+    return v
+end
+
+
 function _sharpboundaryreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
@@ -187,7 +263,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being those that lie
     # close to the positive real and negative imaginary axis (315° on the complex plane)
-    sort!(BOOKER_QUARTIC_ROOTS, by=upgoing)
+    sortquarticroots!(BOOKER_QUARTIC_ROOTS)
 
     #==
     Γ = [0 -q 0;
@@ -198,6 +274,9 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
          M[2,1] 1-q[i]^2-S²+M[2,2] M[2,3];
          S*q[i]+M[3,1] M[3,2] C²+M[3,3]]
     ==#
+
+    #BUG: Need to check that Sheddy actually wants roots 2, 1 in that order rather
+    # than the order used by Pitteway.
 
     # Precompute
     q = BOOKER_QUARTIC_ROOTS
@@ -262,7 +341,7 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     C2 = 2*C
 
     @unpack P₁, T₁, P₂, T₂, Δ⁻¹ = _sharpboundaryreflection(ea, M)
-    q = BOOKER_QUARTIC_ROOTS
+    q = sortquarticroots(BOOKER_QUARTIC_ROOTS)
 
     T₁C = T₁*C
     T₂C = T₂*C

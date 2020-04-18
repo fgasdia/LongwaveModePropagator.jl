@@ -48,6 +48,12 @@ Return a `BField` vector of strength `B` (T), `dip` angle (rad) from the horizon
 `azimuth` angle (rad) from ???.
 """
 function BField(B, dip, azimuth)
+    # BUG: How can we avoid this?
+    # Look at the Booker quartic roots for dip angles -1,+1. They are way
+    # outside the normal. The roots aren't accurately found, although I'm not
+    # sure where the issue is.
+    abs(rad2deg(dip)) <= 1 && @warn "Magnetic dip angles between ±1° have known numerical issues."
+
     Sdip, Cdip = sincos(dip)
     Saz, Caz = sincos(azimuth)
     BField(B, Cdip*Caz, Cdip*Saz, -Sdip)
@@ -128,6 +134,30 @@ function Base.isless(lhs::EigenAngle{T}, rhs::EigenAngle{T}) where {T <: Complex
     # By defining `isless()`, we get the wanted sorting of `EigenAngle`s
     return isless((real(lhs.θ), imag(lhs.θ)), (real(rhs.θ), imag(rhs.θ)))
 end
+
+# function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle{T}) where {T}
+#     println(io, "EigenAngle{$T}: ")
+#     print(io, " ", getfield(e, :θ))
+# end
+
+
+function Base.show(io::IO, e::EigenAngle{T}) where {T}
+    compact = get(io, :compact, false)
+
+    if compact
+        print(io, e.θ)
+    else
+        print(io, e.θ)
+    end
+
+end
+
+function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle{T}) where {T}
+    println(io, "EigenAngle{$T}: ")
+    show(io, e)
+end
+
+
 
 
 ########
