@@ -167,37 +167,68 @@ end
 end
 
 @inline Base.:*(A::TMatrix, B::AbstractVector) = _mul(A, B)
-@inline Base.:*(A::TMatrix, B::StaticVector) = _mul(A, B)
+@inline Base.:*(A::TMatrix, B::StaticVector) = _mul(Size(B), A, B)
 @inline Base.:*(A::TMatrix, B::StaticMatrix) = _mul(Size(B), A, B)
 
-@inline function _mul(a::TMatrix{Ta}, b::AbstractVector{Tb}) where {Ta, Tb}
-    if length(b) != 4
-        throw(DimensionMismatch("Tried to multiply arrays of size 4×4 and $(size(b))"))
-    end
-
+@generated function _mul(a::TMatrix{Ta}, b::AbstractVector{Tb}) where {Ta, Tb}
     sa = Size(4,4)
-    T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
 
-    # Yes, the LinearIndices make a _big_ difference in performance
-    @inbounds return similar_type(b,T,Size(4))(
-        tuple(a[LinearIndices(sa)[1,1]]*b[1]+a[LinearIndices(sa)[1,2]]*b[2]+a[LinearIndices(sa)[1,4]]*b[4],
-              b[3],
-              a[LinearIndices(sa)[3,1]]*b[1]+a[LinearIndices(sa)[3,2]]*b[2]+a[LinearIndices(sa)[3,4]]*b[4],
-              a[LinearIndices(sa)[4,1]]*b[1]+a[LinearIndices(sa)[4,2]]*b[2]+a[LinearIndices(sa)[4,4]]*b[4])
-    )
+    exprs = [:(a[$(LinearIndices(sa)[1,1])]*b[1]+a[$(LinearIndices(sa)[1,2])]*b[2]+a[$(LinearIndices(sa)[1,4])]*b[4]),
+             :(b[3]),
+             :(a[$(LinearIndices(sa)[3,1])]*b[1]+a[$(LinearIndices(sa)[3,2])]*b[2]+a[$(LinearIndices(sa)[3,4])]*b[4]),
+             :(a[$(LinearIndices(sa)[4,1])]*b[1]+a[$(LinearIndices(sa)[4,2])]*b[2]+a[$(LinearIndices(sa)[4,4])]*b[4])]
+
+    return quote
+        @_inline_meta
+        if length(b) != $sa[2]
+            throw(DimensionMismatch("Tried to multiply arrays of size $sa and $(size(b))"))
+        end
+        T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
+        @inbounds return similar_type(b, T, Size($sa[1]))(tuple($(exprs...)))
+    end
 end
 
-@generated function _mul(Sb::Size{sb}, a::TMatrix{Ta}, b::StaticMatrix{<:Any,<:Any,Tb}) where {sb, Ta, Tb}
-    if sb[1] != 4
-        throw(DimensionMismatch("Tried to multiply arrays of size 4×4 and $sb"))
+@generated function _mul(::Size{sb}, a::TMatrix{Ta}, b::StaticVector{<:Any, Tb}) where {sb, Ta, Tb}
+    sa = Size(4,4)
+    if sb[1] != sa[2]
+        throw(DimensionMismatch("Tried to multiply arrays of size $sa and $sb"))
     end
 
-    S = Size(4, sb[2])
+    exprs = [:(a[$(LinearIndices(sa)[1,1])]*b[1]+a[$(LinearIndices(sa)[1,2])]*b[2]+a[$(LinearIndices(sa)[1,4])]*b[4]),
+             :(b[3]),
+             :(a[$(LinearIndices(sa)[3,1])]*b[1]+a[$(LinearIndices(sa)[3,2])]*b[2]+a[$(LinearIndices(sa)[3,4])]*b[4]),
+             :(a[$(LinearIndices(sa)[4,1])]*b[1]+a[$(LinearIndices(sa)[4,2])]*b[2]+a[$(LinearIndices(sa)[4,4])]*b[4])]
 
-    exprs = vcat([[:(a[1,1]*b[1,$k]+a[1,2]*b[2,$k]+a[1,4]*b[4,$k]),
-              :(b[3,$k]),
-              :(a[3,1]*b[1,$k]+a[3,2]*b[2,$k]+a[3,4]*b[4,$k]),
-              :(a[4,1]*b[1,$k]+a[4,2]*b[2,$k]+a[4,4]*b[4,$k])] for k = 1:sb[2]]...)
+    return quote
+        @_inline_meta
+        T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
+        @inbounds return similar_type(b, T, Size($sa[1]))(tuple($(exprs...)))
+    end
+end
+
+
+@generated function _mul(Sb::Size{sb}, a::TMatrix{Ta}, b::StaticMatrix{<:Any,<:Any,Tb}) where {sb, Ta, Tb}
+    sa = Size(4,4)
+    if sb[1] != sa[2]
+        throw(DimensionMismatch("Tried to multiply arrays of size $sa and $sb"))
+    end
+
+    S = Size(sa[1], sb[2])
+
+    tmp_exprs = Vector{Vector{Expr}}(undef, sb[2])
+    for i = 1:sb[2]
+        tmp_exprs[i] = [:(a[$(LinearIndices(sa)[1,1])]*b[$(LinearIndices(sb)[1,i])]+
+                          a[$(LinearIndices(sa)[1,2])]*b[$(LinearIndices(sb)[2,i])]+
+                          a[$(LinearIndices(sa)[1,4])]*b[$(LinearIndices(sb)[4,i])]),
+                        :(b[$(LinearIndices(sb)[3,i])]),
+                        :(a[$(LinearIndices(sa)[3,1])]*b[$(LinearIndices(sb)[1,i])]+
+                          a[$(LinearIndices(sa)[3,2])]*b[$(LinearIndices(sb)[2,i])]+
+                          a[$(LinearIndices(sa)[3,4])]*b[$(LinearIndices(sb)[4,i])]),
+                        :(a[$(LinearIndices(sa)[4,1])]*b[$(LinearIndices(sb)[1,i])]+
+                          a[$(LinearIndices(sa)[4,2])]*b[$(LinearIndices(sb)[2,i])]+
+                          a[$(LinearIndices(sa)[4,4])]*b[$(LinearIndices(sb)[4,i])])]
+    end
+    exprs = vcat(tmp_exprs...)
 
     return quote
         @_inline_meta

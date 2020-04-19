@@ -31,6 +31,7 @@ tolerance = 1e-6
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
 # Does order of `q[1]`, `q[1]` matter in sharpboundaryreflection?
+# Have to manually uncomment line in `_sharpboundaryreflection`
 ea = modes[argmax(real(getfield.(modes, :θ)))]
 z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
 M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
@@ -46,7 +47,8 @@ tmpq2 = copy(LWMS.BOOKER_QUARTIC_ROOTS)
 # NOTE: Runtime is dominated by `roots!` so currently no meaningful difference
 # between the two
 
-ea = modes[argmax(real(getfield.(modes, :θ)))]
+# ea = modes[argmax(real(getfield.(modes, :θ)))]
+ea = EigenAngle(complex(1.47152908, -0.0121998877))
 z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
 M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)

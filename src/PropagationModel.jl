@@ -1010,9 +1010,10 @@ function initialwavefields(T::TMatrix)
         e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))*dinv
     end
 
-    # TODO: SArray or SVector of SVectors?
     return SArray(e)
 end
+
+dedz(e, frequency::Frequency, T::TMatrix) = -im*frequency.k*T*e
 
 
 ################
