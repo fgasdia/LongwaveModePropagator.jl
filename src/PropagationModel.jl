@@ -18,6 +18,9 @@ end
 const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(ComplexF64, 4))
 const BOOKER_QUARTIC_COEFFS = MVector{5,ComplexF64}(undef)
 
+# const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(Complex{BigFloat}, 4))
+# const BOOKER_QUARTIC_COEFFS = MVector{5,Complex{BigFloat}}(undef)
+
 struct Derivative_dθ end
 
 @with_kw struct ModeParameters{F, G}
@@ -95,7 +98,7 @@ See also: [`sharplybounded_R`](@ref)
 
 [^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
-function bookerquartic!(ea::EigenAngle, M::AbstractArray{ComplexF64})
+function bookerquartic!(ea::EigenAngle, M::AbstractArray{eltype(BOOKER_QUARTIC_ROOTS)})
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Precompute
@@ -142,7 +145,7 @@ wavefield subroutines, e.g. "wf_init.for".
 
 This function is ~2× as fast as [`bookerquartic(ea, M)`](@ref).
 """
-function bookerquartic!(T::TMatrix{ComplexF64})
+function bookerquartic!(T::TMatrix{eltype(BOOKER_QUARTIC_COEFFS)})
     # This is the depressed form of the quartic
     b3 = -(T[1,1] + T[4,4])
     b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]
@@ -151,7 +154,7 @@ function bookerquartic!(T::TMatrix{ComplexF64})
         T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
         T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
 
-    BOOKER_QUARTIC_COEFFS.data = (b0, b1, b2, b3, one(ComplexF64))
+    BOOKER_QUARTIC_COEFFS.data = (b0, b1, b2, b3, one(eltype(BOOKER_QUARTIC_COEFFS)))
 
     roots!(BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS, NaN, 4, false)
 
@@ -1013,8 +1016,11 @@ function initialwavefields(T::TMatrix)
     return SArray(e)
 end
 
-dedz(e, frequency::Frequency, T::TMatrix) = -im*frequency.k*T*e
+dedz(e, frequency::Frequency, T::TMatrix) = -im*frequency.k*(T*e)
 
+function integratewavefields()
+
+end
 
 ################
 # Excitation and Mode Sum

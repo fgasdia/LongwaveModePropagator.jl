@@ -2,6 +2,8 @@ using Test
 using LinearAlgebra
 using StaticArrays
 
+using OrdinaryDiffEq
+
 using GRPF
 
 using LongwaveModeSolver
@@ -149,3 +151,103 @@ end
 # savefig("roots.svg")
 
 ########
+
+#==
+Integrate the wavefields
+==#
+
+# First, regular integration
+
+function integratefields(e, p, z)
+    M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    T = LWMS.tmatrix(ea, M)
+
+    return LWMS.dedz(e, tx.frequency, T)
+end
+
+# Initial fields
+ea = EigenAngle(complex(1.47152908, -0.0121998877))
+z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
+M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+T = LWMS.tmatrix(ea, M)
+e0 = LWMS.initialwavefields(T)
+
+prob = ODEProblem{false}(integratefields, e0, (120e3, 0.0))
+sol = solve(prob, BS5(), abstol=1e-6, reltol=1e-6)
+
+zs = 0.0:1e3:120e3
+
+using Gnuplot
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'abs(e)'"
+# @gp :- "set yrange [-10:10]"
+for i = 1:4
+    @gp :- abs.(sol[i,:]) sol.t./1e3 "w l title '$i'"
+end
+
+# Clearly, they blew up
+
+# Use big floats
+ea = EigenAngle(complex(1.47152908, -0.0121998877))
+z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
+M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+T = LWMS.tmatrix(ea, M)
+e0 = LWMS.initialwavefields(T)
+
+e0big = @SArray [parse(Complex{BigFloat}, string(e0[i,j])) for i in 1:4, j in 1:2]
+
+prob = ODEProblem{false}(integratefields, e0big, BigFloat.((120e3, 0.0)))
+sol2 = solve(prob, BS5(), abstol=1e-6, reltol=1e-6)
+
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'abs(e)'"
+# @gp :- "set yrange [-10:10]"
+for i = 1:4
+    @gp :- abs.(sol2[i,:]) sol2.t./1e3 "w l title '$i'"
+end
+
+# This does not fix the problem?
+
+# Try rescaling
+function integratefieldswithscaling(e, p, z)
+    # if something
+        # `dot` for complex vectors automatically conjugates first vector
+        a = -dot(e[:,1], e[:,2])/dot(e[:,1], e[:,1])
+    # end
+    e = hcat(e[:,1], e[:,2]+a*e[:,1])
+
+    M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    T = LWMS.tmatrix(ea, M)
+
+    return LWMS.dedz(e, tx.frequency, T)
+end
+
+
+# Initial fields
+ea = EigenAngle(complex(1.47152908, -0.0121998877))
+z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
+M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+T = LWMS.tmatrix(ea, M)
+e0 = LWMS.initialwavefields(T)
+
+prob = ODEProblem(integratefieldswithscaling, e0, (120e3, 0.0))
+sol = solve(prob, BS5(), abstol=1e-6, reltol=1e-6)
+
+zs = 0.0:1e3:120e3
+
+using Gnuplot
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'abs(e)'"
+# @gp :- "set yrange [-10:10]"
+for i = 1:4
+    @gp :- abs.(sol[i,:]) sol.t./1e3 "w l title '$i'"
+end
