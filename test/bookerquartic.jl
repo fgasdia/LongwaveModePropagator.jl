@@ -1,5 +1,6 @@
 using SymPy
 
+########
 # Solving eigenvector problem Te = qe => (T- qI)e = 0
 # Assuming eigvalues `q` have already been identified, then plug `q` into the
 # equation so we're essentially solving Ax = 0
@@ -35,3 +36,29 @@ D = det([-q 0 0 T14; 0 -q 1 0; T31 T32 -q 0; T41 T42 0 -q])
 
 # Roots q of D
 roots(D, q)
+
+
+########
+#==
+Sheddy sharp reflection
+==#
+
+@vars M11 M12 M13 M21 M22 M23 M31 M32 M33 D11 D12 D13 D21 D22 D23 D31 D32 D33
+@vars EX EY EZ q S
+
+L = [-q^2 0 q*S; 0 -q^2-S^2 0; q*S 0 -S^2]
+M = [M11 M12 M13; M21 M22 M23; M31 M32 M33]
+
+D = [1 0 0; 0 1 0; 0 0 1] + M + L
+
+Dm = [D11 D12 D13; D21 D22 D23; D31 D32 D33]
+
+E = [EX; EY; EZ]
+
+D*E
+
+# Ey
+simplify((D31*D13/(D32*D11) - D33/D32)/(1 - D31*D12/(D32*D11)))
+
+# Ez
+simplify(Ez == )

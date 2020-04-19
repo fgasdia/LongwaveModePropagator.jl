@@ -30,6 +30,17 @@ tolerance = 1e-6
 
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
+# Does order of `q[1]`, `q[1]` matter in sharpboundaryreflection?
+ea = modes[argmax(real(getfield.(modes, :θ)))]
+z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
+M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+
+tmp = LWMS.sharpboundaryreflection(ea, M)
+tmpq = copy(LWMS.BOOKER_QUARTIC_ROOTS)
+
+tmp2 = LWMS.sharpboundaryreflection(ea, M)
+tmpq2 = copy(LWMS.BOOKER_QUARTIC_ROOTS)
+
 ########
 # Compare Booker quartic computed with M and T
 # NOTE: Runtime is dominated by `roots!` so currently no meaningful difference
@@ -56,15 +67,14 @@ for i in eachindex(qT)
 end
 
 
-
-
 # We choose the 2 roots corresponding to upward travelling waves as being those that lie
 # close to the positive real and negative imaginary axis (315° on the complex plane)
-q = qT
-sort!(q, by=LWMS.upgoing)
+e = LWMS.initialwavefields(T)
+q = LWMS.BOOKER_QUARTIC_ROOTS
 
-@test_skip T*e ≈ q*e
-@test_skip e ≈ nullspace(T-q*I)
+for i = 1:2
+    @test T*e[:,i] ≈ q[i]*e[:,i]
+end
 
 
 ########

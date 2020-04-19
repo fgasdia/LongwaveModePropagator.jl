@@ -192,7 +192,9 @@ end
           |
           | . 1
 
-General locations of the four roots of the Booker quartic `q`:
+General locations of the four roots of the Booker quartic on the complex plane
+corresponding to the:
+
     1) upgoing evanescent wave
     2) upgoing travelling wave
     3) downgoing evanescent wave
@@ -200,7 +202,9 @@ General locations of the four roots of the Booker quartic `q`:
 
 From Pitteway 1967 fig 5. Sheddy 1968 also mentions that the two upgoing waves
 correspond to the two solutions that lie close to the positive real axis and the
-negative imaginary axis, respectively.
+negative imaginary axis, although in [`sharpboundaryreflection`](@ref) the order
+of the two upgoing waves doesn't matter---swapping q₁ and q₂ will result in the
+same reflection coefficient matrix.
 
 NOTE: It looks like we could just `sort!(q, by=real)`, but the quadrants of each
 root are not fixed and the positions in the Argand diagram are just approximate.
@@ -221,7 +225,6 @@ function sortquarticroots(v::AbstractArray{T}) where {T <: Complex}
 end
 
 function sortquarticroots!(v::AbstractArray{Complex{T}}) where {T}
-
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
     # This is faster than `sort!(v, by=upgoing)`
@@ -251,9 +254,11 @@ function sortquarticroots!(v::AbstractArray{Complex{T}}) where {T}
         v[4], v[3] = v[3], v[4]
     end
 
+    # Uncomment to test if order of q₁, q₂ matters for `sharpboundaryreflection()`
+    # v[2], v[1] = v[1], v[2]
+
     return v
 end
-
 
 function _sharpboundaryreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
@@ -261,8 +266,8 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     # XXX: `bookerquartic` (really `roots!`) dominates this functions runtime
     bookerquartic!(ea, M)
 
-    # We choose the 2 roots corresponding to upward travelling waves as being those that lie
-    # close to the positive real and negative imaginary axis (315° on the complex plane)
+    # We choose the 2 roots corresponding to upward travelling waves as being
+    # those that lie close to the positive real axis and negative imaginary axis
     sortquarticroots!(BOOKER_QUARTIC_ROOTS)
 
     #==
@@ -292,7 +297,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
 
     G12G33 = G12*G33
 
-    # Values for two solutions of the Booker quartic corresponding to upgoing waves
+    # Values for solutions of the Booker quartic corresponding to upgoing waves
     G11₁ = M11p1 - q[1]^2
     G13₁ = M[1,3] + q₁S
     G31₁ = M[3,1] + q₁S
@@ -311,7 +316,6 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     P₂ = (-G12G33 + G13₂*G32)*Δ₂⁻¹
     T₂ = q[2]*P₂ - S*(-G11₂*G32 + G12*G31₂)*Δ₂⁻¹
 
-    # Computation of entries of reflection matrix `R`
     Δ = (T₁*C + P₁)*(C + q[2]) - (T₂*C + P₂)*(C + q[1])
     Δ⁻¹ = 1/Δ
 
@@ -341,7 +345,11 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     C2 = 2*C
 
     @unpack P₁, T₁, P₂, T₂, Δ⁻¹ = _sharpboundaryreflection(ea, M)
-    q = sortquarticroots(BOOKER_QUARTIC_ROOTS)
+
+    # NOTE: `BOOKER_QUARTIC_ROOTS` is sorted in _sharpboundaryreflection
+    # Could write an `issorted` function, but sorting time is dominated by
+    # `upgoing`, which would presumably be required by an `issorted`
+    q = BOOKER_QUARTIC_ROOTS
 
     T₁C = T₁*C
     T₂C = T₂*C
@@ -538,7 +546,7 @@ end
 """
     tmatrix(ea, M)
 
-Return the intermediate matrix components of `T` whose elements are used in the calculation
+Return the matrix components of `T` whose elements are used in the calculation
 of matrix `S` for the differential equations for the ionospheric reflection coefficient `R`.
 
 Following Budden's formalism [^Budden1955a] the differential equations for calculating the
@@ -583,7 +591,7 @@ function tmatrix(ea::EigenAngle, M)
     # T43 = 0
     T44 = -S*M[1,3]*den
 
-    # Remember, column major
+    # Remember, column major. And it's actually a special 4×4.
     return TMatrix(T11, T31, T41,
                    T12, T32, T42,
                    T14, T34, T44)
@@ -976,6 +984,35 @@ end
 ################
 # Wavefields
 ################
+
+function initialwavefields(T::TMatrix)
+    bookerquartic!(T)
+    sortquarticroots!(BOOKER_QUARTIC_ROOTS)
+
+    q = BOOKER_QUARTIC_ROOTS
+
+    # Precompute
+    T14T41 = T[1,4]*T[4,1]
+    T14T42 = T[1,4]*T[4,2]
+    T12T41 = T[1,2]*T[4,1]
+
+    # Temporary MArray for filling in wavefields
+    # (04/2020) Somehow, this is slightly faster than hard coding the 1s and 2s
+    e = MArray{Tuple{4,2},eltype(BOOKER_QUARTIC_ROOTS)}(undef)
+
+    for i = 1:2
+        d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
+        dinv = 1/d
+
+        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)*dinv
+        e[2,i] = 1
+        e[3,i] = q[i]
+        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))*dinv
+    end
+
+    # TODO: SArray or SVector of SVectors?
+    return SArray(e)
+end
 
 
 ################

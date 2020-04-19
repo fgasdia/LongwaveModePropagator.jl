@@ -176,7 +176,7 @@ end
     end
 
     sa = Size(4,4)
-    T = promote_op(LinearAlgebra.matprod, Ta, Tb)
+    T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
 
     # Yes, the LinearIndices make a _big_ difference in performance
     @inbounds return similar_type(b,T,Size(4))(
@@ -201,7 +201,7 @@ end
 
     return quote
         @_inline_meta
-        T = promote_op(LinearAlgebra.matprod, Ta, Tb)
+        T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
         @inbounds return similar_type(a, T, $S)(tuple($(exprs...)))
     end
 end
