@@ -832,7 +832,7 @@ function integratedreflection(ea::EigenAngle, modeparams::ModeParameters)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, modeparams))
-    sol = solve(prob, BS5(), abstol=1e-6, reltol=1e-6, save_everystep=false, save_start=false)
+    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
 
     return sol[end]
 end
@@ -849,7 +849,7 @@ function integratedreflection(ea::EigenAngle, modeparams::ModeParameters, ::Deri
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, modeparams))
-    sol = solve(prob, BS5(), abstol=1e-6, reltol=1e-6, save_everystep=false, save_start=false)
+    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
 
     return sol[end]
 end
@@ -976,12 +976,12 @@ end
 `tolerance=1e-6` and `tolerance=1e-8` is less than 1e-5° in both real and imaginary
 components.
 """
-function findmodes(origcoords, modeparams::ModeParameters, tolerance=1e-6)
-    angletype = eltype(origcoords)
-    zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{angletype}(θ), modeparams),
+function findmodes(origcoords::AbstractArray{T}, modeparams::ModeParameters, tolerance=1e-6) where {T}
+    zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{T}(θ), modeparams),
                           origcoords, tolerance, 30000)
 
-    return [EigenAngle{angletype}(r) for r in zroots]
+    return zroots
+    # return @SVector [EigenAngle{T}(r) for r in zroots]
 end
 
 ################
