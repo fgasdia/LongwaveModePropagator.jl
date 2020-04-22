@@ -58,6 +58,7 @@ function BField(B, dip, azimuth)
     Saz, Caz = sincos(azimuth)
     BField(B, Cdip*Caz, Cdip*Saz, -Sdip)
 end
+
 """
     dip(b::BField)
 
@@ -71,6 +72,26 @@ dip(b::BField) = -asin(b.dcn)
 Return the azimuth angle (rad) from a `BField` vector `b`.
 """
 azimuth(b::BField) = atan(b.dcm,b.dcl)
+
+
+########
+# Useful plasma functions
+
+"""
+    plasmafrequency(n, q, m)
+
+Return the plasma frequency ``ωₚ = √(nq²/(ϵ₀m))`` for a ``cold'' plasma.
+"""
+plasmafrequency(n, q, m) = sqrt(n*q^2/(ϵ₀*m))
+plasmafrequency(z, c::Constituent) = plasmafrequency(c.numberdensity(z), c.charge, c.mass)
+
+"""
+    gyrofrequency(q, m, B)
+
+Return the _signed_ gyrofrequency ``Ω = qB/m``.
+"""
+gyrofrequency(q, m, B) = q*B/m
+gyrofrequency(c::Constituent, b::BField) = gyrofrequency(c.charge, c.mass, b.B)
 
 ########
 

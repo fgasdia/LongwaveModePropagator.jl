@@ -211,12 +211,27 @@ bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
+q = copy(LWMS.BOOKER_QUARTIC_ROOTS)  # generated in `initialwavefields`
+
+
 
 # normalize e0
-# normalizefields(e) = hcat(normalize(e[:,1]), normalize(e[:,2]))
-# e0 = normalizefields(e0)
+# This seemed like a good idea, but the wavefields still blow up
+#==
+normalizefields(e) = hcat(normalize(e[:,1]), normalize(e[:,2]))
+e0 = normalizefields(e0)
+
+for i = 1:2
+    @test T*e0[:,i] ≈ q[i]*e0[:,i]
+end
+==#
+
+
+
 
 # `dt` argument is initial stepsize
+# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
+# size with λ in ionosphere / 20 or something like that
 prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0))
 sol = solve(prob, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
 
@@ -246,13 +261,13 @@ end
 e0big = @SArray [parse(Complex{BigFloat}, string(e0[i,j])) for i in 1:4, j in 1:2]
 
 prob = ODEProblem{false}(integratefields, e0big, BigFloat.((ztop, 0.0)))
-solbig = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
+solbig = solve(prob, abstol=1e-18, reltol=1e-18)
 
 @gp "set auto fix"
 @gp :- "set grid"
 @gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
 # @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'abs(e)'"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
 # @gp :- "set yrange [-10:10]"
 for i = 1:4
     @gp :- real.(solbig[i,:]) solbig.t./1e3 "w l title '$(labels[i])'"
@@ -262,12 +277,15 @@ end
 
 ########
 # Try rescaling
-struct WavefieldScaling{T}
-    # ortho::Array{T}
+
+mutable struct WavefieldMatrix{T} <: DEDataMatrix{T}
+    # Extra fields are carried through solver, and can be accessed as e.g. `u.count`
+
+    x::SMatrix{4,2,T,8}  # must be called `x` (I think...)
     e1norm::Vector{T}
-    count::Vector{Int}
-    # bnorm::Array{T}
+    count::Int
 end
+
 
 """
     scalewavefields(e1, e2, s)
@@ -292,7 +310,7 @@ ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
 pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
 
 """
-function scalewavefields(e1::AbstractVector, e2::AbstractVector, s::WavefieldScaling)
+function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
     e1_dot_e1 = dot(e1, e1)  # == sum(abs2.(e1))
@@ -307,7 +325,7 @@ function scalewavefields(e1::AbstractVector, e2::AbstractVector, s::WavefieldSca
     # p.ortho +=
     # s.anorm *= aterm
     # p.bnorm *=
-    @inbounds s.count[1] += 1
+    # @inbounds s.count[1] += 1
 
     return e1, e2
 end
@@ -319,8 +337,8 @@ end
 
     This function only applies scaling to the first 2 columns of `e`.
 """
-function scalewavefields(e::AbstractArray, s::WavefieldScaling)
-    e1, e2 = scalewavefields(e[:,1], e[:,2], s)
+function scalewavefields(e::AbstractArray)
+    e1, e2 = scalewavefields(e[:,1], e[:,2])
 
     # this works for a 4×2 `e` because `e[3:end]` will return a 4×0 array
     return hcat(e1, e2, e[:,3:end])
@@ -329,7 +347,7 @@ end
 """
     unscalewavefields(sol, p)
 """
-function unscalewavefields(sol, s::WavefieldScaling)
+function unscalewavefields(sol)
     # Back substitution of normalizing values applied during integration
 
     # Array of SArray{Tuple{4,2}, Complex{Float64}}
@@ -361,18 +379,14 @@ function unscalewavefields(sol, s::WavefieldScaling)
 
 end
 
+function scalingcondition(e, z, integrator)
+    # When `scalingcondition()` == 0, trigger `scalewavefields!()`
+
+    norm(e[:,1]) > 1000 || abs2(dot(e[:,1], e[:,2])) > 1 ? true : false
+end
+
 function integratefieldswithscaling(e, p, z)
-    # (u, p, t)
-
-    z = p.z
-    tx = p.tx
-    bfield = p.bfield
-    species = p.species
-    s = p.s
-
-    # Only want this at .t
-    # Orthonomalize vectors
-    e = scalewavefields(e, s)
+    z, tx, bfield, species = p
 
     M = LWMS.susceptibility(z, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
@@ -387,13 +401,37 @@ M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
 
-s = WavefieldScaling([],[0])
-p = (z=ztop, tx=tx, bfield=bfield, species=electrons, s=s)
+p = (z=ztop, tx=tx, bfield=bfield, species=electrons)
 
-prob = ODEProblem(integratefieldswithscaling, e0, (ztop, 0.0), p)
-sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
+u0 = WavefieldMatrix(e0, Vector{ComplexF64}(), 0)
 
-zs = 0.0:1e3:ztop
+# FunctionCallingCallback doesn't only evaluate at sol.t... it evaluates every fcn call
+# tdir = -1 b/c t[1] > t[end]
+# fcc = FunctionCallingCallback((e, z, integrator)->scalewavefields(e, s), func_everystep=true, tdir=-1)
+
+
+function affect!(integrator)
+    # Need to loop through `full_cache` to ensure that all internal caches are
+    # also updated.
+    for c in full_cache(integrator)
+        c.count += 1
+    end
+
+    # TODO: Also look at updating dt when e is rescaled
+
+    return nothing
+end
+
+cb = DiscreteCallback(scalingcondition, affect!, save_positions=(true,true))
+
+prob = ODEProblem{false}(integratefieldswithscaling, u0, (ztop, 0.0), p)
+sol = solve(prob, callback=cb, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
+
+# TODO: Use a callback on independence of e1 and e2 and then save at the points
+# where callback is applied
+
+
+zs = 0.0:250:ztop
 
 using Gnuplot
 @gp "set auto fix"
@@ -407,6 +445,17 @@ for i = 1:4
     @gp :- real.(sol[i,:]) sol.t./1e3 "w l title '$(labels[i])'"
     @gp :- imag.(sol[i,:]) sol.t./1e3 "w l dt 2 title '$(labels[i])'"
 end
+
+
+
+
+function homogeneousiono()
+    # Accuracy check for integration of wavefields. See Pitteway1965 pg 234
+    # Integrate through homogeneous medium with sharp lower boundary and compare
+    # to bookerquartic solution
+end
+@test_skip homogeneousiono() ≈ bookerquartic()
+
 
 
 

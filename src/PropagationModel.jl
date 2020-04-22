@@ -1013,6 +1013,7 @@ function initialwavefields(T::TMatrix)
         e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))*dinv
     end
 
+    # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
     return SArray(e)
 end
 
