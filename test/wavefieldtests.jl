@@ -94,6 +94,10 @@ for i = 1:2
     @test T*e[:,i] ≈ q[i]*e[:,i]
 end
 
+for i = 1:2
+    @test T*e[:,i] ≈ Array(T)*e[:,i]
+end
+
 
 ########
 #==
@@ -198,10 +202,12 @@ Integrate the wavefields
 ==#
 
 function integratefields(e, p, z)
-    M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    z, frequency, bfield, species = p
+
+    M = LWMS.susceptibility(z, frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
 
-    return LWMS.dedz(e, tx.frequency, T)
+    return LWMS.dedz(e, frequency, T)
 end
 
 
@@ -212,7 +218,6 @@ M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
 q = copy(LWMS.BOOKER_QUARTIC_ROOTS)  # generated in `initialwavefields`
-
 
 
 # normalize e0
@@ -227,12 +232,12 @@ end
 ==#
 
 
-
+p = (z=ztop, frequency=tx.frequency, bfield=bfield, species=electrons)
 
 # `dt` argument is initial stepsize
 # TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
 # size with λ in ionosphere / 20 or something like that
-prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0))
+prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
 sol = solve(prob, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
 
 # `solve` chose composite Vern9 and Rodas5
@@ -278,11 +283,13 @@ end
 ########
 # Try rescaling
 
-mutable struct WavefieldMatrix{T} <: DEDataMatrix{T}
+mutable struct WavefieldMatrix{T,T2} <: DEDataMatrix{T}
     # Extra fields are carried through solver, and can be accessed as e.g. `u.count`
 
-    x::SMatrix{4,2,T,8}  # must be called `x` (I think...)
-    e1norm::Vector{T}
+    # TEMP XXX This should be an SMatrix
+    # x::SMatrix{4,2,T,8}  # must be called `x` (I think...)
+    x::Matrix{T}
+    e1norm::Vector{T2}
     count::Int
 end
 
@@ -318,16 +325,22 @@ function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     e2 -= a*e1
 
     # Normalize `e1` and `e2`
-    aterm = 1/sqrt(e1_dot_e1)
-    e1 *= aterm
-    e2 /= norm(e2)  # == dot(e2, e2)/sqrt(dot(e2, e2)) == normalize(e2)
+    # e1 /= sqrt(e1_dot_e1)
+    # e2 /= norm(e2)  # == dot(e2, e2)/sqrt(dot(e2, e2)) == normalize(e2)
+
+    # Scale norm(e1) to norm(e2)
+    # u = L/norm(v)⋅v, so e1 = norm(e2)/norm(e2)⋅e1
+    # equivalently, to save a sqrt
+    # If I scale a vector that's already orthogonal with another, they're still
+    # orthogonal
+    e1 *= sqrt(dot(e2,e2)/e1_dot_e1)
 
     # p.ortho +=
     # s.anorm *= aterm
     # p.bnorm *=
     # @inbounds s.count[1] += 1
 
-    return e1, e2
+    return e1, e2, a
 end
 
 """
@@ -341,7 +354,7 @@ function scalewavefields(e::AbstractArray)
     e1, e2 = scalewavefields(e[:,1], e[:,2])
 
     # this works for a 4×2 `e` because `e[3:end]` will return a 4×0 array
-    return hcat(e1, e2, e[:,3:end])
+    return hcat(e1, e2, e[:,3:end]), aterm
 end
 
 """
@@ -385,13 +398,15 @@ function scalingcondition(e, z, integrator)
     norm(e[:,1]) > 1000 || abs2(dot(e[:,1], e[:,2])) > 1 ? true : false
 end
 
-function integratefieldswithscaling(e, p, z)
+
+
+function integratefields!(de, e, p, z)
     z, tx, bfield, species = p
 
     M = LWMS.susceptibility(z, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
 
-    return LWMS.dedz(e, tx.frequency, T)
+    de .= LWMS.dedz(e, tx.frequency, T)
 end
 
 
@@ -403,7 +418,12 @@ e0 = LWMS.initialwavefields(T)
 
 p = (z=ztop, tx=tx, bfield=bfield, species=electrons)
 
-u0 = WavefieldMatrix(e0, Vector{ComplexF64}(), 0)
+# TEMP
+# u0 = WavefieldMatrix(e0, Vector{ComplexF64}(), 0)
+u0 = WavefieldMatrix(Array(e0), Vector{ComplexF64}(), 0)
+
+e0big = [parse(Complex{BigFloat}, string(e0[i,j])) for i in 1:4, j in 1:2]
+u0big = WavefieldMatrix(e0big, Vector{Complex{BigFloat}}(), 0)
 
 # FunctionCallingCallback doesn't only evaluate at sol.t... it evaluates every fcn call
 # tdir = -1 b/c t[1] > t[end]
@@ -414,6 +434,9 @@ function affect!(integrator)
     # Need to loop through `full_cache` to ensure that all internal caches are
     # also updated.
     for c in full_cache(integrator)
+        x, e1norm = scalewavefields(c.x)
+        c.x .= x
+        c.e1norm = e1norm
         c.count += 1
     end
 
@@ -424,7 +447,11 @@ end
 
 cb = DiscreteCallback(scalingcondition, affect!, save_positions=(true,true))
 
-prob = ODEProblem{false}(integratefieldswithscaling, u0, (ztop, 0.0), p)
+prob = ODEProblem(integratefields!, e0big, (ztop, 0.0), p)
+solbig = solve(prob, callback=cb, abstol=1e-18, reltol=1e-18, dt=tx.frequency.λ/50)
+
+
+prob = ODEProblem(integratefields!, u0, (ztop, 0.0), p)
 sol = solve(prob, callback=cb, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
 
 # TODO: Use a callback on independence of e1 and e2 and then save at the points
@@ -446,7 +473,164 @@ for i = 1:4
     @gp :- imag.(sol[i,:]) sol.t./1e3 "w l dt 2 title '$(labels[i])'"
 end
 
+########
+# Nagano et al 1975 method
 
+# BUG?: Nagano et al 1975 specifies that abs(q[1]) > abs(q[2]), BUT my sorting
+# method doesn't agree with this.
+
+# z -> ztop:0.0
+function nagano_integration(z, ea, frequency, bfield, species)
+    if z[end] > z[1]
+        @warn "nagano_integration should proceed downwards. z[end] $(z[end]) > z[1] $(z[1])"
+    end
+
+    e1 = Vector{SVector{4,ComplexF64}}(undef, length(z))
+    e2 = Vector{SVector{4,ComplexF64}}(undef, length(z))
+    avec = Vector{ComplexF64}(undef, length(z))
+    Bvec = Vector{SMatrix{4,4,ComplexF64,16}}(undef, length(z))
+
+    k = frequency.k
+
+    # Temporary mutable matrix
+    B = MMatrix{4,4,ComplexF64,16}(undef)
+    B[2,:] = 1  # TODO: Special BMatrix type
+
+    K = MMatrix{4,4,ComplexF64,16}(undef)
+
+    for j in eachindex(z)
+
+        # TODO: Just move first step out so we don't need to check
+        if j > firstindex(z)
+            tmp_e1 = K*e1[j-1]
+            tmp_e2 = K*e2[j-1]
+
+            # Scale wavefields
+            e1_scaled, e2_scaled, a = scalewavefields(tmp_e1, tmp_e2)
+
+            e1[j] = e1_scaled
+            e2[j] = e2_scaled
+            avec[j] = a
+        end
+
+        # Calculate `Kⱼ` for use in next step, remember e(zⱼ₋₁) = Kⱼ e(zⱼ)
+        M = LWMS.susceptibility(z[j], frequency, bfield, species)
+        T = LWMS.tmatrix(ea, M)
+        LWMS.bookerquartic!(T)
+        LWMS.sortquarticroots!(LWMS.BOOKER_QUARTIC_ROOTS)
+        q = LWMS.BOOKER_QUARTIC_ROOTS
+
+        for i = 1:4
+            # TODO: Is this equivalent to LWMS.initialwavefields?
+            # Apparently not? A little suspicious...
+            α = (T[4,2]*T[3,2] - (T[3,2] - q[i]^2)*(T[4,4] - q[i]))/
+                (T[3,1]*(T[4,4] - q[i]) - T[4,1]*T[3,4])
+            β = (T[1,2] + α*(T[1,1] - q[i]))/T[1,4]
+
+            B[1,i] = α
+            # B[2,i] = 1
+            B[3,i] = q[i]
+            B[4,i] = β
+        end
+
+        if j == firstindex(z)
+            # TODO: Just do this outside the whole loop
+
+            # Initialize wavefields (at top height "m")
+            # TEMP: Normalize wavefields - remove?
+            e1[j] = normalize(SVector(B[:,1]))  # == B*[1; 0; 0; 0]
+            e2[j] = normalize(SVector(B[:,2]))  # == B*[0; 1; 0; 0]
+        end
+
+        if j == lastindex(z)
+            # zstep will fail if we're almost done, but `K` is needed anymore
+            nothing
+        else
+            zstep = z[j+1] - z[j]  # next lower level - current level
+            ξ = q*zstep
+            Δ = SDiagonal(exp.(-im*k*ξ))
+            K .= B*Δ/B
+        end
+
+        # Store values
+        Bvec[j] = SMatrix(B)
+    end
+
+    # Reconstruct (unorthogonalize) wavefields
+    # From the bottom up!
+    aeprod = MVector{4,eltype(avec)}(1,1,1,1)
+    for j in reverse(eachindex(z))
+        if j == lastindex(z)  # NOTE: this is first(reverse(z))
+            # e2[j] = e2[j]
+            continue
+        end
+        aeprod .*= avec[j+1]*e1[j+1]  # BUG?
+        e2[j] += aeprod
+    end
+
+    return e1, e2
+end
+
+# BUG: Handle when Ne = 0
+# electrons = Constituent(qₑ, mₑ,
+#         z -> waitprofile(z, 75, 0.32, H),
+#         z -> electroncollisionfrequency(z, H))
+electrons = Constituent(qₑ, mₑ,
+        z -> waitprofile(z, 75, 0.32),
+        electroncollisionfrequency)
+
+ea = EigenAngle(deg2rad(complex(40.0,0.0)))
+bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
+
+zs = ztop:-100:0.0
+e1, e2 = nagano_integration(zs, ea, tx.frequency, bfield, electrons)
+
+e = e1 + e2
+
+
+using Gnuplot
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
+# @gp :- "set yrange [-10:10]"
+labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
+colors = Dict(1=>"red", 2=>"blue", 3=>"green", 4=>"black")
+for i = 1:4
+    @gp :- real.(getindex.(e1,i)) zs/1e3 "w l lc '$(colors[i])' title '$(labels[i])'"
+    @gp :- imag.(getindex.(e1,i)) zs/1e3 "w l dt 2 lc '$(colors[i])' title '$(labels[i])'"
+end
+
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
+# @gp :- "set yrange [-10:10]"
+labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
+colors = Dict(1=>"red", 2=>"blue", 3=>"green", 4=>"black")
+for i = 1:4
+    @gp :- real.(getindex.(e2,i)) zs/1e3 "w l lc '$(colors[i])' title '$(labels[i])'"
+    @gp :- imag.(getindex.(e2,i)) zs/1e3 "w l dt 2 lc '$(colors[i])' title '$(labels[i])'"
+end
+
+
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
+# @gp :- "set yrange [-10:10]"
+labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
+for i = 1:4
+    @gp :- real.(getindex.(e,i)) zs/1e3 "w l title '$(labels[i])'"
+    @gp :- imag.(getindex.(e,i)) zs/1e3 "w l dt 2 title '$(labels[i])'"
+end
+
+
+########
 
 
 function homogeneousiono()

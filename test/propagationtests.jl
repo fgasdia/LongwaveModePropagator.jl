@@ -387,20 +387,20 @@ f = LWMS.solvemodalequation(ea, modeparams)
 # TODO: Make a `triangulardomain` for this problem o avoid the low right
 origcoords = rectangulardomain(complex(30, -10.0), complex(89.9, 0.0), 0.5)
 origcoords .= deg2rad.(origcoords)
-tolerance = 1e-6
+tolerance = 1e-8
 
 # XXX: GRPF overhead is small (<10%?) compared to time spent integrating for `R`
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
 for m in modes
-    @test isapprox(LWMS.solvemodalequation(m, modeparams), complex(0), rtol=1e-3, atol=1e-3)
+    @test isapprox(LWMS.solvemodalequation(EigenAngle(m), modeparams), complex(0), rtol=1e-3, atol=1e-3)
 end
 
 #
 #
 #
 
-ea = modes[1]
+ea = EigenAngle(modes[1])
 efc = LWMS.excitationfactorconstants(ea, R, Rg, tx.frequency, ground)
 hgc = LWMS.heightgains(70e3, ea, tx.frequency, efc)
 
@@ -408,7 +408,7 @@ dFdθ, R, Rg = LWMS.solvemodalequationdθ(ea, modeparams)
 ef = LWMS.excitationfactor(ea, dFdθ, R, Rg, efc, LWMS.FC_Ez)
 
 rx = LWMS.GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
-E, a, p = LWMS.Efield(1000e3, modes, modeparams, tx, rx)
+E, a, p = LWMS.Efield(1000e3, EigenAngle.(modes), modeparams, tx, rx)
 
 # XXX: Profile - this is still ridiculously slow
 Ecom, phase, amp = LWMS.Efield(modes, modeparams, tx, rx)
@@ -432,15 +432,13 @@ modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
 # origcoords = rectangulardomain(complex(30, -10.0), complex(89.9, 0.0), 0.5)
 origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
 origcoords .= deg2rad.(origcoords)
-tolerance = 1e-6
+tolerance = 1e-7
 
 # XXX: GRPF overhead is small (<10%?) compared to time spent integrating for `R`
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 
 
 using GRUtils
-
-
 
 basepath = "/home/forrest/research/LAIR/ModeSolver"
 # basepath = "C:\\Users\\forrest\\Desktop"
@@ -454,19 +452,19 @@ dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
                 phase=vcat(raw.Column3, raw.Column6, raw.Column9))
 
 rx = GroundSampler(dat.dist*1000, LWMS.FC_Ez)
-Ecom, phase, amp = LWMS.Efield(modes, modeparams, tx, rx)
+Ecom, phase, amp = LWMS.Efield(EigenAngle.(modes), modeparams, tx, rx)
 
 widedf = DataFrame(dist=dat.dist,
     lwpc_amp=dat.amp, lwpc_phase=dat.phase,
     lwms_amp=amp, lwms_phase=rad2deg.(phase))
 
 
-plot(dat.dist, rad2deg.(phase))
+GRUtils.plot(dat.dist, rad2deg.(phase))
 hold(true)
-plot(dat.dist, dat.phase)
+GRUtils.plot(dat.dist, dat.phase)
 
 Figure()
-plot(dat.dist, dat.phase-rad2deg.(phase), yticks=(1,2))
+GRUtils.plot(dat.dist, dat.phase-rad2deg.(phase), yticks=(1,2))
 ylim(-5, 5)
 
 

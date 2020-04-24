@@ -260,6 +260,10 @@ function sortquarticroots!(v::AbstractArray{Complex{T}}) where {T}
     # Uncomment to test if order of q₁, q₂ matters for `sharpboundaryreflection()`
     # v[2], v[1] = v[1], v[2]
 
+    # BUG: (?) Nagano et al 1975 says that of v1 and v2, the one with the largest
+    # absolute value corresponds to e1 and the other to e2, although this method
+    # does not guarantee that. In fact, I find that this criteria is often not met.
+
     return v
 end
 
@@ -491,7 +495,7 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Consti
     e, m, N, ν = species.charge, species.mass, species.numberdensity, species.collisionfrequency
     mω = m*ω
     X = N(z)*e^2/(ϵ₀*mω*ω)  # ωₚ²/ω² plasma frequency / ω
-    Y = e*B/mω  # ωₘ²/ω  gyrofrequency / ω  # BUG: What if e is negative?
+    Y = abs(e*B/mω)  # |ωₕ/ω|  gyrofrequency / ω  # Nagano et al 1975 specifies |ωₕ/ω|
     Z = ν(z)/ω  # collision frequency / ω
     U = 1 - im*Z
 

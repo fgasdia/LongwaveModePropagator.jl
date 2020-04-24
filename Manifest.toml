@@ -90,9 +90,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "ConsoleProgressMonitor", "DataStructures", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "LoggingExtras", "MuladdMacro", "Parameters", "Printf", "ProgressLogging", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TerminalLoggers", "TreeViews", "ZygoteRules"]
-git-tree-sha1 = "6a40ebdda6c5f8e5a7c5848f57995a5492f75b85"
+git-tree-sha1 = "5cd82f55463b5cde416c3ff77eeb11dd25d7dc33"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.29.2"
+version = "6.29.3"
 
 [[DiffResults]]
 deps = ["StaticArrays"]
