@@ -333,7 +333,8 @@ function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     # equivalently, to save a sqrt
     # If I scale a vector that's already orthogonal with another, they're still
     # orthogonal
-    e1 *= sqrt(dot(e2,e2)/e1_dot_e1)
+
+    # e1 *= sqrt(dot(e2,e2)/e1_dot_e1)
 
     # p.ortho +=
     # s.anorm *= aterm
@@ -479,7 +480,16 @@ end
 # BUG?: Nagano et al 1975 specifies that abs(q[1]) > abs(q[2]), BUT my sorting
 # method doesn't agree with this.
 
-# z -> ztop:0.0
+"""
+z -> ztop:0.0
+
+Technically, we don't need to compute the `e`s as we go. If we save the `K`
+matrices, then
+``e₁(zⱼ) = ∏ₛ₌ⱼ₊₁ᵐ⁻¹ (Kₛ) e₁(zₘ₋₁)``
+``e₂₀(zⱼ) = aⱼ e₁(zⱼ) + ∏ₛ₌ⱼ₊₁ᵐ⁻¹ (Kₛ) e₂(zₘ₋₁)``
+
+This might be useful if we only need values at specific heights.
+"""
 function nagano_integration(z, ea, frequency, bfield, species)
     if z[end] > z[1]
         @warn "nagano_integration should proceed downwards. z[end] $(z[end]) > z[1] $(z[1])"
@@ -500,9 +510,8 @@ function nagano_integration(z, ea, frequency, bfield, species)
 
     for j in eachindex(z)
 
-        # TODO: Just move first step out so we don't need to check
         if j > firstindex(z)
-            tmp_e1 = K*e1[j-1]
+            tmp_e1 = K*e1[j-1]  # this is `K(j-1)` b/c it's from last loop
             tmp_e2 = K*e2[j-1]
 
             # Scale wavefields
@@ -534,16 +543,12 @@ function nagano_integration(z, ea, frequency, bfield, species)
         end
 
         if j == firstindex(z)
-            # TODO: Just do this outside the whole loop
-
             # Initialize wavefields (at top height "m")
-            # TEMP: Normalize wavefields - remove?
-            e1[j] = normalize(SVector(B[:,1]))  # == B*[1; 0; 0; 0]
-            e2[j] = normalize(SVector(B[:,2]))  # == B*[0; 1; 0; 0]
+            e1[j] = SVector(B[:,1])  # == B*[1; 0; 0; 0]
+            e2[j] = SVector(B[:,2])  # == B*[0; 1; 0; 0]
         end
 
         if j == lastindex(z)
-            # zstep will fail if we're almost done, but `K` is needed anymore
             nothing
         else
             zstep = z[j+1] - z[j]  # next lower level - current level
@@ -558,14 +563,15 @@ function nagano_integration(z, ea, frequency, bfield, species)
 
     # Reconstruct (unorthogonalize) wavefields
     # From the bottom up!
-    aeprod = MVector{4,eltype(avec)}(1,1,1,1)
+    # aeprod = MVector{4,eltype(avec)}(1,1,1,1)
+    aprod = one(ComplexF64)
     for j in reverse(eachindex(z))
-        if j == lastindex(z)  # NOTE: this is first(reverse(z))
+        if j == lastindex(z)  # == this is first(reverse(z))
             # e2[j] = e2[j]
             continue
         end
-        aeprod .*= avec[j+1]*e1[j+1]  # BUG?
-        e2[j] += aeprod
+        aprod *= avec[j+1]
+        e2[j] += aprod*e1[j]
     end
 
     return e1, e2
