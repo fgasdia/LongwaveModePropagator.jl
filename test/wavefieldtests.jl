@@ -202,7 +202,7 @@ Integrate the wavefields
 ==#
 
 function integratefields(e, p, z)
-    z, frequency, bfield, species = p
+    frequency, bfield, species = p
 
     M = LWMS.susceptibility(z, frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
@@ -232,7 +232,7 @@ end
 ==#
 
 
-p = (z=ztop, frequency=tx.frequency, bfield=bfield, species=electrons)
+p = (frequency=tx.frequency, bfield=bfield, species=electrons)
 
 # `dt` argument is initial stepsize
 # TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
@@ -261,22 +261,34 @@ end
 
 # Clearly, they blew up
 
-#==
+#
 # Trying BigFloat, but this does no better
 e0big = @SArray [parse(Complex{BigFloat}, string(e0[i,j])) for i in 1:4, j in 1:2]
 
-prob = ODEProblem{false}(integratefields, e0big, BigFloat.((ztop, 0.0)))
+prob = ODEProblem{false}(integratefields, e0big, BigFloat.((ztop, 0.0)), p)
 solbig = solve(prob, abstol=1e-18, reltol=1e-18)
 
 @gp "set auto fix"
 @gp :- "set grid"
 @gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
 # @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e₁'"
 # @gp :- "set yrange [-10:10]"
 for i = 1:4
-    @gp :- real.(solbig[i,:]) solbig.t./1e3 "w l title '$(labels[i])'"
-    @gp :- imag.(solbig[i,:]) solbig.t./1e3 "w l dt 2 title '$(labels[i])'"
+    @gp :- real.(solbig[i,:]) solbig.t./1e3 "w l lc '$(colors[i])' title '$(labels[i])'"
+    @gp :- imag.(solbig[i,:]) solbig.t./1e3 "w l dt 2 lc '$(colors[i])' title '$(labels[i])'"
+end
+
+
+@gp "set auto fix"
+@gp :- "set grid"
+@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
+# @gp :- "unset key"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e₂'"
+# @gp :- "set yrange [-10:10]"
+for i = 5:8
+    @gp :- real.(solbig[i,:]) solbig.t./1e3 "w l lc '$(colors[i-4])' title '$(labels[i-4])'"
+    @gp :- imag.(solbig[i,:]) solbig.t./1e3 "w l dt 2 lc '$(colors[i-4])' title '$(labels[i-4])'"
 end
 ==#
 
@@ -316,17 +328,23 @@ reflexion coefficients and polarizations for long radio waves in the lower
 ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
 pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
 
+[^Smith1974]: G. H. Smith and M. L. V. Pitteway, “Fortran Program for Obtaining
+Wavefields of Penetrating, Nonpenetrating, and Whistler Modes of Radio Waves in
+the Ionosphere,” in ELF-VLF Radio Wave Propagation, 1974, pp. 69–86.
+
 """
 function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
     e1_dot_e1 = dot(e1, e1)  # == sum(abs2.(e1))
-    a = dot(e1, e2)/e1_dot_e1
+    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
     e2 -= a*e1
 
     # Normalize `e1` and `e2`
-    # e1 /= sqrt(e1_dot_e1)
-    # e2 /= norm(e2)  # == dot(e2, e2)/sqrt(dot(e2, e2)) == normalize(e2)
+    e1_scale_val = 1/sqrt(e1_dot_e1)
+    e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
+    e1 *= e1_scale_val
+    e2 *= e2_scale_val  # == normalize(e2)
 
     # Scale norm(e1) to norm(e2)
     # u = L/norm(v)⋅v, so e1 = norm(e2)/norm(e2)⋅e1
@@ -334,14 +352,7 @@ function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     # If I scale a vector that's already orthogonal with another, they're still
     # orthogonal
 
-    # e1 *= sqrt(dot(e2,e2)/e1_dot_e1)
-
-    # p.ortho +=
-    # s.anorm *= aterm
-    # p.bnorm *=
-    # @inbounds s.count[1] += 1
-
-    return e1, e2, a
+    return e1, e2, a, e1_scale_val, e2_scale_val
 end
 
 """
@@ -355,8 +366,9 @@ function scalewavefields(e::AbstractArray)
     e1, e2 = scalewavefields(e[:,1], e[:,2])
 
     # this works for a 4×2 `e` because `e[3:end]` will return a 4×0 array
-    return hcat(e1, e2, e[:,3:end]), aterm
+    return hcat(e1, e2, e[:,3:end])
 end
+
 
 """
     unscalewavefields(sol, p)
@@ -402,7 +414,7 @@ end
 
 
 function integratefields!(de, e, p, z)
-    z, tx, bfield, species = p
+    tx, bfield, species = p
 
     M = LWMS.susceptibility(z, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
@@ -417,7 +429,7 @@ M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
 
-p = (z=ztop, tx=tx, bfield=bfield, species=electrons)
+p = (tx=tx, bfield=bfield, species=electrons)
 
 # TEMP
 # u0 = WavefieldMatrix(e0, Vector{ComplexF64}(), 0)
@@ -500,6 +512,21 @@ function nagano_integration(z, ea, frequency, bfield, species)
     avec = Vector{ComplexF64}(undef, length(z))
     Bvec = Vector{SMatrix{4,4,ComplexF64,16}}(undef, length(z))
 
+    # `...cscalar` means _cumulative_ scalar values
+    e1cscalar = Vector{ComplexF64}(undef, length(z))
+    e2cscalar = Vector{ComplexF64}(undef, length(z))
+    orthocscalar = Vector{ComplexF64}(undef, length(z))
+    # TODO: check these types
+
+    # Initialize cumulative vectors
+    e1cscalar[1] = 1
+    e2cscalar[1] = 1
+    orthocscalar[1] = 0
+
+    # cumulative_e1_scalars = one(ComplexF64)
+    # cumulative_e2_scalar = one(ComplexF64)
+    # cumulative_ortho_scalar = zero(ComplexF64)
+
     k = frequency.k
 
     # Temporary mutable matrix
@@ -515,11 +542,17 @@ function nagano_integration(z, ea, frequency, bfield, species)
             tmp_e2 = K*e2[j-1]
 
             # Scale wavefields
-            e1_scaled, e2_scaled, a = scalewavefields(tmp_e1, tmp_e2)
+            e1s, e2s, a, e1_scalar, e2_scalar = scalewavefields(tmp_e1, tmp_e2)
 
-            e1[j] = e1_scaled
-            e2[j] = e2_scaled
-            avec[j] = a
+            e1[j] = e1s  # scaled `e1`
+            e2[j] = e2s  # scaled `e2`
+            avec[j] = a  # unsigned `a`
+            # e1scale[j] = e1_scalar
+
+            # First update scaled `a`, then update scale values
+            orthocscalar[j] = orthocscalar[j-1] + a*(e1cscalar[j-1]/e2cscalar[j-1])
+            e1cscalar[j] = e1cscalar[j-1]*e1_scalar
+            e2cscalar[j] = e2cscalar[j-1]*e2_scalar
         end
 
         # Calculate `Kⱼ` for use in next step, remember e(zⱼ₋₁) = Kⱼ e(zⱼ)
@@ -532,6 +565,7 @@ function nagano_integration(z, ea, frequency, bfield, species)
         for i = 1:4
             # TODO: Is this equivalent to LWMS.initialwavefields?
             # Apparently not? A little suspicious...
+            # BUG: Try with my solution? (initialwavefields)
             α = (T[4,2]*T[3,2] - (T[3,2] - q[i]^2)*(T[4,4] - q[i]))/
                 (T[3,1]*(T[4,4] - q[i]) - T[4,1]*T[3,4])
             β = (T[1,2] + α*(T[1,1] - q[i]))/T[1,4]
@@ -545,6 +579,7 @@ function nagano_integration(z, ea, frequency, bfield, species)
         if j == firstindex(z)
             # Initialize wavefields (at top height "m")
             e1[j] = SVector(B[:,1])  # == B*[1; 0; 0; 0]
+            e1cscalar[j] = 1  # no scaling applied
             e2[j] = SVector(B[:,2])  # == B*[0; 1; 0; 0]
         end
 
@@ -561,21 +596,33 @@ function nagano_integration(z, ea, frequency, bfield, species)
         Bvec[j] = SMatrix(B)
     end
 
-    # Reconstruct (unorthogonalize) wavefields
-    # From the bottom up!
-    # aeprod = MVector{4,eltype(avec)}(1,1,1,1)
-    aprod = one(ComplexF64)
+    #==
+    # Reconstruct the wavefields from the bottom up
+    # `aprod` is prod from s=1 (bottom height) to height j-1
+    e1prod = one(eltype(e1cscalar))
+    e2prod = one(eltype(e2cscalar))
+    orthosum = zero(eltype(orthocscalar))
     for j in reverse(eachindex(z))
-        if j == lastindex(z)  # == this is first(reverse(z))
-            # e2[j] = e2[j]
+        if j == lastindex(z)  # == first(reverse(eachindex(z)))
+            # don't unscale at bottom height
             continue
         end
-        aprod *= avec[j+1]
-        e2[j] += aprod*e1[j]
+        # e1prod *= avec[j+1]  # at previous (lower) height
+        e1prod *= e1cscalar[j]
+        e2prod *= e2cscalar[j]
+        orthosum = orthosum*e1cscalar[j]/e2cscalar[j] + orthocscalar[j]
+        e2[j] = (e2[j] - orthosum*e1[j])*e2prod
+        e1[j] *= e1prod
+        # e2[j] += aprod*e1[end]  # `e1` at bottom height
+        # e1[j] *= e1scale[j]  # unnormalize `e1`, which was scaled after `e2`
     end
+    ==#
 
     return e1, e2
 end
+
+# @test_skip vacuum wavefields  # (Nagano BC)
+
 
 # BUG: Handle when Ne = 0
 # electrons = Constituent(qₑ, mₑ,
@@ -588,6 +635,17 @@ electrons = Constituent(qₑ, mₑ,
 ea = EigenAngle(deg2rad(complex(40.0,0.0)))
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
+ground = Ground(15, 0.001)
+
+#==
+electrons = Constituent(qₑ, mₑ,
+        z -> waitprofile(z, 75, 0.32),
+        electroncollisionfrequency)
+
+ea = EigenAngle(deg2rad(complex(60.0,0.0)))
+bfield = BField(50e-6, deg2rad(59), deg2rad(90))
+tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(10e3), 100e3)
+==#
 
 zs = ztop:-100:0.0
 e1, e2 = nagano_integration(zs, ea, tx.frequency, bfield, electrons)
@@ -600,7 +658,7 @@ using Gnuplot
 @gp :- "set grid"
 @gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
 # @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e₁'"
 # @gp :- "set yrange [-10:10]"
 labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
 colors = Dict(1=>"red", 2=>"blue", 3=>"green", 4=>"black")
@@ -613,7 +671,7 @@ end
 @gp :- "set grid"
 @gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
 # @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
+@gp :- "set ylabel 'height (km)'" "set xlabel 'e₂'"
 # @gp :- "set yrange [-10:10]"
 labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
 colors = Dict(1=>"red", 2=>"blue", 3=>"green", 4=>"black")
@@ -638,6 +696,141 @@ end
 
 ########
 
+"""
+    vacuumreflectioncoeffs(ea, e)
+
+Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
+
+Integrating for one set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``
+can be separated into an upgoing and downgoing wave, each of which is generally
+elliptically polarized. One might assume that the ratio of the amplitudes of
+these two waves would give a reflection coefficient, and it does, except the
+coefficient would only apply for an incident wave of that particular elliptical
+polarization. However, the first set of fields can be linearly combined with
+a second independent solution for the fields, which will generally have a
+different elliptical polarization than the first. Two linear combinations of the
+two sets of fields are formed with unit amplitude, linearly polarized
+incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or
+``R₁₂``, ``R₂₂`` for the incident wave in the plane of incidence and
+perpendicular to it, respectively [Budden1988] (pg 552).
+
+The process for determining the reflection coefficient requires resolving the
+two sets of fields `e1` and `e2` into the four linearly polarized vacuum
+modes. The layer of vacuum can be assumed to be so thin that it does not affect
+the fields. There will be two upgoing waves, one of which has ``E``, and the
+other ``H`` in the plane of incidence, and two downgoing waves, with ``E`` and
+``H`` in the plane of incidence. If ``f₁, f₂, f₃, f₄`` are the complex
+amplitudes of the four component waves, then in matrix notation ``e = Sᵥ f``.
+
+For `e1` and `e2`, we can find the corresponding vectors `f1` and `f2` by
+``f1 = Sᵥ⁻¹ e1``, ``f2 = Sᵥ⁻¹ e2`` where the two column vectors are partitioned
+such that ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing
+2-element vectors `u` and `d`. From the definition of the reflection coefficient
+`R`, ``d = Ru``. Letting ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and
+the reflection coefficient is ``R = DU¹``. Because the reflection coefficient
+matrix is a ratio of fields, either `e1` and/or `e2` can be independently
+multiplied by an arbitrary constant and the value of `R` is unaffected.
+
+See Budden 1988 ch 18 sec 7
+"""
+function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1, e2) where {T}
+    # Convert `e` to linearly polarized vacuum modes
+
+    C = ea.cosθ
+    Cinv = 1/C
+
+    # TODO: Special Sv matrix (also useful elsewhere?)
+    Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,
+                               0, -1, 0, -1,
+                               0, -Cinv, 0, Cinv,
+                               1, 0, 1, 0)
+
+    f1 = Sv_inv*e1
+    f2 = Sv_inv*e2
+
+    U = SMatrix{2,2,eltype(f1),4}(f1[1], f1[2], f2[1], f2[2])
+    D = SMatrix{2,2,eltype(f2),4}(f1[3], f1[4], f2[3], f2[4])
+
+    return D/U
+end
+
+function lwpcreflectioncoeffs(ea::EigenAngle, e1, e2)
+    # From wf_r_mtrx.for
+
+    C = ea.cosθ
+
+    g12 = e1[1]*e2[2] - e2[1]*e1[2]
+    g13 = e1[1]*e2[3] - e2[1]*e1[3]
+    g14 = e1[1]*e2[4] - e2[1]*e1[4]
+    g23 = e1[2]*e2[3] - e2[2]*e1[3]
+    g24 = e1[2]*e2[4] - e2[2]*e1[4]
+    g34 = e1[3]*e2[4] - e2[3]*e1[4]
+
+    den = -g13 + C*(g34 - g12 + C*g24)
+
+    d11 = g13 + C*(g34 + g12 + C*g24)
+    d22 = g13 + C*(-g34 - g12 + C*g24)
+    d12 = 2*C*g14
+    d21 = 2*C*g23
+
+    return SMatrix{2,2,eltype(den),4}(d11/den, d21/den, d12/den, d22/den)
+end
+
+@test vacuumreflectioncoeffs(ea, e1[end], e2[end]) ≈ lwpcreflectioncoeffs(ea, e1[end], e2[end])
+
+########
+# Vacuum (ground) boundary condition
+
+R = vacuumreflectioncoeffs(ea, e1[end], e2[end])
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+
+function wavefieldboundary(R, Rg)
+
+    ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]
+    ex2, ey2, hx2, hy2 = e2[1], -e2[2], e2[3], e2[4]
+
+
+    hy0=(1.d0+z1)
+     &         /(1.d0+z1)
+            ey0=(1.d0+z2)
+     &         /(1.d0+z2)
+
+    hy0 = (1 + Rg[1,1])
+end
+
+
+
+########
+# Confirm Nagano BookerQuartic solution is valid
+
+M = LWMS.susceptibility(72e3, tx.frequency, bfield, electrons)
+T = LWMS.tmatrix(ea, M)
+LWMS.bookerquartic!(T)
+LWMS.sortquarticroots!(LWMS.BOOKER_QUARTIC_ROOTS)
+q = LWMS.BOOKER_QUARTIC_ROOTS
+
+B = MMatrix{4,4,ComplexF64,16}(undef)
+B[2,:] = 1  # TODO: Special BMatrix type
+for i = 1:4
+    α = (T[4,2]*T[3,2] - (T[3,2] - q[i]^2)*(T[4,4] - q[i]))/
+        (T[3,1]*(T[4,4] - q[i]) - T[4,1]*T[3,4])
+    β = (T[1,2] + α*(T[1,1] - q[i]))/T[1,4]
+
+    B[1,i] = α
+    # B[2,i] = 1
+    B[3,i] = q[i]
+    B[4,i] = β
+end
+
+
+for i = 1:4
+    @test_broken T*B[:,i] ≈ q[i]*B[:,i]
+end
+
+o = LWMS.initialwavefields(T)
+
+
+########
 
 function homogeneousiono()
     # Accuracy check for integration of wavefields. See Pitteway1965 pg 234

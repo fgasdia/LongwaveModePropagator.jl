@@ -34,7 +34,7 @@ end
     Ng²
     CNg²
     sqrtNg²mS²
-    Rg::SMatrix{2,2,T,4}
+    Rg::SDiagonal{2,T}
 end
 
 # TODO: G as its own type contained within this?
@@ -875,7 +875,7 @@ function _fresnelreflection(ea, ground, frequency)
     Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
     Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
 
-    Rg = SMatrix{2,2}(Rg11, 0, 0, Rg22)
+    Rg = SDiagonal(Rg11, Rg22)
 
     return FresnelReflectionVariables(Ng², CNg², sqrtNg²mS², Rg)
 end
@@ -907,7 +907,7 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
     dRg11 = (S2*Ng²*(1 - Ng²))/(sqrtNg²mS²*(CNg² + sqrtNg²mS²)^2)
     dRg22 = (S2*(C - sqrtNg²mS²))/(sqrtNg²mS²*(sqrtNg²mS² + C))
 
-    dRg = SMatrix{2,2}(dRg11, 0, 0, dRg22)
+    dRg = SDiagonal(dRg11, dRg22)
 
     return Rg, dRg
 end

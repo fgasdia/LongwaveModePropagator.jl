@@ -62,3 +62,53 @@ simplify((D31*D13/(D32*D11) - D33/D32)/(1 - D31*D12/(D32*D11)))
 
 # Ez
 simplify(Ez == )
+
+
+########
+# Nagano Booker quartic
+# Assumes e(2) = -ey = 1 (?) and e(3) = q
+
+@vars T11 T12 T14 T31 T32 T34 T41 T42 T44 q E1 E4
+
+# additional equation : T31*e1+T32-q^2+T34*e4
+sol = SymPy.solve([(T11-q)*E1+T12+T14*E4, T41*E1+T42+(T44-q)*E4], (E1, E4))
+
+NE1 = (T42*T32 - (T32 - q^2)*(T44 - q))/(T31*(T44-q)-T41*T34)
+NE4 = (T12 + NE1*(T11 - q))/T14
+
+
+
+########
+# Solve boundary conditions for Nagano integration
+
+@vars Eperpr Eperpi Eparr Epari A B C
+@vars e11 e12 e13 e14 e21 e22 e23 e24
+
+sol = SymPy.solve([A*e11+B*e21+Eparr*C-Epari*C,
+             A*e12+B*e22+Eperpr+Eperpi,
+             A*e13+B*e23-Eperpr*C+Eperpi*C,
+             A*e14+B*e24-Eparr-Epari], (A, B, Eparr, Eperpr))
+
+simplify(sol[A])
+simplify(sol[B])
+
+
+########
+# Calculate reflection coefficients from fields
+# Based on basically nothing. I'm assuming I can apply Sheddy 68 unnumbered eq after 4
+# THIS IS WRONG!!! so just ignore this...
+
+@vars Eperpr Eperpi Eparr Epari C
+@vars e11 e12 e13 e14 e21 e22 e23 e24
+
+sol = SymPy.solve([e11+e21-C*Epari+C*Eparr,
+                   e12+e22-Eperpi-Eperpr,
+                   e13+e23+C*Eperpi-C*Eperpr,
+                   e14+e24-Epari-Eparr], (Epari, Eparr, Eperpi, Eperpr))
+
+R11 = sol[Eparr]/sol[Epari]
+
+R12 = sol[Eparr]/sol[Eperpi]
+R21 = sol[Eperpr]/sol[Epari]
+
+R22 = sol[Eperpr]/sol[Eperpi]
