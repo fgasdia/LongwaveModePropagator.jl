@@ -3,8 +3,10 @@ using LinearAlgebra
 using StaticArrays
 using ElasticArrays  # resizable multidimensional arrays
 
-using OrdinaryDiffEq
+# using OrdinaryDiffEq
 using DifferentialEquations  # loading this to see what is chosen as default alg
+
+using Plots
 
 using GRPF
 
@@ -21,15 +23,21 @@ const qₑ = -1.602176634e-19  # C
 # Scenario
 ==#
 
-tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
+bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
 ground = Ground(15, 0.001)
-bfield = BField(50e-6, deg2rad(50), deg2rad(300))
+
 electrons = Constituent(qₑ, mₑ,
-        z -> waitprofile(z, 75, 0.32, H),
-        z -> electroncollisionfrequency(z, H))
+                        z -> waitprofile(z, 75, 0.32),
+                        electroncollisionfrequency)
+
+# electrons = Constituent(qₑ, mₑ,
+#         z -> waitprofile(z, 75, 0.32, H),
+#         z -> electroncollisionfrequency(z, H))
 
 # ea = modes[argmax(real(getfield.(modes, :θ)))]  # largest real resonant mode
-ea = EigenAngle(complex(1.47152908, -0.0121998877))
+# ea = modes[argmax(real(modes))]
+ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
 # TODO: figure out how to confirm this ht is high enough
 ztop = 120e3
@@ -65,6 +73,7 @@ tmpq2 = copy(LWMS.BOOKER_QUARTIC_ROOTS)
 # NOTE: Runtime is dominated by `roots!` so currently no meaningful difference
 # between the two
 
+#==
 M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 
@@ -82,11 +91,13 @@ for i in eachindex(qT)
     booker = qT[i]^4 + BT[4]*qT[i]^3 + BT[3]*qT[i]^2 + BT[2]*qT[i] + BT[1]
     @test isapprox(booker, 0, atol=1e-7)
 end
-
+==#
 
 ########
 # We choose the 2 roots corresponding to upward travelling waves as being those that lie
 # close to the positive real and negative imaginary axis (315° on the complex plane)
+
+#==
 e = LWMS.initialwavefields(T)
 q = LWMS.BOOKER_QUARTIC_ROOTS
 
@@ -97,7 +108,7 @@ end
 for i = 1:2
     @test T*e[:,i] ≈ Array(T)*e[:,i]
 end
-
+==#
 
 ########
 #==
@@ -108,6 +119,7 @@ This shows that there are problems with magnetic dip angles of ±1°.
 Also, the loop below is slow.
 ==#
 
+#==
 # dips = -90:90
 dips = vcat(-90:-2, 2:90) # Without ±1°
 azims = 0:359
@@ -195,10 +207,277 @@ display(scene)
 # ylabel("Im")
 # savefig("roots.svg")
 
+==#
+
+
+########
+# Integrate wavefields
+
+
+zs = ztop:-100:0.0
+
+
+#==
+Calculate ionosphere reflection coefficient from `e`
+==#
+
+"""
+    vacuumreflectioncoeffs(ea, e)
+
+Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
+
+Integrating for one set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``
+can be separated into an upgoing and downgoing wave, each of which is generally
+elliptically polarized. One might assume that the ratio of the amplitudes of
+these two waves would give a reflection coefficient, and it does, except the
+coefficient would only apply for an incident wave of that particular elliptical
+polarization. However, the first set of fields can be linearly combined with
+a second independent solution for the fields, which will generally have a
+different elliptical polarization than the first. Two linear combinations of the
+two sets of fields are formed with unit amplitude, linearly polarized
+incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or
+``R₁₂``, ``R₂₂`` for the incident wave in the plane of incidence and
+perpendicular to it, respectively [Budden1988] (pg 552).
+
+The process for determining the reflection coefficient requires resolving the
+two sets of fields `e1` and `e2` into the four linearly polarized vacuum
+modes. The layer of vacuum can be assumed to be so thin that it does not affect
+the fields. There will be two upgoing waves, one of which has ``E``, and the
+other ``H`` in the plane of incidence, and two downgoing waves, with ``E`` and
+``H`` in the plane of incidence. If ``f₁, f₂, f₃, f₄`` are the complex
+amplitudes of the four component waves, then in matrix notation ``e = Sᵥ f``.
+
+For `e1` and `e2`, we can find the corresponding vectors `f1` and `f2` by
+``f1 = Sᵥ⁻¹ e1``, ``f2 = Sᵥ⁻¹ e2`` where the two column vectors are partitioned
+such that ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing
+2-element vectors `u` and `d`. From the definition of the reflection coefficient
+`R`, ``d = Ru``. Letting ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and
+the reflection coefficient is ``R = DU¹``. Because the reflection coefficient
+matrix is a ratio of fields, either `e1` and/or `e2` can be independently
+multiplied by an arbitrary constant and the value of `R` is unaffected.
+
+See Budden 1988 ch 18 sec 7
+"""
+function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::AbstractArray{T2}) where {T,T2}
+    C = ea.cosθ
+    Cinv = 1/C
+
+    # TODO: Special Sv matrix (also useful elsewhere?)
+    Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,
+                               0, -1, 0, -1,
+                               0, -Cinv, 0, Cinv,
+                               1, 0, 1, 0)
+
+    f1 = Sv_inv*e1
+    f2 = Sv_inv*e2
+
+    out_type = promote_type(T, T2)
+    U = SMatrix{2,2,out_type,4}(f1[1], f1[2], f2[1], f2[2])
+    D = SMatrix{2,2,out_type,4}(f1[3], f1[4], f2[3], f2[4])
+
+    return D/U
+end
+
+
+
+# probably incorrect wavefield calculation
+@test_broken all(abs.(vacuumR) .<= 1)  # Budden 88 says "modulus" (abs) of each component should be <=1
+
+# Compare to Budden integration of R
+modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
+Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
+prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
+sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
+
+# an issue with calculation of wavefields?
+@test_broken R ≈ sol[end]
+
+#==
+Vacuum (ground) boundary condition
+==#
+
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+
+f = LWMS.modalequation(R, Rg)
+@test isapprox(f, 0, atol=1e-3)  # is it worth iterating ea? dRdz is closer...
+
+"""
+    wavefieldboundary(R, Rg, e1, e2)
+
+Calculate coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield
+as ``e = b1*e1 + b2*e2``.
+
+This process is used by LWPC and is similar to the calculation of excitation
+factor at the ground because it makes use of the mode condition.
+"""
+function wavefieldboundary(R, Rg, e1, e2)
+    # This process is similar to excitation factor calculation, using the
+    # waveguide mode condition
+
+    Ex1, Ey1, Hx1, Hy1 = e1[1], -e1[2], e1[3], e1[4]
+    Ex2, Ey2, Hx2, Hy2 = e2[1], -e2[2], e2[3], e2[4]
+
+    # at the ground, modify for flat earth
+    Hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
+    # ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
+
+    # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
+    abparal = 1 - Rg[1,1]*R[1,1]
+    abperp = 1 - Rg[2,2]*R[2,2]
+    if abs2(abparal) < abs2(abperp)
+        pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*(1 - Rg[2,2]*R[2,2]))
+    else
+        pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
+    end
+
+    a = (-Ey1 + pol*Hy1)/(Ey2 - pol*Hy2)
+
+    Hysum = Hy1 + a*Hy2
+
+    b1 = Hy0/Hysum
+    b2 = b1*a
+
+    return b1, b2
+end
+
+#==
+Integration with bigfloats
+==#
+
+function integratefields(e, p, z)
+    frequency, bfield, species = p
+
+    M = LWMS.susceptibility(z, frequency, bfield, species)
+    T = LWMS.tmatrix(ea, M)
+
+    return LWMS.dedz(e, frequency, T)
+end
+
+
+M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
+T = LWMS.tmatrix(ea, M)
+e0 = LWMS.initialwavefields(T)
+
+p = (frequency=tx.frequency, bfield=bfield, species=electrons)
+e0 = big.(e0)
+
+# `dt` argument is initial stepsize
+# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
+# size with λ in ionosphere / 10 or something like that
+# NOTE: The BigFloats make this quite slow...
+prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
+sol = DifferentialEquations.solve(prob, abstol=1e-9, reltol=1e-9,
+                                  dt=tx.frequency.λ/50, progress=true)
+
+e = sol[:,end]
+e1, e2 = e[:,1], e[:,2]
+
+# need to make isbitstype for SArray
+e1 = convert.(ComplexF64, e1)
+e2 = convert.(ComplexF64, e2)
+
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+b1, b2 = wavefieldboundary(R, Rg, e1, e2)
+
+totale = sol(zs)[:,1,:]*b1 + sol(zs)[:,2,:]*b2
+
+plotly()
+labels = ["Ex" "Ey" "Hx" "Hy"]
+colors = palette(:tab10)[1:4]
+p = plot(real.(totale'), zs/1000,
+         label=labels, palette=palette(:tab10), linecolor=[1 2 3 4], linewidth=2)
+plot!(p, imag.(totale'), zs/1000,
+      ls=:dash, label=nothing, palette=palette(:tab10), linecolor=[1 2 3 4], linewidth=2)
+xlabel!("e")
+ylabel!("altitude (km)")
+
+
+#==
+Integration with scaling
+==#
+
+mutable struct WavefieldMatrix{T,T2} <: DEDataMatrix{T}
+    x::SMatrix{4,2,T,8}
+    ctrl_x::T2 # controller state
+    ctrl_u::T2 # controller output
+end
+
+function f(x,p,t)
+  x.ctrl_u .- x
+end
+
+function f(dx,x,p,t)
+  dx[1] = x.ctrl_u - x[1]
+end
+
+ctrl_f(e, x) = 0.85(e + 1.2x)
+
+x0 = CtrlSimTypeScalar([0.0], 0.0, 0.0)
+prob = ODEProblem{false}(f, x0, (0.0, 8.0))
+
+function ctrl_fun(int)
+  e = 1 - int.u[1] # control error
+
+  # pre-calculate values to avoid overhead in iteration over cache
+  x_new = int.u.ctrl_x + e
+  u_new = ctrl_f(e, x_new)
+
+  # iterate over cache...
+  if DiffEqBase.isinplace(int.sol.prob)
+    for c in full_cache(int)
+        c.ctrl_x = x_new
+        c.ctrl_u = u_new
+    end
+  end
+end
+
+integrator = init(prob, Tsit5())
+
+# take 8 steps with a sampling time of 1s
+Ts = 1.0
+for i in 1:8
+  ctrl_fun(integrator)
+  DiffEqBase.step!(integrator,Ts,true)
+end
+
+sol = integrator.sol
+@test [u.ctrl_u for u in sol.u[2:end]] == [sol(t).ctrl_u for t in sol.t[2:end]]
+
+prob = ODEProblem{true}(f, x0, (0.0, 8.0))
+
+integrator = init(prob, Rosenbrock23())
+
+# take 8 steps with a sampling time of 1s
+Ts = 1.0
+for i in 1:8
+  ctrl_fun(integrator)
+  DiffEqBase.step!(integrator,Ts,true)
+end
+
+sol = integrator.sol
+@test [u.ctrl_u for u in sol.u[2:end]] == [sol(t).ctrl_u for t in sol.t[2:e
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ########
 
 #==
-Integrate the wavefields
+Integrate the wavefields - TEST
 ==#
 
 function integratefields(e, p, z)
@@ -694,111 +973,6 @@ for i = 1:4
 end
 
 
-########
-
-"""
-    vacuumreflectioncoeffs(ea, e)
-
-Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
-
-Integrating for one set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``
-can be separated into an upgoing and downgoing wave, each of which is generally
-elliptically polarized. One might assume that the ratio of the amplitudes of
-these two waves would give a reflection coefficient, and it does, except the
-coefficient would only apply for an incident wave of that particular elliptical
-polarization. However, the first set of fields can be linearly combined with
-a second independent solution for the fields, which will generally have a
-different elliptical polarization than the first. Two linear combinations of the
-two sets of fields are formed with unit amplitude, linearly polarized
-incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or
-``R₁₂``, ``R₂₂`` for the incident wave in the plane of incidence and
-perpendicular to it, respectively [Budden1988] (pg 552).
-
-The process for determining the reflection coefficient requires resolving the
-two sets of fields `e1` and `e2` into the four linearly polarized vacuum
-modes. The layer of vacuum can be assumed to be so thin that it does not affect
-the fields. There will be two upgoing waves, one of which has ``E``, and the
-other ``H`` in the plane of incidence, and two downgoing waves, with ``E`` and
-``H`` in the plane of incidence. If ``f₁, f₂, f₃, f₄`` are the complex
-amplitudes of the four component waves, then in matrix notation ``e = Sᵥ f``.
-
-For `e1` and `e2`, we can find the corresponding vectors `f1` and `f2` by
-``f1 = Sᵥ⁻¹ e1``, ``f2 = Sᵥ⁻¹ e2`` where the two column vectors are partitioned
-such that ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing
-2-element vectors `u` and `d`. From the definition of the reflection coefficient
-`R`, ``d = Ru``. Letting ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and
-the reflection coefficient is ``R = DU¹``. Because the reflection coefficient
-matrix is a ratio of fields, either `e1` and/or `e2` can be independently
-multiplied by an arbitrary constant and the value of `R` is unaffected.
-
-See Budden 1988 ch 18 sec 7
-"""
-function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1, e2) where {T}
-    # Convert `e` to linearly polarized vacuum modes
-
-    C = ea.cosθ
-    Cinv = 1/C
-
-    # TODO: Special Sv matrix (also useful elsewhere?)
-    Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,
-                               0, -1, 0, -1,
-                               0, -Cinv, 0, Cinv,
-                               1, 0, 1, 0)
-
-    f1 = Sv_inv*e1
-    f2 = Sv_inv*e2
-
-    U = SMatrix{2,2,eltype(f1),4}(f1[1], f1[2], f2[1], f2[2])
-    D = SMatrix{2,2,eltype(f2),4}(f1[3], f1[4], f2[3], f2[4])
-
-    return D/U
-end
-
-function lwpcreflectioncoeffs(ea::EigenAngle, e1, e2)
-    # From wf_r_mtrx.for
-
-    C = ea.cosθ
-
-    g12 = e1[1]*e2[2] - e2[1]*e1[2]
-    g13 = e1[1]*e2[3] - e2[1]*e1[3]
-    g14 = e1[1]*e2[4] - e2[1]*e1[4]
-    g23 = e1[2]*e2[3] - e2[2]*e1[3]
-    g24 = e1[2]*e2[4] - e2[2]*e1[4]
-    g34 = e1[3]*e2[4] - e2[3]*e1[4]
-
-    den = -g13 + C*(g34 - g12 + C*g24)
-
-    d11 = g13 + C*(g34 + g12 + C*g24)
-    d22 = g13 + C*(-g34 - g12 + C*g24)
-    d12 = 2*C*g14
-    d21 = 2*C*g23
-
-    return SMatrix{2,2,eltype(den),4}(d11/den, d21/den, d12/den, d22/den)
-end
-
-@test vacuumreflectioncoeffs(ea, e1[end], e2[end]) ≈ lwpcreflectioncoeffs(ea, e1[end], e2[end])
-
-########
-# Vacuum (ground) boundary condition
-
-R = vacuumreflectioncoeffs(ea, e1[end], e2[end])
-Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-
-function wavefieldboundary(R, Rg)
-
-    ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]
-    ex2, ey2, hx2, hy2 = e2[1], -e2[2], e2[3], e2[4]
-
-
-    hy0=(1.d0+z1)
-     &         /(1.d0+z1)
-            ey0=(1.d0+z2)
-     &         /(1.d0+z2)
-
-    hy0 = (1 + Rg[1,1])
-end
-
-
 
 ########
 # Confirm Nagano BookerQuartic solution is valid
@@ -831,6 +1005,11 @@ o = LWMS.initialwavefields(T)
 
 
 ########
+#==
+TESTS
+
+and LWPC comparisons
+==#
 
 function homogeneousiono()
     # Accuracy check for integration of wavefields. See Pitteway1965 pg 234
@@ -839,6 +1018,33 @@ function homogeneousiono()
 end
 @test_skip homogeneousiono() ≈ bookerquartic()
 
+
+
+
+function lwpcreflectioncoeffs(ea::EigenAngle, e1, e2)
+    # From wf_r_mtrx.for
+
+    C = ea.cosθ
+
+    g12 = e1[1]*e2[2] - e2[1]*e1[2]
+    g13 = e1[1]*e2[3] - e2[1]*e1[3]
+    g14 = e1[1]*e2[4] - e2[1]*e1[4]
+    g23 = e1[2]*e2[3] - e2[2]*e1[3]
+    g24 = e1[2]*e2[4] - e2[2]*e1[4]
+    g34 = e1[3]*e2[4] - e2[3]*e1[4]
+
+    den = -g13 + C*(g34 - g12 + C*g24)
+
+    d11 = g13 + C*(g34 + g12 + C*g24)
+    d22 = g13 + C*(-g34 - g12 + C*g24)
+    d12 = 2*C*g14
+    d21 = 2*C*g23
+
+    return SMatrix{2,2,eltype(den),4}(d11/den, d21/den, d12/den, d22/den)
+end
+
+vacuumR = vacuumreflectioncoeffs(ea, e1[end], e2[end])
+@test vacuumR ≈ lwpcreflectioncoeffs(ea, e1[end], e2[end])
 
 
 
@@ -881,3 +1087,5 @@ function lwpcscale(p1, p2)
 
     return SVector(e1), SVector(e2)
 end
+
+########

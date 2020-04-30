@@ -835,7 +835,11 @@ function integratedreflection(ea::EigenAngle, modeparams::ModeParameters)
 
     Rtop = sharpboundaryreflection(ea, Mtop)
 
+    # TODO: Integration method
+    # TODO: Does saving actually alter performance?
     prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, modeparams))
+
+    # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
 
     return sol[end]
@@ -853,6 +857,8 @@ function integratedreflection(ea::EigenAngle, modeparams::ModeParameters, ::Deri
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, modeparams))
+
+    # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
 
     return sol[end]
