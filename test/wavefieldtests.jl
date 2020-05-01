@@ -278,9 +278,13 @@ function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::Ab
     return D/U
 end
 
+# Test R at "top"
+Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
+Ttop = LWMS.tmatrix(ea, Mtop)
+etop = LWMS.initialwavefields(Ttop)
+@test LWMS.sharpboundaryreflection(ea, Mtop) ≈ vacuumreflectioncoeffs(ea, etop[:,1], etop[:,2])
 
-
-# probably incorrect wavefield calculation
+# BUG: broken wavefield calculation?
 @test_broken all(abs.(vacuumR) .<= 1)  # Budden 88 says "modulus" (abs) of each component should be <=1
 
 # Compare to Budden integration of R
@@ -290,7 +294,7 @@ Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
 prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
 sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
 
-# an issue with calculation of wavefields?
+# BUG: broken wavefield calculation or drdz?
 @test_broken R ≈ sol[end]
 
 #==
@@ -347,7 +351,7 @@ Integration with bigfloats
 ==#
 
 function integratefields(e, p, z)
-    frequency, bfield, species = p
+    frequency, bfield, species = p.magnetoionic
 
     M = LWMS.susceptibility(z, frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
@@ -360,7 +364,7 @@ M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
 
-p = (frequency=tx.frequency, bfield=bfield, species=electrons)
+p = (;magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
 e0 = big.(e0)
 
 # `dt` argument is initial stepsize
@@ -395,72 +399,111 @@ xlabel!("e")
 ylabel!("altitude (km)")
 
 
+########
 #==
 Integration with scaling
 ==#
 
-mutable struct WavefieldMatrix{T,T2} <: DEDataMatrix{T}
-    x::SMatrix{4,2,T,8}
-    ctrl_x::T2 # controller state
-    ctrl_u::T2 # controller output
+"""
+    scalewavefields(e1, e2, s)
+
+Orthonormalize vectors `e1` and `e2` and records scaling terms in `s`.
+
+First applies Gram-Schmidt orthogonalization and then scales the vectors so they
+each have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique
+suggested by [^Pitteway1965] to counter numerical swamping during integration of
+wavefields.
+
+!!! note
+
+    Elements of `s` are modified in place.
+
+
+# References
+
+[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields,
+reflexion coefficients and polarizations for long radio waves in the lower
+ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
+pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
+
+[^Smith1974]: G. H. Smith and M. L. V. Pitteway, “Fortran Program for Obtaining
+Wavefields of Penetrating, Nonpenetrating, and Whistler Modes of Radio Waves in
+the Ionosphere,” in ELF-VLF Radio Wave Propagation, 1974, pp. 69–86.
+"""
+function scalewavefields(e1::AbstractVector, e2::AbstractVector)
+    # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
+    # `dot` for complex vectors automatically conjugates first vector
+    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), NOTE: imag == 0
+    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
+    e2 -= a*e1
+
+    # Normalize `e1` and `e2`
+    e1_scale_val = 1/sqrt(e1_dot_e1)
+    e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
+    e1 *= e1_scale_val
+    e2 *= e2_scale_val  # == normalize(e2)
+
+    return e1, e2, a, e1_scale_val, e2_scale_val
 end
 
-function f(x,p,t)
-  x.ctrl_u .- x
+"""
+    scalewavefields(e, s)
+
+!!! note
+
+    This function only applies scaling to the first 2 columns of `e`.
+"""
+function scalewavefields(e::AbstractArray)
+    e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
+
+    # this works for a 4×2 `e` because `e[3:end]` will return a 4×0 array
+    e = hcat(e1, e2, e[:,3:end])
+
+    return e, a, e1_scale_val, e2_scale_val
 end
 
-function f(dx,x,p,t)
-  dx[1] = x.ctrl_u - x[1]
+
+
+
+# if any element of `e` has a real or imaginary component >= 1...
+condition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
+function affect!(integrator)
+    new_e, new_orthocs, new_e1cs, new_e2cs = scalewavefields(integrator.u)
+
+    # Last set of scaling values
+    orthocs, e1cs, e2cs, magnetoionic = integrator.p
+
+    # TODO: Cleanup this system of params with nested NamedTuples - struct?
+
+    # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
+    integrator.p = (ortho_cumulative_scalar=orthocs+new_orthocs*e1cs/e2cs,
+                    e1_cumulative_scalar=e1cs*new_e1cs,
+                    e2_cumulative_scalar=e2cs*new_e2cs,
+                    magnetoionic=magnetoionic)
+
+    integrator.u = new_e
+
+    return nothing
 end
+cb = DiscreteCallback(condition, affect!)
 
-ctrl_f(e, x) = 0.85(e + 1.2x)
+saved_values = SavedValues(typeof(ztop), Tuple{SMatrix{4,2,Complex{Float64},8},
+                                               Float64, Float64, Float64})
+save_values(u, t, integrator) = (u,
+                                 integrator.p.ortho_cumulative_scalar,
+                                 integrator.p.e1_cumulative_scalar,
+                                 integrator.p.e2_cumulative_scalar)
+scb = SavingCallback(save_values, saved_values)
 
-x0 = CtrlSimTypeScalar([0.0], 0.0, 0.0)
-prob = ODEProblem{false}(f, x0, (0.0, 8.0))
+Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
+Ttop = LWMS.tmatrix(ea, Mtop)
+e0 = LWMS.initialwavefields(Ttop)
 
-function ctrl_fun(int)
-  e = 1 - int.u[1] # control error
-
-  # pre-calculate values to avoid overhead in iteration over cache
-  x_new = int.u.ctrl_x + e
-  u_new = ctrl_f(e, x_new)
-
-  # iterate over cache...
-  if DiffEqBase.isinplace(int.sol.prob)
-    for c in full_cache(int)
-        c.ctrl_x = x_new
-        c.ctrl_u = u_new
-    end
-  end
-end
-
-integrator = init(prob, Tsit5())
-
-# take 8 steps with a sampling time of 1s
-Ts = 1.0
-for i in 1:8
-  ctrl_fun(integrator)
-  DiffEqBase.step!(integrator,Ts,true)
-end
-
-sol = integrator.sol
-@test [u.ctrl_u for u in sol.u[2:end]] == [sol(t).ctrl_u for t in sol.t[2:end]]
-
-prob = ODEProblem{true}(f, x0, (0.0, 8.0))
-
-integrator = init(prob, Rosenbrock23())
-
-# take 8 steps with a sampling time of 1s
-Ts = 1.0
-for i in 1:8
-  ctrl_fun(integrator)
-  DiffEqBase.step!(integrator,Ts,true)
-end
-
-sol = integrator.sol
-@test [u.ctrl_u for u in sol.u[2:end]] == [sol(t).ctrl_u for t in sol.t[2:e
-
-
+p = (ortho_cumulative_scalar=zero(eltype(e0)), e1_cumulative_scalar=1.0, e2_cumulative_scalar=1.0,
+     magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
+prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
+sol = solve(prob, callback=CallbackSet(cb, scb))
+            # save_everystep=false, save_start=false, save_end=false)
 
 
 
@@ -582,70 +625,6 @@ mutable struct WavefieldMatrix{T,T2} <: DEDataMatrix{T}
     x::Matrix{T}
     e1norm::Vector{T2}
     count::Int
-end
-
-
-"""
-    scalewavefields(e1, e2, s)
-
-Orthonormalize vectors `e1` and `e2` and records scaling terms in `s`.
-
-First applies Gram-Schmidt orthogonalization and then scales the vectors so they
-each have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique
-suggested by [^Pitteway1965] to counter numerical swamping during integration of
-wavefields.
-
-!!! note
-
-    Elements of `s` are modified in place.
-
-
-# References
-
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields,
-reflexion coefficients and polarizations for long radio waves in the lower
-ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
-pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
-
-[^Smith1974]: G. H. Smith and M. L. V. Pitteway, “Fortran Program for Obtaining
-Wavefields of Penetrating, Nonpenetrating, and Whistler Modes of Radio Waves in
-the Ionosphere,” in ELF-VLF Radio Wave Propagation, 1974, pp. 69–86.
-
-"""
-function scalewavefields(e1::AbstractVector, e2::AbstractVector)
-    # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
-    # `dot` for complex vectors automatically conjugates first vector
-    e1_dot_e1 = dot(e1, e1)  # == sum(abs2.(e1))
-    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
-    e2 -= a*e1
-
-    # Normalize `e1` and `e2`
-    e1_scale_val = 1/sqrt(e1_dot_e1)
-    e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
-    e1 *= e1_scale_val
-    e2 *= e2_scale_val  # == normalize(e2)
-
-    # Scale norm(e1) to norm(e2)
-    # u = L/norm(v)⋅v, so e1 = norm(e2)/norm(e2)⋅e1
-    # equivalently, to save a sqrt
-    # If I scale a vector that's already orthogonal with another, they're still
-    # orthogonal
-
-    return e1, e2, a, e1_scale_val, e2_scale_val
-end
-
-"""
-    myscale(e, s)
-
-!!! note
-
-    This function only applies scaling to the first 2 columns of `e`.
-"""
-function scalewavefields(e::AbstractArray)
-    e1, e2 = scalewavefields(e[:,1], e[:,2])
-
-    # this works for a 4×2 `e` because `e[3:end]` will return a 4×0 array
-    return hcat(e1, e2, e[:,3:end])
 end
 
 
