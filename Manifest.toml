@@ -20,9 +20,9 @@ version = "0.0.4"
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "9b83ca9f3fa064f2a4627f6e39a15c6fb0b0ae17"
+git-tree-sha1 = "649c08a5a3a513f4662673d3777fe6ccb4df9f5d"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.8.6"
+version = "2.8.7"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -90,9 +90,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "ConsoleProgressMonitor", "DataStructures", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "LoggingExtras", "MuladdMacro", "Parameters", "Printf", "ProgressLogging", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TerminalLoggers", "TreeViews", "ZygoteRules"]
-git-tree-sha1 = "e97285a4b71efb70ba53daa54b025964f7e47330"
+git-tree-sha1 = "7150d69c1616d78e4af223a6e4f87db0b2955f4d"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.31.0"
+version = "6.31.1"
 
 [[DiffResults]]
 deps = ["StaticArrays"]
@@ -297,15 +297,15 @@ version = "1.1.0"
 
 [[OrdinaryDiffEq]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "ExponentialUtilities", "FiniteDiff", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MacroTools", "MuladdMacro", "NLsolve", "RecursiveArrayTools", "Reexport", "SparseArrays", "SparseDiffTools", "StaticArrays", "UnPack"]
-git-tree-sha1 = "b00a83959294aec4f5b38f98ec84390578584400"
+git-tree-sha1 = "ae703a003cedf587103588c5789e7e2e35bf0c0b"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.35.1"
+version = "5.35.4"
 
 [[PROJ_jll]]
 deps = ["Libdl", "Pkg", "SQLite_jll"]
-git-tree-sha1 = "8847ec182cf2ab66527cedd602b701f04adcb079"
+git-tree-sha1 = "9f7cfb270831958a155a858fc5fd66bdd654b3a8"
 uuid = "58948b4f-47e0-5654-a9ad-f609743f8632"
-version = "6.3.0+0"
+version = "6.3.2+1"
 
 [[Parameters]]
 deps = ["OrderedCollections"]
@@ -425,10 +425,10 @@ deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[SparseDiffTools]]
-deps = ["Adapt", "ArrayInterface", "Compat", "DataStructures", "FiniteDiff", "ForwardDiff", "InteractiveUtils", "LightGraphs", "LinearAlgebra", "Requires", "SparseArrays", "VertexSafeGraphs"]
-git-tree-sha1 = "132c55cf302f1faf1d0d1c8205453764066cb018"
+deps = ["Adapt", "ArrayInterface", "Compat", "DataStructures", "FiniteDiff", "ForwardDiff", "LightGraphs", "LinearAlgebra", "Requires", "SparseArrays", "VertexSafeGraphs"]
+git-tree-sha1 = "b76129931f1f21eaebecd9f1db915cc4961a4908"
 uuid = "47a9eef4-7e08-11e9-0b38-333d64bd3804"
-version = "1.6.0"
+version = "1.7.1"
 
 [[SpecialFunctions]]
 deps = ["OpenSpecFun_jll"]

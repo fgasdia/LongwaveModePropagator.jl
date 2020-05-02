@@ -294,7 +294,7 @@ Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
 prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
 sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
 
-# BUG: broken wavefield calculation or drdz?
+# NOTE: this doesn't work with bigfloats, but it _does_ appear to work with scaling
 @test_broken R ≈ sol[end]
 
 #==
@@ -437,6 +437,16 @@ function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
     e2 -= a*e1
 
+    println("")
+    println("e1_dot_e1 val: $e1_dot_e1")
+    println("e1_dot_e1: $(typeof(e1_dot_e1))")
+
+    println("norm(e2) val: $(norm(e2))")
+    println("norm(e2): $(typeof(norm(e2)))")
+
+    println("a val: $a")
+    println("a: $(typeof(a))")
+
     # Normalize `e1` and `e2`
     e1_scale_val = 1/sqrt(e1_dot_e1)
     e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
@@ -488,7 +498,7 @@ end
 cb = DiscreteCallback(condition, affect!)
 
 saved_values = SavedValues(typeof(ztop), Tuple{SMatrix{4,2,Complex{Float64},8},
-                                               Float64, Float64, Float64})
+                                               Complex{Float64}, Float64, Float64})
 save_values(u, t, integrator) = (u,
                                  integrator.p.ortho_cumulative_scalar,
                                  integrator.p.e1_cumulative_scalar,
@@ -498,6 +508,7 @@ scb = SavingCallback(save_values, saved_values)
 Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 Ttop = LWMS.tmatrix(ea, Mtop)
 e0 = LWMS.initialwavefields(Ttop)
+# TODO: Normalize e0?
 
 p = (ortho_cumulative_scalar=zero(eltype(e0)), e1_cumulative_scalar=1.0, e2_cumulative_scalar=1.0,
      magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
@@ -505,16 +516,88 @@ prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
 sol = solve(prob, callback=CallbackSet(cb, scb))
             # save_everystep=false, save_start=false, save_end=false)
 
+# plot(real(sol[:,1,:])', sol.t/1000)
+
+e1, e2 = sol[:,1,end], sol[:,2,end]
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+b1, b2 = wavefieldboundary(R, Rg, e1, e2)
+
+# Compare to Budden integration of R
+modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
+prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
+sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
+
+@test R ≈ sol[end]
+
+"""
+    unscalewavefields(sol, p)
+
+# TODO: make an inplace version with e
+"""
+function unscalewavefields(scaled_e::AbstractArray{T}, ortho_cumulative_scalar, e1_cumulative_scalar, e2_cumulative_scalar) where {T}
+    # Back substitution of normalizing values applied during integration
+
+    # Array of SArray{Tuple{4,2}, Complex{Float64}}
+    e = Array{T}(undef, length(scaled_e))
+
+    osum = zero(eltype(ortho_cumulative_scalar))
+    prod_e1 = one(eltype(e1_cumulative_scalar))
+    prod_e2 = one(eltype(e2_cumulative_scalar))
+
+    for i in reverse(eachindex(e))
+
+        if i == lastindex(e)  # == [end]
+            # Bottom doesn't require correction
+            e[i] = scaled_e[i]
+        else
+            e2 = (scaled_e[i][:,2] - osum*scaled_e[i][:,1])*prod_e2
+            e1 = scaled_e[i][:,1]*prod_e1
+            e[i] = T(e1..., e2...)
+        end
+
+        osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
+        osum += ortho_cumulative_scalar[i]
+        prod_e1 *= e1_cumulative_scalar[i]
+        prod_e2 *= e2_cumulative_scalar[i]
+    end
+
+    return e
+end
+
+"""
+Unpack array of tuples `saveval` to individual arrays.
+"""
+function unscalewavefields(saveval)
+    types = fieldtypes(eltype(saveval))
+
+    # NOTE: make sure types match order of SavedValues
+    scaled_e = Array{types[1]}(undef, length(saveval))
+    ortho_cumulative_scalar = Array{types[2]}(undef, length(saveval))
+    e1_cumulative_scalar = Array{types[3]}(undef, length(saveval))
+    e2_cumulative_scalar = Array{types[4]}(undef, length(saveval))
+
+    for i in eachindex(saveval)
+        # NOTE: also make sure fields are indexed correctly
+        scaled_e[i] = saveval[i][1]
+        ortho_cumulative_scalar[i] = saveval[i][2]
+        e1_cumulative_scalar[i] = saveval[i][3]
+        e2_cumulative_scalar[i] = saveval[i][4]
+    end
+
+    return unscalewavefields(scaled_e, ortho_cumulative_scalar, e1_cumulative_scalar, e2_cumulative_scalar)
+end
+
+e = unscalewavefields(saved_values.saveval)
 
 
 
 
 
+function fieldstrengths()
 
-
-
-
-
+end
 
 
 ########
