@@ -2,6 +2,7 @@ using Test
 using LinearAlgebra
 using StaticArrays
 using ElasticArrays  # resizable multidimensional arrays
+using Parameters
 
 # using OrdinaryDiffEq
 using DifferentialEquations  # loading this to see what is chosen as default alg
@@ -40,7 +41,17 @@ electrons = Constituent(qₑ, mₑ,
 ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
 # TODO: figure out how to confirm this ht is high enough
-ztop = 120e3
+ztop = 100e3
+
+@with_kw struct WavefieldIntegrationParams{T1,T2,F,G}
+    z::T1
+    ortho_scalar::Complex{T2}
+    e1_scalar::T2
+    e2_scalar::T2
+    frequency::Frequency
+    bfield::BField
+    species::Constituent{F,G}
+end
 
 #==
 modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
@@ -351,7 +362,7 @@ Integration with bigfloats
 ==#
 
 function integratefields(e, p, z)
-    frequency, bfield, species = p.magnetoionic
+    @unpack frequency, bfield, species = p
 
     M = LWMS.susceptibility(z, frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
@@ -364,7 +375,8 @@ M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
 
-p = (;magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
+# p = (;magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
+p = WavefieldIntegrationParams(0,complex(0),0,0,tx.frequency, bfield, electrons)
 e0 = big.(e0)
 
 # `dt` argument is initial stepsize
@@ -462,26 +474,29 @@ function scalewavefields(e::AbstractArray)
     return e, a, e1_scale_val, e2_scale_val
 end
 
-
+struct ScaleRecord{T1,T2}
+    z::T1
+    e::SMatrix{4,2,Complex{T2},8}
+    ortho_scalar::Complex{T2}
+    e1_scalar::T2
+    e2_scalar::T2
+end
 
 
 # if any element of `e` has a real or imaginary component >= 1...
 condition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
 function affect!(integrator)
-    new_e, new_orthocs, new_e1cs, new_e2cs = scalewavefields(integrator.u)
+    new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    orthocs, e1cs, e2cs, magnetoionic = integrator.p
-
-    # TODO: Cleanup this system of params with nested NamedTuples - struct?
-
-    # "accumulated" vs "cumulative"
+    # lastz, orthocs, e1cs, e2cs, magnetoionic = integrator.p
+    @unpack frequency, bfield, species = integrator.p
 
     # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
-    integrator.p = (ortho_cumulative_scalar=orthocs+new_orthocs*e1cs/e2cs,
-                    e1_cumulative_scalar=e1cs*new_e1cs,
-                    e2_cumulative_scalar=e2cs*new_e2cs,
-                    magnetoionic=magnetoionic)
+    integrator.p = WavefieldIntegrationParams(integrator.t,
+                                              new_orthos*new_e1s/new_e2s,
+                                              new_e1s, new_e2s,
+                                              frequency, bfield, species)
 
     integrator.u = new_e
 
@@ -489,30 +504,34 @@ function affect!(integrator)
 end
 cb = DiscreteCallback(condition, affect!)
 
-saved_values = SavedValues(typeof(ztop), Tuple{SMatrix{4,2,Complex{Float64},8},
-                                               Complex{Float64}, Float64, Float64})
-save_values(u, t, integrator) = (u,
-                                 integrator.p.ortho_cumulative_scalar,
-                                 integrator.p.e1_cumulative_scalar,
-                                 integrator.p.e2_cumulative_scalar)
+saved_values = SavedValues(typeof(ztop), ScaleRecord{Float64, Float64})
+save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
+                                            u,
+                                            integrator.p.ortho_scalar,
+                                            integrator.p.e1_scalar,
+                                            integrator.p.e2_scalar)
+
+# `save_everystep` because we need to make sure we save when affect! occurs
+# `saveat=zs[2:end-1]` because otherwise we double save end points
 scb = SavingCallback(save_values, saved_values,
-                     saveat=zs,
-                     tdir=sign(zs[end]-zs[1]))  # necessary because we're going down!
+                     saveat=zs[2:end-1], save_everystep=true,
+                     tdir=-1)  # necessary because we're going down!
 
 Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 Ttop = LWMS.tmatrix(ea, Mtop)
 e0 = LWMS.initialwavefields(Ttop)
 # TODO: Normalize e0?
 
-p = (ortho_cumulative_scalar=zero(eltype(e0)), e1_cumulative_scalar=1.0, e2_cumulative_scalar=1.0,
-     magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
+# p = (z=ztop, ortho_scalar=zero(eltype(e0)), e1_scalar=1.0, e2_scalar=1.0,
+     # magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
+p = WavefieldIntegrationParams(ztop, zero(eltype(e0)), 1.0, 1.0, tx.frequency, bfield, electrons)
 prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
 sol = solve(prob, callback=CallbackSet(cb, scb),
             save_everystep=false, save_start=false, save_end=false)
 
 # plot(real(sol[:,1,:])', sol.t/1000)
 
-e1, e2 = saved_values.saveval[end][1][:,1], saved_values.saveval[end][1][:,2]
+e1, e2 = saved_values.saveval[end].e[:,1], saved_values.saveval[end].e[:,2]
 R = vacuumreflectioncoeffs(ea, e1, e2)
 Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
 b1, b2 = wavefieldboundary(R, Rg, e1, e2)
@@ -543,78 +562,73 @@ We do not need to keep track of cumulative values on the way down.
 We only need to update the cumulative correction on the way up when there is a
 new correction.
 """
-function unscalewavefields(scaled_e::AbstractArray{T}, ortho_cumulative_scalar, e1_cumulative_scalar, e2_cumulative_scalar) where {T}
-    # Back substitution of normalizing values applied during integration
+function unscalewavefields(saved_values::SavedValues)
 
-    # TODO: make an inplace version with e
-    # TODO: only do multiplications when necessary (not eachindex e)
+    zs = saved_values.t
+    records = saved_values.saveval
+
+    # TODO: inplace e? (so we can provide an explicit `e` array to be updated)
 
     # Array of SArray{Tuple{4,2}, Complex{Float64}}
-    e = Array{T}(undef, length(scaled_e))
+    e = Vector{typeof(records[1].e)}(undef, length(records))
 
-    # osum = zero(eltype(ortho_cumulative_scalar))
-    # prod_e1 = one(eltype(e1_cumulative_scalar))
-    # prod_e2 = one(eltype(e2_cumulative_scalar))
+    osum = zero(records[1].ortho_scalar)
+    prod_e1 = one(records[1].e1_scalar)
+    prod_e2 = one(records[1].e2_scalar)
+
+    prev_record_z = first(records).z  # purposefully first(records) != last(records)
 
     # Unscaling we go from the bottom up
     for i in reverse(eachindex(e))
+        # Unpack variables
+        record_z = records[i].z
+        scaled_e = records[i].e
+        ortho_scalar = records[i].ortho_scalar
+        e1_scalar = records[i].e1_scalar
+        e2_scalar = records[i].e2_scalar
 
         if i == lastindex(e)  # == [end]
             # Bottom doesn't require correction
-            e[i] = scaled_e[i]
+            e[i] = scaled_e
         else
             # e2 = (scaled_e[i][:,2] - osum*scaled_e[i][:,1])*prod_e2
-            e2 = (scaled_e[i][:,2] - ortho_cumulative_scalar[i]*scaled_e[i][:,1])*e2_cumulative_scalar[i]
-            e1 = scaled_e[i][:,1]*e1_cumulative_scalar[i]
-            e[i] = T(e1..., e2...)
+            # e2 = (scaled_e[:,2] - ortho_cumulative_scalar[i]*scaled_e[:,1])*e2_cumulative_scalar[i]
+            e2 = scaled_e[:,2]*prod_e2
+            e1 = scaled_e[:,1]*prod_e1
+            e[i] = hcat(e1,e2)
         end
 
-        # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
-        # osum += ortho_cumulative_scalar[i]
-        # prod_e1 *= e1_cumulative_scalar[i]
-        # prod_e2 *= e2_cumulative_scalar[i]
+        if record_z != prev_record_z
+            # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
+            # osum += ortho_cumulative_scalar[i]
+            prod_e1 *= e1_scalar
+            prod_e2 *= e2_scalar
+
+            prev_record_z = record_z
+        end
     end
 
     return e
 end
 
+e = unscalewavefields(saved_values)
 
-"""
-Unpack array of tuples `saveval` to individual arrays.
-"""
-function unscalewavefields(saveval)
-
-    # TODO: Don't actually do this - just loop over the array of tup;es and unpack
-
-    types = fieldtypes(eltype(saveval))
-
-    # NOTE: make sure types match order of SavedValues
-    scaled_e = Array{types[1]}(undef, length(saveval))
-    ortho_cumulative_scalar = Array{types[2]}(undef, length(saveval))
-    e1_cumulative_scalar = Array{types[3]}(undef, length(saveval))
-    e2_cumulative_scalar = Array{types[4]}(undef, length(saveval))
-
-    for i in eachindex(saveval)
-        # NOTE: also make sure fields are indexed correctly
-        scaled_e[i] = saveval[i][1]
-        ortho_cumulative_scalar[i] = saveval[i][2]
-        e1_cumulative_scalar[i] = saveval[i][3]
-        e2_cumulative_scalar[i] = saveval[i][4]
-    end
-
-    return unscalewavefields(scaled_e, ortho_cumulative_scalar, e1_cumulative_scalar, e2_cumulative_scalar)
-end
-
-e = unscalewavefields(saved_values.saveval)
-
-e1 = [t[:,1] for t in e]
-e2 = [t[:,2] for t in e]
+e1 = [s.e[:,1] for s in saved_values.saveval]
+e2 = [s.e[:,2] for s in saved_values.saveval]
 
 e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
 e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
 
+ne1 = [t[:,1] for t in e]
+ne2 = [t[:,2] for t in e]
 
-plot(real(e1)', saved_values.t/1000)
+ne1 = reshape(reinterpret(ComplexF64, ne1), 4, :)
+ne2 = reshape(reinterpret(ComplexF64, ne2), 4, :)
+
+# plotlyjs()
+gr()
+plot(real(e1)', saved_values.t/1000, color="red")
+plot!(real(ne1)', saved_values.t/1000, color="black")
 
 
 
