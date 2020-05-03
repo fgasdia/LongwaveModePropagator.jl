@@ -437,16 +437,6 @@ function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
     e2 -= a*e1
 
-    println("")
-    println("e1_dot_e1 val: $e1_dot_e1")
-    println("e1_dot_e1: $(typeof(e1_dot_e1))")
-
-    println("norm(e2) val: $(norm(e2))")
-    println("norm(e2): $(typeof(norm(e2)))")
-
-    println("a val: $a")
-    println("a: $(typeof(a))")
-
     # Normalize `e1` and `e2`
     e1_scale_val = 1/sqrt(e1_dot_e1)
     e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
@@ -485,6 +475,8 @@ function affect!(integrator)
 
     # TODO: Cleanup this system of params with nested NamedTuples - struct?
 
+    # "accumulated" vs "cumulative"
+
     # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
     integrator.p = (ortho_cumulative_scalar=orthocs+new_orthocs*e1cs/e2cs,
                     e1_cumulative_scalar=e1cs*new_e1cs,
@@ -503,7 +495,9 @@ save_values(u, t, integrator) = (u,
                                  integrator.p.ortho_cumulative_scalar,
                                  integrator.p.e1_cumulative_scalar,
                                  integrator.p.e2_cumulative_scalar)
-scb = SavingCallback(save_values, saved_values)
+scb = SavingCallback(save_values, saved_values,
+                     saveat=zs,
+                     tdir=sign(zs[end]-zs[1]))  # necessary because we're going down!
 
 Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 Ttop = LWMS.tmatrix(ea, Mtop)
@@ -513,12 +507,12 @@ e0 = LWMS.initialwavefields(Ttop)
 p = (ortho_cumulative_scalar=zero(eltype(e0)), e1_cumulative_scalar=1.0, e2_cumulative_scalar=1.0,
      magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
 prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
-sol = solve(prob, callback=CallbackSet(cb, scb))
-            # save_everystep=false, save_start=false, save_end=false)
+sol = solve(prob, callback=CallbackSet(cb, scb),
+            save_everystep=false, save_start=false, save_end=false)
 
 # plot(real(sol[:,1,:])', sol.t/1000)
 
-e1, e2 = sol[:,1,end], sol[:,2,end]
+e1, e2 = saved_values.saveval[end][1][:,1], saved_values.saveval[end][1][:,2]
 R = vacuumreflectioncoeffs(ea, e1, e2)
 Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
 b1, b2 = wavefieldboundary(R, Rg, e1, e2)
@@ -534,42 +528,64 @@ sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
 """
     unscalewavefields(sol, p)
 
-# TODO: make an inplace version with e
+I think it works like this:
+
+- Scaling is applied to each level from the top down
+- The bottom level does not get unscaled. Instead, we will be referencing
+the above levels to this level.
+- The level above the bottom level needs to be additionally scaled by the amount
+that was applied to get to the bottom level.
+- The next level up (2 above the bottom level) needs to be scaled by the amount
+applied to the next level and then the bottom level, i.e. we need to keep track
+of a cumulative correction on the way back up.
+
+We do not need to keep track of cumulative values on the way down.
+We only need to update the cumulative correction on the way up when there is a
+new correction.
 """
 function unscalewavefields(scaled_e::AbstractArray{T}, ortho_cumulative_scalar, e1_cumulative_scalar, e2_cumulative_scalar) where {T}
     # Back substitution of normalizing values applied during integration
 
+    # TODO: make an inplace version with e
+    # TODO: only do multiplications when necessary (not eachindex e)
+
     # Array of SArray{Tuple{4,2}, Complex{Float64}}
     e = Array{T}(undef, length(scaled_e))
 
-    osum = zero(eltype(ortho_cumulative_scalar))
-    prod_e1 = one(eltype(e1_cumulative_scalar))
-    prod_e2 = one(eltype(e2_cumulative_scalar))
+    # osum = zero(eltype(ortho_cumulative_scalar))
+    # prod_e1 = one(eltype(e1_cumulative_scalar))
+    # prod_e2 = one(eltype(e2_cumulative_scalar))
 
+    # Unscaling we go from the bottom up
     for i in reverse(eachindex(e))
 
         if i == lastindex(e)  # == [end]
             # Bottom doesn't require correction
             e[i] = scaled_e[i]
         else
-            e2 = (scaled_e[i][:,2] - osum*scaled_e[i][:,1])*prod_e2
-            e1 = scaled_e[i][:,1]*prod_e1
+            # e2 = (scaled_e[i][:,2] - osum*scaled_e[i][:,1])*prod_e2
+            e2 = (scaled_e[i][:,2] - ortho_cumulative_scalar[i]*scaled_e[i][:,1])*e2_cumulative_scalar[i]
+            e1 = scaled_e[i][:,1]*e1_cumulative_scalar[i]
             e[i] = T(e1..., e2...)
         end
 
-        osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
-        osum += ortho_cumulative_scalar[i]
-        prod_e1 *= e1_cumulative_scalar[i]
-        prod_e2 *= e2_cumulative_scalar[i]
+        # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
+        # osum += ortho_cumulative_scalar[i]
+        # prod_e1 *= e1_cumulative_scalar[i]
+        # prod_e2 *= e2_cumulative_scalar[i]
     end
 
     return e
 end
 
+
 """
 Unpack array of tuples `saveval` to individual arrays.
 """
 function unscalewavefields(saveval)
+
+    # TODO: Don't actually do this - just loop over the array of tup;es and unpack
+
     types = fieldtypes(eltype(saveval))
 
     # NOTE: make sure types match order of SavedValues
@@ -591,7 +607,14 @@ end
 
 e = unscalewavefields(saved_values.saveval)
 
+e1 = [t[:,1] for t in e]
+e2 = [t[:,2] for t in e]
 
+e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
+e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
+
+
+plot(real(e1)', saved_values.t/1000)
 
 
 
