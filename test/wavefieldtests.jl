@@ -44,6 +44,7 @@ ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 ztop = 100e3
 
 @with_kw struct WavefieldIntegrationParams{T1,T2,F,G}
+    zprev::T1
     z::T1
     ortho_scalar::Complex{T2}
     e1_scalar::T2
@@ -376,7 +377,7 @@ T = LWMS.tmatrix(ea, M)
 e0 = LWMS.initialwavefields(T)
 
 # p = (;magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
-p = WavefieldIntegrationParams(0,complex(0),0,0,tx.frequency, bfield, electrons)
+p = WavefieldIntegrationParams(0,0,complex(0),0,0,tx.frequency, bfield, electrons)
 e0 = big.(e0)
 
 # `dt` argument is initial stepsize
@@ -475,6 +476,7 @@ function scalewavefields(e::AbstractArray)
 end
 
 struct ScaleRecord{T1,T2}
+    zprev::T1
     z::T1
     e::SMatrix{4,2,Complex{T2},8}
     ortho_scalar::Complex{T2}
@@ -485,27 +487,44 @@ end
 
 # if any element of `e` has a real or imaginary component >= 1...
 condition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
+
 function affect!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
+    #==
+    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
+    integrator.t` might equal `0.0`, for example, before it's actually gotten
+    to the bottom. Instead, `integrator.prevt` is the last `t` on the "left"
+    side of the `integrator`, which covers the local interval [`tprev`, `t`].
+    The "condition" is met at `integrator.t` and `integrator.t` is the time at
+    which the affect occurs.
+    However, it is not guaranteed that each tprev, t directly abuts the next tprev, t
+    ==#
+
+    println("affect! ($(integrator.tprev), $(integrator.t))")
+
     # Last set of scaling values
-    # lastz, orthocs, e1cs, e2cs, magnetoionic = integrator.p
     @unpack frequency, bfield, species = integrator.p
 
     # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
-    integrator.p = WavefieldIntegrationParams(integrator.t,
+    integrator.p = WavefieldIntegrationParams(integrator.tprev, integrator.t,
                                               new_orthos*new_e1s/new_e2s,
                                               new_e1s, new_e2s,
                                               frequency, bfield, species)
 
     integrator.u = new_e
 
+    # set_proposed_dt!(integrator, 0.2*get_proposed_dt(integrator))
+
     return nothing
 end
-cb = DiscreteCallback(condition, affect!)
+# saved_positions=(true, true) because we discontinuously modify `u`. This is
+# independent of saveat and save_everystep
+cb = DiscreteCallback(condition, affect!, save_positions=(true, true))
 
 saved_values = SavedValues(typeof(ztop), ScaleRecord{Float64, Float64})
-save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
+save_values(u, t, integrator) = ScaleRecord(integrator.p.zprev,
+                                            integrator.p.z,
                                             u,
                                             integrator.p.ortho_scalar,
                                             integrator.p.e1_scalar,
@@ -514,7 +533,7 @@ save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
 # `save_everystep` because we need to make sure we save when affect! occurs
 # `saveat=zs[2:end-1]` because otherwise we double save end points
 scb = SavingCallback(save_values, saved_values,
-                     saveat=zs[2:end-1], save_everystep=true,
+                     save_everystep=true, saveat=zs[2:end-1],
                      tdir=-1)  # necessary because we're going down!
 
 Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
@@ -524,7 +543,7 @@ e0 = LWMS.initialwavefields(Ttop)
 
 # p = (z=ztop, ortho_scalar=zero(eltype(e0)), e1_scalar=1.0, e2_scalar=1.0,
      # magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
-p = WavefieldIntegrationParams(ztop, zero(eltype(e0)), 1.0, 1.0, tx.frequency, bfield, electrons)
+p = WavefieldIntegrationParams(ztop, ztop, zero(eltype(e0)), 1.0, 1.0, tx.frequency, bfield, electrons)
 prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
 sol = solve(prob, callback=CallbackSet(cb, scb),
             save_everystep=false, save_start=false, save_end=false)
@@ -536,6 +555,7 @@ R = vacuumreflectioncoeffs(ea, e1, e2)
 Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
 b1, b2 = wavefieldboundary(R, Rg, e1, e2)
 
+#==
 # Compare to Budden integration of R
 modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
 Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
@@ -543,6 +563,7 @@ prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
 sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
 
 @test R ≈ sol[end]
+==#
 
 """
     unscalewavefields(sol, p)
@@ -562,25 +583,24 @@ We do not need to keep track of cumulative values on the way down.
 We only need to update the cumulative correction on the way up when there is a
 new correction.
 """
-function unscalewavefields(saved_values::SavedValues)
+function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
 
     zs = saved_values.t
     records = saved_values.saveval
-
-    # TODO: inplace e? (so we can provide an explicit `e` array to be updated)
-
-    # Array of SArray{Tuple{4,2}, Complex{Float64}}
-    e = Vector{typeof(records[1].e)}(undef, length(records))
 
     osum = zero(records[1].ortho_scalar)
     prod_e1 = one(records[1].e1_scalar)
     prod_e2 = one(records[1].e2_scalar)
 
-    prev_record_z = first(records).z  # purposefully first(records) != last(records)
+    # ref_zprev = first(records).zprev
+    # ref_z = first(records).z  # purposefully first(records) != last(records)
+    ref_zprev = last(records).zprev
+    ref_z = last(records).z
 
     # Unscaling we go from the bottom up
     for i in reverse(eachindex(e))
         # Unpack variables
+        record_zprev = records[i].zprev
         record_z = records[i].z
         scaled_e = records[i].e
         ortho_scalar = records[i].ortho_scalar
@@ -598,15 +618,26 @@ function unscalewavefields(saved_values::SavedValues)
             e[i] = hcat(e1,e2)
         end
 
-        if record_z != prev_record_z
+        # if zs[i] >= ref_zprev
+        if record_z != ref_z
             # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
             # osum += ortho_cumulative_scalar[i]
             prod_e1 *= e1_scalar
             prod_e2 *= e2_scalar
 
-            prev_record_z = record_z
+            ref_zprev = record_zprev
+            ref_z = record_z
         end
     end
+
+    return nothing
+end
+
+function unscalewavefields(saved_values::SavedValues)
+    # Array of SArray{Tuple{4,2}, Complex{Float64}}
+    e = Vector{typeof(saved_values.saveval[1].e)}(undef, length(saved_values.saveval))
+
+    unscalewavefields!(e, saved_values)
 
     return e
 end
@@ -625,10 +656,17 @@ ne2 = [t[:,2] for t in e]
 ne1 = reshape(reinterpret(ComplexF64, ne1), 4, :)
 ne2 = reshape(reinterpret(ComplexF64, ne2), 4, :)
 
-# plotlyjs()
-gr()
-plot(real(e1)', saved_values.t/1000, color="red")
-plot!(real(ne1)', saved_values.t/1000, color="black")
+affect_zs = [s.z for s in saved_values.saveval]
+
+plotly()
+# gr()
+plot(abs.(e1)', saved_values.t/1000, color="red")
+plot!(abs.(ne1)', saved_values.t/1000, color="black")
+scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
+scatter!(zeros(length(affect_zs)), affect_zs/1000,
+        markershape=:rect, markersize=4, markercolor=nothing, markerstrokecolor="black")
+vline!([1])
+
 
 
 
