@@ -585,7 +585,7 @@ new correction.
 """
 function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
 
-    zs = saved_values.t
+    z = saved_values.t
     records = saved_values.saveval
 
     osum = zero(records[1].ortho_scalar)
@@ -597,6 +597,10 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
     ref_zprev = last(records).zprev
     ref_z = last(records).z
 
+    # Initialize ref_z
+    prod_e1 *= last(records).e1_scalar
+    prod_e2 *= last(records).e2_scalar
+
     # Unscaling we go from the bottom up
     for i in reverse(eachindex(e))
         # Unpack variables
@@ -606,6 +610,16 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
         ortho_scalar = records[i].ortho_scalar
         e1_scalar = records[i].e1_scalar
         e2_scalar = records[i].e2_scalar
+
+        # Only update ref_z when there is both:
+        # 1) we have reached the height where a new ref_z should go into effect
+        # 2) there is a new ref_z
+        if z[i] > record_z && record_z > ref_z
+            ref_z = record_z
+
+            prod_e1 *= e1_scalar
+            prod_e2 *= e2_scalar
+        end
 
         if i == lastindex(e)  # == [end]
             # Bottom doesn't require correction
@@ -618,16 +632,16 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
             e[i] = hcat(e1,e2)
         end
 
-        # if zs[i] >= ref_zprev
-        if record_z != ref_z
-            # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
-            # osum += ortho_cumulative_scalar[i]
-            prod_e1 *= e1_scalar
-            prod_e2 *= e2_scalar
-
-            ref_zprev = record_zprev
-            ref_z = record_z
-        end
+        # # if zs[i] >= ref_zprev
+        # if record_z != ref_z
+        #     # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
+        #     # osum += ortho_cumulative_scalar[i]
+        #     prod_e1 *= e1_scalar
+        #     prod_e2 *= e2_scalar
+        #
+        #     ref_zprev = record_zprev
+        #     ref_z = record_z
+        # end
     end
 
     return nothing
@@ -664,7 +678,7 @@ plot(abs.(e1)', saved_values.t/1000, color="red")
 plot!(abs.(ne1)', saved_values.t/1000, color="black")
 scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
 scatter!(zeros(length(affect_zs)), affect_zs/1000,
-        markershape=:rect, markersize=4, markercolor=nothing, markerstrokecolor="black")
+        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
 vline!([1])
 
 
