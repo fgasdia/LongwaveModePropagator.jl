@@ -41,15 +41,6 @@ ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
 ztop = 100e3
 
-@with_kw struct WavefieldIntegrationParams{T1,T2,F,G}
-    z::T1
-    ortho_scalar::Complex{T2}
-    e1_scalar::T2
-    e2_scalar::T2
-    frequency::Frequency
-    bfield::BField
-    species::Constituent{F,G}
-end
 
 #==
 modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
@@ -79,10 +70,8 @@ tmpq2 = copy(LWMS.BOOKER_QUARTIC_ROOTS)
 
 ########
 # Compare Booker quartic computed with M and T
-# NOTE: Runtime is dominated by `roots!` so currently no meaningful difference
-# between the two
+# Runtime is dominated by `roots!`, but the version with `T` is slightly faster
 
-#==
 M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 
@@ -100,13 +89,12 @@ for i in eachindex(qT)
     booker = qT[i]^4 + BT[4]*qT[i]^3 + BT[3]*qT[i]^2 + BT[2]*qT[i] + BT[1]
     @test isapprox(booker, 0, atol=1e-7)
 end
-==#
+
 
 ########
 # We choose the 2 roots corresponding to upward travelling waves as being those that lie
 # close to the positive real and negative imaginary axis (315° on the complex plane)
 
-#==
 e = LWMS.initialwavefields(T)
 q = LWMS.BOOKER_QUARTIC_ROOTS
 
@@ -115,9 +103,10 @@ for i = 1:2
 end
 
 for i = 1:2
+    # Confirm `T` matrix vs dense array `T` both work
     @test T*e[:,i] ≈ Array(T)*e[:,i]
 end
-==#
+
 
 ########
 #==
@@ -222,8 +211,82 @@ display(scene)
 ########
 # Integrate wavefields
 
-
 zs = ztop:-100:0.0
+
+M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
+T = LWMS.tmatrix(ea, M)
+e0 = LWMS.initialwavefields(T)
+
+p = LWMS.WavefieldIntegrationParams(0, complex(0), 0, 0, ea, tx.frequency, bfield, electrons)
+
+# `dt` argument is initial stepsize
+# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
+# size with λ in ionosphere / 10 or something like that
+prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
+sol = DifferentialEquations.solve(prob, abstol=1e-8, reltol=1e-8,
+                                  dt=tx.frequency.λ/50, progress=true)
+
+e = sol[:,end]
+e1, e2 = e[:,1], e[:,2]
+
+
+########
+#==
+Integration with scaling
+==#
+
+
+e1, e2 = saved_values.saveval[end].e[:,1], saved_values.saveval[end].e[:,2]
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+b1, b2 = wavefieldboundary(R, Rg, e1, e2)
+
+#==
+# Compare to Budden integration of R
+modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
+prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
+sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
+
+@test R ≈ sol[end]
+==#
+
+e = unscalewavefields(saved_values)
+
+e1 = [s.e[:,1] for s in saved_values.saveval]
+e2 = [s.e[:,2] for s in saved_values.saveval]
+
+e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
+e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
+
+ne1 = [t[:,1] for t in e]
+ne2 = [t[:,2] for t in e]
+
+ne1 = reshape(reinterpret(ComplexF64, ne1), 4, :)
+ne2 = reshape(reinterpret(ComplexF64, ne2), 4, :)
+
+affect_zs = [s.z for s in saved_values.saveval]
+
+plotly()
+# gr()
+
+# e1
+plot(abs.(e1)', saved_values.t/1000, color="red")
+plot!(abs.(ne1)', saved_values.t/1000, color="black")
+scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
+scatter!(zeros(length(affect_zs)), affect_zs/1000,
+        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
+vline!([1])
+
+# e2
+plot(abs.(e2)', saved_values.t/1000, color="red")
+plot!(abs.(ne2)', saved_values.t/1000, color="black")
+scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
+scatter!(zeros(length(affect_zs)), affect_zs/1000,
+        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
+vline!([1])
+
+
 
 
 #==
@@ -355,340 +418,9 @@ function wavefieldboundary(R, Rg, e1, e2)
     return b1, b2
 end
 
-#==
-Integration with bigfloats
-==#
-
-function integratefields(e, p, z)
-    @unpack frequency, bfield, species = p
-
-    M = LWMS.susceptibility(z, frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
-
-    return LWMS.dedz(e, frequency, T)
-end
-
-
-M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-T = LWMS.tmatrix(ea, M)
-e0 = LWMS.initialwavefields(T)
-
-# p = (;magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
-p = WavefieldIntegrationParams(0,0,complex(0),0,0,tx.frequency, bfield, electrons)
-e0 = big.(e0)
-
-# `dt` argument is initial stepsize
-# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
-# size with λ in ionosphere / 10 or something like that
-# NOTE: The BigFloats make this quite slow...
-prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
-sol = DifferentialEquations.solve(prob, abstol=1e-9, reltol=1e-9,
-                                  dt=tx.frequency.λ/50, progress=true)
-
-e = sol[:,end]
-e1, e2 = e[:,1], e[:,2]
-
-# need to make isbitstype for SArray
-e1 = convert.(ComplexF64, e1)
-e2 = convert.(ComplexF64, e2)
-
 R = vacuumreflectioncoeffs(ea, e1, e2)
 Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
 b1, b2 = wavefieldboundary(R, Rg, e1, e2)
-
-totale = sol(zs)[:,1,:]*b1 + sol(zs)[:,2,:]*b2
-
-plotly()
-labels = ["Ex" "Ey" "Hx" "Hy"]
-colors = palette(:tab10)[1:4]
-p = plot(real.(totale'), zs/1000,
-         label=labels, palette=palette(:tab10), linecolor=[1 2 3 4], linewidth=2)
-plot!(p, imag.(totale'), zs/1000,
-      ls=:dash, label=nothing, palette=palette(:tab10), linecolor=[1 2 3 4], linewidth=2)
-xlabel!("e")
-ylabel!("altitude (km)")
-
-
-########
-#==
-Integration with scaling
-==#
-
-"""
-    scalewavefields(e1, e2, s)
-
-Orthonormalize vectors `e1` and `e2` and records scaling terms in `s`.
-
-First applies Gram-Schmidt orthogonalization and then scales the vectors so they
-each have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique
-suggested by [^Pitteway1965] to counter numerical swamping during integration of
-wavefields.
-
-!!! note
-
-    Elements of `s` are modified in place.
-
-
-# References
-
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields,
-reflexion coefficients and polarizations for long radio waves in the lower
-ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
-pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
-
-[^Smith1974]: G. H. Smith and M. L. V. Pitteway, “Fortran Program for Obtaining
-Wavefields of Penetrating, Nonpenetrating, and Whistler Modes of Radio Waves in
-the Ionosphere,” in ELF-VLF Radio Wave Propagation, 1974, pp. 69–86.
-"""
-function scalewavefields(e1::AbstractVector, e2::AbstractVector)
-    # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
-    # `dot` for complex vectors automatically conjugates first vector
-    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), `imag(dot(e1,e1)) == 0`
-    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned XXX: necessary?
-    e2 -= a*e1
-
-    # Normalize `e1` and `e2`
-    e1_scale_val = 1/sqrt(e1_dot_e1)
-    e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
-    e1 *= e1_scale_val
-    e2 *= e2_scale_val  # == normalize(e2)
-
-    return e1, e2, a, e1_scale_val, e2_scale_val
-end
-
-"""
-    scalewavefields(e, s)
-
-!!! note
-
-    This function only applies scaling to the first 2 columns of `e`.
-"""
-function scalewavefields(e::AbstractArray)
-    e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
-
-    # this works for a 4×2 `e` because `e[3:end]` will return a 4×0 array
-    e = hcat(e1, e2, e[:,3:end])
-
-    return e, a, e1_scale_val, e2_scale_val
-end
-
-struct ScaleRecord{T1,T2}
-    z::T1
-    e::SMatrix{4,2,Complex{T2},8}
-    ortho_scalar::Complex{T2}
-    e1_scalar::T2
-    e2_scalar::T2
-end
-
-
-# if any element of `e` has a real or imaginary component >= 1...
-condition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
-
-function affect!(integrator)
-    new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
-
-    # Last set of scaling values
-    @unpack frequency, bfield, species = integrator.p
-
-    #==
-    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
-    integrator.t` might equal `0.0`, for example, before it's actually gotten
-    to the bottom. `integrator.prevt` is the last `t` on the "left"
-    side of the `integrator`, which covers the local interval [`tprev`, `t`].
-    The "condition" is met at `integrator.t` and `integrator.t` is the time at
-    which the affect occurs.
-    However, it is not guaranteed that each (`tprev`, `t`) directly abuts the
-    next `tprev`, `t`).
-    ==#
-
-    # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
-    integrator.p = WavefieldIntegrationParams(integrator.t,
-                                              new_orthos,
-                                              new_e1s, new_e2s,
-                                              frequency, bfield, species)
-
-    integrator.u = new_e
-
-    return nothing
-end
-# saved_positions=(true, true) because we discontinuously modify `u`. This is
-# independent of saveat and save_everystep
-cb = DiscreteCallback(condition, affect!, save_positions=(true, true))
-
-saved_values = SavedValues(typeof(ztop), ScaleRecord{Float64, Float64})
-save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
-                                            u,
-                                            integrator.p.ortho_scalar,
-                                            integrator.p.e1_scalar,
-                                            integrator.p.e2_scalar)
-
-# `save_everystep` because we need to make sure we save when affect! occurs
-# `saveat=zs[2:end-1]` because otherwise we double save end points
-scb = SavingCallback(save_values, saved_values,
-                     save_everystep=true, saveat=zs[2:end-1],
-                     tdir=-1)  # necessary because we're going down!
-
-Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-Ttop = LWMS.tmatrix(ea, Mtop)
-e0 = LWMS.initialwavefields(Ttop)
-
-# Looks better (otherwise top fields are out of whack b/c scaling at top is 1)
-# if this starts normalized. But don't want to orthogonalize `e2` because it
-# won't be undone!
-e0n = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
-
-# confirm normalized e0 is still valid
-q = LWMS.BOOKER_QUARTIC_ROOTS
-
-for i = 1:2
-    @test Ttop*e0[:,i] ≈ q[i]*e0[:,i]
-    @test Ttop*e0n[:,i] ≈ q[i]*e0n[:,i]
-end
-
-e0 = e0n
-
-
-# p = (z=ztop, ortho_scalar=zero(eltype(e0)), e1_scalar=1.0, e2_scalar=1.0,
-     # magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
-p = WavefieldIntegrationParams(ztop, zero(eltype(e0)), 1.0, 1.0, tx.frequency, bfield, electrons)
-prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
-sol = solve(prob, callback=CallbackSet(cb, scb),
-            save_everystep=false, save_start=false, save_end=false)
-
-# plot(real(sol[:,1,:])', sol.t/1000)
-
-e1, e2 = saved_values.saveval[end].e[:,1], saved_values.saveval[end].e[:,2]
-R = vacuumreflectioncoeffs(ea, e1, e2)
-Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-b1, b2 = wavefieldboundary(R, Rg, e1, e2)
-
-#==
-# Compare to Budden integration of R
-modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
-Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
-sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
-
-@test R ≈ sol[end]
-==#
-
-"""
-    unscalewavefields(sol, p)
-
-I think it works like this:
-
-- Scaling is applied to each level from the top down
-- The bottom level does not get unscaled. Instead, we will be referencing
-the above levels to this level.
-- The level above the bottom level needs to be additionally scaled by the amount
-that was applied to get to the bottom level.
-- The next level up (2 above the bottom level) needs to be scaled by the amount
-applied to the next level and then the bottom level, i.e. we need to keep track
-of a cumulative correction on the way back up.
-
-We do not need to keep track of cumulative values on the way down.
-We only need to update the cumulative correction on the way up when there is a
-new correction.
-"""
-function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
-
-    z = saved_values.t
-    records = saved_values.saveval
-
-    # Initialize the "reference" scaling altitude
-    ref_z = last(records).z
-
-    # Usually `osum = 0`, `prod_e1 = 1`, and `prod_e2 = 1` at initialization,
-    # but we set up the fields at the ground (`last(records)`) outside the loop
-
-    osum = last(records).ortho_scalar
-    prod_e1 = last(records).e1_scalar
-    prod_e2 = last(records).e2_scalar
-
-    # Unscaling we go from the bottom up
-    for i in reverse(eachindex(e))
-        if i == 1
-            nothing
-        end
-
-        # Unpack variables
-        record_z = records[i].z
-        scaled_e = records[i].e
-        ortho_scalar = records[i].ortho_scalar
-        e1_scalar = records[i].e1_scalar
-        e2_scalar = records[i].e2_scalar
-
-        # Only update ref_z when there is both:
-        # 1) we have reached the height where a new ref_z should go into effect
-        # 2) there is a new ref_z
-        if z[i] > record_z && record_z > ref_z
-            ref_z = record_z
-
-            osum *= e1_scalar/e2_scalar
-            osum += ortho_scalar
-            prod_e1 *= e1_scalar
-            prod_e2 *= e2_scalar
-        end
-
-        if i == lastindex(e)  # == [end]
-            # Bottom doesn't require correction
-            e[i] = scaled_e
-        else
-            e2 = (scaled_e[:,2] - osum*scaled_e[:,1])*prod_e2
-            e1 = scaled_e[:,1]*prod_e1
-            e[i] = hcat(e1,e2)
-        end
-    end
-
-    return nothing
-end
-
-function unscalewavefields(saved_values::SavedValues)
-    # Array of SArray{Tuple{4,2}, Complex{Float64}}
-    e = Vector{typeof(saved_values.saveval[1].e)}(undef, length(saved_values.saveval))
-
-    unscalewavefields!(e, saved_values)
-
-    return e
-end
-
-e = unscalewavefields(saved_values)
-
-e1 = [s.e[:,1] for s in saved_values.saveval]
-e2 = [s.e[:,2] for s in saved_values.saveval]
-
-e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
-e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
-
-ne1 = [t[:,1] for t in e]
-ne2 = [t[:,2] for t in e]
-
-ne1 = reshape(reinterpret(ComplexF64, ne1), 4, :)
-ne2 = reshape(reinterpret(ComplexF64, ne2), 4, :)
-
-affect_zs = [s.z for s in saved_values.saveval]
-
-plotly()
-# gr()
-
-# e1
-plot(abs.(e1)', saved_values.t/1000, color="red")
-plot!(abs.(ne1)', saved_values.t/1000, color="black")
-scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
-scatter!(zeros(length(affect_zs)), affect_zs/1000,
-        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
-vline!([1])
-
-# e2
-plot(abs.(e2)', saved_values.t/1000, color="red")
-plot!(abs.(ne2)', saved_values.t/1000, color="black")
-scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
-scatter!(zeros(length(affect_zs)), affect_zs/1000,
-        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
-vline!([1])
-
-
-
 
 
 
@@ -703,38 +435,6 @@ end
 Integrate the wavefields - TEST
 ==#
 
-function integratefields(e, p, z)
-    frequency, bfield, species = p
-
-    M = LWMS.susceptibility(z, frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
-
-    return LWMS.dedz(e, frequency, T)
-end
-
-
-# First, regular integration
-ea = EigenAngle(deg2rad(complex(40.0,0.0)))
-bfield = BField(50e-6, deg2rad(68), deg2rad(111))
-M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-T = LWMS.tmatrix(ea, M)
-e0 = LWMS.initialwavefields(T)
-q = copy(LWMS.BOOKER_QUARTIC_ROOTS)  # generated in `initialwavefields`
-
-
-# normalize e0
-# This seemed like a good idea, but the wavefields still blow up
-#==
-normalizefields(e) = hcat(normalize(e[:,1]), normalize(e[:,2]))
-e0 = normalizefields(e0)
-
-for i = 1:2
-    @test T*e0[:,i] ≈ q[i]*e0[:,i]
-end
-==#
-
-
-p = (frequency=tx.frequency, bfield=bfield, species=electrons)
 
 # `dt` argument is initial stepsize
 # TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
@@ -742,425 +442,10 @@ p = (frequency=tx.frequency, bfield=bfield, species=electrons)
 prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
 sol = solve(prob, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
 
-# `solve` chose composite Vern9 and Rodas5
-# sol.alg
-
-zs = 0.0:100:120e3
-
-using Gnuplot
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
-# @gp :- "set yrange [-10:10]"
-
-labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
-for i = 1:4
-    @gp :- real.(sol(zs)[i,:]) zs./1e3 "w l title '$(labels[i])'"
-    @gp :- imag.(sol(zs)[i,:]) zs./1e3 "w l dt 2 title '$(labels[i])'"
-end
-
-# Clearly, they blew up
-
-#
-# Trying BigFloat, but this does no better
-e0big = @SArray [parse(Complex{BigFloat}, string(e0[i,j])) for i in 1:4, j in 1:2]
-
-prob = ODEProblem{false}(integratefields, e0big, BigFloat.((ztop, 0.0)), p)
-solbig = solve(prob, abstol=1e-18, reltol=1e-18)
-
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e₁'"
-# @gp :- "set yrange [-10:10]"
-for i = 1:4
-    @gp :- real.(solbig[i,:]) solbig.t./1e3 "w l lc '$(colors[i])' title '$(labels[i])'"
-    @gp :- imag.(solbig[i,:]) solbig.t./1e3 "w l dt 2 lc '$(colors[i])' title '$(labels[i])'"
-end
-
-
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e₂'"
-# @gp :- "set yrange [-10:10]"
-for i = 5:8
-    @gp :- real.(solbig[i,:]) solbig.t./1e3 "w l lc '$(colors[i-4])' title '$(labels[i-4])'"
-    @gp :- imag.(solbig[i,:]) solbig.t./1e3 "w l dt 2 lc '$(colors[i-4])' title '$(labels[i-4])'"
-end
-==#
 
 ########
-# Try rescaling
-
-mutable struct WavefieldMatrix{T,T2} <: DEDataMatrix{T}
-    # Extra fields are carried through solver, and can be accessed as e.g. `u.count`
-
-    # TEMP XXX This should be an SMatrix
-    # x::SMatrix{4,2,T,8}  # must be called `x` (I think...)
-    x::Matrix{T}
-    e1norm::Vector{T2}
-    count::Int
-end
-
-
-"""
-    unscalewavefields(sol, p)
-"""
-function unscalewavefields(sol)
-    # Back substitution of normalizing values applied during integration
-
-    # Array of SArray{Tuple{4,2}, Complex{Float64}}
-    e = Array{typeof(first(sol))}(undef, length(sol))
-
-    osum = 0
-    proda = 1
-    prodb = 1
-
-    for i in eachindex(sol)
-        # e[:,2,i] = prodb*(sol[:,2,1] - osum*sol[:,1,1])
-        e[:,1,i] = proda*sol[:,1,1]
-
-        # osum = osum*anorm/bnorm + ortho
-        proda *= p.anorm
-        # prodb *= bnorm
-    end
-
-    # For performance, should be something like this
-    #==
-    function normSoA(x)
-      out = 0.0
-      @simd for i in 1:length(x.real)
-        @inbounds out += sqrt(x.real[i]^2 + x.imag[i]^2)
-      end
-      out
-    end
-    ==#
-
-end
-
-function scalingcondition(e, z, integrator)
-    # When `scalingcondition()` == 0, trigger `scalewavefields!()`
-
-    norm(e[:,1]) > 1000 || abs2(dot(e[:,1], e[:,2])) > 1 ? true : false
-end
-
-
-
-function integratefields!(de, e, p, z)
-    tx, bfield, species = p
-
-    M = LWMS.susceptibility(z, tx.frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
-
-    de .= LWMS.dedz(e, tx.frequency, T)
-end
-
-
-# Initial fields
-ea = EigenAngle(complex(1.47152908, -0.0121998877))
-M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-T = LWMS.tmatrix(ea, M)
-e0 = LWMS.initialwavefields(T)
-
-p = (tx=tx, bfield=bfield, species=electrons)
-
-# TEMP
-# u0 = WavefieldMatrix(e0, Vector{ComplexF64}(), 0)
-u0 = WavefieldMatrix(Array(e0), Vector{ComplexF64}(), 0)
-
-e0big = [parse(Complex{BigFloat}, string(e0[i,j])) for i in 1:4, j in 1:2]
-u0big = WavefieldMatrix(e0big, Vector{Complex{BigFloat}}(), 0)
-
-# FunctionCallingCallback doesn't only evaluate at sol.t... it evaluates every fcn call
-# tdir = -1 b/c t[1] > t[end]
-# fcc = FunctionCallingCallback((e, z, integrator)->scalewavefields(e, s), func_everystep=true, tdir=-1)
-
-
-function affect!(integrator)
-    # Need to loop through `full_cache` to ensure that all internal caches are
-    # also updated.
-    for c in full_cache(integrator)
-        x, e1norm = scalewavefields(c.x)
-        c.x .= x
-        c.e1norm = e1norm
-        c.count += 1
-    end
-
-    # TODO: Also look at updating dt when e is rescaled
-
-    return nothing
-end
-
-cb = DiscreteCallback(scalingcondition, affect!, save_positions=(true,true))
-
-prob = ODEProblem(integratefields!, e0big, (ztop, 0.0), p)
-solbig = solve(prob, callback=cb, abstol=1e-18, reltol=1e-18, dt=tx.frequency.λ/50)
-
-
-prob = ODEProblem(integratefields!, u0, (ztop, 0.0), p)
-sol = solve(prob, callback=cb, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
-
-# TODO: Use a callback on independence of e1 and e2 and then save at the points
-# where callback is applied
-
-
-zs = 0.0:250:ztop
-
-using Gnuplot
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
-# @gp :- "set yrange [-10:10]"
-labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
-for i = 1:4
-    @gp :- real.(sol[i,:]) sol.t./1e3 "w l title '$(labels[i])'"
-    @gp :- imag.(sol[i,:]) sol.t./1e3 "w l dt 2 title '$(labels[i])'"
-end
-
-########
-# Nagano et al 1975 method
-
-# BUG?: Nagano et al 1975 specifies that abs(q[1]) > abs(q[2]), BUT my sorting
-# method doesn't agree with this.
-
-"""
-z -> ztop:0.0
-
-Technically, we don't need to compute the `e`s as we go. If we save the `K`
-matrices, then
-``e₁(zⱼ) = ∏ₛ₌ⱼ₊₁ᵐ⁻¹ (Kₛ) e₁(zₘ₋₁)``
-``e₂₀(zⱼ) = aⱼ e₁(zⱼ) + ∏ₛ₌ⱼ₊₁ᵐ⁻¹ (Kₛ) e₂(zₘ₋₁)``
-
-This might be useful if we only need values at specific heights.
-"""
-function nagano_integration(z, ea, frequency, bfield, species)
-    if z[end] > z[1]
-        @warn "nagano_integration should proceed downwards. z[end] $(z[end]) > z[1] $(z[1])"
-    end
-
-    e1 = Vector{SVector{4,ComplexF64}}(undef, length(z))
-    e2 = Vector{SVector{4,ComplexF64}}(undef, length(z))
-    avec = Vector{ComplexF64}(undef, length(z))
-    Bvec = Vector{SMatrix{4,4,ComplexF64,16}}(undef, length(z))
-
-    # `...cscalar` means _cumulative_ scalar values
-    e1cscalar = Vector{ComplexF64}(undef, length(z))
-    e2cscalar = Vector{ComplexF64}(undef, length(z))
-    orthocscalar = Vector{ComplexF64}(undef, length(z))
-    # TODO: check these types
-
-    # Initialize cumulative vectors
-    e1cscalar[1] = 1
-    e2cscalar[1] = 1
-    orthocscalar[1] = 0
-
-    # cumulative_e1_scalars = one(ComplexF64)
-    # cumulative_e2_scalar = one(ComplexF64)
-    # cumulative_ortho_scalar = zero(ComplexF64)
-
-    k = frequency.k
-
-    # Temporary mutable matrix
-    B = MMatrix{4,4,ComplexF64,16}(undef)
-    B[2,:] = 1  # TODO: Special BMatrix type
-
-    K = MMatrix{4,4,ComplexF64,16}(undef)
-
-    for j in eachindex(z)
-
-        if j > firstindex(z)
-            tmp_e1 = K*e1[j-1]  # this is `K(j-1)` b/c it's from last loop
-            tmp_e2 = K*e2[j-1]
-
-            # Scale wavefields
-            e1s, e2s, a, e1_scalar, e2_scalar = scalewavefields(tmp_e1, tmp_e2)
-
-            e1[j] = e1s  # scaled `e1`
-            e2[j] = e2s  # scaled `e2`
-            avec[j] = a  # unsigned `a`
-            # e1scale[j] = e1_scalar
-
-            # First update scaled `a`, then update scale values
-            orthocscalar[j] = orthocscalar[j-1] + a*(e1cscalar[j-1]/e2cscalar[j-1])
-            e1cscalar[j] = e1cscalar[j-1]*e1_scalar
-            e2cscalar[j] = e2cscalar[j-1]*e2_scalar
-        end
-
-        # Calculate `Kⱼ` for use in next step, remember e(zⱼ₋₁) = Kⱼ e(zⱼ)
-        M = LWMS.susceptibility(z[j], frequency, bfield, species)
-        T = LWMS.tmatrix(ea, M)
-        LWMS.bookerquartic!(T)
-        LWMS.sortquarticroots!(LWMS.BOOKER_QUARTIC_ROOTS)
-        q = LWMS.BOOKER_QUARTIC_ROOTS
-
-        for i = 1:4
-            # TODO: Is this equivalent to LWMS.initialwavefields?
-            # Apparently not? A little suspicious...
-            # BUG: Try with my solution? (initialwavefields)
-            α = (T[4,2]*T[3,2] - (T[3,2] - q[i]^2)*(T[4,4] - q[i]))/
-                (T[3,1]*(T[4,4] - q[i]) - T[4,1]*T[3,4])
-            β = (T[1,2] + α*(T[1,1] - q[i]))/T[1,4]
-
-            B[1,i] = α
-            # B[2,i] = 1
-            B[3,i] = q[i]
-            B[4,i] = β
-        end
-
-        if j == firstindex(z)
-            # Initialize wavefields (at top height "m")
-            e1[j] = SVector(B[:,1])  # == B*[1; 0; 0; 0]
-            e1cscalar[j] = 1  # no scaling applied
-            e2[j] = SVector(B[:,2])  # == B*[0; 1; 0; 0]
-        end
-
-        if j == lastindex(z)
-            nothing
-        else
-            zstep = z[j+1] - z[j]  # next lower level - current level
-            ξ = q*zstep
-            Δ = SDiagonal(exp.(-im*k*ξ))
-            K .= B*Δ/B
-        end
-
-        # Store values
-        Bvec[j] = SMatrix(B)
-    end
-
-    #==
-    # Reconstruct the wavefields from the bottom up
-    # `aprod` is prod from s=1 (bottom height) to height j-1
-    e1prod = one(eltype(e1cscalar))
-    e2prod = one(eltype(e2cscalar))
-    orthosum = zero(eltype(orthocscalar))
-    for j in reverse(eachindex(z))
-        if j == lastindex(z)  # == first(reverse(eachindex(z)))
-            # don't unscale at bottom height
-            continue
-        end
-        # e1prod *= avec[j+1]  # at previous (lower) height
-        e1prod *= e1cscalar[j]
-        e2prod *= e2cscalar[j]
-        orthosum = orthosum*e1cscalar[j]/e2cscalar[j] + orthocscalar[j]
-        e2[j] = (e2[j] - orthosum*e1[j])*e2prod
-        e1[j] *= e1prod
-        # e2[j] += aprod*e1[end]  # `e1` at bottom height
-        # e1[j] *= e1scale[j]  # unnormalize `e1`, which was scaled after `e2`
-    end
-    ==#
-
-    return e1, e2
-end
 
 # @test_skip vacuum wavefields  # (Nagano BC)
-
-
-# BUG: Handle when Ne = 0
-# electrons = Constituent(qₑ, mₑ,
-#         z -> waitprofile(z, 75, 0.32, H),
-#         z -> electroncollisionfrequency(z, H))
-electrons = Constituent(qₑ, mₑ,
-        z -> waitprofile(z, 75, 0.32),
-        electroncollisionfrequency)
-
-ea = EigenAngle(deg2rad(complex(40.0,0.0)))
-bfield = BField(50e-6, deg2rad(68), deg2rad(111))
-tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
-ground = Ground(15, 0.001)
-
-#==
-electrons = Constituent(qₑ, mₑ,
-        z -> waitprofile(z, 75, 0.32),
-        electroncollisionfrequency)
-
-ea = EigenAngle(deg2rad(complex(60.0,0.0)))
-bfield = BField(50e-6, deg2rad(59), deg2rad(90))
-tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(10e3), 100e3)
-==#
-
-zs = ztop:-100:0.0
-e1, e2 = nagano_integration(zs, ea, tx.frequency, bfield, electrons)
-
-e = e1 + e2
-
-
-using Gnuplot
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e₁'"
-# @gp :- "set yrange [-10:10]"
-labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
-colors = Dict(1=>"red", 2=>"blue", 3=>"green", 4=>"black")
-for i = 1:4
-    @gp :- real.(getindex.(e1,i)) zs/1e3 "w l lc '$(colors[i])' title '$(labels[i])'"
-    @gp :- imag.(getindex.(e1,i)) zs/1e3 "w l dt 2 lc '$(colors[i])' title '$(labels[i])'"
-end
-
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e₂'"
-# @gp :- "set yrange [-10:10]"
-labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
-colors = Dict(1=>"red", 2=>"blue", 3=>"green", 4=>"black")
-for i = 1:4
-    @gp :- real.(getindex.(e2,i)) zs/1e3 "w l lc '$(colors[i])' title '$(labels[i])'"
-    @gp :- imag.(getindex.(e2,i)) zs/1e3 "w l dt 2 lc '$(colors[i])' title '$(labels[i])'"
-end
-
-
-@gp "set auto fix"
-@gp :- "set grid"
-@gp :- "set offsets graph .05, graph .05, graph .05, graph .05"
-# @gp :- "unset key"
-@gp :- "set ylabel 'height (km)'" "set xlabel 'e'"
-# @gp :- "set yrange [-10:10]"
-labels = Dict(1=>"Ex", 2=>"Ey", 3=>"Hx", 4=>"Hy")
-for i = 1:4
-    @gp :- real.(getindex.(e,i)) zs/1e3 "w l title '$(labels[i])'"
-    @gp :- imag.(getindex.(e,i)) zs/1e3 "w l dt 2 title '$(labels[i])'"
-end
-
-
-
-########
-# Confirm Nagano BookerQuartic solution is valid
-
-M = LWMS.susceptibility(72e3, tx.frequency, bfield, electrons)
-T = LWMS.tmatrix(ea, M)
-LWMS.bookerquartic!(T)
-LWMS.sortquarticroots!(LWMS.BOOKER_QUARTIC_ROOTS)
-q = LWMS.BOOKER_QUARTIC_ROOTS
-
-B = MMatrix{4,4,ComplexF64,16}(undef)
-B[2,:] = 1  # TODO: Special BMatrix type
-for i = 1:4
-    α = (T[4,2]*T[3,2] - (T[3,2] - q[i]^2)*(T[4,4] - q[i]))/
-        (T[3,1]*(T[4,4] - q[i]) - T[4,1]*T[3,4])
-    β = (T[1,2] + α*(T[1,1] - q[i]))/T[1,4]
-
-    B[1,i] = α
-    # B[2,i] = 1
-    B[3,i] = q[i]
-    B[4,i] = β
-end
-
-
-for i = 1:4
-    @test_broken T*B[:,i] ≈ q[i]*B[:,i]
-end
-
-o = LWMS.initialwavefields(T)
 
 
 ########

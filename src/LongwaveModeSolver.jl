@@ -9,7 +9,7 @@ using LinearAlgebra
 using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using SpecialFunctions
-using DiffEqBase, OrdinaryDiffEq
+using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
 
 using PolynomialRoots: roots!

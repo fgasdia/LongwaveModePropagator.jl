@@ -80,6 +80,37 @@ end
     h₂0
 end
 
+"""
+    WavefieldIntegrationParams
+
+Parameters passed to Pitteway integration of wavefields.
+"""
+@with_kw struct WavefieldIntegrationParams{T1,T2,T3,F,G}
+    z::T1
+    ortho_scalar::Complex{T2}
+    e1_scalar::T2
+    e2_scalar::T2
+    ea::EigenAngle{T3}
+    frequency::Frequency
+    bfield::BField
+    species::Constituent{F,G}
+end
+
+"""
+    ScaleRecord
+
+Struct used for saving wavefield scaling information during Pitteway integration
+of wavefields.
+"""
+struct ScaleRecord{T1,T2}
+    z::T1
+    e::SMatrix{4,2,Complex{T2},8}
+    ortho_scalar::Complex{T2}
+    e1_scalar::T2
+    e2_scalar::T2
+end
+
+
 ##########
 # Reflection coefficient matrix from a sharply bounded ionosphere
 ##########
@@ -998,6 +1029,23 @@ end
 # Wavefields
 ################
 
+"""
+    initialwavefields(T::TMatrix)
+
+Calculate the initial wavefields vector ``[Ex₁ Ex₂
+                                           Ey₁ Ey₂
+                                           ℋx₁ ℋx₂
+                                           ℋy₁ ℋy₂]``
+for the two upgoing wavefields where subscript `1` is the evanescent wave and
+`2` is the travelling wave.
+
+This function solves the equation ``Te = qe``, equivalently the eigenvector
+problem ``(T- qI)e = 0``. First, the Booker Quartic is solved for the roots `q`,
+and they are sorted so that the roots associated with the two upgoing waves are
+selected, where eigenvalue ``q₁`` corresponds to the evanescent wave and ``q₂``
+the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
+analytical solution is used where `e[2,:] = 1`.
+"""
 function initialwavefields(T::TMatrix)
     bookerquartic!(T)
     sortquarticroots!(BOOKER_QUARTIC_ROOTS)
@@ -1027,10 +1075,278 @@ function initialwavefields(T::TMatrix)
     return SArray(e)
 end
 
-dedz(e, frequency::Frequency, T::TMatrix) = -im*frequency.k*(T*e)
+"""
+    dedz(e, k, T::Tmatrix)
 
-function integratewavefields()
+Calculates derivative of field components vector ``de/dz = -i k T e``.
+"""
+dedz(e, k, T::TMatrix) = -im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
 
+"""
+    dedz(e, p, z)
+
+Calculates derivative of field components vector `e` at height `z`.
+
+The parameters tuple `p` should contain (`Frequency`, `BField`, `Constituent`)
+or be a `WavefieldIntegrationParams` struct. This function internally calls
+[`susceptibility`](@ref) and [`tmatrix`](@ref) and is typically used by
+[`integratewavefields`](@ref).
+"""
+function dedz(e, p, z)
+    @unpack ea, frequency, bfield, species = p
+
+    M = susceptibility(z, frequency, bfield, species)
+    T = tmatrix(ea, M)
+
+    return dedz(e, frequency.k, T)
+end
+
+"""
+    scalingcondition(e, z, integrator)
+
+Return `true` if wavefields should be scaled, otherwise `false`.
+
+Specifically, if any component of `real(e)` or `imag(e)` are `>= 1`, return
+`true`.
+"""
+scalingcondition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
+
+"""
+    scale!(integrator)
+
+Apply wavefield scaling with [`scalewavefields`](@ref) to the integrator.
+"""
+function scale!(integrator)
+    new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
+
+    # Last set of scaling values
+    @unpack frequency, bfield, species = integrator.p
+
+    #==
+    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
+    integrator.t` might equal `0.0`, for example, before it's actually gotten
+    to the bottom. `integrator.prevt` is the last `t` on the "left"
+    side of the `integrator`, which covers the local interval [`tprev`, `t`].
+    The "condition" is met at `integrator.t` and `integrator.t` is the time at
+    which the affect occurs.
+    However, it is not guaranteed that each (`tprev`, `t`) directly abuts the
+    next `tprev`, `t`).
+    ==#
+
+    # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
+    integrator.p = WavefieldIntegrationParams(integrator.t,
+                                              new_orthos,
+                                              new_e1s, new_e2s,
+                                              frequency, bfield, species)
+
+    integrator.u = new_e
+
+    return nothing
+end
+
+"""
+    save_values(u, t, integrator)
+
+Return a `ScaleRecord` from `u`, `t`, and `integrator`.
+
+Used by SavingCallback in [`integratewavefields`](@ref).
+"""
+save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
+                                            u,
+                                            integrator.p.ortho_scalar,
+                                            integrator.p.e1_scalar,
+                                            integrator.p.e2_scalar)
+
+"""
+    scalewavefields(e1, e2)
+
+Returns orthonormalized vectors `e1` and `e2`, as well as the scaling terms `a`,
+`e1_scale_val`, and `e2_scale_val` applied to the original vectors.
+
+First applies Gram-Schmidt orthogonalization and then scales the vectors so they
+each have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique
+suggested by [^Pitteway1965] to counter numerical swamping during integration of
+wavefields.
+
+# References
+
+[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields,
+reflexion coefficients and polarizations for long radio waves in the lower
+ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
+pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
+"""
+function scalewavefields(e1::AbstractVector, e2::AbstractVector)
+    # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
+    # `dot` for complex vectors automatically conjugates first vector
+    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), `imag(dot(e1,e1)) == 0`
+    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned XXX: necessary?
+    e2 -= a*e1
+
+    # Normalize `e1` and `e2`
+    e1_scale_val = 1/sqrt(e1_dot_e1)
+    e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
+    e1 *= e1_scale_val
+    e2 *= e2_scale_val  # == normalize(e2)
+
+    return e1, e2, a, e1_scale_val, e2_scale_val
+end
+
+"""
+    scalewavefields(e)
+
+!!! note
+
+    This function only applies scaling to the first 2 columns of `e`.
+"""
+function scalewavefields(e::AbstractArray)
+    e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
+
+    if size(e, 2) == 2
+        e = hcat(e1, e2)
+    else
+        e = hcat(e1, e2, e[:,3:end])
+    end
+
+    return e, a, e1_scale_val, e2_scale_val
+end
+
+"""
+    unscalewavefields!(e, saved_values::SavedValues)
+
+Unscale the integrated wavefields `e` in place.
+
+Assumes fields have been scaled by [`scalewavefields`](@ref) during integration.
+
+See also [`unscalewavefields`](@ref) for additional details.
+"""
+function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
+
+    z = saved_values.t
+    records = saved_values.saveval
+
+    # Initialize the "reference" scaling altitude
+    ref_z = last(records).z
+
+    # Usually `osum = 0`, `prod_e1 = 1`, and `prod_e2 = 1` at initialization,
+    # but we set up the fields at the ground (`last(records)`) outside the loop
+
+    osum = last(records).ortho_scalar
+    prod_e1 = last(records).e1_scalar
+    prod_e2 = last(records).e2_scalar
+
+    # Unscaling we go from the bottom up
+    for i in reverse(eachindex(e))
+        if i == 1
+            nothing
+        end
+
+        # Unpack variables
+        record_z = records[i].z
+        scaled_e = records[i].e
+        ortho_scalar = records[i].ortho_scalar
+        e1_scalar = records[i].e1_scalar
+        e2_scalar = records[i].e2_scalar
+
+        # Only update ref_z when there is both:
+        # 1) we have reached the height where a new ref_z should go into effect
+        # 2) there is a new ref_z
+        if z[i] > record_z && record_z > ref_z
+            ref_z = record_z
+
+            osum *= e1_scalar/e2_scalar
+            osum += ortho_scalar
+            prod_e1 *= e1_scalar
+            prod_e2 *= e2_scalar
+        end
+
+        if i == lastindex(e)  # == [end]
+            # Bottom doesn't require correction
+            e[i] = scaled_e
+        else
+            e2 = (scaled_e[:,2] - osum*scaled_e[:,1])*prod_e2
+            e1 = scaled_e[:,1]*prod_e1
+            e[i] = hcat(e1,e2)
+        end
+    end
+
+    return nothing
+end
+
+"""
+    unscalewavefields(saved_values::SavedValues)
+
+Return the unscaled integrated wavefields originally scaled by
+[`scalewavefields`](@ref).
+
+The fields are not "unscaled" so much as further scaled so that at all heights
+the fields are scaled similarly to the cumulative scaling that applied to the
+fields at the bottom.
+
+The bottom level does not get unscaled. We reference the higher levels to the
+bottom. The level above the bottom level needs to be additionally scaled by the
+amount that was applied to originally get from this level down to the bottom
+level. The next level up (2 above the bottom level) needs to be scaled by the
+amount applied to the next level and then the bottom level, i.e. we keep track
+of a cumulative correction on the way back up.
+"""
+function unscalewavefields(saved_values::SavedValues)
+    # Array of SArray{Tuple{4,2}, Complex{Float64}}
+    e = Vector{typeof(saved_values.saveval[1].e)}(undef, length(saved_values.saveval))
+
+    unscalewavefields!(e, saved_values)
+
+    return e
+end
+
+"""
+
+Always integrates to ground (0).
+"""
+function integratewavefields(ztop, ea, frequency, bfield, species)
+    # TODO: version that updates output `e` in place
+
+    # saved_positions=(true, true) because we discontinuously modify `u`. This is
+    # independent of saveat and save_everystep
+    cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
+
+    # TODO: generalize ScaleRecord types
+    saved_values = SavedValues(typeof(ztop), ScaleRecord{Float64, Float64})
+
+    # `save_everystep` because we need to make sure we save when affect! occurs
+    # `saveat=zs[2:end-1]` because otherwise we double save end points
+    scb = SavingCallback(save_values, saved_values,
+                         save_everystep=true, saveat=zs[2:end-1],
+                         tdir=-1)  # necessary because we're going down!
+
+
+    # Initial conditions
+    Mtop = susceptibility(ztop, tx.frequency, bfield, species)
+    Ttop = tmatrix(ea, Mtop)
+    e0 = initialwavefields(Ttop)
+
+    # Normalize e0 (otherwise top fields are out of whack with unscaled fields
+    # because scaling at top is unity).
+    # Don't want to orthogonalize `e2` here because it won't be undone!
+    e0 = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
+    # The normalized `e0` is still a valid solution:
+    #==
+    q = LWMS.BOOKER_QUARTIC_ROOTS
+    for i = 1:2
+        @test Ttop*e0n[:,i] ≈ q[i]*e0n[:,i]
+    end
+    ==#
+
+    p = WavefieldIntegrationParams(ztop, zero(eltype(e0)), 1.0, 1.0,
+                                   tx.frequency, bfield, electrons)
+
+    # TODO: What integration method?
+    prob = ODEProblem{false}(dedz, e0, (ztop, zero(ztop)), p)
+    sol = solve(prob, callback=CallbackSet(cb, scb),
+                save_everystep=false, save_start=false, save_end=false)
+
+    e = unscalewavefields(saved_values)
+
+    return e
 end
 
 ################

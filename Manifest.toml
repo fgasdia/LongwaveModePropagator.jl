@@ -94,6 +94,12 @@ git-tree-sha1 = "cde3b2cae8af04105e4920392dfb096794e9e71d"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
 version = "6.32.1"
 
+[[DiffEqCallbacks]]
+deps = ["DataStructures", "DiffEqBase", "ForwardDiff", "LinearAlgebra", "NLsolve", "OrdinaryDiffEq", "RecipesBase", "RecursiveArrayTools", "StaticArrays"]
+git-tree-sha1 = "ba8db8c46f8abe261fa6560fc20f4b905ceab566"
+uuid = "459566f4-90b8-5000-8ac3-15dfb0a30def"
+version = "2.13.1"
+
 [[DiffResults]]
 deps = ["StaticArrays"]
 git-tree-sha1 = "da24935df8e0c6cf28de340b958f6aac88eaa0cc"
