@@ -4,7 +4,6 @@ using StaticArrays
 using ElasticArrays  # resizable multidimensional arrays
 using Parameters
 
-# using OrdinaryDiffEq
 using DifferentialEquations  # loading this to see what is chosen as default alg
 
 using Plots
@@ -40,11 +39,9 @@ electrons = Constituent(qₑ, mₑ,
 # ea = modes[argmax(real(modes))]
 ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
-# TODO: figure out how to confirm this ht is high enough
 ztop = 100e3
 
 @with_kw struct WavefieldIntegrationParams{T1,T2,F,G}
-    zprev::T1
     z::T1
     ortho_scalar::Complex{T2}
     e1_scalar::T2
@@ -446,8 +443,8 @@ the Ionosphere,” in ELF-VLF Radio Wave Propagation, 1974, pp. 69–86.
 function scalewavefields(e1::AbstractVector, e2::AbstractVector)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
-    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), NOTE: imag == 0
-    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
+    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), `imag(dot(e1,e1)) == 0`
+    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned XXX: necessary?
     e2 -= a*e1
 
     # Normalize `e1` and `e2`
@@ -476,7 +473,6 @@ function scalewavefields(e::AbstractArray)
 end
 
 struct ScaleRecord{T1,T2}
-    zprev::T1
     z::T1
     e::SMatrix{4,2,Complex{T2},8}
     ortho_scalar::Complex{T2}
@@ -491,30 +487,27 @@ condition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
 function affect!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
-    #==
-    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
-    integrator.t` might equal `0.0`, for example, before it's actually gotten
-    to the bottom. Instead, `integrator.prevt` is the last `t` on the "left"
-    side of the `integrator`, which covers the local interval [`tprev`, `t`].
-    The "condition" is met at `integrator.t` and `integrator.t` is the time at
-    which the affect occurs.
-    However, it is not guaranteed that each tprev, t directly abuts the next tprev, t
-    ==#
-
-    println("affect! ($(integrator.tprev), $(integrator.t))")
-
     # Last set of scaling values
     @unpack frequency, bfield, species = integrator.p
 
+    #==
+    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
+    integrator.t` might equal `0.0`, for example, before it's actually gotten
+    to the bottom. `integrator.prevt` is the last `t` on the "left"
+    side of the `integrator`, which covers the local interval [`tprev`, `t`].
+    The "condition" is met at `integrator.t` and `integrator.t` is the time at
+    which the affect occurs.
+    However, it is not guaranteed that each (`tprev`, `t`) directly abuts the
+    next `tprev`, `t`).
+    ==#
+
     # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
-    integrator.p = WavefieldIntegrationParams(integrator.tprev, integrator.t,
-                                              new_orthos*new_e1s/new_e2s,
+    integrator.p = WavefieldIntegrationParams(integrator.t,
+                                              new_orthos,
                                               new_e1s, new_e2s,
                                               frequency, bfield, species)
 
     integrator.u = new_e
-
-    # set_proposed_dt!(integrator, 0.2*get_proposed_dt(integrator))
 
     return nothing
 end
@@ -523,8 +516,7 @@ end
 cb = DiscreteCallback(condition, affect!, save_positions=(true, true))
 
 saved_values = SavedValues(typeof(ztop), ScaleRecord{Float64, Float64})
-save_values(u, t, integrator) = ScaleRecord(integrator.p.zprev,
-                                            integrator.p.z,
+save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
                                             u,
                                             integrator.p.ortho_scalar,
                                             integrator.p.e1_scalar,
@@ -539,11 +531,26 @@ scb = SavingCallback(save_values, saved_values,
 Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
 Ttop = LWMS.tmatrix(ea, Mtop)
 e0 = LWMS.initialwavefields(Ttop)
-# TODO: Normalize e0?
+
+# Looks better (otherwise top fields are out of whack b/c scaling at top is 1)
+# if this starts normalized. But don't want to orthogonalize `e2` because it
+# won't be undone!
+e0n = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
+
+# confirm normalized e0 is still valid
+q = LWMS.BOOKER_QUARTIC_ROOTS
+
+for i = 1:2
+    @test Ttop*e0[:,i] ≈ q[i]*e0[:,i]
+    @test Ttop*e0n[:,i] ≈ q[i]*e0n[:,i]
+end
+
+e0 = e0n
+
 
 # p = (z=ztop, ortho_scalar=zero(eltype(e0)), e1_scalar=1.0, e2_scalar=1.0,
      # magnetoionic=(frequency=tx.frequency, bfield=bfield, species=electrons))
-p = WavefieldIntegrationParams(ztop, ztop, zero(eltype(e0)), 1.0, 1.0, tx.frequency, bfield, electrons)
+p = WavefieldIntegrationParams(ztop, zero(eltype(e0)), 1.0, 1.0, tx.frequency, bfield, electrons)
 prob = ODEProblem{false}(integratefields, e0, (ztop, zero(ztop)), p)
 sol = solve(prob, callback=CallbackSet(cb, scb),
             save_everystep=false, save_start=false, save_end=false)
@@ -588,23 +595,23 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
     z = saved_values.t
     records = saved_values.saveval
 
-    osum = zero(records[1].ortho_scalar)
-    prod_e1 = one(records[1].e1_scalar)
-    prod_e2 = one(records[1].e2_scalar)
-
-    # ref_zprev = first(records).zprev
-    # ref_z = first(records).z  # purposefully first(records) != last(records)
-    ref_zprev = last(records).zprev
+    # Initialize the "reference" scaling altitude
     ref_z = last(records).z
 
-    # Initialize ref_z
-    prod_e1 *= last(records).e1_scalar
-    prod_e2 *= last(records).e2_scalar
+    # Usually `osum = 0`, `prod_e1 = 1`, and `prod_e2 = 1` at initialization,
+    # but we set up the fields at the ground (`last(records)`) outside the loop
+
+    osum = last(records).ortho_scalar
+    prod_e1 = last(records).e1_scalar
+    prod_e2 = last(records).e2_scalar
 
     # Unscaling we go from the bottom up
     for i in reverse(eachindex(e))
+        if i == 1
+            nothing
+        end
+
         # Unpack variables
-        record_zprev = records[i].zprev
         record_z = records[i].z
         scaled_e = records[i].e
         ortho_scalar = records[i].ortho_scalar
@@ -617,6 +624,8 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
         if z[i] > record_z && record_z > ref_z
             ref_z = record_z
 
+            osum *= e1_scalar/e2_scalar
+            osum += ortho_scalar
             prod_e1 *= e1_scalar
             prod_e2 *= e2_scalar
         end
@@ -625,23 +634,10 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
             # Bottom doesn't require correction
             e[i] = scaled_e
         else
-            # e2 = (scaled_e[i][:,2] - osum*scaled_e[i][:,1])*prod_e2
-            # e2 = (scaled_e[:,2] - ortho_cumulative_scalar[i]*scaled_e[:,1])*e2_cumulative_scalar[i]
-            e2 = scaled_e[:,2]*prod_e2
+            e2 = (scaled_e[:,2] - osum*scaled_e[:,1])*prod_e2
             e1 = scaled_e[:,1]*prod_e1
             e[i] = hcat(e1,e2)
         end
-
-        # # if zs[i] >= ref_zprev
-        # if record_z != ref_z
-        #     # osum *= e1_cumulative_scalar[i]/e2_cumulative_scalar[i]
-        #     # osum += ortho_cumulative_scalar[i]
-        #     prod_e1 *= e1_scalar
-        #     prod_e2 *= e2_scalar
-        #
-        #     ref_zprev = record_zprev
-        #     ref_z = record_z
-        # end
     end
 
     return nothing
@@ -674,12 +670,24 @@ affect_zs = [s.z for s in saved_values.saveval]
 
 plotly()
 # gr()
+
+# e1
 plot(abs.(e1)', saved_values.t/1000, color="red")
 plot!(abs.(ne1)', saved_values.t/1000, color="black")
 scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
 scatter!(zeros(length(affect_zs)), affect_zs/1000,
         markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
 vline!([1])
+
+# e2
+plot(abs.(e2)', saved_values.t/1000, color="red")
+plot!(abs.(ne2)', saved_values.t/1000, color="black")
+scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
+scatter!(zeros(length(affect_zs)), affect_zs/1000,
+        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
+vline!([1])
+
+
 
 
 
