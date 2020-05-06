@@ -19,27 +19,30 @@ const qₑ = -1.602176634e-19  # C
 # To profile in Juno
 # @profiler (for i = 1:1000; LWMS.fcn(); end)
 
-#==
+########
 # Scenario
-==#
 
-bfield = BField(50e-6, deg2rad(68), deg2rad(111))
-tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
-ground = Ground(15, 0.001)
+function scenario()
+    bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+    tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
+    ground = Ground(15, 0.001)
 
-electrons = Constituent(qₑ, mₑ,
-                        z -> waitprofile(z, 75, 0.32),
-                        electroncollisionfrequency)
+    electrons = Constituent(qₑ, mₑ,
+                            z -> waitprofile(z, 75, 0.32),
+                            electroncollisionfrequency)
 
-# electrons = Constituent(qₑ, mₑ,
-#         z -> waitprofile(z, 75, 0.32, H),
-#         z -> electroncollisionfrequency(z, H))
+    # electrons = Constituent(qₑ, mₑ,
+    #         z -> waitprofile(z, 75, 0.32, H),
+    #         z -> electroncollisionfrequency(z, H))
 
-# ea = modes[argmax(real(getfield.(modes, :θ)))]  # largest real resonant mode
-# ea = modes[argmax(real(modes))]
-ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
+    # Resonant EigenAngle
+    ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
-ztop = 100e3
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+
+    return bfield, tx, ground, electrons, ea, zs
+end
 
 
 #==
@@ -50,6 +53,8 @@ origcoords .= deg2rad.(origcoords)
 tolerance = 1e-8
 
 modes = LWMS.findmodes(origcoords, modeparams, tolerance)
+
+ea = modes[argmax(real(modes))]  # largest real resonant mode
 ==#
 
 ########
@@ -57,10 +62,6 @@ modes = LWMS.findmodes(origcoords, modeparams, tolerance)
 # Have to manually uncomment line in `_sharpboundaryreflection`
 
 #==
-ea = modes[argmax(real(getfield.(modes, :θ)))]
-z = 120e3  # "TOP HT" TODO: figure out how to confirm this ht is high enough
-M = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
-
 tmp = LWMS.sharpboundaryreflection(ea, M)
 tmpq = copy(LWMS.BOOKER_QUARTIC_ROOTS)
 
@@ -72,7 +73,9 @@ tmpq2 = copy(LWMS.BOOKER_QUARTIC_ROOTS)
 # Compare Booker quartic computed with M and T
 # Runtime is dominated by `roots!`, but the version with `T` is slightly faster
 
-M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
+bfield, tx, ground, electrons, ea, zs = scenario()
+
+M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
 T = LWMS.tmatrix(ea, M)
 
 LWMS.bookerquartic!(ea, M)
@@ -90,11 +93,7 @@ for i in eachindex(qT)
     @test isapprox(booker, 0, atol=1e-7)
 end
 
-
-########
-# We choose the 2 roots corresponding to upward travelling waves as being those that lie
-# close to the positive real and negative imaginary axis (315° on the complex plane)
-
+# Verify initialwavefields produces a valid solution
 e = LWMS.initialwavefields(T)
 q = LWMS.BOOKER_QUARTIC_ROOTS
 
@@ -102,11 +101,238 @@ for i = 1:2
     @test T*e[:,i] ≈ q[i]*e[:,i]
 end
 
+# Confirm `T` matrix vs dense array `T` both work
 for i = 1:2
-    # Confirm `T` matrix vs dense array `T` both work
     @test T*e[:,i] ≈ Array(T)*e[:,i]
 end
 
+
+########
+# Confirm reflection coefficient from wavefields at top height
+
+bfield, tx, ground, electrons, ea, zs = scenario()
+
+Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
+Ttop = LWMS.tmatrix(ea, Mtop)
+etop = LWMS.initialwavefields(Ttop)
+
+wavefieldR = LWMS.vacuumreflectioncoeffs(ea, etop[:,1], etop[:,2])
+
+# "modulus" (abs) of each component should be <=1
+@test all(abs.(wavefieldR) .<= 1)
+@test LWMS.sharpboundaryreflection(ea, Mtop) ≈ wavefieldR
+
+
+########
+# Integration with scaling
+
+function integration_test()
+    bfield, tx, ground, electrons, ea, zs = scenario()
+
+    # Initial conditions
+    Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
+    Ttop = LWMS.tmatrix(ea, Mtop)
+    e0 = LWMS.initialwavefields(Ttop)
+
+    # Check normalized fields are still a valid solution
+    e0n = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
+
+    q = LWMS.BOOKER_QUARTIC_ROOTS
+    for i = 1:2
+        @test Ttop*e0n[:,i] ≈ q[i]*e0n[:,i]
+    end
+    e0 = e0n
+
+    cb = LWMS.DiscreteCallback(LWMS.scalingcondition, LWMS.scale!, save_positions=(true, true))
+    saved_values = LWMS.SavedValues(eltype(zs), LWMS.ScaleRecord{eltype(zs), real(eltype(e0))})
+    scb = LWMS.SavingCallback(LWMS.save_values, saved_values,
+                              save_everystep=true, saveat=zs[2:end-1],
+                              tdir=-1)
+
+    p = LWMS.WavefieldIntegrationParams{eltype(e0)}(ea, tx.frequency, bfield, electrons)
+
+    prob = ODEProblem{false}(LWMS.dedz, e0, (first(zs), last(zs)), p)
+    sol = solve(prob, callback=CallbackSet(cb, scb),
+                save_everystep=false, save_start=false, save_end=false,
+                rtol=1e-8, atol=1e-8)
+
+
+    return ea, saved_values
+end
+
+ea, saved_values = integration_test()
+wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s.e[:,1], s.e[:,2]) for s in saved_values.saveval]
+
+# Compare to Budden integration of R
+function dr_integration()
+    bfield, tx, ground, electrons, ea, zs = scenario()
+
+    modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+    Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, modeparams))
+    sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+                                      saveat=saved_values.t, save_everystep=false)
+
+    return sol
+end
+
+sol = dr_integration()
+
+@test all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
+
+
+# Try again with unscaled fields
+e = LWMS.unscalewavefields(saved_values)
+wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
+
+@test all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
+
+function homogeneous_iono_test()
+    # Check integration with homogeneous ionosphere
+    # Integrate through homogeneous medium w/ sharp lower boundary and compare to
+    # bookerquartic solution
+    # See, e.g. Pitteway 1965 pg 234
+
+    LWMS.EARTHCURVATURE[] = false
+
+    homogeneous = Constituent(qₑ, mₑ, z -> 1e8, z -> 5e6)
+
+    homozs = 600e3:-500:50e3
+
+    M = LWMS.susceptibility(first(homozs), tx.frequency, bfield, homogeneous)
+    T = LWMS.tmatrix(ea, M)
+    e0 = LWMS.initialwavefields(T)
+
+    cb = LWMS.DiscreteCallback(LWMS.scalingcondition, LWMS.scale!, save_positions=(true, true))
+    saved_values = LWMS.SavedValues(eltype(homozs), LWMS.ScaleRecord{eltype(homozs), real(eltype(e0))})
+    scb = LWMS.SavingCallback(LWMS.save_values, saved_values,
+                              save_everystep=true, saveat=homozs[2:end-1],
+                              tdir=-1)
+    p = LWMS.WavefieldIntegrationParams{eltype(e0)}(ea, tx.frequency, bfield, homogeneous)
+
+    prob = ODEProblem{false}(LWMS.dedz, e0, (first(homozs), last(homozs)), p)
+    sol = solve(prob, callback=CallbackSet(cb, scb),
+                save_everystep=false, save_start=false, save_end=false,
+                dt=tx.frequency.λ/50, rtol=1e-8, atol=1e-8)
+
+
+    e = [s.e for s in saved_values.saveval]
+
+    e1 = [s[:,1] for s in e]
+    e2 = [s[:,2] for s in e]
+
+    e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
+    e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
+
+    # plotly()
+    # plot(real.(e1)', saved_values.t/1000)
+    # plot(abs.(e2)', saved_values.t/1000)
+
+    idx = findfirst(z->z==last(homozs), saved_values.t)
+    e1_idx = e1[:,idx]
+    e2_idx = e2[:,idx]
+
+    # need to scale to booker solution, which has second element == 1
+    e1_idx *= 1/e1_idx[2]
+    e2_idx *= 1/e2_idx[2]
+
+    # Booker solution
+    M = LWMS.susceptibility(last(homozs), tx.frequency, bfield, homogeneous)
+    T = LWMS.tmatrix(ea, M)
+    booker = LWMS.initialwavefields(T)
+
+    q = LWMS.BOOKER_QUARTIC_ROOTS
+
+    for i = 1:4
+        @test T*booker[:,i] ≈ q[i]*booker[:,i]
+    end
+
+    @test e1_idx ≈ booker[:,1]
+    @test e2_idx ≈ booker[:,2]
+
+    LWMS.EARTHCURVATURE[] = true
+end
+
+homogeneous_iono_test()
+
+
+#==
+Vacuum (ground) boundary condition
+==#
+
+e1, e2 = saved_values.saveval[end].e[:,1], saved_values.saveval[end].e[:,2]
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+b1, b2 = wavefieldboundary(R, Rg, e1, e2)
+
+
+e = sol[:,end]
+e1, e2 = e[:,1], e[:,2]
+
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+
+f = LWMS.modalequation(R, Rg)
+@test isapprox(f, 0, atol=1e-3)  # is it worth iterating ea? dRdz is closer...
+
+"""
+    wavefieldboundary(R, Rg, e1, e2)
+
+Calculate coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield
+as ``e = b1*e1 + b2*e2``.
+
+This process is used by LWPC and is similar to the calculation of excitation
+factor at the ground because it makes use of the mode condition.
+"""
+function wavefieldboundary(R, Rg, e1, e2)
+    # This process is similar to excitation factor calculation, using the
+    # waveguide mode condition
+
+    Ex1, Ey1, Hx1, Hy1 = e1[1], -e1[2], e1[3], e1[4]
+    Ex2, Ey2, Hx2, Hy2 = e2[1], -e2[2], e2[3], e2[4]
+
+    # at the ground, modify for flat earth
+    Hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
+    # ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
+
+    # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
+    abparal = 1 - Rg[1,1]*R[1,1]
+    abperp = 1 - Rg[2,2]*R[2,2]
+    if abs2(abparal) < abs2(abperp)
+        pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*(1 - Rg[2,2]*R[2,2]))
+    else
+        pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
+    end
+
+    a = (-Ey1 + pol*Hy1)/(Ey2 - pol*Hy2)
+
+    Hysum = Hy1 + a*Hy2
+
+    b1 = Hy0/Hysum
+    b2 = b1*a
+
+    return b1, b2
+end
+
+R = vacuumreflectioncoeffs(ea, e1, e2)
+Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+b1, b2 = wavefieldboundary(R, Rg, e1, e2)
+
+
+
+function fieldstrengths()
+
+end
+
+
+# `dt` argument is initial stepsize
+# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
+# size with λ in ionosphere / 20 or something like that
+
+
+
+
+########
 
 ########
 #==
@@ -206,330 +432,3 @@ display(scene)
 # savefig("roots.svg")
 
 ==#
-
-
-########
-# Integrate wavefields
-
-zs = ztop:-100:0.0
-
-M = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-T = LWMS.tmatrix(ea, M)
-e0 = LWMS.initialwavefields(T)
-
-p = LWMS.WavefieldIntegrationParams(0, complex(0), 0, 0, ea, tx.frequency, bfield, electrons)
-
-# `dt` argument is initial stepsize
-# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
-# size with λ in ionosphere / 10 or something like that
-prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
-sol = DifferentialEquations.solve(prob, abstol=1e-8, reltol=1e-8,
-                                  dt=tx.frequency.λ/50, progress=true)
-
-e = sol[:,end]
-e1, e2 = e[:,1], e[:,2]
-
-
-########
-#==
-Integration with scaling
-==#
-
-
-e1, e2 = saved_values.saveval[end].e[:,1], saved_values.saveval[end].e[:,2]
-R = vacuumreflectioncoeffs(ea, e1, e2)
-Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-b1, b2 = wavefieldboundary(R, Rg, e1, e2)
-
-#==
-# Compare to Budden integration of R
-modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
-Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
-sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
-
-@test R ≈ sol[end]
-==#
-
-e = unscalewavefields(saved_values)
-
-e1 = [s.e[:,1] for s in saved_values.saveval]
-e2 = [s.e[:,2] for s in saved_values.saveval]
-
-e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
-e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
-
-ne1 = [t[:,1] for t in e]
-ne2 = [t[:,2] for t in e]
-
-ne1 = reshape(reinterpret(ComplexF64, ne1), 4, :)
-ne2 = reshape(reinterpret(ComplexF64, ne2), 4, :)
-
-affect_zs = [s.z for s in saved_values.saveval]
-
-plotly()
-# gr()
-
-# e1
-plot(abs.(e1)', saved_values.t/1000, color="red")
-plot!(abs.(ne1)', saved_values.t/1000, color="black")
-scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
-scatter!(zeros(length(affect_zs)), affect_zs/1000,
-        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
-vline!([1])
-
-# e2
-plot(abs.(e2)', saved_values.t/1000, color="red")
-plot!(abs.(ne2)', saved_values.t/1000, color="black")
-scatter!(zeros(length(sol.t)),sol.t/1000, markersize=6, markercolor=nothing, markerstrokecolor="blue")
-scatter!(zeros(length(affect_zs)), affect_zs/1000,
-        markershape=:rect, markersize=3, markercolor=nothing, markerstrokecolor="black")
-vline!([1])
-
-
-
-
-#==
-Calculate ionosphere reflection coefficient from `e`
-==#
-
-"""
-    vacuumreflectioncoeffs(ea, e)
-
-Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
-
-Integrating for one set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``
-can be separated into an upgoing and downgoing wave, each of which is generally
-elliptically polarized. One might assume that the ratio of the amplitudes of
-these two waves would give a reflection coefficient, and it does, except the
-coefficient would only apply for an incident wave of that particular elliptical
-polarization. However, the first set of fields can be linearly combined with
-a second independent solution for the fields, which will generally have a
-different elliptical polarization than the first. Two linear combinations of the
-two sets of fields are formed with unit amplitude, linearly polarized
-incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or
-``R₁₂``, ``R₂₂`` for the incident wave in the plane of incidence and
-perpendicular to it, respectively [Budden1988] (pg 552).
-
-The process for determining the reflection coefficient requires resolving the
-two sets of fields `e1` and `e2` into the four linearly polarized vacuum
-modes. The layer of vacuum can be assumed to be so thin that it does not affect
-the fields. There will be two upgoing waves, one of which has ``E``, and the
-other ``H`` in the plane of incidence, and two downgoing waves, with ``E`` and
-``H`` in the plane of incidence. If ``f₁, f₂, f₃, f₄`` are the complex
-amplitudes of the four component waves, then in matrix notation ``e = Sᵥ f``.
-
-For `e1` and `e2`, we can find the corresponding vectors `f1` and `f2` by
-``f1 = Sᵥ⁻¹ e1``, ``f2 = Sᵥ⁻¹ e2`` where the two column vectors are partitioned
-such that ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing
-2-element vectors `u` and `d`. From the definition of the reflection coefficient
-`R`, ``d = Ru``. Letting ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and
-the reflection coefficient is ``R = DU¹``. Because the reflection coefficient
-matrix is a ratio of fields, either `e1` and/or `e2` can be independently
-multiplied by an arbitrary constant and the value of `R` is unaffected.
-
-See Budden 1988 ch 18 sec 7
-"""
-function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::AbstractArray{T2}) where {T,T2}
-    C = ea.cosθ
-    Cinv = 1/C
-
-    # TODO: Special Sv matrix (also useful elsewhere?)
-    Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,
-                               0, -1, 0, -1,
-                               0, -Cinv, 0, Cinv,
-                               1, 0, 1, 0)
-
-    f1 = Sv_inv*e1
-    f2 = Sv_inv*e2
-
-    out_type = promote_type(T, T2)
-    U = SMatrix{2,2,out_type,4}(f1[1], f1[2], f2[1], f2[2])
-    D = SMatrix{2,2,out_type,4}(f1[3], f1[4], f2[3], f2[4])
-
-    return D/U
-end
-
-# Test R at "top"
-Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-Ttop = LWMS.tmatrix(ea, Mtop)
-etop = LWMS.initialwavefields(Ttop)
-@test LWMS.sharpboundaryreflection(ea, Mtop) ≈ vacuumreflectioncoeffs(ea, etop[:,1], etop[:,2])
-
-# BUG: broken wavefield calculation?
-@test_broken all(abs.(vacuumR) .<= 1)  # Budden 88 says "modulus" (abs) of each component should be <=1
-
-# Compare to Budden integration of R
-modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
-Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, electrons)
-Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-prob = ODEProblem{false}(LWMS.dRdz, Rtop, (ztop, 0.0), (ea, modeparams))
-sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8)
-
-# NOTE: this doesn't work with bigfloats, but it _does_ appear to work with scaling
-@test_broken R ≈ sol[end]
-
-#==
-Vacuum (ground) boundary condition
-==#
-
-R = vacuumreflectioncoeffs(ea, e1, e2)
-Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-
-f = LWMS.modalequation(R, Rg)
-@test isapprox(f, 0, atol=1e-3)  # is it worth iterating ea? dRdz is closer...
-
-"""
-    wavefieldboundary(R, Rg, e1, e2)
-
-Calculate coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield
-as ``e = b1*e1 + b2*e2``.
-
-This process is used by LWPC and is similar to the calculation of excitation
-factor at the ground because it makes use of the mode condition.
-"""
-function wavefieldboundary(R, Rg, e1, e2)
-    # This process is similar to excitation factor calculation, using the
-    # waveguide mode condition
-
-    Ex1, Ey1, Hx1, Hy1 = e1[1], -e1[2], e1[3], e1[4]
-    Ex2, Ey2, Hx2, Hy2 = e2[1], -e2[2], e2[3], e2[4]
-
-    # at the ground, modify for flat earth
-    Hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
-    # ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
-
-    # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
-    abparal = 1 - Rg[1,1]*R[1,1]
-    abperp = 1 - Rg[2,2]*R[2,2]
-    if abs2(abparal) < abs2(abperp)
-        pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*(1 - Rg[2,2]*R[2,2]))
-    else
-        pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
-    end
-
-    a = (-Ey1 + pol*Hy1)/(Ey2 - pol*Hy2)
-
-    Hysum = Hy1 + a*Hy2
-
-    b1 = Hy0/Hysum
-    b2 = b1*a
-
-    return b1, b2
-end
-
-R = vacuumreflectioncoeffs(ea, e1, e2)
-Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-b1, b2 = wavefieldboundary(R, Rg, e1, e2)
-
-
-
-function fieldstrengths()
-
-end
-
-
-########
-
-#==
-Integrate the wavefields - TEST
-==#
-
-
-# `dt` argument is initial stepsize
-# TODO: Use StepsizeLimiters in DifferentialEquations.jl to adaptively cap step
-# size with λ in ionosphere / 20 or something like that
-prob = ODEProblem{false}(integratefields, e0, (ztop, 0.0), p)
-sol = solve(prob, abstol=1e-8, reltol=1e-8, dt=tx.frequency.λ/50)
-
-
-########
-
-# @test_skip vacuum wavefields  # (Nagano BC)
-
-
-########
-#==
-TESTS
-
-and LWPC comparisons
-==#
-
-function homogeneousiono()
-    # Accuracy check for integration of wavefields. See Pitteway1965 pg 234
-    # Integrate through homogeneous medium with sharp lower boundary and compare
-    # to bookerquartic solution
-end
-@test_skip homogeneousiono() ≈ bookerquartic()
-
-
-
-
-function lwpcreflectioncoeffs(ea::EigenAngle, e1, e2)
-    # From wf_r_mtrx.for
-
-    C = ea.cosθ
-
-    g12 = e1[1]*e2[2] - e2[1]*e1[2]
-    g13 = e1[1]*e2[3] - e2[1]*e1[3]
-    g14 = e1[1]*e2[4] - e2[1]*e1[4]
-    g23 = e1[2]*e2[3] - e2[2]*e1[3]
-    g24 = e1[2]*e2[4] - e2[2]*e1[4]
-    g34 = e1[3]*e2[4] - e2[3]*e1[4]
-
-    den = -g13 + C*(g34 - g12 + C*g24)
-
-    d11 = g13 + C*(g34 + g12 + C*g24)
-    d22 = g13 + C*(-g34 - g12 + C*g24)
-    d12 = 2*C*g14
-    d21 = 2*C*g23
-
-    return SMatrix{2,2,eltype(den),4}(d11/den, d21/den, d12/den, d22/den)
-end
-
-vacuumR = vacuumreflectioncoeffs(ea, e1[end], e2[end])
-@test vacuumR ≈ lwpcreflectioncoeffs(ea, e1[end], e2[end])
-
-
-
-function lwpcscale(p1, p2)
-    e1, e2 = MVector(p1), MVector(p2)
-
-    # aterm → dot(e1, e1)
-    aterm = 0
-    for i = 1:4
-        aterm += abs2(e1[i])
-    end
-
-    # term → dot(e1, e2)
-    term = 0
-    for i = 1:4
-        term += conj(e1[i])*e2[i]
-    end
-
-    # term → dot(e1, e2)/dot(e1, e1)
-    term /= aterm
-
-    # e2 → e2 - dot(e1, e2)/dot(e1, e1)
-    for i = 1:4
-        e2[i] -= term*e1[i]
-    end
-
-    # bterm → dot(e2, e2)
-    bterm = 0
-    for i = 1:4
-        bterm += abs2(e2[i])
-    end
-
-    # Normalize both vectors
-    aterm = 1/sqrt(aterm)
-    bterm = 1/sqrt(bterm)
-    for i = 1:4
-        e1[i] *= aterm
-        e2[i] *= bterm
-    end
-
-    return SVector(e1), SVector(e2)
-end
-
-########

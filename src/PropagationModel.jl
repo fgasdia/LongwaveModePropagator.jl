@@ -13,6 +13,10 @@ struct BookerQuartic{T<:Complex{<:AbstractFloat}}
 end
 ==#
 
+# Not great, but can be changed as `EARTHCURVATURE[]=false`
+# TODO: where does this need to be considered?
+const EARTHCURVATURE = Ref(true)
+
 # Passing MArrays between functions causes allocations. They are avoided by
 # mutating this const in place. `roots!` requires Complex values.
 const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(ComplexF64, 4))
@@ -81,9 +85,18 @@ end
 end
 
 """
-    WavefieldIntegrationParams
+    WavefieldIntegrationParams{T1,T2,T3,F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency, bfield, species)
 
 Parameters passed to Pitteway integration of wavefields.
+
+    `z::T1`
+    `ortho_scalar::Complex{T2}`
+    `e1_scalar::T2`
+    `e2_scalar::T2`
+    `ea::EigenAngle{T3}`
+    `frequency::Frequency`
+    `bfield::BField`
+    `species::Constituent{F,G}`
 """
 @with_kw struct WavefieldIntegrationParams{T1,T2,T3,F,G}
     z::T1
@@ -97,12 +110,39 @@ Parameters passed to Pitteway integration of wavefields.
 end
 
 """
-    ScaleRecord
+    WavefieldIntegrationParams{T}(ea, frequency, bfield, species)
+
+Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled
+integration. Requires the parameter `T`, which should be the wavefield type
+(usually `Complex{Float64}`).
+
+Automatically set values are:
+
+    `z = TOPHEIGHT`
+    `ortho_scalar = zero(complex(T2))`
+    `e1_scalar = one(real(T2))`
+    `e2_scalar = one(real(T2))`
+
+`ortho_scalar` will always be complex and `e1_scalar` and `e2_scalar` will
+always be real, so it is sufficient for `Float64` to be provided as `T` even
+for complex wavefields.
+"""
+function WavefieldIntegrationParams{T}(ea::EigenAngle{T3}, frequency::Frequency, bfield::BField, species::Constituent{F,G}) where {T,T3,F,G}
+    return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),T3,F,G}(TOPHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
+end
+
+"""
+    ScaleRecord{T1,T2}(z, e, ortho_scalar, e1_scalar, e2_scalar)
 
 Struct used for saving wavefield scaling information during Pitteway integration
 of wavefields.
+
+!!! note
+
+    `T2` must be real, so `ScaleRecord` would have type, e.g.
+    `ScaleRecord{eltype(zs), real(eltype(e0))}`
 """
-struct ScaleRecord{T1,T2}
+struct ScaleRecord{T1,T2<:Real}
     z::T1
     e::SMatrix{4,2,Complex{T2},8}
     ortho_scalar::Complex{T2}
@@ -563,15 +603,21 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Consti
     earthcurvature = 2/Rₑ*(H - z)
 
     # Elements of `M`
-    M11 = U²D - lx²*Y²D - earthcurvature
+    M11 = U²D - lx²*Y²D
     M21 = izYUD - xyY²D
     M31 = -iyYUD - xzY²D
     M12 = -izYUD - xyY²D
-    M22 = U²D - ly²*Y²D - earthcurvature
+    M22 = U²D - ly²*Y²D
     M32 = ixYUD - yzY²D
     M13 = iyYUD - xzY²D
     M23 = -ixYUD - yzY²D
-    M33 = U²D - lz²*Y²D - earthcurvature
+    M33 = U²D - lz²*Y²D
+
+    if EARTHCURVATURE[]
+        M11 -= earthcurvature
+        M22 -= earthcurvature
+        M33 -= earthcurvature
+    end
 
     # Remember, column major
     M = SMatrix{3,3}(M11, M21, M31,
@@ -1047,6 +1093,8 @@ the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
 function initialwavefields(T::TMatrix)
+    # TODO: rename to bookerwavefields?
+
     bookerquartic!(T)
     sortquarticroots!(BOOKER_QUARTIC_ROOTS)
 
@@ -1120,7 +1168,7 @@ function scale!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    @unpack frequency, bfield, species = integrator.p
+    @unpack ea, frequency, bfield, species = integrator.p
 
     #==
     NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
@@ -1137,7 +1185,7 @@ function scale!(integrator)
     integrator.p = WavefieldIntegrationParams(integrator.t,
                                               new_orthos,
                                               new_e1s, new_e2s,
-                                              frequency, bfield, species)
+                                              ea, frequency, bfield, species)
 
     integrator.u = new_e
 
@@ -1210,6 +1258,8 @@ function scalewavefields(e::AbstractArray)
     return e, a, e1_scale_val, e2_scale_val
 end
 
+using Iterators
+
 """
     unscalewavefields!(e, saved_values::SavedValues)
 
@@ -1221,7 +1271,7 @@ See also [`unscalewavefields`](@ref) for additional details.
 """
 function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
 
-    z = saved_values.t
+    zs = saved_values.t
     records = saved_values.saveval
 
     # Initialize the "reference" scaling altitude
@@ -1229,16 +1279,12 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
 
     # Usually `osum = 0`, `prod_e1 = 1`, and `prod_e2 = 1` at initialization,
     # but we set up the fields at the ground (`last(records)`) outside the loop
-
     osum = last(records).ortho_scalar
     prod_e1 = last(records).e1_scalar
     prod_e2 = last(records).e2_scalar
 
     # Unscaling we go from the bottom up
-    for i in reverse(eachindex(e))
-        if i == 1
-            nothing
-        end
+    @inbounds for i in reverse(eachindex(e))
 
         # Unpack variables
         record_z = records[i].z
@@ -1247,10 +1293,16 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
         e1_scalar = records[i].e1_scalar
         e2_scalar = records[i].e2_scalar
 
+        z = zs[i]
+
+        # TODO: `zs[i]` and `records[i].e` dominate the entire funtcion runtime
+        # Due to iterating in reverse? Need to investigate. Possibly reverse the
+        # arrays first but would then need to reverse output
+
         # Only update ref_z when there is both:
         # 1) we have reached the height where a new ref_z should go into effect
         # 2) there is a new ref_z
-        if z[i] > record_z && record_z > ref_z
+        if (z > record_z) & (record_z > ref_z)
             ref_z = record_z
 
             osum *= e1_scalar/e2_scalar
@@ -1262,10 +1314,14 @@ function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
         if i == lastindex(e)  # == [end]
             # Bottom doesn't require correction
             e[i] = scaled_e
-        else
+        elseif z > ref_z
+            # From the bottom, the first correction may not need to be applied
+            # until some higher altitude
             e2 = (scaled_e[:,2] - osum*scaled_e[:,1])*prod_e2
             e1 = scaled_e[:,1]*prod_e1
             e[i] = hcat(e1,e2)
+        else
+            e[i] = scaled_e
         end
     end
 
@@ -1301,26 +1357,14 @@ end
 """
 
 Always integrates to ground (0).
+
+zs should be going down (although this isn't strictly enforced by this function)
 """
-function integratewavefields(ztop, ea, frequency, bfield, species)
+function integratewavefields(zs, ea, frequency, bfield, species)
     # TODO: version that updates output `e` in place
 
-    # saved_positions=(true, true) because we discontinuously modify `u`. This is
-    # independent of saveat and save_everystep
-    cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
-
-    # TODO: generalize ScaleRecord types
-    saved_values = SavedValues(typeof(ztop), ScaleRecord{Float64, Float64})
-
-    # `save_everystep` because we need to make sure we save when affect! occurs
-    # `saveat=zs[2:end-1]` because otherwise we double save end points
-    scb = SavingCallback(save_values, saved_values,
-                         save_everystep=true, saveat=zs[2:end-1],
-                         tdir=-1)  # necessary because we're going down!
-
-
     # Initial conditions
-    Mtop = susceptibility(ztop, tx.frequency, bfield, species)
+    Mtop = susceptibility(first(zs), frequency, bfield, species)
     Ttop = tmatrix(ea, Mtop)
     e0 = initialwavefields(Ttop)
 
@@ -1328,25 +1372,100 @@ function integratewavefields(ztop, ea, frequency, bfield, species)
     # because scaling at top is unity).
     # Don't want to orthogonalize `e2` here because it won't be undone!
     e0 = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
-    # The normalized `e0` is still a valid solution:
-    #==
-    q = LWMS.BOOKER_QUARTIC_ROOTS
-    for i = 1:2
-        @test Ttop*e0n[:,i] ≈ q[i]*e0n[:,i]
-    end
-    ==#
 
-    p = WavefieldIntegrationParams(ztop, zero(eltype(e0)), 1.0, 1.0,
-                                   tx.frequency, bfield, electrons)
+    # saved_positions=(true, true) because we discontinuously modify `u`. This is
+    # independent of saveat and save_everystep
+    cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
 
-    # TODO: What integration method?
-    prob = ODEProblem{false}(dedz, e0, (ztop, zero(ztop)), p)
+    saved_values = SavedValues(eltype(zs), ScaleRecord{eltype(zs), real(eltype(e0))})
+
+    # `save_everystep` because we need to make sure we save when affect! occurs
+    # `saveat=zs[2:end-1]` because otherwise we double save end points
+    scb = SavingCallback(save_values, saved_values,
+                         save_everystep=true, saveat=zs[2:end-1],
+                         tdir=sign(last(zs)-first(zs)))
+
+
+    p = WavefieldIntegrationParams{eltype(e0)}(ea, frequency, bfield, species)
+
+    # (May 5, 2020) DifferentialEquations chooses Vern9(false) on daytime Wait
+    # profile. But Vern6, 7, or 8 are likely more efficient since the stiff
+    # Rodas5 algorithm was never called.
+
+    # WARNING: Without `lazy=false` (since we're using DiscreteCallback) don't
+    # use continuous solution output!
+    prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
     sol = solve(prob, callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false)
 
     e = unscalewavefields(saved_values)
 
     return e
+end
+
+integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-100:BOTTOMHEIGHT, ea, frequency, bfield, species)
+
+"""
+    vacuumreflectioncoeffs(ea, e)
+
+Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
+
+Integrating for one set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``
+can be separated into an upgoing and downgoing wave, each of which is generally
+elliptically polarized. One might assume that the ratio of the amplitudes of
+these two waves would give a reflection coefficient, and it does, except the
+coefficient would only apply for an incident wave of that particular elliptical
+polarization. However, the first set of fields can be linearly combined with
+a second independent solution for the fields, which will generally have a
+different elliptical polarization than the first. Two linear combinations of the
+two sets of fields are formed with unit amplitude, linearly polarized
+incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or
+``R₁₂``, ``R₂₂`` for the incident wave in the plane of incidence and
+perpendicular to it, respectively [^Budden1988] (pg 552).
+
+The process for determining the reflection coefficient requires resolving the
+two sets of fields `e1` and `e2` into the four linearly polarized vacuum
+modes. The layer of vacuum can be assumed to be so thin that it does not affect
+the fields. There will be two upgoing waves, one of which has ``E``, and the
+other ``H`` in the plane of incidence, and two downgoing waves, with ``E`` and
+``H`` in the plane of incidence. If ``f₁, f₂, f₃, f₄`` are the complex
+amplitudes of the four component waves, then in matrix notation ``e = Sᵥ f``.
+
+For `e1` and `e2`, we can find the corresponding vectors `f1` and `f2` by
+``f1 = Sᵥ⁻¹ e1``, ``f2 = Sᵥ⁻¹ e2`` where the two column vectors are partitioned
+such that ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing
+2-element vectors `u` and `d`. From the definition of the reflection coefficient
+`R`, ``d = Ru``. Letting ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and
+the reflection coefficient is ``R = DU¹``. Because the reflection coefficient
+matrix is a ratio of fields, either `e1` and/or `e2` can be independently
+multiplied by an arbitrary constant and the value of `R` is unaffected.
+
+For additional details, see [^Budden1988], chapter 18, section 7.
+
+# References
+
+[^Budden1988] K. G. Budden, The propagation of radio waves: the theory of radio
+waves of low power in the ionosphere and magnetosphere, First paperback edition.
+New York: Cambridge University Press, 1988.
+"""
+function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::AbstractArray{T2}) where {T,T2}
+    C = ea.cosθ
+    Cinv = 1/C
+
+    # TODO: Special Sv matrix (also useful elsewhere?)
+    Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,
+                               0, -1, 0, -1,
+                               0, -Cinv, 0, Cinv,
+                               1, 0, 1, 0)
+
+    f1 = Sv_inv*e1
+    f2 = Sv_inv*e2
+
+    out_type = promote_type(T, T2)
+    U = SMatrix{2,2,out_type,4}(f1[1], f1[2], f2[1], f2[2])
+    D = SMatrix{2,2,out_type,4}(f1[3], f1[4], f2[3], f2[4])
+
+    return D/U
 end
 
 ################
