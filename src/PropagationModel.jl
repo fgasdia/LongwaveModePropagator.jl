@@ -1258,8 +1258,6 @@ function scalewavefields(e::AbstractArray)
     return e, a, e1_scale_val, e2_scale_val
 end
 
-using Iterators
-
 """
     unscalewavefields!(e, saved_values::SavedValues)
 
@@ -1400,7 +1398,9 @@ function integratewavefields(zs, ea, frequency, bfield, species)
 
     e = unscalewavefields(saved_values)
 
-    return e
+    # TODO: Only return at zs (not the extra points at integration steps)
+    # then don't need to return saved_values.t
+    return (e, saved_values.t)
 end
 
 integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-100:BOTTOMHEIGHT, ea, frequency, bfield, species)
