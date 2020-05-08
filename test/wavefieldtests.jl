@@ -198,9 +198,11 @@ function homogeneous_iono_test()
 
     # LWMS.EARTHCURVATURE[] = false
 
-    homogeneous = Constituent(qₑ, mₑ, z -> 1e8, z -> 5e6)
+    ionobottom = 50e3
+    homogeneous = Constituent(qₑ, mₑ, z -> z >= ionobottom ? 1e8 : 0.0,
+                              z -> z >= ionobottom ? 5e6 : 0.0)
 
-    homozs = 200e3:-500:50e3
+    homozs = 200e3:-500:0.0
 
     e, reczs = LWMS.integratewavefields(homozs, ea, tx.frequency, bfield, electrons)
 
@@ -211,10 +213,11 @@ function homogeneous_iono_test()
     e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
 
     # plotly()
-    # plot(real.(e1)', saved_values.t/1000)
+    gr()
+    plot(real(e2[1,:]), reczs/1000)
     # plot(abs.(e2)', saved_values.t/1000)
 
-    idx = findfirst(z->z==last(homozs), reczs)
+    idx = findfirst(z->z==ionobottom, reczs)
     e1_idx = e1[:,idx]
     e2_idx = e2[:,idx]
 
@@ -223,7 +226,7 @@ function homogeneous_iono_test()
     e2_idx *= 1/e2_idx[2]
 
     # Booker solution
-    M = LWMS.susceptibility(last(homozs), tx.frequency, bfield, homogeneous)
+    M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, homogeneous)
     T = LWMS.tmatrix(ea, M)
     booker = LWMS.initialwavefields(T)
 
@@ -240,10 +243,19 @@ function homogeneous_iono_test()
     @test_broken e2_idx ≈ booker[:,2]
 
     # LWMS.EARTHCURVATURE[] = true
+
+    return e1, e2, reczs
 end
 
-homogeneous_iono_test()
+e1, e2, reczs = homogeneous_iono_test()
 
+plotly()
+gr()
+plot(real(e2[1,:]), reczs/1000)
+
+
+# TODO: Check that reflection coeffs for N/S directions are equal
+@test_skip wavefieldsR_north ≈ wavefieldsR_south
 
 #==
 Vacuum (ground) boundary condition
