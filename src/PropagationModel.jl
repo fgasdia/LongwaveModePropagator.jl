@@ -100,6 +100,7 @@ Parameters passed to Pitteway integration of wavefields.
 """
 @with_kw struct WavefieldIntegrationParams{T1,T2,T3,F,G}
     z::T1
+    bottomz::T1
     ortho_scalar::Complex{T2}
     e1_scalar::T2
     e2_scalar::T2
@@ -128,7 +129,7 @@ always be real, so it is sufficient for `Float64` to be provided as `T` even
 for complex wavefields.
 """
 function WavefieldIntegrationParams{T}(ea::EigenAngle{T3}, frequency::Frequency, bfield::BField, species::Constituent{F,G}) where {T,T3,F,G}
-    return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),T3,F,G}(TOPHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
+    return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),T3,F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
 end
 
 """
@@ -1155,9 +1156,10 @@ end
 Return `true` if wavefields should be scaled, otherwise `false`.
 
 Specifically, if any component of `real(e)` or `imag(e)` are `>= 1`, return
-`true`.
+`true`. In addition, force scale `z == bottomz` to ensure initial upgoing wave
+is unit amplitude.
 """
-scalingcondition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e)
+scalingcondition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e) || z == integrator.p.bottomz
 
 """
     scale!(integrator)
@@ -1168,7 +1170,7 @@ function scale!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    @unpack ea, frequency, bfield, species = integrator.p
+    @unpack bottomz, ea, frequency, bfield, species = integrator.p
 
     #==
     NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
@@ -1183,6 +1185,7 @@ function scale!(integrator)
 
     # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
     integrator.p = WavefieldIntegrationParams(integrator.t,
+                                              bottomz,
                                               new_orthos,
                                               new_e1s, new_e2s,
                                               ea, frequency, bfield, species)
@@ -1394,7 +1397,8 @@ function integratewavefields(zs, ea, frequency, bfield, species)
     # use continuous solution output!
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
     sol = solve(prob, callback=CallbackSet(cb, scb),
-                save_everystep=false, save_start=false, save_end=false)
+                save_everystep=false, save_start=false, save_end=false,
+                atol=1e-8, rtol=1e-8)
 
     e = unscalewavefields(saved_values)
 

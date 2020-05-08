@@ -31,10 +31,6 @@ function scenario()
                             z -> waitprofile(z, 75, 0.32),
                             electroncollisionfrequency)
 
-    # electrons = Constituent(qₑ, mₑ,
-    #         z -> waitprofile(z, 75, 0.32, H),
-    #         z -> electroncollisionfrequency(z, H))
-
     # Resonant EigenAngle
     ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
@@ -188,70 +184,96 @@ wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
 @test all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
 
+
+function fcn_integration_test()
+    bfield, tx, ground, electrons, ea, zs = scenario()
+
+    e, reczs = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
+
+    return e
+end
+
+e_fcn = fcn_integration_test()
+
+# Confirm `integratewavefields` is the same as the integration code
+@test all(e .≈ e_fcn)
+
+
+function homogeneous_scenario()
+    bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+    tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
+    ground = Ground(15, 0.001)
+
+    ionobottom = 50e3
+    species = Constituent(qₑ, mₑ, z -> z >= ionobottom ? ionobottom : 0.0,
+                              z -> 5e6)  # ν is constant
+
+    # Resonant EigenAngle
+    ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
+
+    zs = 200e3:-500:ionobottom
+
+    return bfield, tx, ground, species, ea, zs
+end
+
 function homogeneous_iono_test()
     # Check integration with homogeneous ionosphere
     # Integrate through homogeneous medium w/ sharp lower boundary and compare to
     # bookerquartic solution
-    # See, e.g. Pitteway 1965 pg 234
+    # See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
 
-    bfield, tx, ground, electrons, ea, zs = scenario()
+    bfield, tx, ground, species, ea, zs = homogeneous_scenario()
 
-    # LWMS.EARTHCURVATURE[] = false
+    LWMS.EARTHCURVATURE[] = false
 
-    ionobottom = 50e3
-    homogeneous = Constituent(qₑ, mₑ, z -> z >= ionobottom ? 1e8 : 0.0,
-                              z -> z >= ionobottom ? 5e6 : 0.0)
+    ionobottom = last(zs)
 
-    homozs = 200e3:-500:0.0
+    e, reczs = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
 
-    e, reczs = LWMS.integratewavefields(homozs, ea, tx.frequency, bfield, electrons)
-
-    e1 = [s[:,1] for s in e]
-    e2 = [s[:,2] for s in e]
+    # Normalize fields so component 2 (Ey) = 1, as is used in Booker Quartic
+    e1 = [s[:,1]/s[2,1] for s in e]
+    e2 = [s[:,2]/s[2,2] for s in e]
 
     e1 = reshape(reinterpret(ComplexF64, e1), 4, :)
     e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
 
-    # plotly()
-    gr()
-    plot(real(e2[1,:]), reczs/1000)
-    # plot(abs.(e2)', saved_values.t/1000)
-
-    idx = findfirst(z->z==ionobottom, reczs)
-    e1_idx = e1[:,idx]
-    e2_idx = e2[:,idx]
-
-    # need to scale to booker solution, which has second element == 1
-    e1_idx *= 1/e1_idx[2]
-    e2_idx *= 1/e2_idx[2]
-
-    # Booker solution
-    M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, homogeneous)
+    # Booker solution - single solution for entire homogeneous iono
+    M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
     booker = LWMS.initialwavefields(T)
 
+    e1diff = e1 .- booker[:,1]
+    e2diff = e2 .- booker[:,2]
+
+    # plot(real(e1diff[1,:]),reczs/1000)
+    # plot!(imag(e1diff[1,:]),reczs/1000)
+    # plot!(real(e1diff[3,:]),reczs/1000)
+    # plot!(imag(e1diff[3,:]),reczs/1000)
+    # plot!(real(e1diff[4,:]),reczs/1000)
+    # plot!(imag(e1diff[4,:]),reczs/1000)
+
+    # plot(real(e2diff[1,:]),reczs/1000)
+    # plot!(imag(e2diff[1,:]),reczs/1000)
+    # plot!(real(e2diff[3,:]),reczs/1000)
+    # plot!(imag(e2diff[3,:]),reczs/1000)
+    # plot!(real(e2diff[4,:]),reczs/1000)
+    # plot!(imag(e2diff[4,:]),reczs/1000)
+
     q = LWMS.BOOKER_QUARTIC_ROOTS
 
-    for i = 1:2
-        @test T*booker[:,i] ≈ q[i]*booker[:,i]
-    end
+    @test all(e1 .≈ booker[:,1])
+    @test all(e2 .≈ booker[:,2])
 
-    # TODO: This test is supposed to work somehow...
-    # plot(real(e2[1,:]), recz)
+    # This is basically the same test...
+    @test T*e1 ≈ q[1]*e1
+    @test T*e2 ≈ q[2]*e2
 
-    @test_broken e1_idx ≈ booker[:,1]
-    @test_broken e2_idx ≈ booker[:,2]
+    LWMS.EARTHCURVATURE[] = true
 
-    # LWMS.EARTHCURVATURE[] = true
-
-    return e1, e2, reczs
+    return nothing
 end
 
-e1, e2, reczs = homogeneous_iono_test()
-
-plotly()
-gr()
-plot(real(e2[1,:]), reczs/1000)
+homogeneous_iono_test()
 
 
 # TODO: Check that reflection coeffs for N/S directions are equal
