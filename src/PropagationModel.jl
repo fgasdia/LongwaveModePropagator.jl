@@ -1356,12 +1356,11 @@ function unscalewavefields(saved_values::SavedValues)
 end
 
 """
-
-Always integrates to ground (0).
+    output `e` at `zs`
 
 zs should be going down (although this isn't strictly enforced by this function)
 """
-function integratewavefields(zs, ea, frequency, bfield, species)
+function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Constituent)
     # TODO: version that updates output `e` in place
 
     # Initial conditions
@@ -1369,23 +1368,19 @@ function integratewavefields(zs, ea, frequency, bfield, species)
     Ttop = tmatrix(ea, Mtop)
     e0 = initialwavefields(Ttop)
 
-    # Normalize e0 (otherwise top fields are out of whack with unscaled fields
-    # because scaling at top is unity).
-    # Don't want to orthogonalize `e2` here because it won't be undone!
+    # Works best if `e0` fields are normalized at top height
+    # Don't want to orthogonalize `e0[:,2]` here because it won't be undone!
     e0 = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
 
-    # saved_positions=(true, true) because we discontinuously modify `u`. This is
-    # independent of saveat and save_everystep
+    # saved_positions=(true, true) because we discontinuously modify `u`.
+    # This is independent of `saveat` and `save_everystep`
     cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
 
     saved_values = SavedValues(eltype(zs), ScaleRecord{eltype(zs), real(eltype(e0))})
 
-    # `save_everystep` because we need to make sure we save when affect! occurs
-    # `saveat=zs[2:end-1]` because otherwise we double save end points
     scb = SavingCallback(save_values, saved_values,
-                         save_everystep=true, saveat=zs[2:end-1],
+                         save_everystep=false, saveat=zs,
                          tdir=sign(last(zs)-first(zs)))
-
 
     p = WavefieldIntegrationParams{eltype(e0)}(ea, frequency, bfield, species)
 
@@ -1394,7 +1389,7 @@ function integratewavefields(zs, ea, frequency, bfield, species)
     # Rodas5 algorithm was never called.
 
     # WARNING: Without `lazy=false` (since we're using DiscreteCallback) don't
-    # use continuous solution output!
+    # use continuous solution output! Also, we're only saving at zs
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
     sol = solve(prob, callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
@@ -1402,11 +1397,10 @@ function integratewavefields(zs, ea, frequency, bfield, species)
 
     e = unscalewavefields(saved_values)
 
-    # TODO: Only return at zs (not the extra points at integration steps)
-    # then don't need to return saved_values.t
-    return (e, saved_values.t)
+    return e
 end
 
+# TODO: automatically determine dz
 integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-100:BOTTOMHEIGHT, ea, frequency, bfield, species)
 
 """
@@ -1471,6 +1465,83 @@ function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::Ab
 
     return D/U
 end
+
+vacuumreflectioncoeffs(ea, e) = vacuumreflectioncoeffs(ea, e[:,1], e[:,2])
+
+"""
+    wavefieldboundary(R, Rg, e1, e2)
+
+Calculate coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield
+as ``e = b1*e1 + b2*e2``.
+
+This process is used by LWPC and is similar to the calculation of excitation
+factor at the ground because it makes use of the mode condition.
+"""
+function boundaryscalars(R, Rg, e1, e2)
+    # This process is similar to excitation factor calculation, using the
+    # waveguide mode condition
+
+    Ex1, Ey1, Hx1, Hy1 = e1[1], -e1[2], e1[3], e1[4]
+    Ex2, Ey2, Hx2, Hy2 = e2[1], -e2[2], e2[3], e2[4]
+
+    # at the ground, modify for flat earth
+    Hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
+    # ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
+
+    # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
+    abparal = 1 - Rg[1,1]*R[1,1]
+    abperp = 1 - Rg[2,2]*R[2,2]
+    if abs2(abparal) <= abs2(abperp)
+        pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*(1 - Rg[2,2]*R[2,2]))
+    else
+        pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
+    end
+
+    a = (-Ey1 + pol*Hy1)/(Ey2 - pol*Hy2)
+
+    Hysum = Hy1 + a*Hy2
+
+    b1 = Hy0/Hysum
+    b2 = b1*a
+
+    return b1, b2
+end
+
+boundaryscalars(R, Rg, e) = boundaryscalars(R, Rg, e[:,1], e[:,2])
+
+"""
+    fieldstrengths()
+
+Calculate `Ex`, `Ey`, `Ez`, `ℋx`, `ℋy`, `ℋz` wavefields by full wave
+integration at heights `zs`.
+
+Scales wavefields for waveguide boundary conditions.
+"""
+function fieldstrengths(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Constituent, ground::Ground)
+    # TODO: make an inplace version over EH
+
+    # TODO: Should we pass R and Rg?
+    e = integratewavefields(zs, ea, frequency, bfield, species)
+    R = vacuumreflectioncoeffs(ea, e[end])
+    Rg = fresnelreflection(ea, ground, frequency)
+    b1, b2 = boundaryscalars(R, Rg, e[end])
+
+    S = ea.sinθ
+    EH = Vector{SVector{6,eltype(eltype(e))}}(undef, length(zs))
+    @inbounds for i in eachindex(EH)
+        # Scale to waveguide boundary conditions
+        w = e[i][:,1]*b1 + e[i][:,2]*b2
+
+        # TODO: Confirm ez, hz math
+        M = susceptibility(zs[i], frequency, bfield, species)
+        ez = -(w[4]*S + M[3,1]*w[1] - M[3,2]*w[2])/(1 + M[3,3])
+        hz = -w[2]*S
+        EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
+    end
+
+    return EH
+end
+
 
 ################
 # Excitation and Mode Sum
