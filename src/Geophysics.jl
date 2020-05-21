@@ -286,3 +286,15 @@ function ioncollisionfrequency(z, cutoff_low)
         return zero(promote_type(Float64, typeof(z)))
     end
 end
+
+
+"""
+    WaveguideSegment{F,G}
+
+Defines a homogeneous segment of waveguide (ionosphere and ground).
+"""
+@with_kw struct WaveguideSegment{F<:Function,G<:Function}
+    bfield::BField
+    constituent::Constituent{F, G}
+    ground::Ground
+end

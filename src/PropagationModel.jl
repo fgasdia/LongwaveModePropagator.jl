@@ -27,6 +27,7 @@ const BOOKER_QUARTIC_COEFFS = MVector{5,ComplexF64}(undef)
 
 struct Derivative_dθ end
 
+# TODO: Combine with WaveguideSegment
 @with_kw struct ModeParameters{F, G}
     bfield::BField
     frequency::Frequency
@@ -620,10 +621,11 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Consti
         M33 -= earthcurvature
     end
 
+    # TODO: generalize ComplexF64
     # Remember, column major
-    M = SMatrix{3,3}(M11, M21, M31,
-                     M12, M22, M32,
-                     M13, M23, M33)
+    M = SMatrix{3,3,ComplexF64,9}(M11, M21, M31,
+                                  M12, M22, M32,
+                                  M13, M23, M33)
 
     return M
 end
@@ -1108,7 +1110,7 @@ function initialwavefields(T::TMatrix)
 
     # Temporary MArray for filling in wavefields
     # (04/2020) Somehow, this is slightly faster than hard coding the 1s and 2s
-    e = MArray{Tuple{4,2},eltype(BOOKER_QUARTIC_ROOTS)}(undef)
+    e = MArray{Tuple{4,2},eltype(BOOKER_QUARTIC_ROOTS),2,8}(undef)
 
     for i = 1:2
         d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
@@ -1391,7 +1393,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # WARNING: Without `lazy=false` (since we're using DiscreteCallback) don't
     # use continuous solution output! Also, we're only saving at zs
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
-    sol = solve(prob, callback=CallbackSet(cb, scb),
+    sol = solve(prob, Vern9(lazy=false), callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
                 atol=1e-8, rtol=1e-8)
 
