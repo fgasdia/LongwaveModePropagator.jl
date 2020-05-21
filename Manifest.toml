@@ -164,7 +164,9 @@ version = "1.1.1"
 
 [[GRPF]]
 deps = ["GeometricalPredicates", "LinearAlgebra", "StaticArrays", "VoronoiDelaunay"]
-path = "/home/forrest/.julia/dev/GRPF"
+git-tree-sha1 = "0f4f0bf5986005e256ead1c28d1d80423db9ce82"
+repo-rev = "master"
+repo-url = "https://github.com/fgasdia/GRPF.jl"
 uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
 version = "0.3.1"
 

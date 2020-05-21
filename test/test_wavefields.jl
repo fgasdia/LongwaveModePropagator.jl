@@ -1,12 +1,12 @@
 using Test
 using LinearAlgebra
 using StaticArrays
-using ElasticArrays  # resizable multidimensional arrays
-using Parameters
+# using ElasticArrays  # resizable multidimensional arrays
+# using Parameters
 
 using DifferentialEquations  # loading this to see what is chosen as default alg
 
-using Plots
+# using Plots
 
 using GRPF
 
@@ -18,9 +18,6 @@ const qₑ = -1.602176634e-19  # C
 
 # To profile in Juno
 # @profiler (for i = 1:1000; LWMS.fcn(); end)
-
-########
-# Scenario
 
 function scenario()
     bfield = BField(50e-6, deg2rad(68), deg2rad(111))
@@ -52,11 +49,13 @@ tmp2 = LWMS.sharpboundaryreflection(ea, M)
 tmpq2 = copy(LWMS.BOOKER_QUARTIC_ROOTS)
 ==#
 
-########
-# Compare Booker quartic computed with M and T
-# Runtime is dominated by `roots!`, but the version with `T` is slightly faster
 
-function test_booker()
+"""
+Check for equivalence of Booker quartic computed by M and T.
+
+Runtime is dominated by `roots!`, but the version with `T` is slightly faster.
+"""
+function booker_MTequivalence_test()
     bfield, tx, ground, electrons, ea, zs = scenario()
 
     M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
@@ -68,35 +67,57 @@ function test_booker()
     LWMS.bookerquartic!(T)
     qT, BT = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
 
-    @test sort(qM, by=real) ≈ sort(qT, by=real)
-    @test sort(eigvals(Array(T)), by=real) ≈ sort(qT, by=real)  # eigvals is >20 times slower than bookerquartic
+    return sort(qM, by=real) ≈ sort(qT, by=real)
+end
+
+"""
+Confirm bookerquartic!(T) finds valid eigenvalues.
+"""
+function booker_Tvalidity_test()
+    bfield, tx, ground, electrons, ea, zs = scenario()
+
+    T = LWMS.tmatrix(ea, M)
+
+    LWMS.bookerquartic!(T)
+    qT, BT = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
+
+    # eigvals is >20 times slower than bookerquartic
+    sort(eigvals(Array(T)), by=real) ≈ sort(qT, by=real) || return false
 
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(qT)
         booker = qT[i]^4 + BT[4]*qT[i]^3 + BT[3]*qT[i]^2 + BT[2]*qT[i] + BT[1]
-        @test isapprox(booker, 0, atol=1e-7)
+        isapprox(booker, 0, atol=1e-7) || return false
     end
+
+    return true
+end
+
+"""
+Confirm `initialwavefields(T)` satisfies field eigenvector equation ``Te = qe``
+"""
+function initialwavefields_test()
+    bfield, tx, ground, electrons, ea, zs = scenario()
+
+    T = LWMS.tmatrix(ea, M)
 
     # Verify initialwavefields produces a valid solution
     e = LWMS.initialwavefields(T)
     q = LWMS.BOOKER_QUARTIC_ROOTS
 
     for i = 1:2
-        @test T*e[:,i] ≈ q[i]*e[:,i]
+        T*e[:,i] ≈ q[i]*e[:,i] || return false
     end
 
-    # Confirm `T` matrix vs dense array `T` both work
-    for i = 1:2
-        @test T*e[:,i] ≈ Array(T)*e[:,i]
-    end
+    return true
 end
 
-test_booker()
-
-########
-# Confirm reflection coefficient from wavefields at top height
-
-function test_topreflcoeff()
+"""
+Confirm `vacuumreflectioncoeffs` agrees with `sharpboundaryreflection` at the
+top height.
+"""
+function initialR_test()
+    # Confirm reflection coefficient from wavefields at top height
     bfield, tx, ground, electrons, ea, zs = scenario()
 
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
@@ -106,85 +127,31 @@ function test_topreflcoeff()
     wavefieldR = LWMS.vacuumreflectioncoeffs(ea, etop[:,1], etop[:,2])
 
     # "modulus" (abs) of each component should be <=1
-    @test all(abs.(wavefieldR) .<= 1)
-    @test LWMS.sharpboundaryreflection(ea, Mtop) ≈ wavefieldR
+    all(abs.(wavefieldR) .<= 1) || return false
+    LWMS.sharpboundaryreflection(ea, Mtop) ≈ wavefieldR || return false
+
+    return true
 end
 
-test_topreflcoeff()
 
-########
-# Integration with scaling
-
-function unscaled_integration_test()
-    bfield, tx, ground, electrons, ea, zs = scenario()
-
-    # Initial conditions
-    Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
-    Ttop = LWMS.tmatrix(ea, Mtop)
-    e0 = LWMS.initialwavefields(Ttop)
-
-    # Check normalized fields are still a valid solution
-    e0n = hcat(normalize(e0[:,1]), normalize(e0[:,2]))
-
-    q = LWMS.BOOKER_QUARTIC_ROOTS
-    for i = 1:2
-        @test Ttop*e0n[:,i] ≈ q[i]*e0n[:,i]
-    end
-    e0 = e0n
-
-    cb = LWMS.DiscreteCallback(LWMS.scalingcondition, LWMS.scale!, save_positions=(true, true))
-    saved_values = LWMS.SavedValues(eltype(zs), LWMS.ScaleRecord{eltype(zs), real(eltype(e0))})
-    scb = LWMS.SavingCallback(LWMS.save_values, saved_values,
-                              save_everystep=false, saveat=zs,
-                              tdir=-1)
-
-    p = LWMS.WavefieldIntegrationParams{eltype(e0)}(ea, tx.frequency, bfield, electrons)
-
-    prob = ODEProblem{false}(LWMS.dedz, e0, (first(zs), last(zs)), p)
-    sol = solve(prob, callback=CallbackSet(cb, scb),
-                save_everystep=false, save_start=false, save_end=false,
-                rtol=1e-8, atol=1e-8)
-
-    wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s.e[:,1], s.e[:,2]) for s in saved_values.saveval]
-
-    @test length(saved_values.t) == length(zs)
-
-    return saved_values, wavefieldRs
-end
-
-saved_values, unscaled_wavefieldRs = unscaled_integration_test()
-
-# Compare to Budden integration of R
-function dr_integration()
-    bfield, tx, ground, electrons, ea, zs = scenario()
-
-    modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
-    Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
-    Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, modeparams))
-    sol = DifferentialEquations.solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
-                                      saveat=saved_values.t, save_everystep=false)
-
-    return sol
-end
-
-sol = dr_integration()
-
-@test all(isapprox.(unscaled_wavefieldRs, sol.u, atol=1e-7))
-
-
-# Try again with unscaled fields
-function scaled_integration_test(sol)
+"""
+Confirm reflection coefficients from wavefields match with dr/dz calculation.
+"""
+function drdzwavefield_equivalence_test()
     bfield, tx, ground, electrons, ea, zs = scenario()
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
-    @test all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
+    modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+    Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
+    Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, modeparams))
+    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+                saveat=saved_values.t, save_everystep=false)
+
+    return all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
 end
-
-scaled_integration_test(sol)
-
 
 function homogeneous_scenario()
     bfield = BField(50e-6, deg2rad(68), deg2rad(111))
@@ -203,12 +170,14 @@ function homogeneous_scenario()
     return bfield, tx, ground, species, ea, zs
 end
 
-function homogeneous_iono_test()
-    # Check integration with homogeneous ionosphere
-    # Integrate through homogeneous medium w/ sharp lower boundary and compare to
-    # bookerquartic solution
-    # See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
+"""
+Check wavefields in homogeneous ionosphere are valid solutions to wave equation.
 
+Compares to Booker quartic solution.
+
+See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
+"""
+function homogeneous_iono_test()
     bfield, tx, ground, species, ea, zs = homogeneous_scenario()
 
     LWMS.EARTHCURVATURE[] = false
@@ -232,42 +201,19 @@ function homogeneous_iono_test()
     e1diff = e1 .- booker[:,1]
     e2diff = e2 .- booker[:,2]
 
-    # plot(real(e1diff[1,:]),reczs/1000)
-    # plot!(imag(e1diff[1,:]),reczs/1000)
-    # plot!(real(e1diff[3,:]),reczs/1000)
-    # plot!(imag(e1diff[3,:]),reczs/1000)
-    # plot!(real(e1diff[4,:]),reczs/1000)
-    # plot!(imag(e1diff[4,:]),reczs/1000)
-
-    # plot(real(e2diff[1,:]),reczs/1000)
-    # plot!(imag(e2diff[1,:]),reczs/1000)
-    # plot!(real(e2diff[3,:]),reczs/1000)
-    # plot!(imag(e2diff[3,:]),reczs/1000)
-    # plot!(real(e2diff[4,:]),reczs/1000)
-    # plot!(imag(e2diff[4,:]),reczs/1000)
-
     q = LWMS.BOOKER_QUARTIC_ROOTS
 
-    @test all(e1 .≈ booker[:,1])
-    @test all(e2 .≈ booker[:,2])
+    all(e1 .≈ booker[:,1]) || return false
+    all(e2 .≈ booker[:,2]) || return false
 
     # This is basically the same test...
-    @test T*e1 ≈ q[1]*e1
-    @test T*e2 ≈ q[2]*e2
+    T*e1 ≈ q[1]*e1 || return false
+    T*e2 ≈ q[2]*e2 || return false
 
     LWMS.EARTHCURVATURE[] = true
 
-    return nothing
+    return true
 end
-
-homogeneous_iono_test()
-
-
-# TODO: Check that reflection coeffs for N/S directions are equal
-@test_skip wavefieldsR_north ≈ wavefieldsR_south
-
-
-########
 
 function resonant_scenario()
     bfield, tx, ground, electrons, ea, zs = scenario()
@@ -283,7 +229,7 @@ function resonant_scenario()
     return bfield, tx, ground, electrons, EigenAngle(ea), zs
 end
 
-function test_fieldstrengths()
+function resonance_test()
     bfield, tx, ground, electrons, ea, zs = resonant_scenario()
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
     R = LWMS.vacuumreflectioncoeffs(ea, e[end])
@@ -292,22 +238,35 @@ function test_fieldstrengths()
 
     # Ensure we are close to mode resonance with R
     f = LWMS.modalequation(R, Rg)
-    @test isapprox(f, 0, atol=1e-6)
-
-    EH = LWMS.fieldstrengths(zs, ea, tx.frequency, bfield, electrons, ground)
-
-    #==
-    i = 6
-    EH = reshape(reinterpret(ComplexF64, EH), 6, :)
-    plot(real(EH[i,:]), reczs/1000)
-    plot!(imag(EH[i,:]), reczs/1000)
-    plot!(abs.(EH[i,:]), reczs/1000)
-    plot!(-abs.(EH[i,:]), reczs/1000)
-    ==#
+    isapprox(f, 0, atol=1e-6)
 end
 
-test_fieldstrengths()
+@testset "Wavefields" begin
+    @info "Testing wavefield functions..."
 
+    @testset "Initial conditions" begin
+        @info "  Testing initial conditions..."
+
+        @test booker_MTequivalence_test()
+        @test booker_Tvalidity_test()
+        @test initialwavefields_test()
+        @test initialR_test()
+    end
+
+    @testset "Integration" begin
+        @info "  Testing wavefield integration..."
+
+        @test drdzwavefield_equivalence_test()
+        @test homogeneous_iono_test()
+        @test resonance_test()
+    end
+
+    # TODO: Check that reflection coeffs for N/S directions are equal
+    @test_skip wavefieldsR_north ≈ wavefieldsR_south
+
+    # TODO: test `fieldstrengths`
+    @test_skip LWMS.fieldstrengths()
+end
 
 
 # `dt` argument is initial stepsize
