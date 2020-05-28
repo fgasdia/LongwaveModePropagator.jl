@@ -3,5 +3,3 @@ python_tests/
 *.xlsx
 
 *.png
-plots/
-scrap/
