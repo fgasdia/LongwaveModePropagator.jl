@@ -1067,8 +1067,9 @@ end
 components.
 """
 function findmodes(origcoords::AbstractArray{T}, modeparams::ModeParameters, tolerance=1e-6) where {T}
+    # TODO: don't hardcode 30000
     zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{T}(θ), modeparams),
-                          origcoords, tolerance, 30000)
+                          origcoords, GRPFParams(30000, tolerance))
 
     return zroots
     # return @SVector [EigenAngle{T}(r) for r in zroots]

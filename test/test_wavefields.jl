@@ -42,6 +42,7 @@ Confirm bookerquartic!(T) finds valid eigenvalues.
 function booker_Tvalidity_test()
     bfield, tx, ground, electrons, ea, zs = scenario()
 
+    M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
 
     LWMS.bookerquartic!(T)
@@ -65,6 +66,7 @@ Confirm `initialwavefields(T)` satisfies field eigenvector equation ``Te = qe``
 function initialwavefields_test()
     bfield, tx, ground, electrons, ea, zs = scenario()
 
+    M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
 
     # Verify initialwavefields produces a valid solution
@@ -114,7 +116,7 @@ function drdzwavefield_equivalence_test()
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
     prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, modeparams))
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
-                saveat=saved_values.t, save_everystep=false)
+                saveat=zs, save_everystep=false)
 
     return all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
 end

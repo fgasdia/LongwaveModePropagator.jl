@@ -27,11 +27,6 @@ version = "2.8.7"
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
-[[CEnum]]
-git-tree-sha1 = "215a9aa4a1f23fbd05b92769fdd62559488d70e9"
-uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.4.1"
-
 [[ChainRulesCore]]
 deps = ["MuladdMacro"]
 git-tree-sha1 = "32e2c6e44d4fdd985b5688b5e85c1f6892cf3d15"
@@ -172,7 +167,7 @@ version = "1.1.1"
 deps = ["LinearAlgebra", "VoronoiDelaunay"]
 git-tree-sha1 = "995d60056a57f4e6d0cd7c94947eddf4fd827dc1"
 repo-rev = "master"
-repo-url = "https://github.com/fgasdia/GRPF.jl"
+repo-url = "/home/forrest/dev/GRPF.jl"
 uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
 version = "1.0.0"
 
@@ -213,12 +208,6 @@ git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.0"
 
-[[JpegTurbo_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "b007cedc10bb017cdae3af0062fe4dd29b483c70"
-uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
-version = "2.0.1+0"
-
 [[LabelledArrays]]
 deps = ["ArrayInterface", "LinearAlgebra", "MacroTools", "StaticArrays"]
 git-tree-sha1 = "674c830a4ac858e877906405410471f5af2a4756"
@@ -231,30 +220,12 @@ git-tree-sha1 = "71be1eb5ad19cb4f61fa8c73395c0338fd092ae0"
 uuid = "1d6d02ad-be62-4b6b-8a6d-2f90e265016e"
 version = "0.1.2"
 
-[[LibCURL_jll]]
-deps = ["LibSSH2_jll", "Libdl", "MbedTLS_jll", "Pkg", "Zlib_jll", "nghttp2_jll"]
-git-tree-sha1 = "54e7f2364ff5134e43c2514309ddf47d2eafa773"
-uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "7.70.0+0"
-
 [[LibGit2]]
 deps = ["Printf"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 
-[[LibSSH2_jll]]
-deps = ["Libdl", "MbedTLS_jll", "Pkg"]
-git-tree-sha1 = "2daf0a757293e5355904b96262fcc54cf45d8fd3"
-uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.9.0+1"
-
 [[Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-
-[[Libtiff_jll]]
-deps = ["JpegTurbo_jll", "Libdl", "Pkg", "Zlib_jll", "Zstd_jll"]
-git-tree-sha1 = "1fe8c3608dfe7bdec81d018de1cc66e959016e8c"
-uuid = "89763e89-9b03-5906-acba-b20f662cd828"
-version = "4.1.0+0"
 
 [[LightGraphs]]
 deps = ["ArnoldiMethod", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
@@ -295,12 +266,6 @@ version = "0.5.5"
 [[Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
-
-[[MbedTLS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "c83f5a1d038f034ad0549f9ee4d5fac3fb429e33"
-uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.16.0+2"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
@@ -355,12 +320,6 @@ git-tree-sha1 = "941ff997c52f0d2eefae0629c38fbf6123275ac6"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 version = "5.38.3"
 
-[[PROJ_jll]]
-deps = ["LibCURL_jll", "Libdl", "Libtiff_jll", "Pkg", "SQLite_jll"]
-git-tree-sha1 = "8f30d3c8cc794b2fd2d20b7d7b6511acf3390c03"
-uuid = "58948b4f-47e0-5654-a9ad-f609743f8632"
-version = "7.0.1+0"
-
 [[Parameters]]
 deps = ["OrderedCollections", "UnPack"]
 git-tree-sha1 = "38b2e970043613c187bd56a995fe2e551821eb4a"
@@ -399,12 +358,6 @@ deps = ["Distributed", "Printf"]
 git-tree-sha1 = "b3cb8834eee5410c7246734cc6f4f586fe0dc50e"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.3.0"
-
-[[Proj4]]
-deps = ["CEnum", "PROJ_jll"]
-git-tree-sha1 = "e2db9c696a50cf7f13e3472edd3362021d532fef"
-uuid = "9a7e659c-8ee8-5706-894e-f68f43bc57ea"
-version = "0.7.2"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
@@ -463,12 +416,6 @@ deps = ["Libdl", "SIMDPirates", "VectorizationBase"]
 git-tree-sha1 = "c5c88ccad9e4aac35e7b4737bfc08296210b2d27"
 uuid = "476501e8-09a2-5ece-8869-fb82de89a1fa"
 version = "0.5.0"
-
-[[SQLite_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "25675b6872c3fcbe2034510db3a467405b6dc79e"
-uuid = "76ed43ae-9a5d-5a62-8c75-30186b810ce8"
-version = "3.31.1+0"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -568,26 +515,8 @@ git-tree-sha1 = "da5560a4c7c767476e85e2dbf4d8c8ca112e542b"
 uuid = "72f80fcb-8c52-57d9-aff0-40c1a3526986"
 version = "0.4.0"
 
-[[Zlib_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "a2e0d558f6031002e380a90613b199e37a8565bf"
-uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
-version = "1.2.11+10"
-
-[[Zstd_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "b25b0fb10176c42e9a5a20e1f40d570ac0288d4e"
-uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
-version = "1.4.5+0"
-
 [[ZygoteRules]]
 deps = ["MacroTools"]
 git-tree-sha1 = "b3b4882cc9accf6731a08cc39543fbc6b669dca8"
 uuid = "700de1a5-db45-46bc-99cf-38207098b444"
 version = "0.2.0"
-
-[[nghttp2_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "d4b1ff45cfa721fd60f624fdb52c5a836fafaf8f"
-uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.40.0+0"
