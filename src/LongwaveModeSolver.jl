@@ -18,8 +18,9 @@ using ModifiedHankelFunctionsOfOrderOneThird
 
 # Geophysics.jl
 export BField, Constituent, EigenAngle, FieldComponent, Ground
+export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export Rₑ, c₀, μ₀, ϵ₀, H
+export Rₑ, c₀, μ₀, ϵ₀, CURVATURE_HEIGHT
 
 # Scenario.jl
 export Receiver, GroundSampler
@@ -30,11 +31,45 @@ export TMatrix
 
 # PropagationModel.jl
 
+#
+const TOPHEIGHT = 95e3  # TODO: temporary - should be part of an actual IntegrationParameters
+const BOTTOMHEIGHT = zero(TOPHEIGHT)  # should this be an actual const? Nothing works if it's not 0...
+
+# Not great, but can be changed as `EARTHCURVATURE[]=false`
+# TODO: where does this need to be considered?
+const EARTHCURVATURE = Ref(true)
+
+#==
+A struct like this could be used in place of the `const`s below.
+It would allow us to parameterize the Complex type, but realistically it will
+never be anything other than ComplexF64.
+
+# PolynomialRoots package requires complex floats of arbitrary precision
+struct BookerQuartic{T<:Complex{<:AbstractFloat}}
+    roots::MVector{4,T}
+    coeffs::MVector{5,T}
+end
+==#
+# Passing MArrays between functions causes allocations. They are avoided by
+# mutating this const in place. `roots!` requires Complex values.
+const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(ComplexF64, 4))
+const BOOKER_QUARTIC_COEFFS = MVector{5,ComplexF64}(undef)
+
+# const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(Complex{BigFloat}, 4))
+# const BOOKER_QUARTIC_COEFFS = MVector{5,Complex{BigFloat}}(undef)
+
+struct Derivative_dθ end
 
 #
+include("Antennas.jl")
+include("Emitters.jl")
 include("Geophysics.jl")
-include("Scenario.jl")
+include("magnetoionic.jl")
+include("modefinder.jl")
+include("modesum.jl")
+include("Samplers.jl")
 include("TMatrix.jl")
-include("PropagationModel.jl")
+include("wavefields.jl")
+include("Waveguide.jl")
 
 end

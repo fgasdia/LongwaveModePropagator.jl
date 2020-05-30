@@ -14,5 +14,6 @@ const qₑ = -1.602176634e-19  # C
 # @profiler (for i = 1:1000; LWMS.fcn(); end)
 
 @testset "LongwaveModeSolver" begin
+    include("test_geophysics.jl")
     include("test_wavefields.jl")
 end

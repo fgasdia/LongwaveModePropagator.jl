@@ -5,7 +5,7 @@ const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
 const Z₀ = 376.730313668  # vacuum impedance, Ω
 
 const Rₑ = 6366e3  # earth radius, m
-const H = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
+const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
 
 ########
 
@@ -41,6 +41,7 @@ struct BField
     dcm::Float64
     dcn::Float64
 end
+
 """
     BField(B, dip, azimuth)
 
@@ -52,7 +53,9 @@ function BField(B, dip, azimuth)
     # Look at the Booker quartic roots for dip angles -1,+1. They are way
     # outside the normal. The roots aren't accurately found, although I'm not
     # sure where the issue is.
-    abs(rad2deg(dip)) <= 1 && @warn "Magnetic dip angles between ±1° have known numerical issues."
+    abs(rad2deg(dip)) <= 1 && @warn "magnetic dip angles between ±1° have known numerical issues."
+    abs(dip) > 2π && @warn "magnetic dip angle should be in radians"
+    abs(azimuth) > 2π && @warn "magnetic azimuth angle should be in radians"
 
     Sdip, Cdip = sincos(dip)
     Saz, Caz = sincos(azimuth)
@@ -95,6 +98,12 @@ gyrofrequency(c::Constituent, b::BField) = gyrofrequency(c.charge, c.mass, b.B)
 
 ########
 
+"""
+    Ground(ϵᵣ, σ)
+
+Isotropic earth ground characterized by a relative permittivity `ϵᵣ` and a
+conductivity `σ`.
+"""
 struct Ground
     ϵᵣ::Int
     σ::Float64
@@ -118,6 +127,8 @@ end
 
 ########
 
+# TODO: Move EigenAngle out of Geophysics
+
 """
     EigenAngle{T}
 
@@ -140,7 +151,7 @@ struct EigenAngle{T}
 
     function EigenAngle{T}(θ::T) where T <: Number
         rθ, iθ = reim(θ)
-        (abs(rθ) > 2π) || (abs(iθ) > 2π) && @warn "θ in radians?"
+        ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ should be in radians"
         S, C = sincos(θ)
         C² = C^2
         S² = 1 - C²
@@ -161,7 +172,6 @@ end
 #     print(io, " ", getfield(e, :θ))
 # end
 
-
 function Base.show(io::IO, e::EigenAngle{T}) where {T}
     compact = get(io, :compact, false)
 
@@ -177,8 +187,6 @@ function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle{T}) where {T}
     println(io, "EigenAngle{$T}: ")
     show(io, e)
 end
-
-
 
 
 ########
@@ -285,16 +293,4 @@ function ioncollisionfrequency(z, cutoff_low)
     else
         return zero(promote_type(Float64, typeof(z)))
     end
-end
-
-
-"""
-    WaveguideSegment{F,G}
-
-Defines a homogeneous segment of waveguide (ionosphere and ground).
-"""
-@with_kw struct WaveguideSegment{F<:Function,G<:Function}
-    bfield::BField
-    constituent::Constituent{F, G}
-    ground::Ground
 end
