@@ -15,7 +15,7 @@ Parameters passed to Pitteway integration of wavefields.
     `ea::EigenAngle{T3}`
     `frequency::Frequency`
     `bfield::BField`
-    `species::Constituent{F,G}`
+    `species::Species{F,G}`
 """
 @with_kw struct WavefieldIntegrationParams{T1,T2,T3,F,G}
     z::T1
@@ -26,7 +26,7 @@ Parameters passed to Pitteway integration of wavefields.
     ea::EigenAngle{T3}
     frequency::Frequency
     bfield::BField
-    species::Constituent{F,G}
+    species::Species{F,G}
 end
 
 """
@@ -47,7 +47,7 @@ Automatically set values are:
 always be real, so it is sufficient for `Float64` to be provided as `T` even
 for complex wavefields.
 """
-function WavefieldIntegrationParams{T}(ea::EigenAngle{T3}, frequency::Frequency, bfield::BField, species::Constituent{F,G}) where {T,T3,F,G}
+function WavefieldIntegrationParams{T}(ea::EigenAngle{T3}, frequency::Frequency, bfield::BField, species::Species{F,G}) where {T,T3,F,G}
     return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),T3,F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
 end
 
@@ -130,7 +130,7 @@ dedz(e, k, T::TMatrix) = -im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
 
 Calculates derivative of field components vector `e` at height `z`.
 
-The parameters tuple `p` should contain (`Frequency`, `BField`, `Constituent`)
+The parameters tuple `p` should contain (`Frequency`, `BField`, `Species`)
 or be a `WavefieldIntegrationParams` struct. This function internally calls
 [`susceptibility`](@ref) and [`tmatrix`](@ref) and is typically used by
 [`integratewavefields`](@ref).
@@ -356,7 +356,7 @@ end
 
 zs should be going down (although this isn't strictly enforced by this function)
 """
-function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Constituent)
+function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species)
     # TODO: version that updates output `e` in place
 
     # Initial conditions
@@ -513,7 +513,7 @@ integration at heights `zs`.
 
 Scales wavefields for waveguide boundary conditions.
 """
-function fieldstrengths(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Constituent, ground::Ground)
+function fieldstrengths(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species, ground::Ground)
     # TODO: make an inplace version over EH
 
     # TODO: Should we pass R and Rg?

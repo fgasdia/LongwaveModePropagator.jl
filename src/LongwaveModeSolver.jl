@@ -13,11 +13,11 @@ using Parameters
 
 using PolynomialRoots: roots!
 
-using GRPF
+using RootsAndPoles
 using ModifiedHankelFunctionsOfOrderOneThird
 
 # Geophysics.jl
-export BField, Constituent, EigenAngle, FieldComponent, Ground
+export BField, Species, EigenAngle, FieldComponent, Ground
 export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 export Rₑ, c₀, μ₀, ϵ₀, CURVATURE_HEIGHT
@@ -64,12 +64,13 @@ struct Derivative_dθ end
 include("Antennas.jl")
 include("Emitters.jl")
 include("Geophysics.jl")
+include("Samplers.jl")
+include("TMatrix.jl")
+include("Waveguide.jl")
+
 include("magnetoionic.jl")
 include("modefinder.jl")
 include("modesum.jl")
-include("Samplers.jl")
-include("TMatrix.jl")
 include("wavefields.jl")
-include("Waveguide.jl")
 
 end

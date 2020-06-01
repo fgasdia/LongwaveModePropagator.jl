@@ -4,7 +4,7 @@ using Statistics
 using StaticArrays
 using CSV
 using DataFrames
-using GRPF
+using RootsAndPoles
 using NLsolve
 
 using LongwaveModeSolver
@@ -31,7 +31,7 @@ const qₑ = -1.602176634e-19  # C
     freq = Frequency(24e3)
     bfield = BField(50e-6, π/2, 0)
     ground = Ground(15, 0.001)
-    electrons = Constituent(qₑ, mₑ,
+    electrons = Species(qₑ, mₑ,
             z -> waitprofile(z, 75, 0.32, H),
             z -> electroncollisionfrequency(z, H))
 
@@ -205,7 +205,7 @@ const qₑ = -1.602176634e-19  # C
     tx = Transmitter{LWMS.VerticalDipole}("", 0, 0, 0, LWMS.VerticalDipole(), LWMS.Frequency(24e3), 100e3)
     ground = LWMS.Ground(15, 0.001)
     bfield = LWMS.BField(50e-6, deg2rad(90), 0)
-    electrons = Constituent(qₑ, mₑ,
+    electrons = Species(qₑ, mₑ,
             z -> waitprofile(z, 75, 0.32, H),
             z -> electroncollisionfrequency(z, H))
     modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
@@ -248,7 +248,7 @@ ground = Ground(15, 0.001)
 @test isbits(ground)
 bfield = BField(50e-6, deg2rad(90), 0)
 @test isbits(bfield)
-electrons = Constituent(qₑ, mₑ,
+electrons = Species(qₑ, mₑ,
         z -> waitprofile(z, 75, 0.32, H),
         z -> electroncollisionfrequency(z, H))
 @test isbits(electrons) # surprisingly...
@@ -422,7 +422,7 @@ Ecom, phase, amp = LWMS.Efield(modes, modeparams, tx, rx)
 tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
 ground = Ground(15, 0.001)
 bfield = BField(50e-6, deg2rad(90), 0)
-electrons = Constituent(qₑ, mₑ,
+electrons = Species(qₑ, mₑ,
         z -> waitprofile(z, 75, 0.32, H),
         z -> electroncollisionfrequency(z, H))
 

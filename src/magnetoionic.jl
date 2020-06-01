@@ -210,7 +210,7 @@ susceptibility matrix calculated by this function.
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 [^Budden1988]: K. G. Budden
 """
-function susceptibility(z, frequency::Frequency, bfield::BField, species::Constituent)
+function susceptibility(z, frequency::Frequency, bfield::BField, species::Species)
     B, lx, ly, lz = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     lx², ly², lz² = lx^2, ly^2, lz^2
     ω = frequency.ω

@@ -1,11 +1,3 @@
-# TODO: Combine with WaveguideSegment
-@with_kw struct ModeParameters{F, G}
-    bfield::BField
-    frequency::Frequency
-    ground::Ground
-    species::Constituent{F,G}
-end
-
 @with_kw struct ExcitationFactor{T} @deftype T
     F₁
     F₂
@@ -236,17 +228,19 @@ end
 Calculate the complex electric field, amplitude, and phase at a distance `x` from transmitter `tx`.
 
 `modes` is a collection of `EigenAngles` for the earth-ionosphere waveguide with the parameters
-`modeparams`. Exciter `tx` specifies the transmitting antenna position, orientation, and
+`modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
 
 # References
 
 
 """
-function Efield(x, modes, modeparams::ModeParameters, tx::Exciter, rx::AbstractSampler)
-    @unpack frequency, ground = modeparams
+function Efield(x, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+    @unpack ground = waveguide
 
     # TODO: special function for vertical component, transmitter, and at ground
+
+    frequency = tx.frequency
 
     txpower = power(tx)
     zₜ = altitude(tx)
@@ -264,7 +258,7 @@ function Efield(x, modes, modeparams::ModeParameters, tx::Exciter, rx::AbstractS
     for ea in modes
         S₀ = ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)  # S referenced to ground, see, e.g. PS71 pg 11
 
-        dFdθ, R, Rg = solvemodalequationdθ(ea, modeparams)
+        dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
         efconstants = excitationfactorconstants(ea, R, Rg, frequency, ground)
 
         # fz0, fx0, fy0 = heightgains(0, ea, frequency, efconstants)
@@ -304,10 +298,12 @@ end
 
 function Efield(
     modes,
-    modeparams::ModeParameters,
-    tx::Exciter,
+    waveguide::HomogeneousWaveguide,
+    tx::Emitter,
     rx::GroundSampler
     )
+
+    frequency = tx.frequency
 
     X = distance(rx)
     Xlength = length(X)
@@ -320,7 +316,7 @@ function Efield(
     # TODO: This is really inefficient, because some of these things don't need to be computed
     # for each `x`, but for each `ea`, which is a much smaller size
     for i in eachindex(X)
-        e, p, a = Efield(X[i], modes, modeparams, tx, rx)
+        e, p, a = Efield(X[i], modes, waveguide, tx, rx)
         E[i] = e
         phase[i] = p
         amp[i] = a

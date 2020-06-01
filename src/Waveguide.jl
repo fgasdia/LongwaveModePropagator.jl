@@ -1,29 +1,27 @@
 """
     Waveguide
 
-A waveguide propagation path with a background `bfield`, ionosphere `constituent`,
-and `ground`.
+A waveguide propagation path with a background `BField`, ionosphere `Species`,
+and `Ground`.
 """
 abstract type Waveguide end
-
-# TODO: constituent to species
 
 """
     HomogeneousWaveguide{B,C,G} <: Waveguide
 
-Defines a homogeneous segment of waveguide with a `bfield`, `constituent`,
-`ground`, and `distance` of the start of the segment from the `Emitter`.
+Defines a homogeneous segment of waveguide with a `BField`, `Species`,
+`Ground`, and `distance` of the start of the segment from the `Emitter`.
 """
-@with_kw struct HomogeneousWaveguide{B,C,G} <: Waveguide
+@with_kw struct HomogeneousWaveguide{B,S,G} <: Waveguide
     bfield::B  # BField
-    constituent::C  # `Constituent` or `Vector{Constituent}`
+    species::S  # `Species` or `Vector{Species}`
     ground::G  # Ground
     distance::Float64
 end
-function HomogeneousWaveguide(bfield, constituent, ground) = HomogeneousWaveguide(bfield, constituent, ground, 0)
+HomogeneousWaveguide(bfield, species, ground) = HomogeneousWaveguide(bfield, species, ground, 0)
 
 struct SegmentedWaveguide <: Waveguide
-    v::Vector{HomogeneousWaveguide{F,G}}
+    v::Vector{HomogeneousWaveguide}  # XXX: better typing? but not really necessary...
 end
 
 # TODO: WKBWaveguide (that's why we can't call SegmentedWaveguide -> InhomogeneousWaveguide)

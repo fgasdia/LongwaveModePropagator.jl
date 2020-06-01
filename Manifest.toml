@@ -8,9 +8,9 @@ version = "0.3.3"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "c88cfc7f9c1f9f8633cddf0b56e86302b70f64c5"
+git-tree-sha1 = "fd04049c7dd78cfef0b06cdc1f0f181467655712"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "1.0.1"
+version = "1.1.0"
 
 [[ArnoldiMethod]]
 deps = ["DelimitedFiles", "LinearAlgebra", "Random", "SparseArrays", "StaticArrays", "Test"]
@@ -91,9 +91,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "ConsoleProgressMonitor", "DataStructures", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "LoggingExtras", "MuladdMacro", "Parameters", "Printf", "ProgressLogging", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TerminalLoggers", "TreeViews", "ZygoteRules"]
-git-tree-sha1 = "b269aefc5885524cd885f4bee9a233e7b6b6b6e5"
+git-tree-sha1 = "a37901f10b63ed3e413db3320cd6c305c771430d"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.35.2"
+version = "6.36.3"
 
 [[DiffEqCallbacks]]
 deps = ["DataStructures", "DiffEqBase", "ForwardDiff", "LinearAlgebra", "NLsolve", "OrdinaryDiffEq", "RecipesBase", "RecursiveArrayTools", "StaticArrays"]
@@ -162,14 +162,6 @@ version = "0.10.10"
 git-tree-sha1 = "e4813d187be8c7b993cb7f85cbf2b7bfbaadc694"
 uuid = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
 version = "1.1.1"
-
-[[GRPF]]
-deps = ["LinearAlgebra", "VoronoiDelaunay"]
-git-tree-sha1 = "995d60056a57f4e6d0cd7c94947eddf4fd827dc1"
-repo-rev = "master"
-repo-url = "/home/forrest/dev/GRPF.jl"
-uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
-version = "1.0.0"
 
 [[GenericSVD]]
 deps = ["LinearAlgebra"]
@@ -253,9 +245,9 @@ version = "0.4.1"
 
 [[LoopVectorization]]
 deps = ["DocStringExtensions", "LinearAlgebra", "OffsetArrays", "SIMDPirates", "SLEEFPirates", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "525d6a27998afeac6b30a92e5cd3bfe4ae246652"
+git-tree-sha1 = "132e6b82e3434a04992a0be60e194f817101c846"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.8.1"
+version = "0.8.2"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -316,9 +308,9 @@ version = "1.2.0"
 
 [[OrdinaryDiffEq]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "ExponentialUtilities", "FiniteDiff", "ForwardDiff", "GenericSVD", "LinearAlgebra", "Logging", "MacroTools", "MuladdMacro", "NLsolve", "RecursiveArrayTools", "Reexport", "SparseArrays", "SparseDiffTools", "StaticArrays", "UnPack"]
-git-tree-sha1 = "941ff997c52f0d2eefae0629c38fbf6123275ac6"
+git-tree-sha1 = "ce564fc314cfb04b253431d8fb5d602d2142744d"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-version = "5.38.3"
+version = "5.39.1"
 
 [[Parameters]]
 deps = ["OrderedCollections", "UnPack"]
@@ -337,11 +329,11 @@ deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "R
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PolynomialRoots]]
-git-tree-sha1 = "1f89a944755878c0817a1d1174c7529d6f0728aa"
+git-tree-sha1 = "5f807b5345093487f733e520a1b7395ee9324825"
 repo-rev = "master"
 repo-url = "https://github.com/giordano/PolynomialRoots.jl"
 uuid = "3a141323-8675-5d76-9d11-e1df1406c778"
-version = "0.2.0"
+version = "1.0.0"
 
 [[Printf]]
 deps = ["Unicode"]
@@ -401,6 +393,14 @@ deps = ["Printf"]
 git-tree-sha1 = "955ce06c1f424ca7043c7827f5cb14d8eb397065"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 version = "1.0.1"
+
+[[RootsAndPoles]]
+deps = ["LinearAlgebra", "VoronoiDelaunay"]
+git-tree-sha1 = "dc523ffcdd805f40d262265063d8fd6f10fe3c23"
+repo-rev = "master"
+repo-url = "https://github.com/fgasdia/RootsAndPoles.jl"
+uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
+version = "1.0.0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -499,9 +499,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[VectorizationBase]]
 deps = ["CpuId", "LinearAlgebra"]
-git-tree-sha1 = "13463c5703d9e75b2eab93f6c94239426af49221"
+git-tree-sha1 = "bb09a7eacbd0b0efdf107a039e3cadd900a10c3b"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.12.3"
+version = "0.12.5"
 
 [[VertexSafeGraphs]]
 deps = ["LightGraphs"]

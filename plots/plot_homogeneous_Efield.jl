@@ -1,21 +1,11 @@
-using Test
 using StaticArrays
-using GRPF
+using RootsAndPoles
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
 
-using Gadfly
 using CSV
 using DataFrames
-
-set_default_plot_size(8inch, 6inch)
-font = "Segoe UI Symbol"
-basetheme = Theme(major_label_font=font, major_label_font_size=14pt,
-                  minor_label_font=font, minor_label_font_size=12pt,
-                  key_label_font=font, key_label_font_size=12pt,
-                  line_width=2pt)
-Gadfly.push_theme(basetheme)
 
 basepath = "C:\\Users\\forrest\\Desktop"
 
@@ -37,7 +27,7 @@ basepath = "C:\\Users\\forrest\\Desktop"
 
     mₑ = 9.1093837015e-31  # kg
     qₑ = -1.602176634e-19  # C
-    electrons = Constituent(qₑ, mₑ,
+    electrons = Species(qₑ, mₑ,
                             h -> waitprofile(h, 75, 0.32), electroncollisionfrequency)
 
     #==
@@ -73,11 +63,11 @@ end
 #==
 Vertical B field
 ==#
-bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
+bfield = BField(50_000e-9, 0.0, 0.0, -1.0)
 # tx = LWMS.Transmitter(24e3)
-naa = LWMS.Transmitter("NAA", 44.646, -67.281, 0.0, LWMS.VerticalDipole(), LWMS.Frequency(24e3), 100e3)
-rx = LWMS.GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
-ground = LWMS.Ground(15, 0.001)
+tx = Transmitter("NAA", 44.646, -67.281, 0.0, VerticalDipole(), Frequency(24e3), 100e3)
+rx = GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
+ground = Ground(15, 0.001)
 
 θ = deg2rad(complex(78.2520447, -3.5052794))
 ea = LWMS.EigenAngle(θ)
@@ -85,37 +75,32 @@ ea = LWMS.EigenAngle(θ)
 mₑ = 9.1093837015e-31  # kg
 qₑ = -1.602176634e-19  # C
 
-function customwaitprofile(z, h′, β, cutoff)
-    if z < cutoff
-        return 0
-    else
-        return waitprofile(z, h′, β)
-    end
-end
-electrons = Constituent(qₑ, mₑ,
-                        h -> customwaitprofile(h, 75, 0.32, 50e3), electroncollisionfrequency)
+electrons = Species(qₑ, mₑ,
+                    h -> waitprofile(h, 75, 0.32, 50e3), electroncollisionfrequency)
 
 # Based on lwp_input.for
-origcoords = rectangulardomain(complex(20, -20.0), complex(89.9, 0.0), 1)
+origcoords = rectangulardomain(complex(20, -20.0), complex(89.9, 0.0), 0.5)
 origcoords .= deg2rad.(origcoords)
-
-integrationparams = LWMS.IntegrationParameters(bfield, naa.frequency, ground, electrons)
 
 # angletype = eltype(origcoords)
 # zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{angletype}(θ), integrationparams),
 #                   origcoords, tolerance, 15000)
 
-modes = LWMS.findmodes(origcoords, integrationparams)
+waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+
+modes = LWMS.findmodes(origcoords, tx.frequency, waveguide)
+
+modes = [LWMS.EigenAngle(th) for th in modes]
 
 @testset "Electric field" begin
-    talt = LWMS.altitude(tx)
-    ralt = LWMS.altitude(rx)
-    rxfc = LWMS.fieldcomponent(rx)
+    talt = altitude(tx)
+    ralt = altitude(rx)
+    rxfc = fieldcomponent(rx)
 
     # Transmit dipole antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
-    Sγ, Cγ = sincos(LWMS.elevation(tx))
-    Sϕ, Cϕ = sincos(LWMS.azimuth(tx))
+    Sγ, Cγ = sincos(elevation(tx))
+    Sϕ, Cϕ = sincos(azimuth(tx))
 
     ea = modes[1]
 
@@ -140,9 +125,9 @@ modes = LWMS.findmodes(origcoords, integrationparams)
     end
 end
 
-E, phase, amp = LWMS.Efield(1500e3, modes, integrationparams, naa, rx)
+E, phase, amp = LWMS.Efield(1500e3, modes, waveguide, tx, rx)
 
-E, phase, amp = LWMS.Efield(modes, integrationparams, naa, rx)
+E, phase, amp = LWMS.Efield(modes, waveguide, tx, rx)
 
 raw = CSV.File("C:\\users\\forrest\\research\\LAIR\\ModeSolver\\verticalb_day.log";
                skipto=65, delim=' ', ignorerepeated=true, header=false)
@@ -190,7 +175,7 @@ ground = LWMS.Ground(15, 0.001)
 
 mₑ = 9.1093837015e-31  # kg
 qₑ = -1.602176634e-19  # C
-electrons = Constituent(qₑ, mₑ,
+electrons = Species(qₑ, mₑ,
                         h -> waitprofile(h, 75, 0.32), electroncollisionfrequency)
 
 origcoords = rectangulardomain(complex(20., -20.), complex(90.0, 0.0), 1)

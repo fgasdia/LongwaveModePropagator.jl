@@ -6,7 +6,7 @@ using NumericalIntegration
 using Trapz  # for testing only
 using Parameters
 
-using GRPF
+using RootsAndPoles
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
@@ -19,7 +19,7 @@ function resonant_scenario()
     bfield = BField(50e-6, deg2rad(68), deg2rad(111))
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
     ground = Ground(15, 0.001)
-    electrons = Constituent(qₑ, mₑ,
+    electrons = Species(qₑ, mₑ,
                             z -> waitprofile(z, 75, 0.32),
                             electroncollisionfrequency)
 
@@ -99,13 +99,13 @@ function mc_scenario()
     waveguide = LWMS.WaveguideSegment[]
 
     push!(waveguide, LWMS.WaveguideSegment(BField(50e-6, deg2rad(68), deg2rad(111)),
-                                      Constituent(qₑ, mₑ,
+                                      Species(qₑ, mₑ,
                                                   z -> waitprofile(z, 75, 0.32),
                                                   electroncollisionfrequency),
                                       Ground(15, 0.001)))
 
     push!(waveguide, LWMS.WaveguideSegment(BField(50e-6, deg2rad(68), deg2rad(111)),
-                                      Constituent(qₑ, mₑ,
+                                      Species(qₑ, mₑ,
                                                   z -> waitprofile(z, 78, 0.35),
                                                   electroncollisionfrequency),
                                       Ground(15, 0.001)))
@@ -118,8 +118,8 @@ function mc_scenario()
     waveguide_wavefields = Wavefields[]
     waveguide_adjwavefields = similar(waveguide_wavefields)
     for s in eachindex(waveguide)
-        @unpack bfield, constituent, ground = waveguide[s]
-        modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, constituent)
+        @unpack bfield, species, ground = waveguide[s]
+        modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, species)
 
         origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
         origcoords .= deg2rad.(origcoords)
@@ -132,7 +132,7 @@ function mc_scenario()
         adjwavefields = Wavefields(ea, zs)
 
         calculate_wavefields!(wavefields, adjwavefields,
-                              bfield, tx.frequency, ground, constituent)
+                              bfield, tx.frequency, ground, species)
 
         # TODO: only store previous and make sure size reflects length(ea)
         push!(waveguide_wavefields, wavefields)

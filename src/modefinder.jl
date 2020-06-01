@@ -432,8 +432,8 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, params, z)
-    ea, modeparams = params
-    @unpack bfield, frequency, species = modeparams
+    ea, frequency, waveguide = params
+    @unpack bfield, species = waveguide
 
     k = frequency.k
 
@@ -448,8 +448,8 @@ function dRdz(R, params, z)
 end
 
 function dRdθdz(RdRdθ, params, z)
-    ea, modeparams = params
-    @unpack bfield, frequency, species = modeparams
+    ea, frequency, waveguide = params
+    @unpack bfield, species = waveguide
 
     k = frequency.k
 
@@ -469,8 +469,8 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(ea::EigenAngle, modeparams::ModeParameters)
-    @unpack bfield, frequency, species = modeparams
+function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+    @unpack bfield, species = waveguide
 
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
 
@@ -478,7 +478,7 @@ function integratedreflection(ea::EigenAngle, modeparams::ModeParameters)
 
     # TODO: Integration method
     # TODO: Does saving actually alter performance?
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, modeparams))
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
@@ -490,14 +490,14 @@ end
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(ea::EigenAngle, modeparams::ModeParameters, ::Derivative_dθ)
-    @unpack bfield, frequency, species = modeparams
+function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide, ::Derivative_dθ)
+    @unpack bfield, species = waveguide
 
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
 
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
-    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, modeparams))
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
@@ -595,10 +595,10 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(inv(A)*dA)
 end
 
-function solvemodalequation(ea::EigenAngle, modeparams::ModeParameters)
-    @unpack frequency, ground = modeparams
+function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+    @unpack ground = waveguide
 
-    R = integratedreflection(ea, modeparams)
+    R = integratedreflection(ea, frequency, waveguide)
     Rg = fresnelreflection(ea, ground, frequency)
 
     f = modalequation(R, Rg)
@@ -609,10 +609,10 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequationdθ(ea::EigenAngle, modeparams::ModeParameters)
-    @unpack frequency, ground = modeparams
+function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+    @unpack ground = waveguide
 
-    RdR = integratedreflection(ea, modeparams, Derivative_dθ())
+    RdR = integratedreflection(ea, frequency, waveguide, Derivative_dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
@@ -627,11 +627,10 @@ end
 `tolerance=1e-6` and `tolerance=1e-8` is less than 1e-5° in both real and imaginary
 components.
 """
-function findmodes(origcoords::AbstractArray{T}, modeparams::ModeParameters, tolerance=1e-6) where {T}
+function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguide::HomogeneousWaveguide, tolerance=1e-6) where {T}
     # TODO: don't hardcode 30000
-    zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{T}(θ), modeparams),
+    zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{T}(θ), frequency, waveguide),
                           origcoords, GRPFParams(30000, tolerance))
 
     return zroots
-    # return @SVector [EigenAngle{T}(r) for r in zroots]
 end

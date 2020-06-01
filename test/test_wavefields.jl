@@ -3,7 +3,7 @@ function scenario()
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
     ground = Ground(15, 0.001)
 
-    electrons = Constituent(qₑ, mₑ,
+    electrons = Species(qₑ, mₑ,
                             z -> waitprofile(z, 75, 0.32),
                             electroncollisionfrequency)
 
@@ -111,10 +111,10 @@ function drdzwavefield_equivalence_test()
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
-    modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, modeparams))
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, tx.frequency, waveguide))
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
                 saveat=zs, save_everystep=false)
 
@@ -127,7 +127,7 @@ function homogeneous_scenario()
     ground = Ground(15, 0.001)
 
     ionobottom = 50e3
-    species = Constituent(qₑ, mₑ, z -> z >= ionobottom ? ionobottom : 0.0,
+    species = Species(qₑ, mₑ, z -> z >= ionobottom ? ionobottom : 0.0,
                               z -> 5e6)  # ν is constant
 
     # Resonant EigenAngle
@@ -185,13 +185,13 @@ end
 
 function resonant_scenario()
     bfield, tx, ground, electrons, ea, zs = scenario()
-    modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
 
-    modes = LWMS.findmodes(origcoords, modeparams, tolerance)
+    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, tolerance)
     ea = modes[argmax(real(modes))]  # largest real resonant mode
 
     return bfield, tx, ground, electrons, EigenAngle(ea), zs

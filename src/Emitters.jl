@@ -1,3 +1,28 @@
+# TODO: Custom "range" of Frequencies to form a spectrum for, e.g. lightning sferic
+
+"""
+    Frequency
+
+Electromagnetic wave component defined by frequency `f`, but also carrying angular wave
+frequency, wavenumber, and wavelength.
+"""
+struct Frequency
+    f::Float64
+    ω::Float64
+    k::Float64
+    λ::Float64
+end
+function Frequency(f)
+    ω = 2π*f
+    k = ω/c₀
+    λ = c₀/f
+
+    Frequency(f, ω, k, λ)
+end
+Frequency(f::Frequency) = f
+
+########
+
 """
     Emitter
 
@@ -29,28 +54,3 @@ frequency(t::Transmitter) = t.frequency
 azimuth(t::Transmitter) = azimuth(t.antenna)
 elevation(t::Transmitter) = elevation(t.antenna)
 power(t::Transmitter) = t.power
-
-########
-
-# TODO: Custom "range" of Frequencies to form a spectrum for, e.g. lightning sferic
-
-"""
-    Frequency
-
-Electromagnetic wave component defined by frequency `f`, but also carrying angular wave
-frequency, wavenumber, and wavelength.
-"""
-struct Frequency
-    f::Float64
-    ω::Float64
-    k::Float64
-    λ::Float64
-end
-function Frequency(f)
-    ω = 2π*f
-    k = ω/c₀
-    λ = c₀/f
-
-    Frequency(f, ω, k, λ)
-end
-Frequency(f::Frequency) = f

@@ -10,12 +10,12 @@ const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.fo
 ########
 
 """
-    Constituent{F, G}
+    Species{F, G}
 
-Ionosphere `Constituent` with a `charge` (C), `mass` (kg), `numberdensity(z)` (m⁻³), and
-`collisionfrequency(z)` (s⁻¹).
+Ionosphere constituent `Species` with a `charge` (C), `mass` (kg),
+`numberdensity(z)` (m⁻³), and `collisionfrequency(z)` (s⁻¹).
 """
-struct Constituent{F<:Function, G<:Function}
+struct Species{F<:Function, G<:Function}
     charge::Float64  # C
     mass::Float64  # kg
     numberdensity::F  # function that obtains number density (m⁻³)
@@ -86,7 +86,7 @@ azimuth(b::BField) = atan(b.dcm,b.dcl)
 Return the plasma frequency ``ωₚ = √(nq²/(ϵ₀m))`` for a ``cold'' plasma.
 """
 plasmafrequency(n, q, m) = sqrt(n*q^2/(ϵ₀*m))
-plasmafrequency(z, c::Constituent) = plasmafrequency(c.numberdensity(z), c.charge, c.mass)
+plasmafrequency(z, s::Species) = plasmafrequency(s.numberdensity(z), s.charge, s.mass)
 
 """
     gyrofrequency(q, m, B)
@@ -94,7 +94,7 @@ plasmafrequency(z, c::Constituent) = plasmafrequency(c.numberdensity(z), c.charg
 Return the _signed_ gyrofrequency ``Ω = qB/m``.
 """
 gyrofrequency(q, m, B) = q*B/m
-gyrofrequency(c::Constituent, b::BField) = gyrofrequency(c.charge, c.mass, b.B)
+gyrofrequency(s::Species, b::BField) = gyrofrequency(s.charge, s.mass, b.B)
 
 ########
 

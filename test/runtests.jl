@@ -2,7 +2,7 @@ using Test
 using LinearAlgebra
 using StaticArrays
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
-using GRPF
+using RootsAndPoles
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
