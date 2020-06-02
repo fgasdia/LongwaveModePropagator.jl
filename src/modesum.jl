@@ -12,46 +12,6 @@ end
 ################
 
 """
-TODO: LF corrections/fixes
-
-Pappert 1981 LF Daytime Earth Ionosphere...
-finds that the linear combination of modified Hankel functions of order one third used to
-represent the height gain at the ground is in fact incorrect at the ground for modes which
-are highly earth detached (pg 7-8). To correct for this, they just throw away earth
-effects altogether when the condition
-Re(2im*(k/α)*(C²ₕ - α*H)^(3/2)/3)) > 12.4
-is met. The value of 12.4 was found by trial and error and requires the degree of evanescence
-at the ground to be of the order of several times 10⁻⁶. When this condition is met, the
-plane wave reflection coefficients (for ground) become eq (2) and (3).
-There are additional equation replacements on page 10.
-Otherwise, this is following the math from Pappert & Shockey 71. This paper (81) explicitly
-identifies where some of the angles should be referenced.
-"""
-
-"""
-TODO: ELF corrections/fixes
-
-Pappert Shockey 1971 WKB Mode Summing...
-changes height gain functions for ELF, pg. 9
-
-Switches to flat earth at imaginary angles less than -10° (see LWPC or Pappert 1983 ELF-VLF)
-"""
-
-"""
-Pappert Shockey 1971 pg 9 or Pappert 198e pg 12
-"""
-function elf_heightgains()
-
-end
-
-"""
-    pow23
-
-Calculate `x^(2/3)` relatively efficiently as ``exp(2/3*log(x))``.
-"""
-pow23(x) = exp(2/3*log(x))
-
-"""
     excitationfactorconstants(ea, R, Rg, frequency, ground)
 
 Return an `ExcitationFactor` struct used in calculating height gains.
@@ -89,7 +49,7 @@ function excitationfactorconstants(ea::EigenAngle, R, Rg, frequency::Frequency, 
     H₂0 = h₂p0 + αok23*h₂0/2
 
     n₀² = 1 - αH  # modified index of refraction (free space) squared
-    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)  # ground index of refraction
+    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*ϵ₀))  # ground index of refraction
 
     # Precompute
     n₀²oNg² = n₀²/Ng²
@@ -235,7 +195,7 @@ radiated power, and `rx` specifies the field component of interest.
 
 
 """
-function Efield(x, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+function Efield(x::Real, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     @unpack ground = waveguide
 
     # TODO: special function for vertical component, transmitter, and at ground
@@ -328,10 +288,59 @@ function Efield(
 end
 
 
+#==
 """
 Pappert Shockey 1976
 """
-function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler)
+function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::GroundSampler)
+    # catch if `waveguide` only has a single segment
+    num_segments = length(waveguide)
+    num_segments == 1 && return Efield(modes, only(waveguide), tx, rx)
+
+    X = distance(rx)
+    Xlength = length(X)
+
+    Etype = eltype(first(modes))
+    E = Array{Etype}(undef, Xlength)
+    phase = Array{real(Etype)}(undef, Xlength)
+    amp = Array{real(Etype)}(undef, Xlength)
+
+
+
+    for i in eachindex(X)
+
+        X[i]
+
+        e, p, a = Efield(X[i], modes, waveguide, tx, rx)
+        E[i] = e
+        phase[i] = p
+        amp[i] = a
+    end
+
+    unwrap!(phase)
+
+    return E, phase, amp
+end
+
+
+    # Morfitt 1980
+    # `k` is mode index -> now `i`
+    # `n` is field index 1, 2, 3
+    # so `j` must be a slab index
+
+
+    lastj = lastindex(waveguide)
+    for j in 2:num_segments
+        segment_end = j == lastj ? oftype(waveguide[j].distance, 40000) : waveguide[j+1].distance
+        for i in eachindex(modes)
+
+
+
+
+
+
+
+
     ground = waveguide.ground
     frequency = tx.frequency
 
@@ -346,10 +355,7 @@ function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractS
     Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
-    # Morfitt 1980
-    # `k` is mode index
-    # `n` is field index 1, 2, 3
-    # so `j` must be a slab index
+
 
     modesum = zero(eltype(eltype(modes)))  # probably ComplexF64
     for ea in modes
@@ -388,7 +394,7 @@ function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractS
         modesum += xmtrterm*rcvrterm*exp(-im*k*(S₀-1)*x)
     end
 end
-
+==#
 
 ########
 
@@ -409,4 +415,47 @@ end
 
 function referencetoground(ea::EigenAngle)
     return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)))
+end
+
+"""
+    pow23
+
+Calculate `x^(2/3)` relatively efficiently as ``exp(2/3*log(x))``.
+"""
+pow23(x) = exp(2/3*log(x))
+
+########
+
+
+"""
+TODO: LF corrections/fixes
+
+Pappert 1981 LF Daytime Earth Ionosphere...
+finds that the linear combination of modified Hankel functions of order one third used to
+represent the height gain at the ground is in fact incorrect at the ground for modes which
+are highly earth detached (pg 7-8). To correct for this, they just throw away earth
+effects altogether when the condition
+Re(2im*(k/α)*(C²ₕ - α*H)^(3/2)/3)) > 12.4
+is met. The value of 12.4 was found by trial and error and requires the degree of evanescence
+at the ground to be of the order of several times 10⁻⁶. When this condition is met, the
+plane wave reflection coefficients (for ground) become eq (2) and (3).
+There are additional equation replacements on page 10.
+Otherwise, this is following the math from Pappert & Shockey 71. This paper (81) explicitly
+identifies where some of the angles should be referenced.
+"""
+
+"""
+TODO: ELF corrections/fixes
+
+Pappert Shockey 1971 WKB Mode Summing...
+changes height gain functions for ELF, pg. 9
+
+Switches to flat earth at imaginary angles less than -10° (see LWPC or Pappert 1983 ELF-VLF)
+"""
+
+"""
+Pappert Shockey 1971 pg 9 or Pappert 198e pg 12
+"""
+function elf_heightgains()
+
 end

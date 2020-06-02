@@ -40,7 +40,9 @@ dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
                 phase=vcat(raw.Column3, raw.Column6, raw.Column9))
 
 rx = GroundSampler(dat.dist*1000, LWMS.FC_Ez)
-Ecom, phase, amp = LWMS.Efield(EigenAngle.(modes), waveguide, tx, rx)
+
+modes = EigenAngle.(modes)
+Ecom, phase, amp = LWMS.Efield(modes, waveguide, tx, rx)
 
 widedf = DataFrame(dist=dat.dist,
                    lwpc_amp=dat.amp, lwpc_phase=dat.phase,
@@ -94,16 +96,13 @@ electrons = Species(qₑ, mₑ,
 origcoords = rectangulardomain(complex(20., -20.), complex(90.0, 0.0), 1)
 origcoords .= deg2rad.(origcoords)
 
-integrationparams = LWMS.IntegrationParameters(0.0, 91e3, bfield, tx, ground, electrons)
-
 modes = LWMS.findmodes(origcoords,integrationparams, 1e-6)
 
 X = range(10e3, 5000e3; step=10e3)
-E, phase, amp = LWMS.Efield(X, modes, integrationparams)
+E, phase, amp = LWMS.Efield(X, modes, )
 
 
 bfield = LWMS.BField(50_000e-9, deg2rad(70), deg2rad(20))
-integrationparams = LWMS.IntegrationParameters(0.0, 91e3, bfield, tx, ground, electrons)
 modes = LWMS.findmodes(origcoords,integrationparams, 1e-6)
 oE, ophase, oamp = LWMS.Efield(X, modes, integrationparams)
 

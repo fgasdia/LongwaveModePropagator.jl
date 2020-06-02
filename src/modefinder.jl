@@ -271,7 +271,7 @@ See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 [^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
 """
-function wmatrix(ea::EigenAngle, T::TMatrix)
+function wmatrix(ea::EigenAngle, T::TMatrix{Ttype}) where Ttype
     C = ea.cosθ
     Cinv = ea.secθ
 
@@ -339,14 +339,11 @@ function wmatrix(ea::EigenAngle, T::TMatrix)
     d12 = T32Cinv - C
 
     # Form the four 2x2 submatrices of `S`
-    W11 = @SMatrix [a11+a11r -b11;
-                    -c11 d11]
-    W12 = @SMatrix [a21+a21r -b11;
-                    c12 d12]
-    W21 = @SMatrix [a21-a21r b21;
-                    c11 -d12]
-    W22 = @SMatrix [a11-a11r b21;
-                    -c12 -d11]
+    # Ttype is already promoted type of ea and M
+    W11 = SMatrix{2,2,Ttype,4}(a11+a11r, -c11, -b11, d11)
+    W12 = SMatrix{2,2,Ttype,4}(a21+a21r, c12, -b11, d12)
+    W21 = SMatrix{2,2,Ttype,4}(a21-a21r, c11, b21, -d12)
+    W22 = SMatrix{2,2,Ttype,4}(a11-a11r, -c12, b21, -d11)
 
     return W11, W21, W12, W22
 end
@@ -358,17 +355,17 @@ Return the 4 submatrix elements of the derivative of the `W` matrix wrt θ.
 
 See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
 """
-function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
+function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix{Ttype}) where Ttype
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
     Cinv = ea.secθ
-    C²inv = inv(C²)
+    C²inv = Cinv^2
 
     dS = C
     dC = -S
     dC² = -2*S*C
     dCinv = S*C²inv
 
-    den = 1/(1 + M[3,3])
+    den = inv(1 + M[3,3])
 
     dT11 = -dS*M[3,1]*den
     dT12 = dS*M[3,2]*den
@@ -405,14 +402,10 @@ function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     dd22 = dC - dt32Cinv
 
     # Form the four 2x2 submatrices of `dS`
-    dW11 = @SMatrix [ds11a+ds11b -ds12;
-                     -ds21 ds22]
-    dW12 = @SMatrix [-dd11a+dd11b -ds12;
-                     dd21 -dd22]
-    dW21 = @SMatrix [-dd11a-dd11b dd12;
-                     ds21 dd22]
-    dW22 = @SMatrix [ds11a-ds11b dd12;
-                     -dd21 -ds22]
+    dW11 = SMatrix{2,2,Ttype,4}(ds11a+ds11b, -ds21, -ds12, ds22)
+    dW12 = SMatrix{2,2,Ttype,4}(-dd11a+dd11b, dd21, -ds12, -dd22)
+    dW21 = SMatrix{2,2,Ttype,4}(-dd11a-dd11b, ds21, dd12, dd22)
+    dW22 = SMatrix{2,2,Ttype,4}(ds11a-ds11b, -dd21, dd12, -ds22)
 
     return dW11, dW21, dW12, dW22
 end
@@ -456,15 +449,14 @@ function dRdθdz(RdRdθ, params, z)
     M = susceptibility(z, frequency, bfield, species)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
-    dW = dwmatrixdθ(ea, M, T)
+    dW11, dW21, dW12, dW22 = dwmatrixdθ(ea, M, T)
 
     R = RdRdθ[SVector(1,2),:]
     dRdθ = RdRdθ[SVector(3,4),:]
 
     dz = -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
-    dθdz = -im/2*k*(dW[2] + dW[4]*R + W22*dRdθ -
-            (dRdθ*W11 + R*dW[1]) -
-            (dRdθ*W12*R + R*dW[3]*R + R*W12*dRdθ))
+    dθdz = -im/2*k*(dW21 + dW22*R + W22*dRdθ - (dRdθ*W11 + R*dW11) -
+                    (dRdθ*W12*R + R*dW12*R + R*W12*dRdθ))
 
     return vcat(dz, dθdz)
 end
