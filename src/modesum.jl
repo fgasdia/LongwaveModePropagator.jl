@@ -191,14 +191,19 @@ Calculate the complex electric field, amplitude, and phase at a distance `x` fro
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
 
+NOTE: this returns modesum without `x`. To get correct values, need to raise sum to x power
+
 # References
 
 
 """
-function Efield(x::Real, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+function Efield!(E, X, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+    @assert length(E) == length(X)  # or boundscheck
+
     @unpack ground = waveguide
 
     # TODO: special function for vertical component, transmitter, and at ground
+    # TODO: Special Efield() for point measurement
 
     frequency = tx.frequency
 
@@ -214,7 +219,7 @@ function Efield(x::Real, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx
     Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
-    modesum = zero(eltype(eltype(modes)))  # probably ComplexF64
+    iszero(E) || fill!(E, 0)
     for ea in modes
         S₀ = ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)  # S referenced to ground, see, e.g. PS71 pg 11
 
@@ -240,7 +245,9 @@ function Efield(x::Real, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx
             rcvrterm = fyᵣ
         end
 
-        modesum += xmtrterm*rcvrterm*exp(-im*k*(S₀-1)*x)
+        @inbounds for i in eachindex(E)
+            E[i] += xmtrterm*rcvrterm*exp(-im*k*(S₀-1)*X[i])
+        end
     end
 
     Q = 682.2408*sqrt(frequency.f/1000*txpower/1000)  # in lw_sum_modes.for
@@ -249,12 +256,13 @@ function Efield(x::Real, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx
 
     # TODO: Radiation resistance correction if zₜ > 0
 
-    E = Q/sqrt(abs(sin(x/Rₑ)))*modesum
-    phase = angle(E)  # ranges between -π:π rad
-    amp = 10log10(abs2(E))  # == 20log10(abs(E))
+    @inbounds for i in eachindex(E)
+        E[i] *= Q/sqrt(abs(sin(X[i]/Rₑ)))
+    end
 
-    return E, phase, amp
+    return nothing
 end
+
 
 function Efield(
     modes,
@@ -268,18 +276,17 @@ function Efield(
     X = distance(rx)
     Xlength = length(X)
 
-    Etype = eltype(modes[1])
-    E = Array{Etype}(undef, Xlength)
+    Etype = eltype(eltype(modes))
+    E = zeros(Etype, Xlength)
     phase = Array{real(Etype)}(undef, Xlength)
     amp = Array{real(Etype)}(undef, Xlength)
 
-    # TODO: This is really inefficient, because some of these things don't need to be computed
-    # for each `x`, but for each `ea`, which is a much smaller size
-    for i in eachindex(X)
-        e, p, a = Efield(X[i], modes, waveguide, tx, rx)
-        E[i] = e
-        phase[i] = p
-        amp[i] = a
+    Efield!(E, X, modes, waveguide, tx, rx)
+
+    @inbounds for i in eachindex(E)
+        e = E[i]
+        phase[i] = angle(e)  # ranges between -π:π rad
+        amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
     end
 
     unwrap!(phase)

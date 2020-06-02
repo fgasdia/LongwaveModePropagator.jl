@@ -353,7 +353,7 @@ function modalequation()
     ea = EigenAngle(1.305895494889554 - 0.030739068016986393im)
     f = LWMS.solvemodalequation(ea, tx.frequency, waveguide)
 
-    return isapprox(f, complex(0), atol=1e-6)
+    return isapprox(f, complex(0), atol=5e-5)
 end
 
 function modefinder()
