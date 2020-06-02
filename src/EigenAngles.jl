@@ -15,6 +15,7 @@ struct EigenAngle{T}
     θ::T  # radians, because df/dθ are in radians
     cosθ::T
     sinθ::T
+    secθ::T  # == 1/cosθ
     cos²θ::T
     sin²θ::T
 
@@ -22,9 +23,10 @@ struct EigenAngle{T}
         rθ, iθ = reim(θ)
         ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ should be in radians"
         S, C = sincos(θ)
+        Cinv = inv(C)  # == sec(θ)
         C² = C^2
         S² = 1 - C²
-        new(θ, C, S, C², S²)
+        new(θ, C, S, Cinv, C², S²)
     end
 end
 EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)

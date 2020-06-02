@@ -273,7 +273,7 @@ See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
 """
 function wmatrix(ea::EigenAngle, T::TMatrix)
     C = ea.cosθ
-    Cinv = inv(C)
+    Cinv = ea.secθ
 
     # Precompute
     T12Cinv = T[1,2]*Cinv
@@ -360,7 +360,7 @@ See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
 """
 function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
-    Cinv = inv(C)
+    Cinv = ea.secθ
     C²inv = inv(C²)
 
     dS = C
@@ -368,7 +368,7 @@ function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     dC² = -2*S*C
     dCinv = S*C²inv
 
-    den = inv(1 + M[3,3])
+    den = 1/(1 + M[3,3])
 
     dT11 = -dS*M[3,1]*den
     dT12 = dS*M[3,2]*den
@@ -441,10 +441,10 @@ function dRdz(R, params, z)
     # TODO: Maybe use a function approximator version of M b/c it's not dependent on θ
     M = susceptibility(z, frequency, bfield, species)
     T = tmatrix(ea, M)
-    W = wmatrix(ea, T)
+    W11, W21, W12, W22 = wmatrix(ea, T)
 
     # the factor k/(2i) isn't explicitly in Budden1955a b/c of his change of variable ``s = kz``
-    return -im/2*k*(W[2] + W[4]*R - R*W[1] - R*W[3]*R)
+    return -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
 
 function dRdθdz(RdRdθ, params, z)
@@ -455,16 +455,16 @@ function dRdθdz(RdRdθ, params, z)
 
     M = susceptibility(z, frequency, bfield, species)
     T = tmatrix(ea, M)
-    W = wmatrix(ea, T)
+    W11, W21, W12, W22 = wmatrix(ea, T)
     dW = dwmatrixdθ(ea, M, T)
 
     R = RdRdθ[SVector(1,2),:]
     dRdθ = RdRdθ[SVector(3,4),:]
 
-    dz = -im/2*k*(W[2] + W[4]*R - R*W[1] - R*W[3]*R)
-    dθdz = -im/2*k*(dW[2] + dW[4]*R + W[4]*dRdθ -
-            (dRdθ*W[1] + R*dW[1]) -
-            (dRdθ*W[3]*R + R*dW[3]*R + R*W[3]*dRdθ))
+    dz = -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
+    dθdz = -im/2*k*(dW[2] + dW[4]*R + W22*dRdθ -
+            (dRdθ*W11 + R*dW[1]) -
+            (dRdθ*W12*R + R*dW[3]*R + R*W12*dRdθ))
 
     return vcat(dz, dθdz)
 end
@@ -514,7 +514,7 @@ function _fresnelreflection(ea, ground, frequency)
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
 
-    Ng² = ground.ϵᵣ - im*ground.σ/(ω*ϵ₀)
+    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*ϵ₀))
 
     CNg² = C*Ng²
     sqrtNg²mS² = sqrt(Ng² - S²)
@@ -592,7 +592,7 @@ See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
 function modalequationdθ(R, dR, Rg, dRg)
     A = Rg*R - I
     dA = dRg*R + Rg*dR
-    return det(A)*tr(inv(A)*dA)
+    return det(A)*tr(A\dA)  # much faster than A\dA
 end
 
 function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)

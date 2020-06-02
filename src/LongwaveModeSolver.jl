@@ -31,6 +31,9 @@ export TMatrix
 
 # PropagationModel.jl
 
+# Waveguides.jl
+export HomogeneousWaveguide
+
 #
 const TOPHEIGHT = 95e3  # TODO: temporary - should be part of an actual IntegrationParameters
 const BOTTOMHEIGHT = zero(TOPHEIGHT)  # should this be an actual const? Nothing works if it's not 0...

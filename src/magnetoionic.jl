@@ -217,11 +217,13 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Specie
 
     # Constitutive relations (see Budden1955a, pg. 517 or Budden1988 pg. 39)
     e, m, N, ν = species.charge, species.mass, species.numberdensity, species.collisionfrequency
-    mω = m*ω
-    X = N(z)*e^2/(ϵ₀*mω*ω)  # ωₚ²/ω² plasma frequency / ω
-    Y = abs(e*B/mω)  # |ωₕ/ω|  gyrofrequency / ω  # Nagano et al 1975 specifies |ωₕ/ω|
-    Z = ν(z)/ω  # collision frequency / ω
-    U = 1 - im*Z
+    invω = inv(ω)
+    invmω = invω/m  # == inv(m*ω)
+
+    X = N(z)*e^2*invω*invmω/ϵ₀  # ωₚ²/ω² plasma frequency / ω
+    Y = abs(e*B*invmω)  # |ωₕ/ω|  gyrofrequency / ω  # Nagano et al 1975 specifies |ωₕ/ω|
+    Z = ν(z)*invω  # collision frequency / ω
+    U = complex(1, -Z)  # == 1 - im*Z
 
     # TODO: Support multiple species, e.g.
     # U²D = zero()
@@ -272,7 +274,6 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Specie
         M33 -= earthcurvature
     end
 
-    # TODO: generalize ComplexF64
     # Remember, column major
     M = SMatrix{3,3,ComplexF64,9}(M11, M21, M31,
                                   M12, M22, M32,

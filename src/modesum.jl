@@ -327,6 +327,73 @@ function Efield(
     return E, phase, amp
 end
 
+
+"""
+Pappert Shockey 1976
+"""
+function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler)
+    ground = waveguide.ground
+    frequency = tx.frequency
+
+    txpower = power(tx)
+    zₜ = altitude(tx)
+    k = frequency.k
+    zᵣ = altitude(rx)
+    rxcomponent = fieldcomponent(rx)
+
+    # Transmit dipole antenna orientation with respect to propagation direction
+    # See Morfitt 1980 pg 22
+    Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
+    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
+
+    # Morfitt 1980
+    # `k` is mode index
+    # `n` is field index 1, 2, 3
+    # so `j` must be a slab index
+
+    modesum = zero(eltype(eltype(modes)))  # probably ComplexF64
+    for ea in modes
+        S₀ = ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)  # S referenced to ground, see, e.g. PS71 pg 11
+
+        dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
+        efconstants = excitationfactorconstants(ea, R, Rg, frequency, ground)
+
+        λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
+
+        # Transmitter term
+        fzₜ, fxₜ, fyₜ = heightgains(zₜ, ea, frequency, efconstants)
+        xmtrterm = λv*fzₜ*Cγ + λb*fyₜ*Sγ*Sϕ + λe*fxₜ*Sγ*Cϕ
+
+        conversion_coeff = modeconversion(previous_wavefields, wavefields, adjwavefields, transmitter_slab=false)
+
+        if rxcomponent == FC_Ez
+            δ = 1
+        else
+            δ = 0
+        end
+
+        xmtrterm*(δ + (1-δ)*ea.sinθ_tx/ea.sinθ)*conversion_coeff*(ea.sinθ/ea.sinθ_tx)*exp(-im*k*ea.sinθ_tx*tx_slab_length + ea.sinθ*(x - slab_dist) - x)
+
+        # Receiver term
+        # where does `k` (eigenangle) come in?
+        fzᵣ, fxᵣ, fyᵣ = heightgains(zᵣ, ea, frequency, efconstants)
+        if rxcomponent == FC_Ez
+            rcvrterm = fzᵣ
+        elseif rxcomponent == FC_Ex
+            rcvrterm = fxᵣ
+        elseif rxcomponent == FC_Ey
+            rcvrterm = fyᵣ
+        end
+
+        modesum += xmtrterm*rcvrterm*exp(-im*k*(S₀-1)*x)
+    end
+end
+
+
+########
+
+# Utility functions
+
 function unwrap!(phasearray::AbstractArray)
     @inbounds for i in 2:length(phasearray)
         d = phasearray[i] - phasearray[i-1]

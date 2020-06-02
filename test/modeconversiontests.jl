@@ -43,14 +43,13 @@ end
 
 struct Wavefields{T,T2<:AbstractVector}
     # fields(z) for each mode, v[mode][height]
-    # TODO: Are wavefields always complex (independent of eas?)
-    v::Vector{Vector{SVector{6,T}}}
-    eas::Vector{LWMS.EigenAngle{T}}
+    v::Vector{Vector{SVector{6,complex(T)}}}
+    eas::Vector{EigenAngle{T}}
     zs::T2
 end
 
-function Wavefields(eas::Vector{LWMS.EigenAngle{T}},zs::T2) where {T, T2<:AbstractVector}
-    Wavefields{T,T2}([Vector{SVector{6,T}}(undef,length(zs)) for i = 1:length(eas)], eas, zs)
+function Wavefields(eas::Vector{EigenAngle{T}}, zs::T2) where {T,T2<:AbstractVector}
+    Wavefields{T,T2}([Vector{SVector{6,complex(T)}}(undef,length(zs)) for i = 1:length(eas)], eas, zs)
 end
 
 Base.getindex(A::Wavefields, i::Int) = A.v[i]
@@ -69,10 +68,12 @@ function calculate_wavefields!(wavefields, adjoint_wavefields,
     modes = eigenangles(wavefields)
 
     @inbounds for m in eachindex(modes)
-        EH = LWMS.fieldstrengths(zs, modes[m], frequency, bfield, species, ground)
+        mode = modes[m]
+
+        EH = LWMS.fieldstrengths(zs, mode, frequency, bfield, species, ground)
 
         adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
-        EHadjoint = LWMS.fieldstrengths(zs, modes[m], frequency,adjoint_bfield, species, ground)
+        EHadjoint = LWMS.fieldstrengths(zs, mode, frequency,adjoint_bfield, species, ground)
 
         copyto!(wavefields[m], EH)
         copyto!(adjoint_wavefields[m], EHadjoint)
@@ -94,21 +95,20 @@ function test_calculate_wavefields!()
 end
 
 
-
 function mc_scenario()
-    waveguide = LWMS.WaveguideSegment[]
+    waveguide = HomogeneousWaveguide[]
 
-    push!(waveguide, LWMS.WaveguideSegment(BField(50e-6, deg2rad(68), deg2rad(111)),
-                                      Species(qₑ, mₑ,
+    push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(68), deg2rad(111)),
+                                          Species(qₑ, mₑ,
                                                   z -> waitprofile(z, 75, 0.32),
                                                   electroncollisionfrequency),
-                                      Ground(15, 0.001)))
+                                          Ground(15, 0.001)))
 
-    push!(waveguide, LWMS.WaveguideSegment(BField(50e-6, deg2rad(68), deg2rad(111)),
-                                      Species(qₑ, mₑ,
+    push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(68), deg2rad(111)),
+                                          Species(qₑ, mₑ,
                                                   z -> waitprofile(z, 78, 0.35),
                                                   electroncollisionfrequency),
-                                      Ground(15, 0.001)))
+                                          Ground(15, 0.001)))
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
 
@@ -119,14 +119,13 @@ function mc_scenario()
     waveguide_adjwavefields = similar(waveguide_wavefields)
     for s in eachindex(waveguide)
         @unpack bfield, species, ground = waveguide[s]
-        modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, species)
 
         origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
         origcoords .= deg2rad.(origcoords)
         tolerance = 1e-8
 
-        modes = LWMS.findmodes(origcoords, modeparams, tolerance)
-        ea = [LWMS.EigenAngle(m) for m in modes]
+        modes = LWMS.findmodes(origcoords, tx.frequency, waveguide[s], tolerance)
+        ea = [EigenAngle(m) for m in modes]
 
         wavefields = Wavefields(ea, zs)
         adjwavefields = Wavefields(ea, zs)

@@ -145,7 +145,6 @@ function dedz(e, p, z)
 end
 
 
-
 """
     scalingcondition(e, z, integrator)
 
@@ -444,7 +443,7 @@ New York: Cambridge University Press, 1988.
 """
 function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::AbstractArray{T2}) where {T,T2}
     C = ea.cosθ
-    Cinv = 1/C
+    Cinv = ea.secθ
 
     # TODO: Special Sv matrix (also useful elsewhere?)
     Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,

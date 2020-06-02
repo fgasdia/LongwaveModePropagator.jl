@@ -97,7 +97,7 @@ function integratedreflection_deriv()
 
     Ros = SMatrix{2,2,ComplexF64,4}[]
     dRs = SMatrix{2,2,ComplexF64,4}[]
-    println("  Integrating dR/dz twice for each eigenangle. This may take a minute.")
+    @info "    Integrating dR/dz twice for each eigenangle. This may take a minute."
     for ea in eas
         Ro = LWMS.integratedreflection(ea, freq, waveguide)
         RdR = LWMS.integratedreflection(ea, freq, waveguide, LWMS.Derivative_dθ())
@@ -107,7 +107,7 @@ function integratedreflection_deriv()
         push!(Ros, Ro)
         push!(dRs, RdR[SVector(3,4),:])
     end
-    println("  Integrations of dR/dz complete.")
+    @info "    Integrations of dR/dz complete."
 
     re_ros = Tuple.(real.(Ros))
     im_ros = Tuple.(imag.(Ros))
@@ -205,10 +205,7 @@ end
 # No B-field
 ########
 
-# TODO
 
-# Off-diagonal terms should be 0 with no B field
-@test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
 
 ########
 # Vertical B-field
@@ -283,7 +280,6 @@ function test_sharplybounded()
     W = LWMS.wmatrix(ea, T)
     LWMS.bookerquartic!(ea, M)
 
-    tmp = LWMS._sharpboundaryreflection(ea, M)
     initR = LWMS.sharpboundaryreflection(ea, M)
 
     initR[1,2] ≈ initR[2,1] || return false
@@ -297,9 +293,14 @@ function test_sharplybounded()
     return initR ≈ res.zero
 end
 
-# Compare to numerical solution
 # BUG: This isn't working? Possibly foundational math error
-function numericalsharpR(ea, q)
+function numericalsharpR()
+    ea, tx, ground, bfield, electrons = scenario()
+
+    M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
+    LWMS.bookerquartic!(ea, M)
+    q, B = LWMS.BOOKER_QUARTIC_ROOTS, LWMS.BOOKER_QUARTIC_COEFFS
+
     sort!(q, by=LWMS.upgoing)
 
     S, C = ea.sinθ, ea.cosθ
@@ -321,9 +322,10 @@ function numericalsharpR(ea, q)
     R = [e[3]/e[1] e[4]/e[1];
          e[3]/e[2] e[4]/e[2]]
 
-    return R
+    initR = LWMS.sharpboundaryreflection(ea, M)
+
+    initR ≈ R
 end
-@test_skip initR ≈ numericalsharpR(ea, q)
 
 function verticalreflection()
     ea, tx, ground, bfield, electrons = scenario()
@@ -373,35 +375,20 @@ function modefinder()
     return true
 end
 
-#==
-
-ea = EigenAngle(modes[1])
-efc = LWMS.excitationfactorconstants(ea, R, Rg, tx.frequency, ground)
-hgc = LWMS.heightgains(70e3, ea, tx.frequency, efc)
-
-dFdθ, R, Rg = LWMS.solvemodalequationdθ(ea, modeparams)
-ef = LWMS.excitationfactor(ea, dFdθ, R, Rg, efc, LWMS.FC_Ez)
-
-rx = LWMS.GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
-E, a, p = LWMS.Efield(1000e3, EigenAngle.(modes), modeparams, tx, rx)
-
-# XXX: Profile - this is still ridiculously slow
-Ecom, phase, amp = LWMS.Efield(modes, modeparams, tx, rx)
-# end
-
-==#
-
-
 @testset "modefinder.jl" begin
     @info "Testing modefinder"
 
     @test test_wmatrix()
     @test test_bookerquartic()
     @test test_sharplybounded()
+    @test_skip numericalsharpR()
     @test verticalreflection()
     @test pecground()
     @test modalequation()
     @test modefinder()
+
+    # TODO: Off-diagonal terms should be 0 with no B field
+    @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
 
     @testset "derivatives" begin
         @info "  derivatives..."
