@@ -476,7 +476,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
 
     Rtop = sharpboundaryreflection(ea, Mtop)
 
-    # TODO: Integration method
+    # TODO: Pass parameters with tolerances, integration method
     # TODO: Does saving actually alter performance?
     prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
 
@@ -629,6 +629,12 @@ components.
 """
 function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguide::HomogeneousWaveguide, tolerance=1e-6) where {T}
     # TODO: don't hardcode 30000
+
+    # WARNING: If tolerance of mode finder is much less than the R integration
+    # tolerance, it is possible multiple identical modes will be identified.
+
+    # TODO: Make a `triangulardomain` for this problem o avoid the low right
+
     zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{T}(θ), frequency, waveguide),
                           origcoords, GRPFParams(30000, tolerance))
 

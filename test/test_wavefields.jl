@@ -209,11 +209,11 @@ function resonance_test()
     isapprox(f, 0, atol=1e-6)
 end
 
-@testset "Wavefields" begin
-    @info "Testing wavefield functions..."
+@testset "wavefields.jl" begin
+    @info "Testing wavefields"
 
     @testset "Initial conditions" begin
-        @info "  Testing initial conditions..."
+        @info "  initial conditions..."
 
         @test booker_MTequivalence_test()
         @test booker_Tvalidity_test()
@@ -222,7 +222,7 @@ end
     end
 
     @testset "Integration" begin
-        @info "  Testing wavefield integration..."
+        @info "  wavefield integration..."
 
         @test drdzwavefield_equivalence_test()
         @test homogeneous_iono_test()

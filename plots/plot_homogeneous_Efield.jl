@@ -7,70 +7,13 @@ const LWMS = LongwaveModeSolver
 using CSV
 using DataFrames
 
-basepath = "C:\\Users\\forrest\\Desktop"
-
-@testset "Integration Through Ionosphere" begin
-    θ = deg2rad(complex(78.2520447, -3.5052794))
-    freq = 24e3
-
-    ea = LWMS.EigenAngle(θ)
-    ground = LWMS.Ground(15, 0.003)
-    tx = LWMS.Transmitter(freq)
-
-    Bmag = 0.5172267e-4
-    dcl = -0.2664399
-    dcm = -0.2850476
-    dcn = -0.9207376
-    bfield = LWMS.BField(Bmag, dcl, dcm, dcn)
-
-    # bfield = LWMS.BField(50_000e-9, 0.0, 0.0, -1.0)
-
-    mₑ = 9.1093837015e-31  # kg
-    qₑ = -1.602176634e-19  # C
-    electrons = Species(qₑ, mₑ,
-                            h -> waitprofile(h, 75, 0.32), electroncollisionfrequency)
-
-    #==
-    Breaking out integratedreflection into pieces
-    ==#
-    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, electrons)
-
-    # called by `sharplyboundedreflection` and dominates its runtime
-    jnk = LWMS._sharplyboundedreflection(ea, Mtop)
-
-    # responsible for ~1/2 of _common_sharplyboundedreflection, probably because of creation of
-    # MArray and call to `roots!`
-    q, B = LWMS.bookerquartic(ea, Mtop)
-
-    Rtop = LWMS.sharplyboundedreflection(ea, Mtop)
-
-    # called by dRdz
-    T = LWMS.tmatrix(ea, Mtop)
-    S = LWMS.smatrix(ea, T)
-
-    integrationparams = LWMS.IntegrationParameters(bfield, tx.frequency, ground, electrons)
-    jnk = LWMS.dRdz(Rtop, (ea, integrationparams), LWMS.TOPHEIGHT)
-
-    prob = LWMS.ODEProblem{false}(LWMS.dRdz, Rtop, (LWMS.TOPHEIGHT, LWMS.BOTTOMHEIGHT), (ea, integrationparams))
-    sol = LWMS.solve(prob, LWMS.Tsit5(), reltol=1e-8, abstol=1e-8, save_start=false)
-
-    sol = LWMS.integratedreflection(ea, integrationparams)
-
-    Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-    jnk = LWMS.solvemodalequation(ea, integrationparams)
-end
 
 #==
 Vertical B field
 ==#
 bfield = BField(50_000e-9, 0.0, 0.0, -1.0)
-# tx = LWMS.Transmitter(24e3)
 tx = Transmitter("NAA", 44.646, -67.281, 0.0, VerticalDipole(), Frequency(24e3), 100e3)
-rx = GroundSampler(10e3:10e3:5000e3, LWMS.FC_Ez)
 ground = Ground(15, 0.001)
-
-θ = deg2rad(complex(78.2520447, -3.5052794))
-ea = LWMS.EigenAngle(θ)
 
 mₑ = 9.1093837015e-31  # kg
 qₑ = -1.602176634e-19  # C
@@ -82,87 +25,57 @@ electrons = Species(qₑ, mₑ,
 origcoords = rectangulardomain(complex(20, -20.0), complex(89.9, 0.0), 0.5)
 origcoords .= deg2rad.(origcoords)
 
-# angletype = eltype(origcoords)
-# zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{angletype}(θ), integrationparams),
-#                   origcoords, tolerance, 15000)
-
 waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
 modes = LWMS.findmodes(origcoords, tx.frequency, waveguide)
 
-modes = [LWMS.EigenAngle(th) for th in modes]
 
-@testset "Electric field" begin
-    talt = altitude(tx)
-    ralt = altitude(rx)
-    rxfc = fieldcomponent(rx)
+basepath = "/home/forrest/research/LAIR/ModeSolver"
 
-    # Transmit dipole antenna orientation with respect to propagation direction
-    # See Morfitt 1980 pg 22
-    Sγ, Cγ = sincos(elevation(tx))
-    Sϕ, Cϕ = sincos(azimuth(tx))
-
-    ea = modes[1]
-
-    S = ea.sinθ  # Morfitt 1980 pg 19 specifies S is the sine of θ at `H`
-
-    hgc = LWMS.heightgainconstants(ea, ground, tx.frequency)
-
-    jnk = LWMS.fresnelreflection(ea, ground, tx.frequency, LWMS.Derivative_dθ())
-
-    dFdθ, R, Rg = LWMS.solvemodalequationdθ(ea, integrationparams)
-
-    λ₁, λ₂, λ₃, f = LWMS.excitationfactors(ea, R, Rg, dFdθ, hgc, rxfc)
-    f₁, f₂, f₃ = LWMS.heightgains(talt, ea, tx.frequency, f, hgc)  # at transmitter
-
-    # All 3 directions needed for xmtr, only "wanted" term needed for rcvr
-    xmtrterm = λ₁*f₁*Cγ + λ₂*f₂*Sγ*Cϕ + λ₃*f₃*Sγ*Sϕ
-    rcvrterm = LWMS.heightgains(ralt, ea, tx.frequency, f, hgc, rxfc)  # at receiver
-
-    # NOTE: Morfitt 1980 eq 39 is different from Pappert et al 1983 which is also
-    # different from Pappert and Ferguson 1986
-    modesum += xmtrterm*rcvrterm*cis(-tx.frequency.k*(S - 1)*1000e3)
-    end
-end
-
-E, phase, amp = LWMS.Efield(1500e3, modes, waveguide, tx, rx)
-
-E, phase, amp = LWMS.Efield(modes, waveguide, tx, rx)
-
-raw = CSV.File("C:\\users\\forrest\\research\\LAIR\\ModeSolver\\verticalb_day.log";
+raw = CSV.File(joinpath(basepath, "verticalb_day.log");
                skipto=65, delim=' ', ignorerepeated=true, header=false)
 
 dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
                 amp=vcat(raw.Column2, raw.Column5, raw.Column8),
                 phase=vcat(raw.Column3, raw.Column6, raw.Column9))
 
-X = rx.distance
-df = DataFrame(dist=vcat(X./1000, dat.dist),
-               amp=vcat(amp, dat.amp),
-               phase=vcat(rad2deg.(phase), dat.phase),
-               model=vcat(fill("LWMS", length(X)), fill("LWPC", length(dat.dist))))
+rx = GroundSampler(dat.dist*1000, LWMS.FC_Ez)
+Ecom, phase, amp = LWMS.Efield(EigenAngle.(modes), waveguide, tx, rx)
 
-# colors = Scale.default_discrete_colors(2);
-colors = ["deepskyblue", "orange"]
-p = plot(df, x=:dist, y=:amp, color=:model, Geom.path,
-        Guide.ylabel("amp (dBu)"), Guide.xlabel("distance (km)"),
-        Scale.color_discrete_manual(colors...),
-        Scale.x_continuous(format=:plain),
-        Coord.cartesian(xmax=5e3),
-        # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.001"));
+widedf = DataFrame(dist=dat.dist,
+                   lwpc_amp=dat.amp, lwpc_phase=dat.phase,
+                   lwms_amp=amp, lwms_phase=rad2deg.(phase))
 
-p |> SVGJS(joinpath(basepath, "verticalb_amp.svg"))
+CSV.write(joinpath(basepath, "vertical.csv"), widedf)
 
-p = plot(df, x=:dist, y=:phase, color=:model, Geom.path, Scale.color_discrete,
-        Guide.ylabel("phase (deg)"), Guide.xlabel("distance (km)"),
-        Scale.color_discrete_manual(colors...),
-        Scale.x_continuous(format=:plain),
-        Coord.cartesian(xmax=5e3),
-        # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.001"));
+outpath = "/home/forrest/UCB/SP_2020/PropagationModeling/figures"
 
-p |> SVGJS(joinpath(basepath, "verticalb_phase.svg"))
+function plot(bfield, ground, tx)
+    f = tx.frequency.f/1000
+    B = Int(bfield.B/1e-9)
+    dip = Int(rad2deg(LWMS.dip(bfield)))
+    az = Int(rad2deg(LWMS.azimuth(bfield)))
+    epsr = ground.ϵᵣ
+    sigma = ground.σ
+
+    gp_title = """
+    TITLE = '"$f kHz\\n\\
+    |B|: $B nT, dip: $(dip)°, az: $(az)°\\n\\
+    h\'\': 75 km, β: 0.32\\n\\
+    ϵ_r: $epsr, σ: $sigma"'"""
+
+    open("gp_title", "w") do io
+        write(io, gp_title)
+    end
+
+    ga = `gnuplot -c "$(joinpath(outpath,"vertical_amp_linux.gp"))" "$(joinpath(basepath,"vertical.csv"))" "$(joinpath(outpath,""))"`
+    run(ga)
+
+    gp = `gnuplot -c "$(joinpath(outpath,"vertical_phase_linux.gp"))" "$(joinpath(basepath,"vertical.csv"))" "$(joinpath(outpath,""))"`
+    run(gp)
+end
+plot(bfield, ground, tx)
+
 
 
 
@@ -207,26 +120,6 @@ df = DataFrame(dist=vcat(X./1000, X./1000, dat.dist),
                phase=vcat(rad2deg.(phase), rad2deg.(ophase), dat.phase),
                model=vcat(fill("LWMS", length(X)), fill("oLWMS", length(X)), fill("LWPC", length(dat.dist))))
 
-# colors = Scale.default_discrete_colors(2);
-colors = ["deepskyblue", "orange", "purple"]
-p = plot(df, x=:dist, y=:amp, color=:model, Geom.path,
-        Guide.ylabel("amp (dB)"), Guide.xlabel("distance (km)"),
-        Scale.color_discrete_manual(colors...),
-        Scale.x_continuous(format=:plain),
-        # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=70°, az=-20°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.001"));
-
-p |> SVGJS(joinpath(basepath, "dippedb_amp.svg"))
-
-p = plot(df, x=df[!,:x]/1000, y=:phase, Geom.path, Scale.color_discrete,
-        Guide.ylabel("phase (deg)"), Guide.xlabel("distance (km)"),
-        Scale.x_continuous(format=:plain),
-        # Guide.xticks(ticks=0:30:90), #Guide.yticks(ticks=0:200:1000),
-        Guide.title("24 kHz\n|B|=50e3 nT, dip=90°, az=0°\nh′: 75, β: 0.32\nϵᵣ: 15, σ: 0.003"));
-
-p |> SVGJS(joinpath(basepath, "verticalb_phase.svg"))
-
-
 #==
 LWPC search region criteria (see lwp_input.for)
 
@@ -240,3 +133,34 @@ else
     rangei = (0, -6)
 end
 ==#
+
+
+
+using GRUtils
+
+basepath = "/home/forrest/research/LAIR/ModeSolver"
+# basepath = "C:\\Users\\forrest\\Desktop"
+# basepath = "C:\\users\\forrest\\research\\LAIR\\ModeSolver"
+
+raw = CSV.File(joinpath(basepath, "verticalb_day.log");
+               skipto=65, delim=' ', ignorerepeated=true, header=false)
+
+dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
+                amp=vcat(raw.Column2, raw.Column5, raw.Column8),
+                phase=vcat(raw.Column3, raw.Column6, raw.Column9))
+
+rx = GroundSampler(dat.dist*1000, LWMS.FC_Ez)
+Ecom, phase, amp = LWMS.Efield(EigenAngle.(modes), modeparams, tx, rx)
+
+widedf = DataFrame(dist=dat.dist,
+    lwpc_amp=dat.amp, lwpc_phase=dat.phase,
+    lwms_amp=amp, lwms_phase=rad2deg.(phase))
+
+
+GRUtils.plot(dat.dist, rad2deg.(phase))
+hold(true)
+GRUtils.plot(dat.dist, dat.phase)
+
+Figure()
+GRUtils.plot(dat.dist, dat.phase-rad2deg.(phase), yticks=(1,2))
+ylim(-5, 5)

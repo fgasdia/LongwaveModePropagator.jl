@@ -330,8 +330,6 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PolynomialRoots]]
 git-tree-sha1 = "5f807b5345093487f733e520a1b7395ee9324825"
-repo-rev = "master"
-repo-url = "https://github.com/giordano/PolynomialRoots.jl"
 uuid = "3a141323-8675-5d76-9d11-e1df1406c778"
 version = "1.0.0"
 
@@ -499,9 +497,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[VectorizationBase]]
 deps = ["CpuId", "LinearAlgebra"]
-git-tree-sha1 = "bb09a7eacbd0b0efdf107a039e3cadd900a10c3b"
+git-tree-sha1 = "a7eeff8fae4f11bd1ec140169ae2b10e26adf673"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.12.5"
+version = "0.12.6"
 
 [[VertexSafeGraphs]]
 deps = ["LightGraphs"]

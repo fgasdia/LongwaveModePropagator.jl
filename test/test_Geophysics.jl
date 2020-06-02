@@ -50,19 +50,51 @@ function magnetic_directioncosines()
     return true
 end
 
-@testset "Geophysics" begin
-    @info "Testing geophysics functions..."
+function bfieldbits()
+    bfield = BField(50e-6, π/2, 3π/2)
+    return isbits(bfield)
+end
+
+function groundbits()
+    ground = Ground(15, 0.001)
+    return isbits(ground)
+end
+
+function speciesbits()
+    mₑ = 9.1093837015e-31
+    qₑ = -1.602176634e-19
+    electrons = Species(qₑ, mₑ,
+                        z -> waitprofile(z, 75, 0.32),
+                        z -> electroncollisionfrequency)
+    return isbits(electrons)
+end
+
+@testset "Geophysics.jl" begin
+    @info "Testing Geophysics"
 
     @testset "Profiles" begin
-        @info "  Testing profiles..."
+        @info "  profiles..."
 
         @test ne_waitprofile()
     end
 
+    @testset "Species" begin
+        @info "  Species..."
+
+        @test speciesbits()
+    end
+
     @testset "Magnetic field" begin
-        @info "  Testing magnetic fields..."
+        @info "  BField..."
 
         @test magnetic_dipaz()
         @test magnetic_directioncosines()
+        @test bfieldbits()
+    end
+
+    @testset "Ground" begin
+        @info "  Ground..."
+
+        @test groundbits()
     end
 end

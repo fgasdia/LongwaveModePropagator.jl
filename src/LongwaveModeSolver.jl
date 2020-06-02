@@ -62,11 +62,12 @@ struct Derivative_dθ end
 
 #
 include("Antennas.jl")
+include("EigenAngles.jl")
 include("Emitters.jl")
 include("Geophysics.jl")
 include("Samplers.jl")
 include("TMatrix.jl")
-include("Waveguide.jl")
+include("Waveguides.jl")
 
 include("magnetoionic.jl")
 include("modefinder.jl")

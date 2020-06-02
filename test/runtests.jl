@@ -1,8 +1,10 @@
 using Test
-using LinearAlgebra
+using LinearAlgebra, Statistics
 using StaticArrays
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using RootsAndPoles
+using NLsolve
+
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
@@ -14,6 +16,10 @@ const qₑ = -1.602176634e-19  # C
 # @profiler (for i = 1:1000; LWMS.fcn(); end)
 
 @testset "LongwaveModeSolver" begin
-    include("test_geophysics.jl")
+    include("test_EigenAngles.jl")
+    include("test_Geophysics.jl")
+    include("test_Waveguides.jl")
+
     include("test_wavefields.jl")
+    include("test_modefinder.jl")
 end
