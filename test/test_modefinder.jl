@@ -390,8 +390,8 @@ end
     # TODO: Off-diagonal terms should be 0 with no B field
     @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
 
-    @testset "derivatives" begin
-        @info "  derivatives..."
+    @testset "Derivatives" begin
+        @info "  Derivatives..."
 
         @test wmatrix_deriv()
         @test sharpboundaryreflection_deriv()

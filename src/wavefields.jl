@@ -512,8 +512,10 @@ integration at heights `zs`.
 
 Scales wavefields for waveguide boundary conditions.
 """
-function fieldstrengths(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species, ground::Ground)
-    # TODO: make an inplace version over EH
+function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+    @assert length(EH) == length(zs)
+
+    @unpack bfield, species, ground = waveguide
 
     # TODO: Should we pass R and Rg?
     e = integratewavefields(zs, ea, frequency, bfield, species)
@@ -522,7 +524,6 @@ function fieldstrengths(zs, ea::EigenAngle, frequency::Frequency, bfield::BField
     b1, b2 = boundaryscalars(R, Rg, e[end])
 
     S = ea.sinθ
-    EH = Vector{SVector{6,eltype(eltype(e))}}(undef, length(zs))
     @inbounds for i in eachindex(EH)
         # Scale to waveguide boundary conditions
         w = e[i][:,1]*b1 + e[i][:,2]*b2
@@ -534,5 +535,25 @@ function fieldstrengths(zs, ea::EigenAngle, frequency::Frequency, bfield::BField
         EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
     end
 
-    return EH
+    return nothing
+end
+
+function calculate_wavefields!(wavefields, adjoint_wavefields,
+                               frequency, waveguide) where {T}
+
+    @assert heights(wavefields) == heights(adjoint_wavefields)
+
+    zs = heights(wavefields)
+    modes = eigenangles(wavefields)
+
+    @inbounds for m in eachindex(modes)
+        mode = modes[m]
+
+        fieldstrengths!(wavefields[m], zs, mode, frequency, bfield, species, ground)
+
+        adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
+        fieldstrengths!(adjoint_wavefields[m], zs, mode, frequency,adjoint_bfield, species, ground)
+    end
+
+    return nothing
 end

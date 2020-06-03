@@ -192,9 +192,9 @@ function resonant_scenario()
     tolerance = 1e-8
 
     modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, tolerance)
-    ea = modes[argmax(real(modes))]  # largest real resonant mode
+    ea = modes[argmax([real(x.θ) for x in modes])]  # largest real resonant mode
 
-    return bfield, tx, ground, electrons, EigenAngle(ea), zs
+    return bfield, tx, ground, electrons, ea, zs
 end
 
 function resonance_test()
@@ -213,7 +213,7 @@ end
     @info "Testing wavefields"
 
     @testset "Initial conditions" begin
-        @info "  initial conditions..."
+        @info "  Initial conditions..."
 
         @test booker_MTequivalence_test()
         @test booker_Tvalidity_test()
@@ -222,7 +222,7 @@ end
     end
 
     @testset "Integration" begin
-        @info "  wavefield integration..."
+        @info "  Wavefield integration..."
 
         @test drdzwavefield_equivalence_test()
         @test homogeneous_iono_test()

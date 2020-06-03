@@ -588,10 +588,8 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
-    @unpack ground = waveguide
-
     R = integratedreflection(ea, frequency, waveguide)
-    Rg = fresnelreflection(ea, ground, frequency)
+    Rg = fresnelreflection(ea, waveguide.ground, frequency)
 
     f = modalequation(R, Rg)
     return f
@@ -602,13 +600,11 @@ This returns R and Rg in addition to df because the only time this function is n
 need R and Rg (in excitationfactors).
 """
 function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
-    @unpack ground = waveguide
-
     RdR = integratedreflection(ea, frequency, waveguide, Derivative_dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = fresnelreflection(ea, ground, frequency, Derivative_dθ())
+    Rg, dRg = fresnelreflection(ea, waveguide.ground, frequency, Derivative_dθ())
 
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg
@@ -619,7 +615,7 @@ end
 `tolerance=1e-6` and `tolerance=1e-8` is less than 1e-5° in both real and imaginary
 components.
 """
-function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguide::HomogeneousWaveguide, tolerance=1e-6) where {T}
+function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguide::HomogeneousWaveguide, tolerance=1e-8) where {T}
     # TODO: don't hardcode 30000
 
     # WARNING: If tolerance of mode finder is much less than the R integration
@@ -627,8 +623,8 @@ function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguid
 
     # TODO: Make a `triangulardomain` for this problem o avoid the low right
 
-    zroots, zpoles = grpf(θ->solvemodalequation(EigenAngle{T}(θ), frequency, waveguide),
+    zroots, zpoles = grpf(z->solvemodalequation(EigenAngle{T}(z), frequency, waveguide),
                           origcoords, GRPFParams(30000, tolerance))
 
-    return zroots
+    return EigenAngle.(zroots)
 end

@@ -73,7 +73,7 @@ end
     @info "Testing Geophysics"
 
     @testset "Profiles" begin
-        @info "  profiles..."
+        @info "  Profiles..."
 
         @test ne_waitprofile()
     end

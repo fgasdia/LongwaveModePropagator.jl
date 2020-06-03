@@ -26,16 +26,13 @@ function resonant_scenario()
     ztop = LWMS.TOPHEIGHT
     zs = range(ztop, zero(ztop), length=257)
 
-    modeparams = LWMS.ModeParameters(bfield, tx.frequency, ground, electrons)
-
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
 
-    modes = LWMS.findmodes(origcoords, modeparams, tolerance)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, tolerance)
     # ea = modes[argmax(real(modes))]  # largest real resonant mode
-
-    ea = [LWMS.EigenAngle(m) for m in modes]
 
     return bfield, tx, ground, electrons, ea, zs
 end
@@ -59,28 +56,7 @@ heights(A::Wavefields) = A.zs
 numeigenangles(A::Wavefields) = length(A.eas)
 numheights(A::Wavefields) = length(A.zs)
 
-function calculate_wavefields!(wavefields, adjoint_wavefields,
-                               bfield, frequency, ground, species) where {T}
 
-    @assert heights(wavefields) == heights(adjoint_wavefields)
-
-    zs = heights(wavefields)
-    modes = eigenangles(wavefields)
-
-    @inbounds for m in eachindex(modes)
-        mode = modes[m]
-
-        EH = LWMS.fieldstrengths(zs, mode, frequency, bfield, species, ground)
-
-        adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
-        EHadjoint = LWMS.fieldstrengths(zs, mode, frequency,adjoint_bfield, species, ground)
-
-        copyto!(wavefields[m], EH)
-        copyto!(adjoint_wavefields[m], EHadjoint)
-    end
-
-    return nothing
-end
 
 function test_calculate_wavefields!()
     bfield, tx, ground, electrons, ea, zs = resonant_scenario()
@@ -124,8 +100,7 @@ function mc_scenario()
         origcoords .= deg2rad.(origcoords)
         tolerance = 1e-8
 
-        modes = LWMS.findmodes(origcoords, tx.frequency, waveguide[s], tolerance)
-        ea = [EigenAngle(m) for m in modes]
+        ea = LWMS.findmodes(origcoords, tx.frequency, waveguide[s], tolerance)
 
         wavefields = Wavefields(ea, zs)
         adjwavefields = Wavefields(ea, zs)
@@ -143,65 +118,6 @@ function mc_scenario()
                    waveguide_wavefields[2], waveguide_adjwavefields[2])
 end
 
-"""
-this function takes just 1 mode conversion step
-"""
-function modeconversion(previous_wavefields::Wavefields{T,T2},
-                        wavefields::Wavefields{T,T2}, adjwavefields::Wavefields{T,T2},
-                        transmitter_slab=false) where {T,T2}
-
-    @assert numheights(previous_wavefields) == numheights(wavefields)
-    zs = heights(wavefields)
-
-    # TODO: Assuming `length(zs)` is always the same, we can reuse `product`
-    product = Vector{T}(undef, numheights(wavefields))
-
-    # Calculate normalization terms
-    N = Vector{T}(undef, numeigenangles(wavefields))
-    for m in eachindex(eigenangles(wavefields))
-        for i in eachindex(zs)
-            # TODO: is a view faster?
-            @inbounds f = wavefields[m][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-            @inbounds g = SVector{4,T}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
-            product[i] = adjoint(g)*f
-        end
-
-        N[m] = integrate(zs, product, RombergEven())
-        @test isapprox(N[m], trapz(zs, product), rtol=1e-3)
-        @test isapprox(N[m], romberg(zs, product), rtol=1e-3)
-    end
-
-    if transmitter_slab
-        a = zeros(T, length(eas), length(eas))
-        for i in diagind(a)
-            @inbounds a[i] = one(ComplexF64)
-        end
-
-        # TODO: a = I ?  # UniformScaling identity matrix, probably need to pull this out for type consistency
-    else
-        I = Matrix{T}(undef, numeigenangles(adjwavefields), numeigenangles(previous_wavefields))
-        for k in eachindex(eigenangles(previous_wavefields))
-            for m in eachindex(eigenangles(adjwavefields))
-                for i in eachindex(heights(adjwavefields))
-                    @inbounds f = previous_wavefields[k][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-                    @inbounds g = SVector{4,T}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
-                    product[i] = adjoint(g)*f
-                end
-                I[m,k] = integrate(zs, product, RombergEven())
-            end
-        end
-
-        # Total conversion
-        for k in eachindex(eigenangles(previous_wavefields))
-            for m in eachindex(eigenangles(adjwavefields))
-                a[k,m] = I[m,k]/N[m]
-            end
-        end
-    end
-
-    return a
-end
-
 
 
 i = 6
@@ -216,3 +132,9 @@ plot!(real(EHadjoint[i,:]), zs/1000, color="blue")
 plot!(imag(EHadjoint[i,:]), zs/1000, color="blue")
 plot!(abs.(EHadjoint[i,:]), zs/1000, color="blue")
 plot!(-abs.(EHadjoint[i,:]), zs/1000, color="blue")
+
+
+x = 0.28656210625768974
+@test LWMS.pow23(x) == LWMS.pow23(complex(x))
+y = 100*x
+@test LWMS.pow23(y) == LWMS.pow23(complex(y))

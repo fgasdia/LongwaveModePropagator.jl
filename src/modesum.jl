@@ -182,8 +182,38 @@ function excitationfactor(ea::EigenAngle, dFdθ, R, Rg, efconstants::ExcitationF
     return λv, λb, λe
 end
 
+function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
+    # Unpack
+    Sγ, Cγ, Sϕ, Cϕ, zt = emitter_orientation
+    rxcomponent, zr = sampler_orientation
+
+    dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
+    efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
+
+    # fz0, fx0, fy0 = heightgains(0, ea, frequency, efconstants)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
+
+    # Transmitter term
+    fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
+    # λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
+    xmtrterm = λv*fz_t*Cγ + λb*fy_t*Sγ*Sϕ + λe*fx_t*Sγ*Cϕ
+
+    # Receiver term
+    # TODO: Handle multiple components
+    fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
+    if rxcomponent == FC_Ez
+        rcvrterm = fz_r
+    elseif rxcomponent == FC_Ex
+        rcvrterm = fx_r
+    elseif rxcomponent == FC_Ey
+        rcvrterm = fy_r
+    end
+
+    return xmtrterm, rcvrterm
+end
+
 """
-    Efield(x, modes, modeparams, tx, rx)
+    Efield!(E, X, modes, waveguide, tx, rx)
 
 Calculate the complex electric field, amplitude, and phase at a distance `x` from transmitter `tx`.
 
@@ -197,10 +227,9 @@ NOTE: this returns modesum without `x`. To get correct values, need to raise sum
 
 
 """
-function Efield!(E, X, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+    X = distance(rx,tx)
     @assert length(E) == length(X)  # or boundscheck
-
-    @unpack ground = waveguide
 
     # TODO: special function for vertical component, transmitter, and at ground
     # TODO: Special Efield() for point measurement
@@ -208,9 +237,9 @@ function Efield!(E, X, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::
     frequency = tx.frequency
 
     txpower = power(tx)
-    zₜ = altitude(tx)
+    zt = altitude(tx)
     k = frequency.k
-    zᵣ = altitude(rx)
+    zr = altitude(rx)
     rxcomponent = fieldcomponent(rx)
 
     # Transmit dipole antenna orientation with respect to propagation direction
@@ -219,34 +248,22 @@ function Efield!(E, X, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::
     Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
+    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
+
+    # Initialize E if necessary
     iszero(E) || fill!(E, 0)
+
     for ea in modes
-        S₀ = ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)  # S referenced to ground, see, e.g. PS71 pg 11
+        xmtrterm, rcvrterm = modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
 
-        dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
-        efconstants = excitationfactorconstants(ea, R, Rg, frequency, ground)
-
-        # fz0, fx0, fy0 = heightgains(0, ea, frequency, efconstants)
-        λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
-
-        # Transmitter term
-        fzₜ, fxₜ, fyₜ = heightgains(zₜ, ea, frequency, efconstants)
-        # λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
-        xmtrterm = λv*fzₜ*Cγ + λb*fyₜ*Sγ*Sϕ + λe*fxₜ*Sγ*Cϕ
-
-        # Receiver term
-        # TODO: Handle multiple components
-        fzᵣ, fxᵣ, fyᵣ = heightgains(zᵣ, ea, frequency, efconstants)
-        if rxcomponent == FC_Ez
-            rcvrterm = fzᵣ
-        elseif rxcomponent == FC_Ex
-            rcvrterm = fxᵣ
-        elseif rxcomponent == FC_Ey
-            rcvrterm = fyᵣ
-        end
+        # Precalculate
+        S₀ = referencetoground(ea.sinθ)
+        expterm = -k*(S₀ - 1)
+        xmtr_rcvr_term = xmtrterm*rcvrterm
 
         @inbounds for i in eachindex(E)
-            E[i] += xmtrterm*rcvrterm*exp(-im*k*(S₀-1)*X[i])
+            E[i] += xmtr_rcvr_term*cis(expterm*X[i])
         end
     end
 
@@ -254,7 +271,7 @@ function Efield!(E, X, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::
     # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
     # Q *= 100 # for V/m to uV/m
 
-    # TODO: Radiation resistance correction if zₜ > 0
+    # TODO: Radiation resistance correction if zt > 0
 
     @inbounds for i in eachindex(E)
         E[i] *= Q/sqrt(abs(sin(X[i]/Rₑ)))
@@ -263,17 +280,16 @@ function Efield!(E, X, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::
     return nothing
 end
 
-
 function Efield(
     modes,
     waveguide::HomogeneousWaveguide,
     tx::Emitter,
-    rx::GroundSampler
+    rx::AbstractSampler
     )
 
     frequency = tx.frequency
 
-    X = distance(rx)
+    X = distance(rx, tx)
     Xlength = length(X)
 
     Etype = eltype(eltype(modes))
@@ -281,10 +297,11 @@ function Efield(
     phase = Array{real(Etype)}(undef, Xlength)
     amp = Array{real(Etype)}(undef, Xlength)
 
-    Efield!(E, X, modes, waveguide, tx, rx)
+    Efield!(E, modes, waveguide, tx, rx)
 
     @inbounds for i in eachindex(E)
         e = E[i]
+        if
         phase[i] = angle(e)  # ranges between -π:π rad
         amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
     end
@@ -295,39 +312,138 @@ function Efield(
 end
 
 
+function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler)
+    # catch if `waveguide` only has a single segment
+    num_segments = length(waveguide)
+    num_segments == 1 && return Efield(modes, only(waveguide), tx, rx)
+
+    X = distance(rx, tx)
+    @assert length(E) == length(X)  # or boundscheck
+
+    # TODO: special function for vertical component, transmitter, and at ground
+    # TODO: Special Efield() for point measurement
+
+    frequency = tx.frequency
+
+    txpower = power(tx)
+    zt = altitude(tx)
+    k = frequency.k
+    zr = altitude(rx)
+    rxcomponent = fieldcomponent(rx)
+
+    zs = range(TOPHEIGHT, zero(TOPHEIGHT), length=257)
+
+    # Transmit dipole antenna orientation with respect to propagation direction
+    # See Morfitt 1980 pg 22
+    # TODO: Confirm alignment of coord system and magnetic field
+    Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
+    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
+
+    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
+
+    # Initialize E if necessary
+    iszero(E) || fill!(E, 0)
+
+
+
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    origcoords .= deg2rad.(origcoords)
+    tolerance = 1e-8
+
+
+    # Transmitter segment is special
+    # TODO: check transmitter slab is the first slab
+    txwaveguide = first(waveguide)
+
+    modes = findmodes(origcoords, frequency, txwaveguide, tolerance)
+
+    wavefields = Wavefields(modes, zs)
+    adjwavefields = Wavefields(modes, zs)
+
+    calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide)
+    prevwavefields = copy(wavefields)
+
+    # S₀t = referencetoground.(getindex.(modes, :sinθ))
+
+    segment_range = waveguide[2].distance
+    xi = 1
+    for ea in modes
+        xmtrterm, rcvrterm = modeterms(ea, frequency, txwaveguide, emitter_orientation, sampler_orientation)
+
+        # Precalculate
+        S₀ = referencetoground(ea.sinθ)
+        expterm = -k*(S₀ - 1)
+        xmtr_rcvr_term = xmtrterm*rcvrterm
+
+        while X[xi] <= segment_range
+            E[xi] += xmtr_rcvr_term*cis(expterm*X[xi])
+            xi += 1
+        end
+    end
+
+
+    lastj = lastindex(waveguide)
+    for j in 2:num_segments
+        segment_range = j == lastj ? oftype(waveguide[j].distance, 40000) : waveguide[j+1].distance
+
+        modes = findmodes(origcoords, frequency, waveguide[j], tolerance)
+
+        wavefields = Wavefields(modes, zs)
+        adjwavefields = Wavefields(modes, zs)
+
+        calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide)
+
+        a = modeconversion(prevwavefields, wavefields, adjwavefields)
+
+
+        for ea in modes
+
+            xmtrterm, rcvrterm = modeterms(ea, frequency, txwaveguide, emitter_orientation, sampler_orientation)
+
+            # Precalculate
+            S₀ = referencetoground(ea.sinθ)
+            expterm = -k*(S₀ - 1)
+
+            if rxcomponent != FC_Ez
+                rcvrterm *= S₀t/S₀
+            end
+
+            while X[xi] <= segment_range
+                @inbounds E[xi] += xmtr_rcvr_term*cis(expterm*X[xi])
+                xi += 1
+            end
+
+            prevwavefields, wavefields = wavefields, prevwavefields
+        end
+        xi == lastindex(X) && break
+    end
+
+    Q = 682.2408*sqrt(frequency.f/1000*txpower/1000)  # in lw_sum_modes.for
+    # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
+    # Q *= 100 # for V/m to uV/m
+
+    # TODO: Radiation resistance correction if zt > 0
+
+    @inbounds for i in eachindex(E)
+        E[i] *= Q/sqrt(abs(sin(X[i]/Rₑ)))
+    end
+
+    return nothing
+end
+
+
+
+
+
+
 #==
 """
 Pappert Shockey 1976
 """
 function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::GroundSampler)
-    # catch if `waveguide` only has a single segment
-    num_segments = length(waveguide)
-    num_segments == 1 && return Efield(modes, only(waveguide), tx, rx)
-
-    X = distance(rx)
-    Xlength = length(X)
-
-    Etype = eltype(first(modes))
-    E = Array{Etype}(undef, Xlength)
-    phase = Array{real(Etype)}(undef, Xlength)
-    amp = Array{real(Etype)}(undef, Xlength)
 
 
-
-    for i in eachindex(X)
-
-        X[i]
-
-        e, p, a = Efield(X[i], modes, waveguide, tx, rx)
-        E[i] = e
-        phase[i] = p
-        amp[i] = a
-    end
-
-    unwrap!(phase)
-
-    return E, phase, amp
-end
 
 
     # Morfitt 1980
@@ -335,79 +451,12 @@ end
     # `n` is field index 1, 2, 3
     # so `j` must be a slab index
 
-
-    lastj = lastindex(waveguide)
-    for j in 2:num_segments
-        segment_end = j == lastj ? oftype(waveguide[j].distance, 40000) : waveguide[j+1].distance
-        for i in eachindex(modes)
-
-
-
-
-
-
-
-
-    ground = waveguide.ground
-    frequency = tx.frequency
-
-    txpower = power(tx)
-    zₜ = altitude(tx)
-    k = frequency.k
-    zᵣ = altitude(rx)
-    rxcomponent = fieldcomponent(rx)
-
-    # Transmit dipole antenna orientation with respect to propagation direction
-    # See Morfitt 1980 pg 22
-    Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
-    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
-
-
-
-    modesum = zero(eltype(eltype(modes)))  # probably ComplexF64
-    for ea in modes
-        S₀ = ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)  # S referenced to ground, see, e.g. PS71 pg 11
-
-        dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
-        efconstants = excitationfactorconstants(ea, R, Rg, frequency, ground)
-
-        λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
-
-        # Transmitter term
-        fzₜ, fxₜ, fyₜ = heightgains(zₜ, ea, frequency, efconstants)
-        xmtrterm = λv*fzₜ*Cγ + λb*fyₜ*Sγ*Sϕ + λe*fxₜ*Sγ*Cϕ
-
-        conversion_coeff = modeconversion(previous_wavefields, wavefields, adjwavefields, transmitter_slab=false)
-
-        if rxcomponent == FC_Ez
-            δ = 1
-        else
-            δ = 0
-        end
-
-        xmtrterm*(δ + (1-δ)*ea.sinθ_tx/ea.sinθ)*conversion_coeff*(ea.sinθ/ea.sinθ_tx)*exp(-im*k*ea.sinθ_tx*tx_slab_length + ea.sinθ*(x - slab_dist) - x)
-
-        # Receiver term
-        # where does `k` (eigenangle) come in?
-        fzᵣ, fxᵣ, fyᵣ = heightgains(zᵣ, ea, frequency, efconstants)
-        if rxcomponent == FC_Ez
-            rcvrterm = fzᵣ
-        elseif rxcomponent == FC_Ex
-            rcvrterm = fxᵣ
-        elseif rxcomponent == FC_Ey
-            rcvrterm = fyᵣ
-        end
-
-        modesum += xmtrterm*rcvrterm*exp(-im*k*(S₀-1)*x)
-    end
-end
 ==#
 
 ########
-
 # Utility functions
 
-function unwrap!(phasearray::AbstractArray)
+function unwrap!(phasearray::AbstractVector)
     @inbounds for i in 2:length(phasearray)
         d = phasearray[i] - phasearray[i-1]
         if d >= π
@@ -420,19 +469,21 @@ function unwrap!(phasearray::AbstractArray)
     return nothing
 end
 
+# see, e.g. PS71 pg 11
 function referencetoground(ea::EigenAngle)
     return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)))
 end
+referencetoground(x::Number) = x/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)
 
 """
-    pow23
+    pow23(x)
 
-Calculate `x^(2/3)` relatively efficiently as ``exp(2/3*log(x))``.
+Calculate `x^(2/3)` relatively efficiently for `Real` or `Complex` `x`.
 """
-pow23(x) = exp(2/3*log(x))
+pow23(x::Real) = cbrt(x)^2
+pow23(z::Complex) = exp(2/3*log(z))
 
 ########
-
 
 """
 TODO: LF corrections/fixes
