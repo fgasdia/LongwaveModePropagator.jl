@@ -301,7 +301,6 @@ function Efield(
 
     @inbounds for i in eachindex(E)
         e = E[i]
-        if
         phase[i] = angle(e)  # ranges between -π:π rad
         amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
     end
@@ -311,7 +310,7 @@ function Efield(
     return E, phase, amp
 end
 
-
+#==
 function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler)
     # catch if `waveguide` only has a single segment
     num_segments = length(waveguide)
@@ -319,9 +318,6 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
 
     X = distance(rx, tx)
     @assert length(E) == length(X)  # or boundscheck
-
-    # TODO: special function for vertical component, transmitter, and at ground
-    # TODO: Special Efield() for point measurement
 
     frequency = tx.frequency
 
@@ -335,7 +331,6 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
 
     # Transmit dipole antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
-    # TODO: Confirm alignment of coord system and magnetic field
     Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
@@ -346,11 +341,10 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
     iszero(E) || fill!(E, 0)
 
 
-
+    # Move this section out?
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
-
 
     # Transmitter segment is special
     # TODO: check transmitter slab is the first slab
@@ -423,7 +417,10 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
     # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
     # Q *= 100 # for V/m to uV/m
 
-    # TODO: Radiation resistance correction if zt > 0
+    # if zt > 0
+    #     xt3 = radiationresistance(k, Cγ, zt)
+    #     Q *= xt3
+    # end
 
     @inbounds for i in eachindex(E)
         E[i] *= Q/sqrt(abs(sin(X[i]/Rₑ)))
@@ -431,10 +428,22 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
 
     return nothing
 end
+==#
 
+"""
+radiation resistance correction factor for when zt isn't 0.
 
+From lw_sum_modes.for
+"""
+function radiationresistance(k, Cγ, zt)
+    x = 2*k*zt
+    sinx, cosx = sincos(x)
+    xt1 = 3*(sinx - x*cosx)/x^3
+    xt2 = (xt1 - 3*sinx/x)/2
+    xt3 = sqrt(2/(1 + xt2 + (xt1 - xt2)*Cγ^2))
 
-
+    return xt3
+end
 
 
 #==

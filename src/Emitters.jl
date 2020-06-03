@@ -31,6 +31,12 @@ Abstract type for types that energize the waveguide with electromagnetic energy.
 abstract type Emitter end
 # exciter(exc::Exciter) = exc
 
+function transmitterchecks(alt)
+    alt < 0 && error("Transmitter altitude cannot be negative.")
+
+    return true
+end
+
 """
     Transmitter
 """
@@ -42,6 +48,8 @@ struct Transmitter{A<:Antenna} <: Emitter
     antenna::A
     frequency::Frequency
     power::Float64
+
+    Transmitter{A}(n, la, lo, al, an, fr, po) where {A<:Antenna} = transmitterchecks(al) && new(n, la, lo, al, an, fr, po)
 end
 Transmitter(freq) = Transmitter("", 0, 0, freq)
 Transmitter(name, lat, lon, freq) =

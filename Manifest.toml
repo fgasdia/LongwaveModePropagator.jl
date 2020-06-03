@@ -395,8 +395,6 @@ version = "1.0.1"
 [[RootsAndPoles]]
 deps = ["LinearAlgebra", "VoronoiDelaunay"]
 git-tree-sha1 = "dc523ffcdd805f40d262265063d8fd6f10fe3c23"
-repo-rev = "master"
-repo-url = "https://github.com/fgasdia/RootsAndPoles.jl"
 uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
 version = "1.0.0"
 

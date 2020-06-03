@@ -7,12 +7,20 @@ Subtypes of AbstractSampler should have a position in the guide and a FieldCompo
 """
 abstract type AbstractSampler end
 
+function distancechecks(d, stype)
+    !issorted(d) && error("$t distance must be sorted")
+    minimum(d) < 0 && error("$t distance must be positive")
+    maximum(d) > (π*Rₑ - 500e3) && @warn "antipode focusing effects not modeled"
+
+    return true
+end
+
 struct Sampler{R<:AbstractVector} <: AbstractSampler
     distance::R
     altitude::Float64
     fieldcomponent::FieldComponent
 
-    Sampler(d, fc) = !issorted(d) ? error("Sampler distance must be sorted") : new(d, fc)
+    Sampler{R}(d, fc) where {R<:AbstractVector} = distancechecks(d, Sampler) && new(d, fc)
 end
 altitude(s::Sampler) = s.altitude
 distance(s::Sampler) = s.distance
@@ -23,7 +31,7 @@ struct GroundSampler{R<:AbstractVector} <: AbstractSampler
     distance::R
     fieldcomponent::FieldComponent
 
-    GroundSampler(d, fc) = !issorted(d) ? error("GroundSampler distance must be sorted") : new(d, fc)
+    GroundSampler{R}(d, fc) where {R<:AbstractVector} = distancechecks(d, GroundSampler) && new(d, fc)
 end
 altitude(g::GroundSampler) = 0
 distance(g::GroundSampler) = g.distance
