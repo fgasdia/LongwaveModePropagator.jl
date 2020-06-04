@@ -3,6 +3,26 @@ Functions related to calculating electromagnetic field components at any height
 within the ionosphere.
 ==#
 
+struct Wavefields{T}
+    # fields(z) for each mode, v[mode][height]
+    # fields are ComplexF64 from Booker Quartic
+    v::Vector{Vector{SVector{6,ComplexF64}}}
+    eas::Vector{EigenAngle}
+    zs::T
+end
+
+function Wavefields(eas::Vector{EigenAngle}, zs::T) where {T}
+    Wavefields{T}([Vector{SVector{6,ComplexF64}}(undef, length(zs)) for i = 1:length(eas)], eas, zs)
+end
+
+Base.getindex(A::Wavefields, i::Int) = A.v[i]
+
+eigenangles(A::Wavefields) = A.eas
+heights(A::Wavefields) = A.zs
+numeigenangles(A::Wavefields) = length(A.eas)
+numheights(A::Wavefields) = length(A.zs)
+
+
 """
     WavefieldIntegrationParams{T1,T2,F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency, bfield, species)
 
@@ -102,11 +122,11 @@ function initialwavefields(T::TMatrix)
 
     # Temporary MArray for filling in wavefields
     # (04/2020) Somehow, this is slightly faster than hard coding the 1s and 2s
-    e = MArray{Tuple{4,2},eltype(BOOKER_QUARTIC_ROOTS),2,8}(undef)
+    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
 
-    for i = 1:2
+    @inbounds for i = 1:2
         d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
-        dinv = 1/d
+        dinv = inv(d)
 
         e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)*dinv
         e[2,i] = 1
@@ -512,10 +532,8 @@ integration at heights `zs`.
 
 Scales wavefields for waveguide boundary conditions.
 """
-function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species, ground::Ground)
     @assert length(EH) == length(zs)
-
-    @unpack bfield, species, ground = waveguide
 
     # TODO: Should we pass R and Rg?
     e = integratewavefields(zs, ea, frequency, bfield, species)
@@ -539,9 +557,11 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, waveguide
 end
 
 function calculate_wavefields!(wavefields, adjoint_wavefields,
-                               frequency, waveguide) where {T}
+                               frequency, waveguide)
 
     @assert heights(wavefields) == heights(adjoint_wavefields)
+
+    @unpack bfield, species, ground = waveguide
 
     zs = heights(wavefields)
     modes = eigenangles(wavefields)
@@ -552,7 +572,7 @@ function calculate_wavefields!(wavefields, adjoint_wavefields,
         fieldstrengths!(wavefields[m], zs, mode, frequency, bfield, species, ground)
 
         adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
-        fieldstrengths!(adjoint_wavefields[m], zs, mode, frequency,adjoint_bfield, species, ground)
+        fieldstrengths!(adjoint_wavefields[m], zs, mode, frequency, adjoint_bfield, species, ground)
     end
 
     return nothing

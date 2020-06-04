@@ -69,7 +69,7 @@ function bookerquartic!(T::TMatrix)
         T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
         T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
 
-    BOOKER_QUARTIC_COEFFS.data = (b0, b1, b2, b3, one(eltype(BOOKER_QUARTIC_COEFFS)))
+    BOOKER_QUARTIC_COEFFS.data = (b0, b1, b2, b3, complex(1.0))
 
     roots!(BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS, NaN, 4, false)
 

@@ -21,7 +21,7 @@ struct EigenAngle
 
     function EigenAngle(θ::ComplexF64)
         rθ, iθ = reim(θ)
-        ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ should be in radians"
+        ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ > 2π. Make sure θ is in radians."
         S, C = sincos(θ)
         Cinv = inv(C)  # == sec(θ)
         C² = C^2

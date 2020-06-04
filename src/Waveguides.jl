@@ -27,5 +27,8 @@ Base.length(w::SegmentedWaveguide) = length(w.v)
 Base.sort!(w::SegmentedWaveguide) = sort!(w.v, by=x->getfield(x, :distance))
 Base.sort(w::SegmentedWaveguide) = SegmentedWaveguide(sort!(copy(w.v)))
 Base.issorted(w::SegmentedWaveguide) = issorted(w.v, by=x->getfield(x, :distance))
+Base.getindex(w::SegmentedWaveguide, i::Int) = w.v[i]
+
+
 
 # TODO: WKBWaveguide (that's why we can't call SegmentedWaveguide -> InhomogeneousWaveguide)

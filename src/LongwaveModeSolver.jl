@@ -10,6 +10,7 @@ using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
+using NumericalIntegration
 
 using PolynomialRoots: roots!
 
@@ -55,7 +56,8 @@ struct BookerQuartic{T<:Complex{<:AbstractFloat}}
 end
 ==#
 # Passing MArrays between functions causes allocations. They are avoided by
-# mutating this const in place. `roots!` requires Complex values.
+# mutating this const in place. `roots!` requires Complex values and TMatrix
+# is always ComplexF64, from which the coeffs are calculated.
 const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(ComplexF64, 4))
 const BOOKER_QUARTIC_COEFFS = MVector{5,ComplexF64}(undef)
 
@@ -72,10 +74,11 @@ include("Geophysics.jl")
 include("Samplers.jl")
 include("TMatrix.jl")
 include("Waveguides.jl")
+include("Wavefields.jl")
 
 include("magnetoionic.jl")
+include("modeconversion.jl")
 include("modefinder.jl")
 include("modesum.jl")
-include("wavefields.jl")
 
 end
