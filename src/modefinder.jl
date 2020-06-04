@@ -623,7 +623,7 @@ function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguid
 
     # TODO: Make a `triangulardomain` for this problem o avoid the low right
 
-    zroots, zpoles = grpf(z->solvemodalequation(EigenAngle{T}(z), frequency, waveguide),
+    zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide),
                           origcoords, GRPFParams(30000, tolerance))
 
     return EigenAngle.(zroots)

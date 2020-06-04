@@ -33,7 +33,7 @@ function excitationfactorconstants(ea::EigenAngle, R, Rg, frequency::Frequency, 
     # `ea` is at height `CURVATURE_HEIGHT`. See, e.g. Pappert1971 pg 8
 
     # Precompute
-    α = 2/Rₑ
+    α = 2/EARTH_RADIUS
     αH = α*CURVATURE_HEIGHT
     koα = k/α
     cbrtkoα = cbrt(koα)
@@ -97,9 +97,9 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::Excit
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
 
     # Precompute
-    α = 2/Rₑ
+    α = 2/EARTH_RADIUS
     koα23 = pow23(k/α)  # (k/α)^(2/3)
-    expzoRₑ = exp(z/Rₑ)  # assumes `d = 0`
+    expzore = exp(z/EARTH_RADIUS)  # assumes `d = 0`
 
     qz = koα23*(C² - α*(CURVATURE_HEIGHT - z))
 
@@ -114,11 +114,11 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::Excit
 
     # From Ferguson1981 pg 10 or Pappert1971 pg 6, 8:
     # Height gain for Ez, also called f∥(z)
-    fz = expzoRₑ*(F₁h₁z + F₂h₂z)
+    fz = expzore*(F₁h₁z + F₂h₂z)
 
     # Height gain for Ex, also called g(z)
     # f₂ = 1/(im*k) df₁/dz
-    fx = -im*expzoRₑ/(Rₑ*k)*(F₁h₁z + F₂h₂z + Rₑ*(F₁*h₁pz + F₂*h₂pz))
+    fx = -im*expzore/(EARTH_RADIUS*k)*(F₁h₁z + F₂h₂z + EARTH_RADIUS*(F₁*h₁pz + F₂*h₂pz))
 
     # Height gain for Ey, also called f⟂(z)
     fy = (F₃*h₁z + F₄*h₂z)
@@ -196,7 +196,7 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     # Transmitter term
     fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
     # λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
-    xmtrterm = λv*fz_t*Cγ + λb*fy_t*Sγ*Sϕ + λe*fx_t*Sγ*Cϕ
+    xmtrterm = λv*fz_t*Cγ + λb*fy_t*Sγ*Sϕ + λe*fx_t*Sγ*Cϕ  # TODO precalculate antenna orientation factors
 
     # Receiver term
     # TODO: Handle multiple components
@@ -274,7 +274,7 @@ function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWave
     # TODO: Radiation resistance correction if zt > 0
 
     @inbounds for i in eachindex(E)
-        E[i] *= Q/sqrt(abs(sin(X[i]/Rₑ)))
+        E[i] *= Q/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
     end
 
     return nothing
@@ -341,7 +341,8 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
     iszero(E) || fill!(E, 0)
 
 
-    # Move this section out?
+
+    # TODO: Move this section out?
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
@@ -359,10 +360,13 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
     prevwavefields = copy(wavefields)
 
     # S₀t = referencetoground.(getindex.(modes, :sinθ))
+    S₀t = Vector{eltype(eltype(modes))}(undef, length(modes))
 
     segment_range = waveguide[2].distance
-    xi = 1
-    for ea in modes
+    xi = 1  # index into `X`
+    for m in eachindex(modes)
+        @inbounds ea = modes[m]
+
         xmtrterm, rcvrterm = modeterms(ea, frequency, txwaveguide, emitter_orientation, sampler_orientation)
 
         # Precalculate
@@ -374,13 +378,18 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
             E[xi] += xmtr_rcvr_term*cis(expterm*X[xi])
             xi += 1
         end
+
+        S₀t[m] = S₀
     end
+
 
 
     lastj = lastindex(waveguide)
     for j in 2:num_segments
-        segment_range = j == lastj ? oftype(waveguide[j].distance, 40000) : waveguide[j+1].distance
+        # range from transmitter to end of segment (beginning of next segment)
+        segment_range = j == lastj ? typemax(eltype(waveguide[j].distance)) : waveguide[j+1].distance
 
+        prevmodes = eigenangles(prevwavefields)
         modes = findmodes(origcoords, frequency, waveguide[j], tolerance)
 
         wavefields = Wavefields(modes, zs)
@@ -391,9 +400,10 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
         a = modeconversion(prevwavefields, wavefields, adjwavefields)
 
 
-        for ea in modes
+        for m2 in eachindex(modes)
+            @inbounds ea2 = modes[m2]
 
-            xmtrterm, rcvrterm = modeterms(ea, frequency, txwaveguide, emitter_orientation, sampler_orientation)
+            xmtrterm, rcvrterm = modeterms(ea2, frequency, txwaveguide, emitter_orientation, sampler_orientation)
 
             # Precalculate
             S₀ = referencetoground(ea.sinθ)
@@ -404,7 +414,7 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
             end
 
             while X[xi] <= segment_range
-                @inbounds E[xi] += xmtr_rcvr_term*cis(expterm*X[xi])
+                @inbounds E[xi] += xmtr_rcvr_term*cis(expterm*(X[xi] - ))
                 xi += 1
             end
 
@@ -423,12 +433,126 @@ function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx
     # end
 
     @inbounds for i in eachindex(E)
-        E[i] *= Q/sqrt(abs(sin(X[i]/Rₑ)))
+        E[i] *= Q/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
     end
 
     return nothing
 end
 ==#
+
+function lwpce(dst, waveguide, tx, rx)
+    frequency = tx.frequency
+
+    ω = 2π*frequency
+    k = frequency.k
+    mik = complex(0, -k)
+    aconst = -8686*k
+    econst = 20log10(35*k)
+    sum0 = 682.2408*sqrt(frequency.f*tx.power)
+
+    # Antenna orientation factors
+    Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
+    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
+    t1, t2, t3 = Cγ, Sγ*Sϕ, Sγ*Cϕ
+
+    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
+
+    zt = altitude(tx)
+
+    # const = sum0
+
+
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    origcoords .= deg2rad.(origcoords)
+    tolerance = 1e-8
+
+    modes = findmodes(origcoords, frequency, waveguide[j], tolerance)
+
+    wavefields = Wavefields(modes, zs)
+    adjwavefields = Wavefields(modes, zs)
+
+    calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide)
+
+
+
+
+    nsgmnt = 1
+    nrsgmnt = length(waveguide)
+
+    # soln_a is for `Hy`
+    soln_b = Vector{ComplexF64}(undef, nreigen2)
+
+    dst0 = 99999
+    if dst < dst0
+        xone = 0
+        if nrgsgmnt == 1
+            xtwo = 40000
+        else
+            xtwo = waveguide[nsgmnt+1].distance
+        end
+
+        wvg = waveguide[nsgmnt]
+        eas = eigenangles(wvg)
+        nreigen2 = length(eas)
+
+        # `for` loop from 180 to 193 and LW_STEP and LW_HTGAIN all contained in modeterms
+        for m2 = 1:nreigen2
+            ta, _ = modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
+            soln_b[m2] = ta
+        end
+    end
+
+    temp = Vector{ComplexF64}(undef, nreigen2)
+    while dst > xtwo
+        # End of current slab
+        mikx = mik*(xtwo - xone)
+        nreigen1 = nreigen2
+        for m1 = 1:nreigen1
+            S₀ = referencetoground(eas[m1].sinθ)
+            # Exctation factors at end of slab. LWPC uses `Hy`
+            temp[m1] = soln_b[m1]*exp(mikx*(S₀ - 1))
+        end
+        xone = xtwo
+
+        # Load next slab
+        nsgmnt += 1
+        wvg = waveguide[nsgmnt]
+
+        if nsgmnt < nrsgmnt
+            xtwo = waveguide[nsgmnt+1].distance
+        else
+            xtwo = 40000
+        end
+
+        a = modeconversion(prevwavefields, wavefields, adjwavefields)
+        soln_b = zeros(ComplexF64, nreigen2)
+        for m2 = 1:nreigen2
+            for m1 = 1:nreigen1
+                soln_b[m2] += temp[m1]*a[m1,m2]
+            end
+            # ta is `Hy` excitation factor
+            # Then LWPC calculates E into soln_b
+        end
+
+    end
+
+    mikx = mik*(dst - xone)
+    factor = sum0/sqrt(abs(sin(dst/EARTH_RADIUS)))
+
+    # For each component
+    tb = zero(ComplexF64)
+    for m2 = 1:nreigen2
+        S₀ = referencetoground(eas[m2].sinθ)
+        tb += soln_b[m2]*exp(mikx*(S₀ - 1))*factor
+    end
+
+    dst0 = dst
+
+end
+
+
+
 
 """
 radiation resistance correction factor for when zt isn't 0.
@@ -456,7 +580,7 @@ function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::GroundSam
 
 
     # Morfitt 1980
-    # `k` is mode index -> now `i`
+    # `k` is mode index
     # `n` is field index 1, 2, 3
     # so `j` must be a slab index
 
@@ -480,9 +604,9 @@ end
 
 # see, e.g. PS71 pg 11
 function referencetoground(ea::EigenAngle)
-    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)))
+    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/EARTH_RADIUS*CURVATURE_HEIGHT)))
 end
-referencetoground(x::Number) = x/sqrt(1 - 2/Rₑ*CURVATURE_HEIGHT)
+referencetoground(x::Number) = x/sqrt(1 - 2/EARTH_RADIUS*CURVATURE_HEIGHT)
 
 """
     pow23(x)

@@ -4,7 +4,7 @@ const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
 const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
 const Z₀ = 376.730313668  # vacuum impedance, Ω
 
-const Rₑ = 6366e3  # earth radius, m
+const EARTH_RADIUS = 6366e3  # earth radius, m
 const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
 
 ########

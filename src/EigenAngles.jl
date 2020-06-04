@@ -1,5 +1,5 @@
 """
-    EigenAngle{T}
+    EigenAngle
 
 Waveguide EigenAngle `θ` (rad), as well as automatically computed values:
 
@@ -11,15 +11,15 @@ Waveguide EigenAngle `θ` (rad), as well as automatically computed values:
 Technically this is an angle of incidence from the vertical, and not necessarily an
 *eigen* angle unless it is found to be associated with a propagated mode in the waveguide.
 """
-struct EigenAngle{T}
-    θ::T  # radians, because df/dθ are in radians
-    cosθ::T
-    sinθ::T
-    secθ::T  # == 1/cosθ
-    cos²θ::T
-    sin²θ::T
+struct EigenAngle
+    θ::ComplexF64  # radians, because df/dθ are in radians
+    cosθ::ComplexF64
+    sinθ::ComplexF64
+    secθ::ComplexF64  # == 1/cosθ
+    cos²θ::ComplexF64
+    sin²θ::ComplexF64
 
-    function EigenAngle{T}(θ::T) where T <: Number
+    function EigenAngle(θ::ComplexF64)
         rθ, iθ = reim(θ)
         ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ should be in radians"
         S, C = sincos(θ)
@@ -29,12 +29,10 @@ struct EigenAngle{T}
         new(θ, C, S, Cinv, C², S²)
     end
 end
-EigenAngle(θ::T) where T <: Number = EigenAngle{T}(θ)
 EigenAngle(ea::EigenAngle) = ea
+Base.eltype(::Type{EigenAngle}) = ComplexF64
 
-Base.eltype(::Type{EigenAngle{T}}) where {T} = T
-
-function Base.isless(lhs::EigenAngle{T}, rhs::EigenAngle{T}) where {T <: Complex}
+function Base.isless(lhs::EigenAngle, rhs::EigenAngle)
     # Compare complex EigenAngle by real and then imag
     # By defining `isless()`, we get the wanted sorting of `EigenAngle`s
     return isless((real(lhs.θ), imag(lhs.θ)), (real(rhs.θ), imag(rhs.θ)))
@@ -45,7 +43,7 @@ end
 #     print(io, " ", getfield(e, :θ))
 # end
 
-function Base.show(io::IO, e::EigenAngle{T}) where {T}
+function Base.show(io::IO, e::EigenAngle)
     compact = get(io, :compact, false)
 
     if compact
@@ -56,7 +54,7 @@ function Base.show(io::IO, e::EigenAngle{T}) where {T}
 
 end
 
-function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle{T}) where {T}
+function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle)
     println(io, "EigenAngle{$T}: ")
     show(io, e)
 end

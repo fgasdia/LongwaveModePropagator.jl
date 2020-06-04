@@ -12,18 +12,18 @@ Parameters passed to Pitteway integration of wavefields.
     `ortho_scalar::Complex{T2}`
     `e1_scalar::T2`
     `e2_scalar::T2`
-    `ea::EigenAngle{T3}`
+    `ea::EigenAngle`
     `frequency::Frequency`
     `bfield::BField`
     `species::Species{F,G}`
 """
-@with_kw struct WavefieldIntegrationParams{T1,T2,T3,F,G}
+@with_kw struct WavefieldIntegrationParams{T1,T2,F,G}
     z::T1
     bottomz::T1
     ortho_scalar::Complex{T2}
     e1_scalar::T2
     e2_scalar::T2
-    ea::EigenAngle{T3}
+    ea::EigenAngle
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
@@ -47,8 +47,8 @@ Automatically set values are:
 always be real, so it is sufficient for `Float64` to be provided as `T` even
 for complex wavefields.
 """
-function WavefieldIntegrationParams{T}(ea::EigenAngle{T3}, frequency::Frequency, bfield::BField, species::Species{F,G}) where {T,T3,F,G}
-    return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),T3,F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
+function WavefieldIntegrationParams{T}(ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species{F,G}) where {T,F,G}
+    return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
 end
 
 """
@@ -441,7 +441,7 @@ For additional details, see [^Budden1988], chapter 18, section 7.
 waves of low power in the ionosphere and magnetosphere, First paperback edition.
 New York: Cambridge University Press, 1988.
 """
-function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::AbstractArray{T2}) where {T,T2}
+function vacuumreflectioncoeffs(ea::EigenAngle, e1::AbstractArray{T}, e2::AbstractArray{T}) where {T}
     C = ea.cosθ
     Cinv = ea.secθ
 
@@ -454,7 +454,7 @@ function vacuumreflectioncoeffs(ea::EigenAngle{T}, e1::AbstractArray{T2}, e2::Ab
     f1 = Sv_inv*e1
     f2 = Sv_inv*e2
 
-    out_type = promote_type(T, T2)
+    out_type = promote_type(eltype(ea), T)
     U = SMatrix{2,2,out_type,4}(f1[1], f1[2], f2[1], f2[2])
     D = SMatrix{2,2,out_type,4}(f1[3], f1[4], f2[3], f2[4])
 

@@ -87,36 +87,163 @@ function mc_scenario()
                                           Ground(15, 0.001)))
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
+    rx = GroundSampler(0:10e3:2000e3, LWMS.FC_Ez)
 
-    ztop = LWMS.TOPHEIGHT
-    zs = range(ztop, zero(ztop), length=257)
 
-    waveguide_wavefields = Wavefields[]
-    waveguide_adjwavefields = similar(waveguide_wavefields)
-    for s in eachindex(waveguide)
-        @unpack bfield, species, ground = waveguide[s]
 
-        origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
-        origcoords .= deg2rad.(origcoords)
-        tolerance = 1e-8
+    # ztop = LWMS.TOPHEIGHT
+    # zs = range(ztop, zero(ztop), length=257)
+    #
+    # waveguide_wavefields = Wavefields[]
+    # waveguide_adjwavefields = similar(waveguide_wavefields)
+    # for s in eachindex(waveguide)
+    #     @unpack bfield, species, ground = waveguide[s]
+    #
+    #     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    #     origcoords .= deg2rad.(origcoords)
+    #     tolerance = 1e-8
+    #
+    #     ea = LWMS.findmodes(origcoords, tx.frequency, waveguide[s], tolerance)
+    #
+    #     wavefields = Wavefields(ea, zs)
+    #     adjwavefields = Wavefields(ea, zs)
+    #
+    #     calculate_wavefields!(wavefields, adjwavefields,
+    #                           bfield, tx.frequency, ground, species)
+    #
+    #     # TODO: only store previous and make sure size reflects length(ea)
+    #     push!(waveguide_wavefields, wavefields)
+    #     push!(waveguide_adjwavefields, adjwavefields)
+    # end
+    #
+    # # Try mode conversion
+    # modeconversion(waveguide_wavefields[1],
+    #                waveguide_wavefields[2], waveguide_adjwavefields[2])
+end
 
-        ea = LWMS.findmodes(origcoords, tx.frequency, waveguide[s], tolerance)
 
-        wavefields = Wavefields(ea, zs)
-        adjwavefields = Wavefields(ea, zs)
 
-        calculate_wavefields!(wavefields, adjwavefields,
-                              bfield, tx.frequency, ground, species)
+function lwpce(dst, waveguide, tx, rx)
+    frequency = tx.frequency
 
-        # TODO: only store previous and make sure size reflects length(ea)
-        push!(waveguide_wavefields, wavefields)
-        push!(waveguide_adjwavefields, adjwavefields)
+    k = frequency.k
+
+    mik = complex(0, -k)
+    aconst = -8686*k
+    econst = 20log10(35*k)
+    sum0 = 682.2408*sqrt(frequency.f*tx.power)
+
+    # Antenna orientation factors
+    Sγ, Cγ = sincos(π/2 - LWMS.elevation(tx))  # γ is measured from vertical
+    Sϕ, Cϕ = sincos(LWMS.azimuth(tx))  # ϕ is measured from `x`
+    t1, t2, t3 = Cγ, Sγ*Sϕ, Sγ*Cϕ
+
+    zt = LWMS.altitude(tx)
+
+    rxcomponent = LWMS.fieldcomponent(rx)
+    zr = LWMS.altitude(rx)
+
+    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
+
+
+
+    # const = sum0
+
+
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    origcoords .= deg2rad.(origcoords)
+    tolerance = 1e-8
+    zs = range(LWMS.TOPHEIGHT, 0.0, length=257)
+
+
+    nsgmnt = 1
+    nrsgmnt = length(waveguide)
+
+    modes = LWMS.findmodes(origcoords, frequency, waveguide[nsgmnt], tolerance)
+
+    wavefields = Wavefields(modes, zs)
+    adjwavefields = Wavefields(modes, zs)
+
+    calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide[nsgmnt])
+
+    # soln_a is for `Hy`
+    soln_b = Vector{ComplexF64}(undef, nreigen2)
+
+    dst0 = 99999
+    if dst < dst0
+        xone = 0
+        if nrgsgmnt == 1
+            xtwo = 40000
+        else
+            xtwo = waveguide[nsgmnt+1].distance
+        end
+
+        wvg = waveguide[nsgmnt]
+        eas = eigenangles(wvg)
+        nreigen2 = length(eas)
+
+        # `for` loop from 180 to 193 and LW_STEP and LW_HTGAIN all contained in modeterms
+        for m2 = 1:nreigen2
+            ta, _ = modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
+            soln_b[m2] = ta
+        end
     end
 
-    # Try mode conversion
-    modeconversion(waveguide_wavefields[1],
-                   waveguide_wavefields[2], waveguide_adjwavefields[2])
+    temp = Vector{ComplexF64}(undef, nreigen2)
+    while dst > xtwo
+        # End of current slab
+        mikx = mik*(xtwo - xone)
+        nreigen1 = nreigen2
+        for m1 = 1:nreigen1
+            S₀ = referencetoground(eas[m1].sinθ)
+            # Exctation factors at end of slab. LWPC uses `Hy`
+            temp[m1] = soln_b[m1]*exp(mikx*(S₀ - 1))
+        end
+        xone = xtwo
+
+        # Load next slab
+        nsgmnt += 1
+        wvg = waveguide[nsgmnt]
+
+        if nsgmnt < nrsgmnt
+            xtwo = waveguide[nsgmnt+1].distance
+        else
+            xtwo = 40000
+        end
+
+        a = modeconversion(prevwavefields, wavefields, adjwavefields)
+        soln_b = zeros(ComplexF64, nreigen2)
+        for m2 = 1:nreigen2
+            for m1 = 1:nreigen1
+                soln_b[m2] += temp[m1]*a[m1,m2]
+            end
+            # ta is `Hy` excitation factor
+            # Then LWPC calculates E into soln_b
+        end
+
+    end
+
+    mikx = mik*(dst - xone)
+    factor = sum0/sqrt(abs(sin(dst/EARTH_RADIUS)))
+
+    # For each component
+    tb = zero(ComplexF64)
+    for m2 = 1:nreigen2
+        S₀ = referencetoground(eas[m2].sinθ)
+        tb += soln_b[m2]*exp(mikx*(S₀ - 1))*factor
+    end
+
+    dst0 = dst
+
 end
+
+
+
+
+
+
+
 
 
 

@@ -20,16 +20,17 @@ using ModifiedHankelFunctionsOfOrderOneThird
 export BField, Species, EigenAngle, FieldComponent, Ground
 export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export Rₑ, c₀, μ₀, ϵ₀, CURVATURE_HEIGHT
+export c₀, μ₀, ϵ₀, EARTH_RADIUS, CURVATURE_HEIGHT
 
-# Scenario.jl
+# Samplers.jl
 export Receiver, GroundSampler
+
+# Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
 
 # TMatrix.jl
 export TMatrix
 
-# PropagationModel.jl
 
 # Waveguides.jl
 export HomogeneousWaveguide

@@ -255,7 +255,7 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Specie
     ixYUD = im*lx*YUD
     yzY²D = ly*lz*Y²D
 
-    earthcurvature = 2/Rₑ*(CURVATURE_HEIGHT - z)
+    earthcurvature = 2/EARTH_RADIUS*(CURVATURE_HEIGHT - z)
 
     # Elements of `M`
     M11 = U²D - lx²*Y²D
