@@ -29,6 +29,7 @@ struct EigenAngle
         new(θ, C, S, Cinv, C², S²)
     end
 end
+EigenAngle(θ::Real) = EigenAngle(complex(float(θ)))
 EigenAngle(ea::EigenAngle) = ea
 Base.eltype(::Type{EigenAngle}) = ComplexF64
 

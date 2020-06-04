@@ -60,7 +60,7 @@ wavefield subroutines, e.g. "wf_init.for".
 
 This function is ~2× as fast as [`bookerquartic(ea, M)`](@ref).
 """
-function bookerquartic!(T::TMatrix{eltype(BOOKER_QUARTIC_COEFFS)})
+function bookerquartic!(T::TMatrix)
     # This is the depressed form of the quartic
     b3 = -(T[1,1] + T[4,4])
     b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]

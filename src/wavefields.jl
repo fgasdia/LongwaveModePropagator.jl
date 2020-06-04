@@ -4,7 +4,7 @@ within the ionosphere.
 ==#
 
 """
-    WavefieldIntegrationParams{T1,T2,T3,F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency, bfield, species)
+    WavefieldIntegrationParams{T1,T2,F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency, bfield, species)
 
 Parameters passed to Pitteway integration of wavefields.
 

@@ -38,15 +38,15 @@ function resonant_scenario()
 end
 
 
-struct Wavefields{T,T2<:AbstractVector}
+struct Wavefields{T,T2}
     # fields(z) for each mode, v[mode][height]
-    v::Vector{Vector{SVector{6,complex(T)}}}
-    eas::Vector{EigenAngle{T}}
+    v::Vector{Vector{SVector{6,T}}}
+    eas::Vector{EigenAngle}
     zs::T2
 end
 
-function Wavefields(eas::Vector{EigenAngle{T}}, zs::T2) where {T,T2<:AbstractVector}
-    Wavefields{T,T2}([Vector{SVector{6,complex(T)}}(undef,length(zs)) for i = 1:length(eas)], eas, zs)
+function Wavefields(eas::Vector{EigenAngle}, zs::T2) where {T2<:AbstractVector}
+    Wavefields{T,T2}([Vector{SVector{6,T}}(undef,length(zs)) for i = 1:length(eas)], eas, zs)
 end
 
 Base.getindex(A::Wavefields, i::Int) = A.v[i]

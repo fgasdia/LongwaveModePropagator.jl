@@ -271,7 +271,7 @@ See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 [^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
 """
-function wmatrix(ea::EigenAngle, T::TMatrix{Ttype}) where Ttype
+function wmatrix(ea::EigenAngle, T::TMatrix)
     C = ea.cosθ
     Cinv = ea.secθ
 
@@ -340,10 +340,10 @@ function wmatrix(ea::EigenAngle, T::TMatrix{Ttype}) where Ttype
 
     # Form the four 2x2 submatrices of `S`
     # Ttype is already promoted type of ea and M
-    W11 = SMatrix{2,2,Ttype,4}(a11+a11r, -c11, -b11, d11)
-    W12 = SMatrix{2,2,Ttype,4}(a21+a21r, c12, -b11, d12)
-    W21 = SMatrix{2,2,Ttype,4}(a21-a21r, c11, b21, -d12)
-    W22 = SMatrix{2,2,Ttype,4}(a11-a11r, -c12, b21, -d11)
+    W11 = SMatrix{2,2,ComplexF64,4}(a11+a11r, -c11, -b11, d11)
+    W12 = SMatrix{2,2,ComplexF64,4}(a21+a21r, c12, -b11, d12)
+    W21 = SMatrix{2,2,ComplexF64,4}(a21-a21r, c11, b21, -d12)
+    W22 = SMatrix{2,2,ComplexF64,4}(a11-a11r, -c12, b21, -d11)
 
     return W11, W21, W12, W22
 end
@@ -355,7 +355,7 @@ Return the 4 submatrix elements of the derivative of the `W` matrix wrt θ.
 
 See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
 """
-function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix{Ttype}) where Ttype
+function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
     Cinv = ea.secθ
     C²inv = Cinv^2
@@ -402,10 +402,10 @@ function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix{Ttype}) where Ttype
     dd22 = dC - dt32Cinv
 
     # Form the four 2x2 submatrices of `dS`
-    dW11 = SMatrix{2,2,Ttype,4}(ds11a+ds11b, -ds21, -ds12, ds22)
-    dW12 = SMatrix{2,2,Ttype,4}(-dd11a+dd11b, dd21, -ds12, -dd22)
-    dW21 = SMatrix{2,2,Ttype,4}(-dd11a-dd11b, ds21, dd12, dd22)
-    dW22 = SMatrix{2,2,Ttype,4}(ds11a-ds11b, -dd21, dd12, -ds22)
+    dW11 = SMatrix{2,2,ComplexF64,4}(ds11a+ds11b, -ds21, -ds12, ds22)
+    dW12 = SMatrix{2,2,ComplexF64,4}(-dd11a+dd11b, dd21, -ds12, -dd22)
+    dW21 = SMatrix{2,2,ComplexF64,4}(-dd11a-dd11b, ds21, dd12, dd22)
+    dW22 = SMatrix{2,2,ComplexF64,4}(ds11a-ds11b, -dd21, dd12, -ds22)
 
     return dW11, dW21, dW12, dW22
 end

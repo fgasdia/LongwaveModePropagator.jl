@@ -1,5 +1,5 @@
 """
-    TMatrix <: SMatrix{4, 4, T, 16}
+    TMatrix <: SMatrix{4, 4, ComplexF64, 16}
 
 A custom `SMatrix` subtype that represents the `T` matrix from Clemmow and Heading
 that is semi-sparse. The form of the matrix is:
@@ -13,11 +13,11 @@ that is semi-sparse. The form of the matrix is:
 
 Implements custom (efficient) matrix-vector multiplication.
 """
-struct TMatrix{T} <: StaticMatrix{4, 4, T}
-    data::SVector{9,T}
+struct TMatrix <: StaticMatrix{4, 4, ComplexF64}
+    data::SVector{9,ComplexF64}
 
-    @inline function TMatrix{T}(data::SVector{9}) where {T}
-        new{T}(data)
+    @inline function TMatrix(data::SVector{9,ComplexF64})
+        new(data)
     end
 end
 
@@ -25,7 +25,7 @@ end
 # Constructors
 ==#
 
-@inline TMatrix(data::SVector{9,T}) where {T} = TMatrix{T}(data)
+@inline TMatrix(data::SVector{9,T}) where {T} = TMatrix(complex(float(data)))
 
 @generated function TMatrix(a::StaticMatrix{4, 4, T}) where {T}
     I = _tmatrix_indices()
@@ -42,25 +42,26 @@ end
     end
 end
 
-@generated function TMatrix{T}(a::NTuple{N,Any}) where {N,T}
+# TODO: Will this promote properly?
+@generated function TMatrix(a::NTuple{N,Any}) where {N}
     if N != 9
         throw(DimensionMismatch("Tuple length must be 9. Length of input was $N."))
     end
     expr = [:(a[$i]) for i = 1:9]
     quote
         @_inline_meta
-        @inbounds return TMatrix{T}(SVector{9}(tuple($(expr...))))
+        @inbounds return TMatrix(SVector{9}(tuple($(expr...))))
     end
 end
 
-@inline TMatrix(a::NTuple{9, T}) where {T} = TMatrix{T}(a)
-@inline TMatrix(a::Tuple) = TMatrix{promote_tuple_eltype(a)}(a)
+# @inline TMatrix(a::NTuple{9, ComplexF64}) = TMatrix(a)
+# @inline TMatrix(a::Tuple) = TMatrix{promote_tuple_eltype(a)}(a)
 
 #==
 # Characteristics
 ==#
 
-Base.eltype(::Type{TMatrix{T}}) where {T} = T
+Base.eltype(::Type{TMatrix}) = ComplexF64
 Base.size(::Type{TMatrix}) = (4, 4)
 Base.size(::Type{TMatrix}, d::Int) = d > 2 ? 1 : 4
 
@@ -72,8 +73,9 @@ Base.size(::Type{TMatrix}, d::Int) = d > 2 ? 1 : 4
     return tuple(1, 0, 2, 3, 4, 0, 5, 6, 0, 0, 0, 0, 7, 0, 8, 9)
 end
 
-@propagate_inbounds function Base.getindex(a::TMatrix{T}, i::Int) where {T}
+@propagate_inbounds function Base.getindex(a::TMatrix, i::Int)
     I = _tmatrix_indices()
+    T = ComplexF64
 
     # Written out this is much faster than `i in (2, 6, 9, 11, 12, 14)`
     # Could probably be fewer lines with a generated function
@@ -147,21 +149,21 @@ LinearAlgebra.issymmetric(v::TMatrix) = false
 
 @inline Base.sum(v::TMatrix) = sum(v.data) + 1
 
-@generated function Base.:*(a::Number, b::TMatrix{T}) where {T}
+@generated function Base.:*(a::Number, b::TMatrix)
     I = _tmatrix_indices()
     exprs = [:(($I[$i] > 0) ? a*b.data[$I[$i]] : ($i == 10 ? convert(newtype,a) : zero(newtype))) for i = 1:16]
     quote
         @_inline_meta
-        newtype = promote_type(T, typeof(a))
+        newtype = promote_type(ComplexF64, typeof(a))
         SMatrix{4,4,newtype}(tuple($(exprs...)))
     end
 end
-@generated function Base.:*(a::TMatrix{T}, b::Number) where {T}
+@generated function Base.:*(a::TMatrix, b::Number)
     I = _tmatrix_indices()
     exprs = [:(($I[$i] > 0) ? b*a.data[$I[$i]] : ($i == 10 ? convert(newtype,b) : zero(newtype))) for i = 1:16]
     quote
         @_inline_meta
-        newtype = promote_type(T, typeof(b))
+        newtype = promote_type(ComplexF64, typeof(b))
         SMatrix{4,4,newtype}(tuple($(exprs...)))
     end
 end
@@ -170,7 +172,7 @@ end
 @inline Base.:*(A::TMatrix, B::StaticVector) = _mul(Size(B), A, B)
 @inline Base.:*(A::TMatrix, B::StaticMatrix) = _mul(Size(B), A, B)
 
-@generated function _mul(a::TMatrix{Ta}, b::AbstractVector{Tb}) where {Ta, Tb}
+@generated function _mul(a::TMatrix, b::AbstractVector{Tb}) where {Tb}
     sa = Size(4,4)
 
     exprs = [:(a[$(LinearIndices(sa)[1,1])]*b[1]+a[$(LinearIndices(sa)[1,2])]*b[2]+a[$(LinearIndices(sa)[1,4])]*b[4]),
@@ -183,12 +185,12 @@ end
         if length(b) != $sa[2]
             throw(DimensionMismatch("Tried to multiply arrays of size $sa and $(size(b))"))
         end
-        T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
+        T = Base.promote_op(LinearAlgebra.matprod, ComplexF64, Tb)
         @inbounds return similar_type(b, T, Size($sa[1]))(tuple($(exprs...)))
     end
 end
 
-@generated function _mul(::Size{sb}, a::TMatrix{Ta}, b::StaticVector{<:Any, Tb}) where {sb, Ta, Tb}
+@generated function _mul(::Size{sb}, a::TMatrix, b::StaticVector{<:Any, Tb}) where {sb, Tb}
     sa = Size(4,4)
     if sb[1] != sa[2]
         throw(DimensionMismatch("Tried to multiply arrays of size $sa and $sb"))
@@ -201,13 +203,13 @@ end
 
     return quote
         @_inline_meta
-        T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
+        T = Base.promote_op(LinearAlgebra.matprod, ComplexF64, Tb)
         @inbounds return similar_type(b, T, Size($sa[1]))(tuple($(exprs...)))
     end
 end
 
 
-@generated function _mul(Sb::Size{sb}, a::TMatrix{Ta}, b::StaticMatrix{<:Any,<:Any,Tb}) where {sb, Ta, Tb}
+@generated function _mul(Sb::Size{sb}, a::TMatrix, b::StaticMatrix{<:Any,<:Any,Tb}) where {sb, Tb}
     sa = Size(4,4)
     if sb[1] != sa[2]
         throw(DimensionMismatch("Tried to multiply arrays of size $sa and $sb"))
@@ -232,7 +234,7 @@ end
 
     return quote
         @_inline_meta
-        T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
+        T = Base.promote_op(LinearAlgebra.matprod, ComplexF64, Tb)
         @inbounds return similar_type(a, T, $S)(tuple($(exprs...)))
     end
 end
