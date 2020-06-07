@@ -1,10 +1,12 @@
 using Test
 using LinearAlgebra
 using StaticArrays
-using Plots
+# using Plots
 using NumericalIntegration
-using Trapz  # for testing only
+# using Trapz  # for testing only
 using Parameters
+using CSV
+using DataFrames
 
 using RootsAndPoles
 
@@ -73,7 +75,7 @@ end
 
 
 function mc_scenario()
-    waveguide = HomogeneousWaveguide[]
+    waveguide = LWMS.SegmentedWaveguide{HomogeneousWaveguide}()
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(qₑ, mₑ,
@@ -87,7 +89,6 @@ function mc_scenario()
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001), 1000e3))
 
-    waveguide = LWMS.SegmentedWaveguide(waveguide)
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
     rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
@@ -111,86 +112,76 @@ function mc_scenario()
     LWMS.unwrap!(phase)
 
     return E, phase, amp
-
-
-    # ztop = LWMS.TOPHEIGHT
-    # zs = range(ztop, zero(ztop), length=257)
-    #
-    # waveguide_wavefields = Wavefields[]
-    # waveguide_adjwavefields = similar(waveguide_wavefields)
-    # for s in eachindex(waveguide)
-    #     @unpack bfield, species, ground = waveguide[s]
-    #
-    #     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
-    #     origcoords .= deg2rad.(origcoords)
-    #     tolerance = 1e-8
-    #
-    #     ea = LWMS.findmodes(origcoords, tx.frequency, waveguide[s], tolerance)
-    #
-    #     wavefields = Wavefields(ea, zs)
-    #     adjwavefields = Wavefields(ea, zs)
-    #
-    #     calculate_wavefields!(wavefields, adjwavefields,
-    #                           bfield, tx.frequency, ground, species)
-    #
-    #     # TODO: only store previous and make sure size reflects length(ea)
-    #     push!(waveguide_wavefields, wavefields)
-    #     push!(waveguide_adjwavefields, adjwavefields)
-    # end
-    #
-    # # Try mode conversion
-    # modeconversion(waveguide_wavefields[1],
-    #                waveguide_wavefields[2], waveguide_adjwavefields[2])
 end
 
 
-basepath = "/home/forrest/research/LAIR/ModeSolver/lwpc_comparisons/"
 
-raw = CSV.File(joinpath(basepath, "singletransition.log");
-               skipto=40, delim=' ', ignorerepeated=true, header=false)
 
-dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
-                amp=vcat(raw.Column2, raw.Column5, raw.Column8),
-                phase=vcat(raw.Column3, raw.Column6, raw.Column9))
+"""
+    fieldstrengths()
 
-dat = dat[1:401,:]
+Calculate `Ex`, `Ey`, `Ez`, `ℋx`, `ℋy`, `ℋz` wavefields by full wave
+integration at heights `zs`.
 
-widedf = DataFrame(dist=dat.dist,
-                   lwpc_amp=dat.amp, lwpc_phase=dat.phase,
-                   lwms_amp=amp, lwms_phase=rad2deg.(phase))
+Scales wavefields for waveguide boundary conditions.
+"""
+function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species, ground::Ground)
+    @assert length(EH) == length(zs)
 
-CSV.write(joinpath(basepath, "singletransition.csv"), widedf)
+    e = LWMS.integratewavefields(zs, ea, frequency, bfield, species)
+    R = LWMS.vacuumreflectioncoeffs(ea, e[end])
+    Rg = LWMS.fresnelreflection(ea, ground, frequency)
+    b1, b2 = LWMS.boundaryscalars(R, Rg, e[end])
 
-outpath = "/home/forrest/UCB/SP_2020/PropagationModeling/figures"
+    S = ea.sinθ
+    @inbounds for i in eachindex(EH)
+        # Scale to waveguide boundary conditions
+        w = e[i][:,1]*b1 + e[i][:,2]*b2
 
-function myplot(bfield, ground, tx)
-    f = tx.frequency.f/1000
-    B = Int(bfield.B/1e-9)
-    dip = Int(rad2deg(LWMS.dip(bfield)))
-    az = Int(rad2deg(LWMS.azimuth(bfield)))
-    epsr = ground.ϵᵣ
-    sigma = ground.σ
-
-    gp_title = """
-    TITLE = '"$f kHz\\n\\
-    |B|: $B nT, dip: $(dip)°, az: $(az)°\\n\\
-    h\'\': 75 - 70, β: 0.32 - 0.25 \\n\\
-    ϵ_r: $epsr, σ: $sigma"'"""
-
-    open("gp_title", "w") do io
-        write(io, gp_title)
+        # TODO: Confirm ez, hz math
+        M = LWMS.susceptibility(zs[i], frequency, bfield, species)
+        ez = -(w[4]*S + M[3,1]*w[1] - M[3,2]*w[2])/(1 + M[3,3])
+        hz = -w[2]*S
+        EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
     end
 
-    ga = `gnuplot -c "$(joinpath(outpath,"vertical_amp_linux.gp"))" "$(joinpath(basepath,"singletransition.csv"))" "$(joinpath(outpath,""))"`
-    run(ga)
-
-    gp = `gnuplot -c "$(joinpath(outpath,"vertical_phase_linux.gp"))" "$(joinpath(basepath,"singletransition.csv"))" "$(joinpath(outpath,""))"`
-    run(gp)
+    return nothing
 end
-bfield = waveguide[1].bfield
-ground = waveguide[1].ground
-myplot(bfield, ground, tx)
 
+# TODO rename this
+function calculate_wavefields!(wavefields, adjoint_wavefields,
+                               frequency, waveguide, adjoint_waveguide)
+
+    zs = LWMS.heights(wavefields)
+    @assert zs == LWMS.heights(adjoint_wavefields)
+
+    @unpack bfield, species, ground = waveguide
+    @assert ground == adjoint_waveguide.ground
+    @assert species == adjoint_waveguide.species
+
+    # unpack
+    adjoint_bfield = adjoint_waveguide.bfield
+
+    modes = LWMS.eigenangles(wavefields)
+    adjoint_modes = LWMS.eigenangles(adjoint_wavefields)
+
+    # Check to see if we only need a single loop
+    if length(modes) == length(adjoint_modes)
+        @inbounds for m in eachindex(modes)
+            fieldstrengths!(wavefields[m], zs, modes[m], frequency, bfield, species, ground)
+            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency, adjoint_bfield, species, ground)
+        end
+    else
+        @inbounds for m in eachindex(modes)
+            fieldstrengths!(wavefields[m], zs, modes[m], frequency, bfield, species, ground)
+        end
+        @inbounds for m in eachindex(adjoint_modes)
+            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency, adjoint_bfield, species, ground)
+        end
+    end
+
+    return nothing
+end
 
 
 
@@ -201,49 +192,55 @@ function lwpce(waveguide, tx, rx)
     E = Vector{ComplexF64}(undef, length(X))
 
     frequency = tx.frequency
-
     k = frequency.k
 
-    mik = complex(0, -k)
     sum0 = 682.2408*sqrt(frequency.f/1000*tx.power/1000)
 
     # Antenna orientation factors
     Sγ, Cγ = sincos(π/2 - LWMS.elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(LWMS.azimuth(tx))  # ϕ is measured from `x`
-    t1, t2, t3 = Cγ, Sγ*Sϕ, Sγ*Cϕ
 
     zt = LWMS.altitude(tx)
 
     rxcomponent = LWMS.fieldcomponent(rx)
     zr = LWMS.altitude(rx)
 
-    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
     sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
 
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
-    zs = range(LWMS.TOPHEIGHT, 0.0, length=257)
+    zs = range(LWMS.TOPHEIGHT, 0.0, length=513)
 
 
     nrsgmnt = length(waveguide)
 
-    wavefields_vec = Vector{LWMS.Wavefields}(undef, nrsgmnt)
-    adjwavefields_vec = Vector{LWMS.Wavefields}(undef, nrsgmnt)
+    wavefields_vec = Vector{LWMS.Wavefields{typeof(zs)}}(undef, nrsgmnt)
+    adjwavefields_vec = Vector{LWMS.Wavefields{typeof(zs)}}(undef, nrsgmnt)
 
     # TEMP Precalculate all wavefields
+    # nsgmnt = 1
     for nsgmnt in 1:nrsgmnt
-        modes = LWMS.findmodes(origcoords, frequency, waveguide[nsgmnt], tolerance)
+        wvg = waveguide[nsgmnt]
+        modes = LWMS.findmodes(origcoords, frequency, wvg, tolerance)
+
+        # adjoint wavefields are wavefields through adjoint waveguide, but for same modes as wavefield
+        @unpack bfield, species, ground = wvg
+        adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
+        adjwvg = LWMS.HomogeneousWaveguide(adjoint_bfield, species, ground)
 
         wavefields = LWMS.Wavefields(modes, zs)
         adjwavefields = LWMS.Wavefields(modes, zs)
 
-        LWMS.calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide[nsgmnt])
+        LWMS.calculate_wavefields!(wavefields, adjwavefields, frequency, wvg, adjwvg)
 
         wavefields_vec[nsgmnt] = wavefields
         adjwavefields_vec[nsgmnt] = adjwavefields
     end
-
+#
+#     return wavefields_vec
+# end
 
     for i in eachindex(X)
         dst = X[i]
@@ -255,10 +252,7 @@ function lwpce(waveguide, tx, rx)
         eas = LWMS.eigenangles(wavefields)
         nreigen2 = length(eas)
 
-        xone = zero(wvg.distance)
-        # if nrsgmnt == 1
-        #     xtwo = 40000e3
-        # else
+        xone = wvg.distance  # @assert wvg.distance == 0
         xtwo = waveguide[nsgmnt+1].distance
 
         # soln_a is for `Hy`
@@ -270,17 +264,18 @@ function lwpce(waveguide, tx, rx)
             soln_b[m2] = ta*tb
         end
 
-
-        temp = Vector{ComplexF64}(undef, nreigen2)
         while dst > xtwo
             # End of current slab
-            mikx = mik*(xtwo - xone)
-            nreigen1 = nreigen2
-            for m1 = 1:nreigen1
-                S₀ = LWMS.referencetoground(eas[m1].sinθ)
-                # Exctation factors at end of slab. LWPC uses `Hy`
-                temp[m1] = soln_b[m1]*exp(mikx*(S₀ - 1))
+            x = xtwo - xone
+            mkx = -k*x
+            temp = Vector{ComplexF64}(undef, nreigen2)
+            for m2 = 1:nreigen2
+                S₀ = LWMS.referencetoground(eas[m2].sinθ)
+                # Excitation factors at end of slab. LWPC uses `Hy`
+                soln_b[m2] *= cis(mkx*(S₀ - 1))
+                temp[m2] = soln_b[m2]
             end
+            nreigen1 = nreigen2
             xone = xtwo
 
             # Load next slab
@@ -290,8 +285,8 @@ function lwpce(waveguide, tx, rx)
             wavefields = wavefields_vec[nsgmnt]
             adjwavefields = adjwavefields_vec[nsgmnt]
             prevwavefields = wavefields_vec[nsgmnt-1]
-
-            nreigen2 = LWMS.numeigenangles(wavefields)
+            eas = LWMS.eigenangles(wavefields)
+            nreigen2 = length(eas)
 
             if nsgmnt < nrsgmnt
                 xtwo = waveguide[nsgmnt+1].distance
@@ -301,28 +296,27 @@ function lwpce(waveguide, tx, rx)
 
             a = LWMS.modeconversion(prevwavefields, wavefields, adjwavefields)
 
-            soln_b = zeros(ComplexF64, nreigen2)
-            for m2 = 1:nreigen2
-                for m1 = 1:nreigen1
-                    soln_b[m2] += temp[m1]*a[m1,m2]
-                end
-                # ta is `Hy` excitation factor
-                # Then LWPC calculates E into soln_b
-            end
-
+            soln_b = a*temp
+            # TEMP
+            # soln_b = zeros(ComplexF64, nreigen2)
+            # for m2 in 1:nreigen2
+            #     for m1 in 1:nreigen1
+            #         soln_b[m2] += temp[m1]*a[m2,m1]
+            #     end
+            # end
         end
 
-        mikx = mik*(dst - xone)
+        x = dst - xone
+        mkx = -k*x
         factor = sum0/sqrt(abs(sin(dst/EARTH_RADIUS)))
 
-        # For each component
         tb = zero(ComplexF64)
         for m2 = 1:nreigen2
             S₀ = LWMS.referencetoground(eas[m2].sinθ)
-            tb += soln_b[m2]*exp(mikx*(S₀ - 1))*factor
+            tb += soln_b[m2]*cis(mkx*(S₀ - 1))
         end
 
-        E[i] = tb
+        E[i] = tb*factor
     end
 
     return E
@@ -340,160 +334,32 @@ end
 
 
 
-function lwpce(waveguide, tx, rx)
-    X = LWMS.distance(rx, tx)
-    E = Vector{ComplexF64}(undef, length(X))
 
-    frequency = tx.frequency
-
-    k = frequency.k
-
-    mik = complex(0, -k)
-    sum0 = 682.2408*sqrt(frequency.f/1000*tx.power/1000)
-
-    # Antenna orientation factors
-    Sγ, Cγ = sincos(π/2 - LWMS.elevation(tx))  # γ is measured from vertical
-    Sϕ, Cϕ = sincos(LWMS.azimuth(tx))  # ϕ is measured from `x`
-    t1, t2, t3 = Cγ, Sγ*Sϕ, Sγ*Cϕ
-
-    zt = LWMS.altitude(tx)
-
-    rxcomponent = LWMS.fieldcomponent(rx)
-    zr = LWMS.altitude(rx)
-
-    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
-    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
-
-    # const = sum0
-
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
-    origcoords .= deg2rad.(origcoords)
-    tolerance = 1e-8
-    zs = range(LWMS.TOPHEIGHT, 0.0, length=257)
-
-    nrsgmnt = length(waveguide)
-    for i in eachindex(X)
-        dst = X[i]
-
-        nsgmnt = 1
-        modes = LWMS.findmodes(origcoords, frequency, waveguide[nsgmnt], tolerance)
-
-        wavefields = LWMS.Wavefields(modes, zs)
-        adjwavefields = LWMS.Wavefields(modes, zs)
-        prevwavefields = LWMS.Wavefields(modes, zs)
-
-        LWMS.calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide[nsgmnt])
-
-        nreigen2 = LWMS.numeigenangles(wavefields)
-
-        # soln_a is for `Hy`
-        soln_b = Vector{ComplexF64}(undef, nreigen2)
-
-        # dst0 = 99999 the dst vs dst0 checks aren't really needed because dist issorted
-        xone = 0
-        if nrsgmnt == 1
-            xtwo = 40000e3
-        else
-            xtwo = waveguide[nsgmnt+1].distance
-        end
-
-        wvg = waveguide[nsgmnt]
-        eas = LWMS.eigenangles(wavefields)
-
-        # `for` loop from 180 to 193 and LW_STEP and LW_HTGAIN all contained in modeterms
-        for m2 = 1:nreigen2
-            ta, _ = LWMS.modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
-            soln_b[m2] = ta
-        end
-
-
-        temp = Vector{ComplexF64}(undef, nreigen2)
-        while dst > xtwo
-            # End of current slab
-            mikx = mik*(xtwo - xone)
-            nreigen1 = nreigen2
-            for m1 = 1:nreigen1
-                S₀ = LWMS.referencetoground(eas[m1].sinθ)
-                # Exctation factors at end of slab. LWPC uses `Hy`
-                temp[m1] = soln_b[m1]*exp(mikx*(S₀ - 1))
-            end
-            xone = xtwo
-
-            # Load next slab
-            prevwavefields, wavefields = wavefields, prevwavefields
-            nsgmnt += 1
-            wvg = waveguide[nsgmnt]
-
-            LWMS.calculate_wavefields!(wavefields, adjwavefields, frequency, wvg)
-
-            if nsgmnt < nrsgmnt
-                xtwo = waveguide[nsgmnt+1].distance
-            else
-                xtwo = 40000e3
-            end
-
-            a = LWMS.modeconversion(prevwavefields, wavefields, adjwavefields)
-
-            soln_b = zeros(ComplexF64, nreigen2)
-            for m2 = 1:nreigen2
-                for m1 = 1:nreigen1
-                    soln_b[m2] += temp[m1]*a[m1,m2]
-                end
-                # ta is `Hy` excitation factor
-                # Then LWPC calculates E into soln_b
-            end
-
-        end
-
-        mikx = mik*(dst - xone)
-        factor = sum0/sqrt(abs(sin(dst/EARTH_RADIUS)))
-
-        # For each component
-        tb = zero(ComplexF64)
-        for m2 = 1:nreigen2
-            S₀ = LWMS.referencetoground(eas[m2].sinθ)
-            tb += soln_b[m2]*exp(mikx*(S₀ - 1))*factor
-        end
-
-        E[i] = tb
-    end
-
-    return E
-end
-
-
-
-
-
-
-
-
-
-
-i = 6
-EH = reshape(reinterpret(ComplexF64, EH), 6, :)
-plot(real(EH[i,:]), zs/1000, color="black")
-plot!(imag(EH[i,:]), zs/1000, color="black")
-plot!(abs.(EH[i,:]), zs/1000, color="black")
-plot!(-abs.(EH[i,:]), zs/1000, color="black")
-
-EHadjoint = reshape(reinterpret(ComplexF64, EHadjoint), 6, :)
-plot!(real(EHadjoint[i,:]), zs/1000, color="blue")
-plot!(imag(EHadjoint[i,:]), zs/1000, color="blue")
-plot!(abs.(EHadjoint[i,:]), zs/1000, color="blue")
-plot!(-abs.(EHadjoint[i,:]), zs/1000, color="blue")
-
-
-x = 0.28656210625768974
-@test LWMS.pow23(x) == LWMS.pow23(complex(x))
-y = 100*x
-@test LWMS.pow23(y) == LWMS.pow23(complex(y))
+# i = 6
+# EH = reshape(reinterpret(ComplexF64, EH), 6, :)
+# plot(real(EH[i,:]), zs/1000, color="black")
+# plot!(imag(EH[i,:]), zs/1000, color="black")
+# plot!(abs.(EH[i,:]), zs/1000, color="black")
+# plot!(-abs.(EH[i,:]), zs/1000, color="black")
+#
+# EHadjoint = reshape(reinterpret(ComplexF64, EHadjoint), 6, :)
+# plot!(real(EHadjoint[i,:]), zs/1000, color="blue")
+# plot!(imag(EHadjoint[i,:]), zs/1000, color="blue")
+# plot!(abs.(EHadjoint[i,:]), zs/1000, color="blue")
+# plot!(-abs.(EHadjoint[i,:]), zs/1000, color="blue")
+#
+#
+# x = 0.28656210625768974
+# @test LWMS.pow23(x) == LWMS.pow23(complex(x))
+# y = 100*x
+# @test LWMS.pow23(y) == LWMS.pow23(complex(y))
 
 
 
 
 
 using GRUtils
+colorscheme("dark")  # matches atom, otherwise "light"
 
 basepath = "/home/forrest/research/LAIR/ModeSolver/lwpc_comparisons/"
 
@@ -510,13 +376,36 @@ dat = dat[1:401,:]
 _, phase, amp = mc_scenario()
 
 X = LWMS.distance(rx,tx);
-namp = replace(amp, NaN=>0.0)
-plot(X/1000, namp, linewidth=2)
-oplot(dat.dist, dat.amp)
-xlabel("Distance (km)")
-ylabel("Amp")
+namp = copy(amp)
 
-plot(X/1000, rad2deg.(phase), linewidth=2)
-oplot(dat.dist, dat.phase)
-xlabel("Distance (km)")
-ylabel("Phase")
+# TEMP  first point in amp is NaN which causes it to not plot
+namp[1] = dat.amp[1]
+
+subplot(4, 1, (1, 3));
+plot(X/1000, namp, linewidth=1.5);
+oplot(dat.dist, dat.amp, linewidth=1.5);
+legend("BPM", "LWPC");
+ylabel("Amp (dB μV/m)");
+
+lowplot = subplot(4, 1, 4);
+plot(dat.dist, namp-dat.amp, "gray", linewidth=1.5);
+lowplot.viewport.inner[3] = 0.075;  # override bottom margin
+lowplot.viewport.inner[4] = 0.2;  # and top margin
+ylabel("BPM − LWPC");
+xlabel("Distance (km)");
+GRUtils.gcf()
+
+
+subplot(4, 1, (1, 3));
+plot(X/1000, rad2deg.(phase), linewidth=1.5);
+oplot(dat.dist, dat.phase, linewidth=1.5);
+legend("BPM", "LWPC");
+ylabel("Phase (deg)");
+
+subplot(4, 1, 4);
+plot(dat.dist, rad2deg.(phase)-dat.phase, "gray", linewidth=1.5);
+lowplot.viewport.inner[3] = 0.075;  # override bottom margin
+lowplot.viewport.inner[4] = 0.2;  # and top margin
+xlabel("Distance (km)");
+ylabel("BPM − LWPC");
+GRUtils.gcf()

@@ -13,7 +13,7 @@ See also: [`sharplybounded_R`](@ref)
 
 [^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
-function bookerquartic!(ea::EigenAngle, M::AbstractArray{eltype(BOOKER_QUARTIC_ROOTS)})
+function bookerquartic!(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Precompute

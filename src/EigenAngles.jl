@@ -56,6 +56,6 @@ function Base.show(io::IO, e::EigenAngle)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle)
-    println(io, "EigenAngle{$T}: ")
+    println(io, "EigenAngle: ")
     show(io, e)
 end

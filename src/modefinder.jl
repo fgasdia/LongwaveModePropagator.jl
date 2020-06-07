@@ -461,7 +461,7 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
     @unpack bfield, species = waveguide
 
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
@@ -473,16 +473,19 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
     prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
+    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+                save_on=false, save_start=false, save_end=true)
 
-    return sol[end]
+    R::typeof(Rtop) = sol[end]  # TODO: why is sol::Any?
+
+    return R
 end
 
 # This is kept as a completely separate function because the size of the matrix being
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide, ::Derivative_dθ)
+function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}, ::Derivative_dθ) where T
     @unpack bfield, species = waveguide
 
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
@@ -492,9 +495,12 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8, save_on=false, save_end=true)
+    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+                save_on=false, save_start=false, save_end=true)
 
-    return sol[end]
+    R::typeof(RdRdθtop) = sol[end]  # TODO: why is sol::Any?
+
+    return R
 end
 
 
@@ -587,7 +593,7 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)  # much faster than A\dA
 end
 
-function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
     R = integratedreflection(ea, frequency, waveguide)
     Rg = fresnelreflection(ea, waveguide.ground, frequency)
 
@@ -599,7 +605,7 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
     RdR = integratedreflection(ea, frequency, waveguide, Derivative_dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
@@ -615,7 +621,7 @@ end
 `tolerance=1e-6` and `tolerance=1e-8` is less than 1e-5° in both real and imaginary
 components.
 """
-function findmodes(origcoords::AbstractVector{T}, frequency::Frequency, waveguide::HomogeneousWaveguide, tolerance=1e-8) where {T}
+function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::HomogeneousWaveguide{T}, tolerance=1e-8) where {T}
     # TODO: don't hardcode 30000
 
     # WARNING: If tolerance of mode finder is much less than the R integration

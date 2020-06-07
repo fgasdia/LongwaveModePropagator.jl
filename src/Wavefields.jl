@@ -16,6 +16,23 @@ function Wavefields(eas::Vector{EigenAngle}, zs::T) where {T}
 end
 
 Base.getindex(A::Wavefields, i::Int) = A.v[i]
+Base.similar(A::Wavefields) = Wavefields(A.eas, A.zs)
+Base.copy(A::Wavefields{T}) where T = Wavefields{T}(copy(A.v), copy(A.eas), copy(A.zs))
+
+function (==)(A::Wavefields,B::Wavefields)
+    A.zs == B.zs || return false
+    A.eas == B.eas || return false
+    A.v == B.v || return false
+    return true
+end
+
+function Base.isvalid(A::Wavefields)
+    ealen = length(A.eas)
+    length(A.v) == ealen || return false
+    zlen = length(A.zs)
+    all(length(A.v[i]) == zlen for i in 1:ealen) || return false
+    return true
+end
 
 eigenangles(A::Wavefields) = A.eas
 heights(A::Wavefields) = A.zs
@@ -415,8 +432,8 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     return e
 end
 
-# TODO: automatically determine dz
-integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-100:BOTTOMHEIGHT, ea, frequency, bfield, species)
+# TODO: automatically determine dz, ensure it ends at 0.0
+integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-250:BOTTOMHEIGHT, ea, frequency, bfield, species)
 
 """
     vacuumreflectioncoeffs(ea, e)
@@ -466,15 +483,15 @@ function vacuumreflectioncoeffs(ea::EigenAngle, e1::AbstractArray{T}, e2::Abstra
     Cinv = ea.secθ
 
     # TODO: Special Sv matrix (also useful elsewhere?)
-    Sv_inv = SMatrix{4,4,T,16}(Cinv, 0, -Cinv, 0,
-                               0, -1, 0, -1,
-                               0, -Cinv, 0, Cinv,
-                               1, 0, 1, 0)
+    Sv_inv = SMatrix{4,4,ComplexF64,16}(Cinv, 0, -Cinv, 0,
+                                        0, -1, 0, -1,
+                                        0, -Cinv, 0, Cinv,
+                                        1, 0, 1, 0)
 
     f1 = Sv_inv*e1
     f2 = Sv_inv*e2
 
-    out_type = promote_type(eltype(ea), T)
+    out_type = promote_type(ComplexF64, T)
     U = SMatrix{2,2,out_type,4}(f1[1], f1[2], f2[1], f2[2])
     D = SMatrix{2,2,out_type,4}(f1[3], f1[4], f2[3], f2[4])
 
@@ -535,7 +552,6 @@ Scales wavefields for waveguide boundary conditions.
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species, ground::Ground)
     @assert length(EH) == length(zs)
 
-    # TODO: Should we pass R and Rg?
     e = integratewavefields(zs, ea, frequency, bfield, species)
     R = vacuumreflectioncoeffs(ea, e[end])
     Rg = fresnelreflection(ea, ground, frequency)
@@ -556,23 +572,36 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
     return nothing
 end
 
+# TODO rename this
 function calculate_wavefields!(wavefields, adjoint_wavefields,
-                               frequency, waveguide)
-
-    @assert heights(wavefields) == heights(adjoint_wavefields)
-
-    @unpack bfield, species, ground = waveguide
+                               frequency, waveguide, adjoint_waveguide)
 
     zs = heights(wavefields)
+    @assert zs == heights(adjoint_wavefields)
+
+    @unpack bfield, species, ground = waveguide
+    @assert ground == adjoint_waveguide.ground
+    @assert species == adjoint_waveguide.species
+
+    # unpack
+    adjoint_bfield = adjoint_waveguide.bfield
+
     modes = eigenangles(wavefields)
+    adjoint_modes = eigenangles(adjoint_wavefields)
 
-    @inbounds for m in eachindex(modes)
-        mode = modes[m]
-
-        fieldstrengths!(wavefields[m], zs, mode, frequency, bfield, species, ground)
-
-        adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
-        fieldstrengths!(adjoint_wavefields[m], zs, mode, frequency, adjoint_bfield, species, ground)
+    # Check to see if we only need a single loop
+    if length(modes) == length(adjoint_modes)
+        @inbounds for m in eachindex(modes)
+            fieldstrengths!(wavefields[m], zs, modes[m], frequency, bfield, species, ground)
+            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency, adjoint_bfield, species, ground)
+        end
+    else
+        @inbounds for m in eachindex(modes)
+            fieldstrengths!(wavefields[m], zs, modes[m], frequency, bfield, species, ground)
+        end
+        @inbounds for m in eachindex(adjoint_modes)
+            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency, adjoint_bfield, species, ground)
+        end
     end
 
     return nothing

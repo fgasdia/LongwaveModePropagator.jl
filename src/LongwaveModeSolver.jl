@@ -4,6 +4,7 @@ Main program/scratch file
 module LongwaveModeSolver
 
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
+import Base: ==
 using LinearAlgebra
 
 using StaticArrays

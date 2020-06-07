@@ -182,9 +182,15 @@ function excitationfactor(ea::EigenAngle, dFdθ, R, Rg, efconstants::ExcitationF
     return λv, λb, λe
 end
 
+"""
+antenna orientation factors
+t1: Cγ
+t2: Sγ*Sϕ
+t3: Sγ*Cϕ
+"""
 function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
     # Unpack
-    Sγ, Cγ, Sϕ, Cϕ, zt = emitter_orientation
+    t1, t2, t3, zt = emitter_orientation
     rxcomponent, zr = sampler_orientation
 
     dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
@@ -196,7 +202,7 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     # Transmitter term
     fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
     # λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
-    xmtrterm = λv*fz_t*Cγ + λb*fy_t*Sγ*Sϕ + λe*fx_t*Sγ*Cϕ  # TODO precalculate antenna orientation factors
+    xmtrterm = λv*fz_t*t1 + λb*fy_t*t2 + λe*fx_t*t3
 
     # Receiver term
     # TODO: Handle multiple components
@@ -248,7 +254,7 @@ function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWave
     Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
-    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
     sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
 
     # Initialize E if necessary
