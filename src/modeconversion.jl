@@ -1,3 +1,5 @@
+const ROMBERG_ACCURACY = 0.5  # infinity norm of the difference of the last two estimates
+
 """
 this function takes just 1 mode conversion step
 
@@ -8,7 +10,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
     @assert numheights(previous_wavefields) == numheights(wavefields)
     zs = heights(wavefields)
 
-    # TODO: Assuming `length(zs)` is always the same, we can reuse `product`
+    # TODO: Assuming `length(zs)` is always the same, we can reuse `product` b/t calls
     product = Vector{ComplexF64}(undef, numheights(wavefields))
 
     modes = eigenangles(wavefields)
@@ -30,7 +32,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
             product[i] = adjoint(g)*f
         end
 
-        N[m] = integrate(zs, product, RombergEven())
+        N[m] = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
         # @test isapprox(N[m], trapz(zs, product), rtol=1e-3)
         # @test isapprox(N[m], romberg(zs, product), rtol=1e-3)
     end
@@ -43,17 +45,12 @@ function modeconversion(previous_wavefields::Wavefields{T},
                 @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
                 product[i] = adjoint(g)*f
             end
-            I[m,k] = integrate(zs, product, RombergEven())
+            I[m,k] = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
         end
     end
 
     # Total conversion
-    # a = Matrix{ComplexF64}(undef, numprevmodes, numadjmodes)
-    # for k in eachindex(prevmodes)
-    #     for m in eachindex(adjmodes)
-    #         a[k,m] = I[m,k]/N[m]
-    #     end
-    # end
+    # TODO: calculate `a` without explicitly calculating `I` matrix
     a = I./N
 
     return a

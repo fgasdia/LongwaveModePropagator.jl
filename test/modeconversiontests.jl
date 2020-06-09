@@ -220,7 +220,6 @@ function lwpce(waveguide, tx, rx)
     adjwavefields_vec = Vector{LWMS.Wavefields{typeof(zs)}}(undef, nrsgmnt)
 
     # TEMP Precalculate all wavefields
-    # nsgmnt = 1
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]
         modes = LWMS.findmodes(origcoords, frequency, wvg, tolerance)
@@ -238,9 +237,6 @@ function lwpce(waveguide, tx, rx)
         wavefields_vec[nsgmnt] = wavefields
         adjwavefields_vec[nsgmnt] = adjwavefields
     end
-#
-#     return wavefields_vec
-# end
 
     for i in eachindex(X)
         dst = X[i]
@@ -297,13 +293,6 @@ function lwpce(waveguide, tx, rx)
             a = LWMS.modeconversion(prevwavefields, wavefields, adjwavefields)
 
             soln_b = a*temp
-            # TEMP
-            # soln_b = zeros(ComplexF64, nreigen2)
-            # for m2 in 1:nreigen2
-            #     for m1 in 1:nreigen1
-            #         soln_b[m2] += temp[m1]*a[m2,m1]
-            #     end
-            # end
         end
 
         x = dst - xone

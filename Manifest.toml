@@ -24,6 +24,12 @@ git-tree-sha1 = "649c08a5a3a513f4662673d3777fe6ccb4df9f5d"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
 version = "2.8.7"
 
+[[AxisAlgorithms]]
+deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
+git-tree-sha1 = "a4d07a1c313392a77042855df46c5f534076fab9"
+uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
+version = "1.0.0"
+
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
@@ -41,9 +47,9 @@ version = "0.10.3"
 
 [[Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "InteractiveUtils", "Reexport"]
-git-tree-sha1 = "db9c215e2d92379d341e40dd1d5be893af2bfeb2"
+git-tree-sha1 = "1e9bba7984e78aa8cdeea7f9f7cc984ad4e4b1c7"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.12.1"
+version = "0.12.2"
 
 [[CommonSubexpressions]]
 deps = ["Test"]
@@ -53,9 +59,9 @@ version = "0.2.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "48c20c43e157c6eab6cf88326504ec042b05e456"
+git-tree-sha1 = "37964a28fa8231d769faa10eec8c4436253c48ba"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.10.0"
+version = "3.11.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Libdl", "Pkg"]
@@ -91,9 +97,9 @@ uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "ConsoleProgressMonitor", "DataStructures", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "LoggingExtras", "MuladdMacro", "Parameters", "Printf", "ProgressLogging", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TerminalLoggers", "TreeViews", "ZygoteRules"]
-git-tree-sha1 = "a37901f10b63ed3e413db3320cd6c305c771430d"
+git-tree-sha1 = "9c0de383134905401b684aa30e91ad9e4265683f"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.36.3"
+version = "6.36.4"
 
 [[DiffEqCallbacks]]
 deps = ["DataStructures", "DiffEqBase", "ForwardDiff", "LinearAlgebra", "NLsolve", "OrdinaryDiffEq", "RecipesBase", "RecursiveArrayTools", "StaticArrays"]
@@ -183,6 +189,12 @@ version = "0.1.2"
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
+[[Interpolations]]
+deps = ["AxisAlgorithms", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
+git-tree-sha1 = "2b7d4e9be8b74f03115e64cf36ed2f48ae83d946"
+uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+version = "0.12.10"
+
 [[IterativeSolvers]]
 deps = ["LinearAlgebra", "Printf", "Random", "RecipesBase", "SparseArrays"]
 git-tree-sha1 = "3b7e2aac8c94444947facea7cc7ca91c49169be0"
@@ -245,9 +257,9 @@ version = "0.4.1"
 
 [[LoopVectorization]]
 deps = ["DocStringExtensions", "LinearAlgebra", "OffsetArrays", "SIMDPirates", "SLEEFPirates", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "132e6b82e3434a04992a0be60e194f817101c846"
+git-tree-sha1 = "4bd70eaf5c2d9d03a2bdfc03242ffa8da5a729e1"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.8.2"
+version = "0.8.4"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -291,10 +303,12 @@ uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.3"
 
 [[NumericalIntegration]]
-deps = ["InteractiveUtils", "LinearAlgebra", "Logging", "Test"]
-git-tree-sha1 = "71a5bf35469ec57e1bfdeec7dbb5757e51949bbb"
-uuid = "e7bfaba1-d571-5449-8927-abc22e82249b"
-version = "0.2.0"
+deps = ["Interpolations", "LinearAlgebra", "Logging"]
+git-tree-sha1 = "e568eb437448d5910249fda3d78a646a648b8765"
+repo-rev = "master"
+repo-url = "https://github.com/dextorious/NumericalIntegration.jl"
+uuid = "5f557876-c23b-11e9-3c4d-2f49abec428a"
+version = "0.2.1"
 
 [[OffsetArrays]]
 git-tree-sha1 = "930db8ef90483570107f2396b1ffc6680f08e8b7"
@@ -326,9 +340,9 @@ version = "0.12.1"
 
 [[Parsers]]
 deps = ["Dates", "Test"]
-git-tree-sha1 = "f0abb338b4d00306500056a3fd44c221b8473ef2"
+git-tree-sha1 = "eb3e09940c0d7ae01b01d9291ebad7b081c844d3"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "1.0.4"
+version = "1.0.5"
 
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
@@ -363,6 +377,11 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[[Ratios]]
+git-tree-sha1 = "37d210f612d70f3f7d57d488cb3b6eff56ad4e41"
+uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
+version = "0.4.0"
+
 [[RecipesBase]]
 git-tree-sha1 = "54f8ceb165a0f6d083f0d12cb4996f5367c6edbc"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
@@ -370,9 +389,9 @@ version = "1.0.1"
 
 [[RecursiveArrayTools]]
 deps = ["ArrayInterface", "LinearAlgebra", "RecipesBase", "Requires", "StaticArrays", "Statistics", "ZygoteRules"]
-git-tree-sha1 = "093999ed6ae5780a4724797565adfd211e01e380"
+git-tree-sha1 = "70b71af1679536af52d199b45efa9f77017d0a2d"
 uuid = "731186ca-8d62-57ce-b412-fbd966d074cd"
-version = "2.3.5"
+version = "2.4.2"
 
 [[RecursiveFactorization]]
 deps = ["LinearAlgebra", "LoopVectorization"]
@@ -409,9 +428,9 @@ uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[SIMDPirates]]
 deps = ["VectorizationBase"]
-git-tree-sha1 = "7ac32930e05d1fcb152d792495b9cc4823ca004f"
+git-tree-sha1 = "c328aa037cf6aa84b144debe1e71aa6837fd12a0"
 uuid = "21efa798-c60a-11e8-04d3-e1a92915a26a"
-version = "0.8.5"
+version = "0.8.6"
 
 [[SLEEFPirates]]
 deps = ["Libdl", "SIMDPirates", "VectorizationBase"]
@@ -516,6 +535,12 @@ deps = ["Colors", "GeometricalPredicates", "Random"]
 git-tree-sha1 = "da5560a4c7c767476e85e2dbf4d8c8ca112e542b"
 uuid = "72f80fcb-8c52-57d9-aff0-40c1a3526986"
 version = "0.4.0"
+
+[[WoodburyMatrices]]
+deps = ["LinearAlgebra", "SparseArrays"]
+git-tree-sha1 = "28ffe06d28b1ba8fdb2f36ec7bb079fac81bac0d"
+uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
+version = "0.5.2"
 
 [[ZygoteRules]]
 deps = ["MacroTools"]
