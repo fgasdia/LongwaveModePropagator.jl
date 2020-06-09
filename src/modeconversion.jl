@@ -1,4 +1,6 @@
-const ROMBERG_ACCURACY = 0.5  # infinity norm of the difference of the last two estimates
+# infinity norm of the difference of the last two estimates
+# basically `10` turns off warnings, but |real| values are typically >1e4
+const ROMBERG_ACCURACY = 10.0
 
 """
 this function takes just 1 mode conversion step
@@ -17,14 +19,17 @@ function modeconversion(previous_wavefields::Wavefields{T},
     adjmodes = eigenangles(adjwavefields)
     prevmodes = eigenangles(previous_wavefields)
 
+    modes == adjmodes || @warn "Full mode conversion physics assumes adjoint
+        wavefields are calculated for eigenangles of the original waveguide."
+
     nummodes = length(modes)
     numadjmodes = length(adjmodes)
     numprevmodes = length(prevmodes)
-    @assert nummodes == numadjmodes  # for correct physics, need modes == adjmodes
 
-
-    # Calculate normalization terms
-    N = Vector{ComplexF64}(undef, nummodes)
+    # Calculate _inverse_ normalization terms, 1/N
+    # the inverse is more efficient because we would otherwise repeatedly divide
+    # by N later
+    invN = Vector{ComplexF64}(undef, nummodes)
     for m in eachindex(modes)
         for i in eachindex(zs)
             @inbounds f = wavefields[m][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
@@ -32,12 +37,17 @@ function modeconversion(previous_wavefields::Wavefields{T},
             product[i] = adjoint(g)*f
         end
 
-        N[m] = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
-        # @test isapprox(N[m], trapz(zs, product), rtol=1e-3)
-        # @test isapprox(N[m], romberg(zs, product), rtol=1e-3)
+        N = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+        invN[m] = inv(N)
     end
 
-    I = Matrix{ComplexF64}(undef, numadjmodes, numprevmodes)
+    # TODO: because nummodes = numadjmodes, we don't need to have two sets of loops
+    # we can just have a scalar N, but will need to flip dimensions of `a` to
+    # write down column first. Also, we would then need two product vectors, which
+    # are relatively large
+
+    # `a` is total conversion
+    a = Matrix{ComplexF64}(undef, numadjmodes, numprevmodes)
     for k in eachindex(prevmodes)
         for m in eachindex(adjmodes)
             for i in eachindex(zs)
@@ -45,13 +55,10 @@ function modeconversion(previous_wavefields::Wavefields{T},
                 @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
                 product[i] = adjoint(g)*f
             end
-            I[m,k] = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+            I = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+            @inbounds a[m,k] = I*invN[m]
         end
     end
-
-    # Total conversion
-    # TODO: calculate `a` without explicitly calculating `I` matrix
-    a = I./N
 
     return a
 end

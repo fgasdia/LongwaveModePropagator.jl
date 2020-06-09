@@ -20,8 +20,8 @@ Defines a homogeneous segment of waveguide with a `BField`, `Species`,
 end
 HomogeneousWaveguide(bfield, species, ground) = HomogeneousWaveguide(bfield, species, ground, 0)
 
-struct SegmentedWaveguide{T<:Waveguide} <: Waveguide
-    v::Vector{T}
+struct SegmentedWaveguide{T<:AbstractVector{<:Waveguide}} <: Waveguide
+    v::T
 end
 Base.length(w::SegmentedWaveguide) = length(w.v)
 Base.sort!(w::SegmentedWaveguide) = sort!(w.v, by=x->getfield(x, :distance))
@@ -32,7 +32,13 @@ Base.getindex(w::SegmentedWaveguide, i::Int) = w.v[i]
 Base.setindex(w::SegmentedWaveguide, x, i::Int) = (w.v[i] = x)
 Base.push!(w::SegmentedWaveguide, x) = push!(w.v, x)
 
-SegmentedWaveguide{T}() where T<:Waveguide = SegmentedWaveguide(Vector{T}())
+"""
+    SegmentedWaveguide(w<:Waveguide)
+
+Convenience function that generates a `SegmentedWaveguide` with an empty `Vector`
+of type `w`.
+"""
+SegmentedWaveguide(::Type{T}) where T<:Waveguide = SegmentedWaveguide(Vector{T}())
 
 
 # TODO: WKBWaveguide (that's why we can't call SegmentedWaveguide -> InhomogeneousWaveguide)

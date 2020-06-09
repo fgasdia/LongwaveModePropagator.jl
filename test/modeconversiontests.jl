@@ -2,7 +2,7 @@ using Test
 using LinearAlgebra
 using StaticArrays
 # using Plots
-using NumericalIntegration
+# using NumericalIntegration
 # using Trapz  # for testing only
 using Parameters
 using CSV
@@ -75,7 +75,7 @@ end
 
 
 function mc_scenario()
-    waveguide = LWMS.SegmentedWaveguide{HomogeneousWaveguide}()
+    waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(qₑ, mₑ,
