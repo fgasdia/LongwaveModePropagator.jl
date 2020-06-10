@@ -76,6 +76,44 @@ Return the azimuth angle (rad) from a `BField` vector `b`.
 """
 azimuth(b::BField) = atan(b.dcm,b.dcl)
 
+function isisotropic(b::BField)
+    b.B == 0 && return true
+
+    tolerance = deg2rad(0.15)
+
+    bdip = dip(b)
+    # BUG?: this is the opposite of what I'd first expect... it means the dip angle should be horizontal to be isotropic
+    abs(bdip) < tolerance && return true
+
+    baz = azimuth(b)
+    (abs(baz - π/2) < tolerance || abs(baz - 3π/2) < tolerance) && return true
+
+    return false
+end
+
+# c     Transfer variables from LWPC to WF commons
+#       freq2  =freq
+#       azim2  =azim
+#       codip2 =90.-dip
+#       magfld2=bfield*1.e-4
+#
+#
+#       c     Determine if isotropic case
+#             if (magfld2 .eq. 0.d0) then
+#                isotropic=1
+#             else
+#            &if (ABS(codip2-90.d0) .ge. 0.15d0) then
+#                isotropic=0
+#             else
+#            &if (ABS(azim2- 90.d0) .lt. 0.15d0) then
+#                isotropic=1
+#             else
+#            &if (ABS(azim2-270.d0) .ge. 0.15d0) then
+#                isotropic=0
+#             else
+#                isotropic=1
+#             end if
+
 
 ########
 # Useful plasma functions

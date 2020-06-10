@@ -506,40 +506,51 @@ vacuumreflectioncoeffs(ea, e) = vacuumreflectioncoeffs(ea, e[:,1], e[:,2])
 Calculate coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield
 as ``e = b1*e1 + b2*e2``.
 
-This process is used by LWPC and is similar to the calculation of excitation
+This process is used by LWPC ("wf_bndy.FOR") and is similar to the calculation of excitation
 factor at the ground because it makes use of the mode condition.
 """
-function boundaryscalars(R, Rg, e1, e2)
+function boundaryscalars(R, Rg, e1, e2, isotropic::Bool)
     # This process is similar to excitation factor calculation, using the
     # waveguide mode condition
 
-    Ex1, Ey1, Hx1, Hy1 = e1[1], -e1[2], e1[3], e1[4]
-    Ex2, Ey2, Hx2, Hy2 = e2[1], -e2[2], e2[3], e2[4]
+    ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]
+    ex2, ey2, hx2, hy2 = e2[1], -e2[2], e2[3], e2[4]
 
-    # at the ground, modify for flat earth
-    Hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
-    # ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
+    # TODO modify for flat earth case (imag < -10)
+    # NOTE: these assume `R`s and `e`s at the ground, see e.g. "wf_rbars.for"
+    hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
+    ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
 
     # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
     abparal = 1 - Rg[1,1]*R[1,1]
     abperp = 1 - Rg[2,2]*R[2,2]
-    if abs2(abparal) <= abs2(abperp)
-        pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*(1 - Rg[2,2]*R[2,2]))
+
+    if isotropic
+        temp_a = abs(abperp)
+        temp_b = abs(abparal)
+        if temp_a < temp_b
+            b1 = zero(ey2)
+            b2 = ey0/ey2
+        else
+            b1 = hy0/hy1
+            b2 = zero(hy1)
+        end
     else
-        pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
+        if abs2(abparal) <= abs2(abperp)
+            pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*abperp)
+        else
+            pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
+        end
+        a = (-ey1 + pol*hy1)/(ey2 - pol*hy2)
+        hysum = hy1 + a*hy2
+        b1 = hy0/hysum
+        b2 = b1*a
     end
-
-    a = (-Ey1 + pol*Hy1)/(Ey2 - pol*Hy2)
-
-    Hysum = Hy1 + a*Hy2
-
-    b1 = Hy0/Hysum
-    b2 = b1*a
 
     return b1, b2
 end
 
-boundaryscalars(R, Rg, e) = boundaryscalars(R, Rg, e[:,1], e[:,2])
+boundaryscalars(R, Rg, e, isotropic::Bool) = boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
 
 """
     fieldstrengths()
@@ -551,18 +562,19 @@ Scales wavefields for waveguide boundary conditions.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species, ground::Ground)
     @assert length(EH) == length(zs)
+    zs[end] == 0 || @warn "Waveguide math assumes fields and reflection
+        coefficients are calculated at the ground (`z = 0`)."
 
     e = integratewavefields(zs, ea, frequency, bfield, species)
     R = vacuumreflectioncoeffs(ea, e[end])
     Rg = fresnelreflection(ea, ground, frequency)
-    b1, b2 = boundaryscalars(R, Rg, e[end])
+    b1, b2 = boundaryscalars(R, Rg, e[end], isisotropic(bfield))
 
     S = ea.sinθ
     @inbounds for i in eachindex(EH)
         # Scale to waveguide boundary conditions
         w = e[i][:,1]*b1 + e[i][:,2]*b2
 
-        # TODO: Confirm ez, hz math
         M = susceptibility(zs[i], frequency, bfield, species)
         ez = -(w[4]*S + M[3,1]*w[1] - M[3,2]*w[2])/(1 + M[3,3])
         hz = -w[2]*S
@@ -588,6 +600,8 @@ function calculate_wavefields!(wavefields, adjoint_wavefields,
 
     modes = eigenangles(wavefields)
     adjoint_modes = eigenangles(adjoint_wavefields)
+    modes == adjoint_modes || @warn "Full mode conversion physics assumes adjoint
+        wavefields are calculated for eigenangles of the original waveguide."
 
     # Check to see if we only need a single loop
     if length(modes) == length(adjoint_modes)

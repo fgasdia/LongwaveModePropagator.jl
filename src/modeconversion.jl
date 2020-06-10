@@ -1,6 +1,6 @@
 # infinity norm of the difference of the last two estimates
-# basically `10` turns off warnings, but |real| values are typically >1e4
-const ROMBERG_ACCURACY = 10.0
+# basically `20` turns off warnings, but |real| values are typically >1e4
+const ROMBERG_ACCURACY = 20.0
 
 """
 this function takes just 1 mode conversion step
