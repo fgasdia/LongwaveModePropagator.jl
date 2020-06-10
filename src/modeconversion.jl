@@ -34,7 +34,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
         for i in eachindex(zs)
             @inbounds f = wavefields[m][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
             @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
-            product[i] = adjoint(g)*f
+            product[i] = transpose(g)*f
         end
 
         N = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
@@ -53,7 +53,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
             for i in eachindex(zs)
                 @inbounds f = previous_wavefields[k][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
                 @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
-                product[i] = adjoint(g)*f
+                product[i] = transpose(g)*f
             end
             I = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
             @inbounds a[m,k] = I*invN[m]

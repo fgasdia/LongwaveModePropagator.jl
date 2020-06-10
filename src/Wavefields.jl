@@ -526,17 +526,17 @@ function boundaryscalars(R, Rg, e1, e2, isotropic::Bool)
     abperp = 1 - Rg[2,2]*R[2,2]
 
     if isotropic
-        temp_a = abs(abperp)
-        temp_b = abs(abparal)
-        if temp_a < temp_b
+        if abs2(abperp) < abs2(abparal)
             b1 = zero(ey2)
             b2 = ey0/ey2
+            # hyg = 0
         else
             b1 = hy0/hy1
             b2 = zero(hy1)
+            # eyg = 0
         end
     else
-        if abs2(abparal) <= abs2(abperp)
+        if abs2(abparal) < abs2(abperp)
             pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*abperp)
         else
             pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
