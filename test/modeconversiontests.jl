@@ -54,10 +54,10 @@ function test_calculate_wavefields!()
 end
 
 
-function homoscenario()
+function homoscenario(threshold)
     waveguide =  HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(qₑ, mₑ,
-                                                  z -> waitprofile(z, 75, 0.32),
+                                                  z -> waitprofile(z, 75, 0.32, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001))
 
@@ -70,22 +70,24 @@ function homoscenario()
 
     modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, tolerance)
 
-    LWMS.Efield(modes, waveguide, tx, rx)
+    E, phase, amp = LWMS.Efield(modes, waveguide, tx, rx)
+
+    return E, phase, amp
 end
 
 
-function mc_scenario()
+function mc_scenario(threshold)
     waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(qₑ, mₑ,
-                                                  z -> waitprofile(z, 75, 0.32),
+                                                  z -> waitprofile(z, 75, 0.32, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001)))
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(qₑ, mₑ,
-                                                  z -> waitprofile(z, 70, 0.25),
+                                                  z -> waitprofile(z, 70, 0.25, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001), 1000e3))
 
@@ -181,10 +183,12 @@ function lwpce(waveguide, tx, rx)
 
         # soln_a is for `Hy`
         soln_b = Vector{ComplexF64}(undef, nreigen2)
+        soln_a = similar(soln_b)
 
         # `do` loop from 180 to 193 and LW_STEP and LW_HTGAIN all contained in modeterms
         for m2 = 1:nreigen2
             ta, tb = LWMS.modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
+            soln_a[m2] = ta
             soln_b[m2] = ta*tb
         end
 
@@ -192,12 +196,16 @@ function lwpce(waveguide, tx, rx)
             # End of current slab
             x = xtwo - xone
             mkx = -k*x
-            temp = Vector{ComplexF64}(undef, nreigen2)
+            temp = similar(soln_a)
+
             for m2 = 1:nreigen2
                 S₀ = LWMS.referencetoground(eas[m2].sinθ)
                 # Excitation factors at end of slab. LWPC uses `Hy`
-                soln_b[m2] *= cis(mkx*(S₀ - 1))
-                temp[m2] = soln_b[m2]
+                soln_a[m2] *= cis(mkx*(S₀ - 1))
+                temp[m2] = soln_a[m2]
+
+                # soln_b[m2] *= cis(mkx*(S₀ - 1))
+                # temp[m2] = soln_b[m2]
             end
             nreigen1 = nreigen2
             xone = xtwo
@@ -220,7 +228,20 @@ function lwpce(waveguide, tx, rx)
 
             a = LWMS.modeconversion(prevwavefields, wavefields, adjwavefields)
 
-            soln_b = a*temp
+            # soln_b = a*temp
+
+            soln_a = zeros(ComplexF64, nreigen2)
+            soln_b = similar(soln_a)
+            for m2 = 1:nreigen2
+                for m1 = 1:nreigen1
+                    soln_a[m2] += temp[m1]*a[m2,m1]
+                end
+                # Receiver height gain is calculated in each slab, but transmitter
+                # height gain is only in transmitter slab
+                _, tb = LWMS.modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
+
+                soln_b[m2] = soln_a[m2]*tb
+            end
         end
 
         x = dst - xone
@@ -277,7 +298,45 @@ colorscheme("dark")  # matches atom, otherwise "light"
 
 basepath = "/home/forrest/research/LAIR/ModeSolver/lwpc_comparisons/"
 
-raw = CSV.File(joinpath(basepath, "singletransition.log");
+tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
+rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
+X = LWMS.distance(rx,tx);
+
+# Homogeneous scenario
+E, phase, amp = homoscenario(3e9)
+namp = copy(amp)
+
+# TEMP  first point in amp is NaN which causes it to not plot
+namp[1] = namp[2]
+
+rawdft = CSV.File(joinpath(basepath, "homogeneousionosphere", "dfts.csv");
+                  header=false)
+dft = DataFrame(dist=rawdft.Column1, amp=rawdft.Column2, phase=rawdft.Column3);
+dft = dft[1:findfirst(dft.dist .== X[end]/1000),:]
+dft = dft[1:10:end,:]
+dft.amp .+= 114  # used for Jamesina comparison
+
+
+subplot(4, 1, (1, 3));
+plot(X/1000, namp, linewidth=1.5)
+oplot(X/1000, dft.amp, linewidth=1.5)
+legend("BPM", "FDTD");
+ylabel("Amp (dB μV/m)");
+gcf()
+
+lowplot = subplot(4, 1, 4);
+plot(X/1000, namp-dft.amp, linewidth=1.5);
+lowplot.viewport.inner[3] = 0.075;  # override bottom margin
+lowplot.viewport.inner[4] = 0.2;  # and top margin
+ylabel("Δ BPM");
+xlabel("Distance (km)");
+GRUtils.gcf()
+
+
+
+# Single transition
+scenario = "singletransition"
+raw = CSV.File(joinpath(basepath, scenario, "singletransition.log");
                skipto=40, delim=' ', ignorerepeated=true, header=false)
 
 dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
@@ -286,40 +345,50 @@ dat = DataFrame(dist=vcat(raw.Column1, raw.Column4, raw.Column7),
 
 dat = dat[1:401,:]
 
+rawdft = CSV.File(joinpath(basepath, scenario, "dfts.csv");
+                  header=false)
+dft = DataFrame(dist=rawdft.Column1, amp=rawdft.Column2, phase=rawdft.Column3);
+dft = dft[1:findfirst(dft.dist .== X[end]/1000),:]
+dft = dft[1:10:end,:]
+dft.amp .+= 114  # used for Jamesina comparison
 
-_, phase, amp = mc_scenario()
+# _, phase, amp = mc_scenario(Inf)
+# namp = copy(amp)
+# namp[1] = dat.amp[1]
 
-X = LWMS.distance(rx,tx);
-namp = copy(amp)
-
-# TEMP  first point in amp is NaN which causes it to not plot
-namp[1] = dat.amp[1]
+_, thresh_phase, thresh_amp = mc_scenario(3e9)
+nthresh_amp = copy(thresh_amp)
+nthresh_amp[1] = nthresh_amp[2]
 
 subplot(4, 1, (1, 3));
-plot(X/1000, namp, linewidth=1.5);
-oplot(dat.dist, dat.amp, linewidth=1.5);
-legend("BPM", "LWPC");
+plot(X/1000, nthresh_amp, linewidth=1.5);
+oplot(X/1000, dat.amp, linewidth=1.5);
+oplot(X/1000, dft.amp, linewidth=1.5);
+legend("BPM_thresh", "LWPC", "FDTD");
 ylabel("Amp (dB μV/m)");
 
 lowplot = subplot(4, 1, 4);
-plot(dat.dist, namp-dat.amp, "gray", linewidth=1.5);
+oplot(X/1000, nthresh_amp.-dat.amp, linewidth=1.5);
+oplot(X/1000, nthresh_amp.-dft.amp, linewidth=1.5);
 lowplot.viewport.inner[3] = 0.075;  # override bottom margin
 lowplot.viewport.inner[4] = 0.2;  # and top margin
-ylabel("BPM − LWPC");
+ylabel("Δ BPM");
 xlabel("Distance (km)");
 GRUtils.gcf()
 
 
 subplot(4, 1, (1, 3));
-plot(X/1000, rad2deg.(phase), linewidth=1.5);
-oplot(dat.dist, dat.phase, linewidth=1.5);
-legend("BPM", "LWPC");
+plot(X/1000, rad2deg.(thresh_phase), linewidth=1.5);
+oplot(X/1000, dat.phase, linewidth=1.5);
+oplot(X/1000, dft.phase, linewidth=1.5);
+legend("BPM_thresh", "LWPC", "FDTD");
 ylabel("Phase (deg)");
 
 subplot(4, 1, 4);
-plot(dat.dist, rad2deg.(phase)-dat.phase, "gray", linewidth=1.5);
+plot(dat.dist, rad2deg.(thresh_phase)-dat.phase, linewidth=1.5);
+oplot(dat.dist, rad2deg.(thresh_phase)-dft.phase, linewidth=1.5);
 lowplot.viewport.inner[3] = 0.075;  # override bottom margin
 lowplot.viewport.inner[4] = 0.2;  # and top margin
 xlabel("Distance (km)");
-ylabel("BPM − LWPC");
+ylabel("Δ BPM");
 GRUtils.gcf()

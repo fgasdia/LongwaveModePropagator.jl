@@ -173,8 +173,9 @@ with parameters `h′` (km) and `β` (km⁻¹).
 
 ``Nₑ = 1.43 × 10¹³ \\exp(-0.15 h') ⋅ \\exp[(β - 0.15)(z/1000 - h')]``
 
-!!! note
-    This profile has no altitude cutoffs (it goes to the ground).
+Optional Arguments:
+    - When `z` is below `cutoff_low`, return 0.
+    - When density is greater than `threshold`, return `threshold` (3e9 in FDTD)
 
 See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 
@@ -185,22 +186,17 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 
 [^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6, pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function waitprofile(z, h′, β)
-    # Using form with single `exp` for speed
-    return 1.43e13*exp(-0.15h′ - (β-0.15)*(h′ - z/1000))
-end
-
-"""
-    waitprofile(z, h′, β, cutoff_low)
-
-When `z` is below `cutoff_low` (m), return 0.
-"""
-function waitprofile(z, h′, β, cutoff_low)
+function waitprofile(z, hp, β; cutoff_low=0, threshold=Inf)
     if z > cutoff_low
-        return waitprofile(z, h′, β)
+        # Using form with single `exp` for speed
+        Ne = 1.43e13*exp(-0.15hp - (β-0.15)*(hp - z*0.001))
+        if Ne > threshold
+            return oftype(Ne, threshold)
+        else
+            return Ne
+        end
     else
-        # waitprofile(z, h′, β) return type is essentially promote_type(Float64, typeof(z))
-        return zero(promote_type(Float64, typeof(z)))
+        zero(promote_type(Float64, typeof(z)))
     end
 end
 

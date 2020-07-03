@@ -521,7 +521,6 @@ function boundaryscalars(R, Rg, e1, e2, isotropic::Bool)
     hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
     ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
 
-    # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
     abparal = 1 - Rg[1,1]*R[1,1]
     abperp = 1 - Rg[2,2]*R[2,2]
 
@@ -536,6 +535,7 @@ function boundaryscalars(R, Rg, e1, e2, isotropic::Bool)
             # eyg = 0
         end
     else
+        # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
         if abs2(abparal) < abs2(abperp)
             pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*abperp)
         else

@@ -1,6 +1,6 @@
 # infinity norm of the difference of the last two estimates
 # basically `20` turns off warnings, but |real| values are typically >1e4
-const ROMBERG_ACCURACY = 20.0
+const ROMBERG_ACCURACY = 100.0
 
 """
 this function takes just 1 mode conversion step
@@ -37,7 +37,8 @@ function modeconversion(previous_wavefields::Wavefields{T},
             product[i] = transpose(g)*f
         end
 
-        N = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+        # N = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+        N = romberg(zs, product)
         invN[m] = inv(N)
     end
 
@@ -55,7 +56,8 @@ function modeconversion(previous_wavefields::Wavefields{T},
                 @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
                 product[i] = transpose(g)*f
             end
-            I = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+            # I = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
+            I = romberg(zs, product)
             @inbounds a[m,k] = I*invN[m]
         end
     end

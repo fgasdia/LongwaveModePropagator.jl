@@ -11,7 +11,7 @@ using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
-using NumericalIntegration
+# using NumericalIntegration
 
 using PolynomialRoots: roots!
 
@@ -38,7 +38,7 @@ export TMatrix
 export HomogeneousWaveguide
 
 #
-const TOPHEIGHT = 95e3  # TODO: temporary - should be part of an actual IntegrationParameters
+const TOPHEIGHT = 110e3  # TODO: temporary - should be part of an actual IntegrationParameters
 const BOTTOMHEIGHT = zero(TOPHEIGHT)  # should this be an actual const? Nothing works if it's not 0...
 
 # Not great, but can be changed as `EARTHCURVATURE[]=false`
@@ -76,6 +76,8 @@ include("Samplers.jl")
 include("TMatrix.jl")
 include("Waveguides.jl")
 include("Wavefields.jl")
+
+include("romberg.jl")
 
 include("magnetoionic.jl")
 include("modeconversion.jl")
