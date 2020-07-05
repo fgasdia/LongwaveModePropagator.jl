@@ -221,7 +221,7 @@ end
 """
     Efield!(E, X, modes, waveguide, tx, rx)
 
-Calculate the complex electric field, amplitude, and phase at a distance `x` from transmitter `tx`.
+Calculate the complex electric field at a distance `x` from transmitter `tx`.
 
 `modes` is a collection of `EigenAngles` for the earth-ionosphere waveguide with the parameters
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
@@ -293,158 +293,122 @@ function Efield(
     rx::AbstractSampler
     )
 
-    frequency = tx.frequency
-
     X = distance(rx, tx)
     Xlength = length(X)
 
     Etype = eltype(eltype(modes))
     E = zeros(Etype, Xlength)
-    phase = Array{real(Etype)}(undef, Xlength)
-    amp = Array{real(Etype)}(undef, Xlength)
 
     Efield!(E, modes, waveguide, tx, rx)
 
-    @inbounds for i in eachindex(E)
-        e = E[i]
-        phase[i] = angle(e)  # ranges between -π:π rad
-        amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
-    end
-
-    unwrap!(phase)
-
-    return E, phase, amp
+    return E
 end
 
-#==
-function Efield!(E::AbstractVector{<:Complex}, waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler)
-    # catch if `waveguide` only has a single segment
-    num_segments = length(waveguide)
-    num_segments == 1 && return Efield(modes, only(waveguide), tx, rx)
-
+function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
     X = distance(rx, tx)
-    @assert length(E) == length(X)  # or boundscheck
+    maxX = maximum(X)
+    Xlength = length(X)
+    E = Vector{ComplexF64}(undef, Xlength)
 
     frequency = tx.frequency
-
-    txpower = power(tx)
-    zt = altitude(tx)
     k = frequency.k
-    zr = altitude(rx)
-    rxcomponent = fieldcomponent(rx)
 
-    zs = range(TOPHEIGHT, zero(TOPHEIGHT), length=257)
+    sum0 = 682.2408*sqrt(frequency.f/1000*tx.power/1000)
 
-    # Transmit dipole antenna orientation with respect to propagation direction
-    # See Morfitt 1980 pg 22
+    # Antenna orientation factors
     Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
-    emitter_orientation = (Sγ=Sγ, Cγ=Cγ, Sϕ=Sϕ, Cϕ=Cϕ, zt=zt)
+    zt = altitude(tx)
+
+    rxcomponent = fieldcomponent(rx)
+    zr = altitude(rx)
+
+    emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
     sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
 
-    # Initialize E if necessary
-    iszero(E) || fill!(E, 0)
+    nrsgmnt = length(waveguide)
 
+    # initialize
+    nreigen1 = 0
+    temp = Vector{ComplexF64}(undef, 0)
+    soln_a = similar(temp)
+    soln_b = similar(temp)
 
+    i = 1
+    for nsgmnt = 1:nrsgmnt
+        wvg = waveguide[nsgmnt]
+        wavefields = wavefields_vec[nsgmnt]
+        eas = eigenangles(wavefields)
+        nreigen2 = length(eas)
 
-    # TODO: Move this section out?
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
-    origcoords .= deg2rad.(origcoords)
-    tolerance = 1e-8
+        xone = wvg.distance  # @assert wvg.distance == 0 for nsgmnt == 1
+        maxX < xone && break  # waveguide extends beyond greatest distance
 
-    # Transmitter segment is special
-    # TODO: check transmitter slab is the first slab
-    txwaveguide = first(waveguide)
-
-    modes = findmodes(origcoords, frequency, txwaveguide, tolerance)
-
-    wavefields = Wavefields(modes, zs)
-    adjwavefields = Wavefields(modes, zs)
-
-    calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide)
-    prevwavefields = copy(wavefields)
-
-    # S₀t = referencetoground.(getindex.(modes, :sinθ))
-    S₀t = Vector{eltype(eltype(modes))}(undef, length(modes))
-
-    segment_range = waveguide[2].distance
-    xi = 1  # index into `X`
-    for m in eachindex(modes)
-        @inbounds ea = modes[m]
-
-        xmtrterm, rcvrterm = modeterms(ea, frequency, txwaveguide, emitter_orientation, sampler_orientation)
-
-        # Precalculate
-        S₀ = referencetoground(ea.sinθ)
-        expterm = -k*(S₀ - 1)
-        xmtr_rcvr_term = xmtrterm*rcvrterm
-
-        while X[xi] <= segment_range
-            E[xi] += xmtr_rcvr_term*cis(expterm*X[xi])
-            xi += 1
+        if nsgmnt < nrsgmnt
+            xtwo = waveguide[nsgmnt+1].distance
+        else
+            xtwo = typemax(typeof(xone))
         end
 
-        S₀t[m] = S₀
-    end
+        # soln_a is for `Hy`
+        resize!(soln_a, nreigen2)
+        resize!(soln_b, nreigen2)
+        for m2 = 1:nreigen2
+            ta, tb = modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
 
+            if nsgmnt == 1
+                # Transmitter height gain only needed in transmitter slab
+                soln_a[m2] = ta
+            else
+                # Otherwise, mode conversion
+                adjwavefields = adjwavefields_vec[nsgmnt]
+                prevwavefields = wavefields_vec[nsgmnt-1]
+                a = modeconversion(prevwavefields, wavefields, adjwavefields)
 
-
-    lastj = lastindex(waveguide)
-    for j in 2:num_segments
-        # range from transmitter to end of segment (beginning of next segment)
-        segment_range = j == lastj ? typemax(eltype(waveguide[j].distance)) : waveguide[j+1].distance
-
-        prevmodes = eigenangles(prevwavefields)
-        modes = findmodes(origcoords, frequency, waveguide[j], tolerance)
-
-        wavefields = Wavefields(modes, zs)
-        adjwavefields = Wavefields(modes, zs)
-
-        calculate_wavefields!(wavefields, adjwavefields, frequency, waveguide)
-
-        a = modeconversion(prevwavefields, wavefields, adjwavefields)
-
-
-        for m2 in eachindex(modes)
-            @inbounds ea2 = modes[m2]
-
-            xmtrterm, rcvrterm = modeterms(ea2, frequency, txwaveguide, emitter_orientation, sampler_orientation)
-
-            # Precalculate
-            S₀ = referencetoground(ea.sinθ)
-            expterm = -k*(S₀ - 1)
-
-            if rxcomponent != FC_Ez
-                rcvrterm *= S₀t/S₀
+                soln_a[m2] = 0
+                for m1 = 1:nreigen1
+                    soln_a[m2] += temp[m1]*a[m2,m1]
+                end
             end
 
-            while X[xi] <= segment_range
-                @inbounds E[xi] += xmtr_rcvr_term*cis(expterm*(X[xi] - ))
-                xi += 1
-            end
-
-            prevwavefields, wavefields = wavefields, prevwavefields
+            soln_b[m2] = soln_a[m2]*tb
         end
-        xi == lastindex(X) && break
+
+        while X[i] < xtwo
+            x = X[i] - xone
+            factor = sum0/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
+
+            tb = zero(ComplexF64)
+            for m2 = 1:nreigen2
+                S₀ = referencetoground(eas[m2].sinθ)
+                tb += soln_b[m2]*cis(-k*x*(S₀ - 1))
+            end
+
+            E[i] = tb*factor
+            i += 1
+            i > Xlength && break
+        end
+
+        if nsgmnt < nrsgmnt
+            # End of current slab
+            x = xtwo - xone
+            resize!(temp, nreigen2)
+
+            for m2 = 1:nreigen2
+                S₀ = referencetoground(eas[m2].sinθ)
+                # Excitation factors at end of slab. LWPC uses `Hy`
+                soln_a[m2] *= cis(-k*x*(S₀ - 1))
+                temp[m2] = soln_a[m2]
+            end
+            nreigen1 = nreigen2
+        end
     end
 
-    Q = 682.2408*sqrt(frequency.f/1000*txpower/1000)  # in lw_sum_modes.for
-    # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
-    # Q *= 100 # for V/m to uV/m
-
-    # if zt > 0
-    #     xt3 = radiationresistance(k, Cγ, zt)
-    #     Q *= xt3
-    # end
-
-    @inbounds for i in eachindex(E)
-        E[i] *= Q/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
-    end
-
-    return nothing
+    return E
 end
-==#
+
+
 
 
 
@@ -463,22 +427,6 @@ function radiationresistance(k, Cγ, zt)
     return xt3
 end
 
-
-#==
-"""
-Pappert Shockey 1976
-"""
-function Efield(modes, waveguide::SegmentedWaveguide, tx::Emitter, rx::GroundSampler)
-
-
-
-
-    # Morfitt 1980
-    # `k` is mode index
-    # `n` is field index 1, 2, 3
-    # so `j` must be a slab index
-
-==#
 
 ########
 # Utility functions
