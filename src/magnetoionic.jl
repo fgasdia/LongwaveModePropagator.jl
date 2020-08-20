@@ -220,7 +220,7 @@ function susceptibility(z, frequency::Frequency, bfield::BField, species::Specie
     invω = inv(ω)
     invmω = invω/m  # == inv(m*ω)
 
-    X = N(z)*e^2*invω*invmω/ϵ₀  # ωₚ²/ω² plasma frequency / ω
+    X = N(z)*e^2*invω*invmω/VACUUM_PERMITTIVITY  # ωₚ²/ω² plasma frequency / ω
     Y = abs(e*B*invmω)  # |ωₕ/ω|  gyrofrequency / ω  # Nagano et al 1975 specifies |ωₕ/ω|
     Z = ν(z)*invω  # collision frequency / ω
     U = complex(1, -Z)  # == 1 - im*Z

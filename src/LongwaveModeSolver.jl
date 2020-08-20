@@ -3,8 +3,6 @@ Main program/scratch file
 """
 module LongwaveModeSolver
 
-using Printf  # TEMP
-
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
 using LinearAlgebra
@@ -13,7 +11,6 @@ using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
-# using NumericalIntegration
 using BetterExp  # TEMP faster exp() until merged into Base
 
 using PolynomialRoots: roots!
@@ -25,7 +22,8 @@ using ModifiedHankelFunctionsOfOrderOneThird
 export BField, Species, EigenAngle, FieldComponent, Ground
 export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export c₀, μ₀, ϵ₀, EARTH_RADIUS, CURVATURE_HEIGHT
+export VACUUM_SPEED_OF_LIGHT, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY
+export EARTH_RADIUS, CURVATURE_HEIGHT
 
 # Samplers.jl
 export Receiver, GroundSampler

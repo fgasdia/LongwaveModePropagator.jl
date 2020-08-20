@@ -1,8 +1,8 @@
 # CODATA 2018 NIST SP 961
-const c₀ = 299792458.0  # speed of light in vacuum, m/s
-const μ₀ = 1.25663706212e-6  # vacuum permeability, H/m
-const ϵ₀ = 1/(μ₀*c₀^2)  # vacuum permittivity, F/m
-const Z₀ = 376.730313668  # vacuum impedance, Ω
+const VACUUM_SPEED_OF_LIGHT = 299792458.0  # c, speed of light in vacuum, m/s
+const VACUUM_PERMEABILITY = 1.25663706212e-6  # μ₀, vacuum permeability, H/m
+const VACUUM_PERMITTIVITY = 1/(VACUUM_PERMEABILITY*VACUUM_SPEED_OF_LIGHT^2)  # ϵ₀, vacuum permittivity, F/m
+const VACUUM_IMPEDANCE = 376.730313668  # Z₀, vacuum impedance, Ω
 
 const EARTH_RADIUS = 6366e3  # earth radius, m
 const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
@@ -45,8 +45,8 @@ end
 """
     BField(B, dip, azimuth)
 
-Return a `BField` vector of strength `B` (T), `dip` angle (rad) from the horizontal, and
-`azimuth` angle (rad) from ???.
+Return a `BField` vector of strength `B` (T), `dip` angle (rad) from the
+horizontal, and `azimuth` angle (rad) from ???.
 """
 function BField(B, dip, azimuth)
     # BUG: How can we avoid this?
@@ -91,30 +91,6 @@ function isisotropic(b::BField)
     return false
 end
 
-# c     Transfer variables from LWPC to WF commons
-#       freq2  =freq
-#       azim2  =azim
-#       codip2 =90.-dip
-#       magfld2=bfield*1.e-4
-#
-#
-#       c     Determine if isotropic case
-#             if (magfld2 .eq. 0.d0) then
-#                isotropic=1
-#             else
-#            &if (ABS(codip2-90.d0) .ge. 0.15d0) then
-#                isotropic=0
-#             else
-#            &if (ABS(azim2- 90.d0) .lt. 0.15d0) then
-#                isotropic=1
-#             else
-#            &if (ABS(azim2-270.d0) .ge. 0.15d0) then
-#                isotropic=0
-#             else
-#                isotropic=1
-#             end if
-
-
 ########
 # Useful plasma functions
 
@@ -123,7 +99,7 @@ end
 
 Return the plasma frequency ``ωₚ = √(nq²/(ϵ₀m))`` for a ``cold'' plasma.
 """
-plasmafrequency(n, q, m) = sqrt(n*q^2/(ϵ₀*m))
+plasmafrequency(n, q, m) = sqrt(n*q^2/(VACUUM_PERMITTIVITY*m))
 plasmafrequency(z, s::Species) = plasmafrequency(s.numberdensity(z), s.charge, s.mass)
 
 """
@@ -168,8 +144,8 @@ end
 """
     waitprofile(z, h′, β)
 
-Return the electron number density in m⁻³ at altitude `z` (m) using Wait's exponential profile
-with parameters `h′` (km) and `β` (km⁻¹).
+Return the electron number density in m⁻³ at altitude `z` (m) using Wait's
+exponential profile with parameters `h′` (km) and `β` (km⁻¹).
 
 ``Nₑ = 1.43 × 10¹³ \\exp(-0.15 h') ⋅ \\exp[(β - 0.15)(z/1000 - h')]``
 
@@ -180,11 +156,17 @@ Optional Arguments:
 See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 
 # References
-[^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the earth-ionosphere waveguide for VLF radio waves,” U.S. National Bureau of Standards, Boulder, CO, Technical Note 300, Dec. 1964.
+[^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the
+earth-ionosphere waveguide for VLF radio waves,” U.S. National Bureau of
+Standards, Boulder, CO, Technical Note 300, Dec. 1964.
 
-[^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric parameters,” Journal of Atmospheric and Terrestrial Physics, vol. 55, no. 2, pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
+[^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric
+parameters,” Journal of Atmospheric and Terrestrial Physics, vol. 55, no. 2,
+pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
 
-[^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6, pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
+[^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region
+remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
+pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
 function waitprofile(z, hp, β; cutoff_low=0, threshold=Inf)
     if z > cutoff_low
@@ -203,19 +185,25 @@ end
 """
     electroncollisionfrequency(z)
 
-Return the electron-neutral collision frequency (s⁻¹) at altitude `z` (m) based on Wait's
-conductivity profile.
+Return the electron-neutral collision frequency (s⁻¹) at altitude `z` (m) based
+on Wait's conductivity profile.
 
 ``νₑ(z) = 1.816 × 10¹¹ \\exp(-0.15e-3 z)``
 
 See also: [`waitprofile`](@ref), [`ioncollisionfrequency`](@ref)
 
 # References
-[^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the earth-ionosphere waveguide for VLF radio waves,” U.S. National Bureau of Standards, Boulder, CO, Technical Note 300, Dec. 1964.
+[^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the
+earth-ionosphere waveguide for VLF radio waves,” U.S. National Bureau of
+Standards, Boulder, CO, Technical Note 300, Dec. 1964.
 
-[^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric parameters,” Journal of Atmospheric and Terrestrial Physics, vol. 55, no. 2, pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
+[^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric
+parameters,” Journal of Atmospheric and Terrestrial Physics, vol. 55, no. 2,
+pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
 
-[^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6, pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
+[^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region
+remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
+pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
 function electroncollisionfrequency(z)
     return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
@@ -244,9 +232,14 @@ Return ion-neutral collision frequency (s⁻¹) at height `z` (m) from [^Morfitt
 See also: [`waitprofile`](@ref), [`electroncollisionfrequency`](@ref)
 
 # References
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
+[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved
+computer program for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere
+waveguide,” Naval Electronics Laboratory Center, San Diego, CA, NELC/IR-77T,
+Oct. 1976.
 
-[^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6, pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
+[^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region
+remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
+pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
 function ioncollisionfrequency(z)
     return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
