@@ -5,6 +5,7 @@
     F₄
     h₁0
     h₂0
+    f0fr
 end
 
 ################
@@ -67,13 +68,13 @@ function excitationfactorconstants(ea::EigenAngle, R, Rg, frequency::Frequency, 
     # Sometimes called `f` in papers
     # f0fr = T₂/(T₃*T₄) = T₃/T₁
     # LWPC uses the following criteria for choosing
-    # if abs2(1 - R[1,1]*Rg[1,1]) > abs2(1 - R[2,2]*Rg[2,2])
-    #     f0fr = (1 + Rg[2,2])*(1 - R[1,1]*Rg[1,1])/((1 + Rg[1,1])*R[1,2]*Rg[2,2])
-    # else
-    #     f0fr = (1 + Rg[2,2])*R[2,1]*Rg[1,1]/((1 + Rg[1,1])*(1 - R[2,2]*Rg[2,2]))
-    # end
+    if abs2(1 - R[1,1]*Rg[1,1]) > abs2(1 - R[2,2]*Rg[2,2])
+        f0fr = (1 + Rg[2,2])*(1 - R[1,1]*Rg[1,1])/((1 + Rg[1,1])*R[1,2]*Rg[2,2])
+    else
+        f0fr = (1 + Rg[2,2])*R[2,1]*Rg[1,1]/((1 + Rg[1,1])*(1 - R[2,2]*Rg[2,2]))
+    end
 
-    return ExcitationFactor(F₁, F₂, F₃, F₄, h₁0, h₂0)
+    return ExcitationFactor(F₁, F₂, F₃, F₄, h₁0, h₂0, f0fr)
 end
 
 """
@@ -199,13 +200,26 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     # fz0, fx0, fy0 = heightgains(0, ea, frequency, efconstants)
     λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
 
+    # NOTE:
+    # λv, λb, λe are of opposite sign to LWPC hgt
+
+    # λv = -λv
+    # λb = -λb
+    # λe = -λe
+
+    # TEMP
+    # tp = rad2deg(asin(referencetoground(ea.sinθ)))
+    # @printf("eas: (% 7.3f, % 7.3f):  ", real(tp), imag(tp))
+    # @printf("(% 7.3e, % 7.3e),  (% 7.3e, % 7.3e),  (% 7.3e, % 7.3e)\n", reim(λv)..., reim(λb)..., reim(λe)...)
+
+
     # Transmitter term
     fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
     # λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
     xmtrterm = λv*fz_t*t1 + λb*fy_t*t2 + λe*fx_t*t3
 
     # Receiver term
-    # TODO: Handle multiple components
+    # TODO: Handle multiple components - maybe just always return all 3
     fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
     if rxcomponent == FC_Ez
         rcvrterm = fz_r
@@ -215,7 +229,7 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
         rcvrterm = fy_r
     end
 
-    return xmtrterm, rcvrterm
+    return xmtrterm, rcvrterm, efconstants
 end
 
 """
@@ -335,6 +349,8 @@ function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
     soln_a = similar(temp)
     soln_b = similar(temp)
 
+    println(" ")
+
     i = 1
     for nsgmnt = 1:nrsgmnt
         wvg = waveguide[nsgmnt]
@@ -354,38 +370,91 @@ function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
         # soln_a is for `Hy`
         resize!(soln_a, nreigen2)
         resize!(soln_b, nreigen2)
-        for m2 = 1:nreigen2
-            ta, tb = modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
+        if nsgmnt > 1
+            adjwavefields = adjwavefields_vec[nsgmnt]
+            prevwavefields = wavefields_vec[nsgmnt-1]
+            a = modeconversion(prevwavefields, wavefields, adjwavefields)
 
+            # println("res:")
+            # println(sort(rad2deg.(getfield.(eigenangles(prevwavefields),:θ)),by=real,rev=true))
+            # println(sort(rad2deg.(getfield.(eigenangles(wavefields),:θ)),by=real,rev=true))
+            # println("a ($(size(a)))")
+            # for k = 1:size(a,1)
+            #     print(k,"  ")
+            #     for m = 1:size(a,2)
+            #         @printf("%8.3e  ", real(a[k,m]))
+            #     end
+            #     print("\n")
+            # end
+        end
+
+        println("nsgmnt: $nsgmnt")
+        for m2 = 1:nreigen2
+            ta, hgr, efc = modeterms(eas[m2], frequency, wvg, emitter_orientation, sampler_orientation)
             if nsgmnt == 1
                 # Transmitter height gain only needed in transmitter slab
                 soln_a[m2] = ta
             else
                 # Otherwise, mode conversion
-                adjwavefields = adjwavefields_vec[nsgmnt]
-                prevwavefields = wavefields_vec[nsgmnt-1]
-                a = modeconversion(prevwavefields, wavefields, adjwavefields)
-
-                soln_a[m2] = 0
+                soln_a_sum = zero(eltype(soln_a))
                 for m1 = 1:nreigen1
-                    soln_a[m2] += temp[m1]*a[m2,m1]
+                    soln_a_sum += temp[m1]*a[m2,m1]  # TODO: swap a m2,m1?
                 end
+                soln_a[m2] = soln_a_sum
             end
 
-            soln_b[m2] = soln_a[m2]*tb
+            S₀ = referencetoground(eas[m2].sinθ)
+            if rxcomponent == FC_Ez
+                tb = -S₀*soln_a[m2]
+            elseif rxcomponent == FC_Ex
+                tb = -soln_a[m2]
+            elseif rxcomponent == FC_Ey
+                tb = efc.f0fr*soln_a[m2]
+            end
+            soln_b[m2] = tb*hgr
+
+            # TEMP testing only!
+            # if nsgmnt > 1
+            #     if m2 == 1
+            #         soln_b[m2] = 0.0251-0.00394im
+            #     elseif m2 == 2
+            #         soln_b[m2] = -1.1297e-4+2.108e-5im
+            #     elseif m2 == 3
+            #         soln_b[m2] = -0.02106-0.0104im
+            #     elseif m2 == 4
+            #         soln_b[m2] = -4.705e-5+9.6764e-6im
+            #     elseif m2 == 5
+            #         soln_b[m2] = 0.00971+0.000794im
+            #     elseif m2 == 6
+            #         soln_b[m2] = 1.035e-4-1.379e-4im
+            #     end
+            # end
+
+            tp = rad2deg(asin(S₀))
+            @printf("eas: (% 7.3f, % 7.3f):  ", reim(tp)...)
+            # @printf("soln_a: (% 7.3e, % 7.3e)  ", real(soln_a[m2]), imag(soln_a[m2]))
+            @printf("soln_b: (% 7.3f, % 7.3f)\n", reim(soln_b[m2])...)
         end
 
         while X[i] < xtwo
             x = X[i] - xone
             factor = sum0/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
 
+            # TEMP
+            # @printf("%7.3f  %7.3f  (%3.3f, %8.3f)\n", x, factor, reim(-im*k*x)...)
+
             tb = zero(ComplexF64)
             for m2 = 1:nreigen2
                 S₀ = referencetoground(eas[m2].sinθ)
-                tb += soln_b[m2]*cis(-k*x*(S₀ - 1))
+                # TEMP
+                # tp = rad2deg(asin(S₀))
+                # @printf("(%7.3f, %7.3f)  (%7.3e, %7.3e)\n",reim(tp)...,reim(soln_b[m2])...)
+                tb += soln_b[m2]*cis(-k*x*(S₀ - 1))*factor
             end
 
-            E[i] = tb*factor
+            # @printf("%7.3f  (%7.3f, %7.3f)\n", x, reim(tb)...)
+
+            E[i] = tb
             i += 1
             i > Xlength && break
         end
@@ -393,10 +462,11 @@ function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
         if nsgmnt < nrsgmnt
             # End of current slab
             x = xtwo - xone
-            resize!(temp, nreigen2)
 
+            resize!(temp, nreigen2)
             for m2 = 1:nreigen2
                 S₀ = referencetoground(eas[m2].sinθ)
+
                 # Excitation factors at end of slab. LWPC uses `Hy`
                 soln_a[m2] *= cis(-k*x*(S₀ - 1))
                 temp[m2] = soln_a[m2]

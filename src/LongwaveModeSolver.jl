@@ -3,6 +3,8 @@ Main program/scratch file
 """
 module LongwaveModeSolver
 
+using Printf  # TEMP
+
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
 using LinearAlgebra
@@ -12,6 +14,7 @@ using StaticArrays: promote_tuple_eltype, convert_ntuple
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
 # using NumericalIntegration
+using BetterExp  # TEMP faster exp() until merged into Base
 
 using PolynomialRoots: roots!
 
@@ -29,6 +32,7 @@ export Receiver, GroundSampler
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
+export distance, elevation, azimuth, altitude, fieldcomponent
 
 # TMatrix.jl
 export TMatrix
@@ -36,6 +40,7 @@ export TMatrix
 
 # Waveguides.jl
 export HomogeneousWaveguide
+export eigenangles
 
 #
 const TOPHEIGHT = 110e3  # TODO: temporary - should be part of an actual IntegrationParameters
@@ -84,6 +89,7 @@ include("modeconversion.jl")
 include("modefinder.jl")
 include("modesum.jl")
 
+
 function bpm(waveguide::HomogeneousWaveguide, tx, rx)
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
@@ -109,7 +115,8 @@ function bpm(waveguide::HomogeneousWaveguide, tx, rx)
 end
 
 function bpm(waveguide::SegmentedWaveguide, tx, rx)
-    zs = range(TOPHEIGHT, 0.0, length=513)
+    zs = range(TOPHEIGHT, 0, length=513)
+    # zs = range(TOPHEIGHT, 0, length=129)
     nrsgmnt = length(waveguide)
 
     wavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
@@ -117,11 +124,17 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
 
     origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
-    tolerance = 1e-8
+    tolerance = 1e-7
 
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]
         modes = findmodes(origcoords, tx.frequency, wvg, tolerance)
+
+        # TEMP: not necessary to sort, but easier to compare to LWPC
+        sort!(modes,rev=true)
+        # if nsgmnt > 1
+        #     modes = modes[1:12]
+        # end
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes as wavefield
         @unpack bfield, species, ground = wvg

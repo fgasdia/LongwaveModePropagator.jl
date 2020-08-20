@@ -1,7 +1,3 @@
-# infinity norm of the difference of the last two estimates
-# basically `20` turns off warnings, but |real| values are typically >1e4
-const ROMBERG_ACCURACY = 100.0
-
 """
 this function takes just 1 mode conversion step
 
@@ -28,7 +24,9 @@ function modeconversion(previous_wavefields::Wavefields{T},
 
     # Calculate _inverse_ normalization terms, 1/N
     # the inverse is more efficient because we would otherwise repeatedly divide
-    # by N later
+    # by N later.
+    # Ideally ``N = 1``, but doesn't because we can't integrate over all space and
+    # instead integrate from 0 to TOPHEIGHT
     invN = Vector{ComplexF64}(undef, nummodes)
     for m in eachindex(modes)
         for i in eachindex(zs)
@@ -37,7 +35,6 @@ function modeconversion(previous_wavefields::Wavefields{T},
             product[i] = transpose(g)*f
         end
 
-        # N = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
         N = romberg(zs, product)
         invN[m] = inv(N)
     end
@@ -56,7 +53,6 @@ function modeconversion(previous_wavefields::Wavefields{T},
                 @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
                 product[i] = transpose(g)*f
             end
-            # I = integrate(zs, product, RombergEven(ROMBERG_ACCURACY))
             I = romberg(zs, product)
             @inbounds a[m,k] = I*invN[m]
         end
