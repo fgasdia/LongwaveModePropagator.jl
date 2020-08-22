@@ -88,9 +88,14 @@ See also: [`excitationfactor`](@ref), [`excitationfactorconstants`](@ref)
 
 # References
 
-[^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
+[^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for
+VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics
+Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
 
-[^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891, Aug. 1983.
+[^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF
+(Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for
+Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
+San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::ExcitationFactor)
     C² = ea.cos²θ
@@ -132,24 +137,40 @@ end
 
 Calculate the excitation factor for electric field `component`.
 
-These excitation factors are used in conjunction with the function [`heightgains`](@ref).
+This function assumes that the reflection coefficient matrices are referenced to
+the ground.
+
+These excitation factors are used in conjunction with the function
+[`heightgains`](@ref).
 
 # References
 
-[^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
+[^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for
+VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics
+Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
 
-[^Ferguson1981] J. A. Ferguson and D. G. Morfitt, “WKB mode summing program for dipole antennas of arbitrary orientation and elevation for VLF/LF propagation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-697, Oct. 1981.
+[^Ferguson1981] J. A. Ferguson and D. G. Morfitt, “WKB mode summing program for
+dipole antennas of arbitrary orientation and elevation for VLF/LF propagation,”
+Naval Ocean Systems Center, San Diego, CA, NOSC/TR-697, Oct. 1981.
 
-[^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891, Aug. 1983.
+[^Morfitt1980] D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer
+programs: GRNDMC and ARBNMC,” Naval Ocean Systems Center, San Diego, CA,
+NOSC/TR-514, Jan. 1980.
+
+[^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF
+(Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for
+Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
+San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function excitationfactor(ea::EigenAngle, dFdθ, R, Rg, efconstants::ExcitationFactor, component::FieldComponent)
     S, S², C² = ea.sinθ, ea.sin²θ, ea.cos²θ
     sqrtS = sqrt(S)
 
+    S₀ = referencetoground(S)
+
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
 
-    # TODO: Beter incorporation with other functions?
-    # Calculate height gains for `z=d=0`
+    # Calculate height gains for `z = d = 0`
     fz = (F₁*h₁0 + F₂*h₂0)
     fy = (F₃*h₁0 + F₄*h₂0)
 
@@ -157,25 +178,25 @@ function excitationfactor(ea::EigenAngle, dFdθ, R, Rg, efconstants::ExcitationF
     D₁₂ = fz*fy
     D₂₂ = fy^2
 
-    # `S` is at `CURVATURE_HEIGHT`, specified in e.g.
-    # D. G. Morfitt, ``'Simplified' VLF/LF mode conversion...,'' NOSC/TR-514, 1980, pg 19.
+    # `S` is at `CURVATURE_HEIGHT`, specified in e.g. [Morfitt1980]
     T₁ = sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])/(dFdθ*Rg[1,1]*D₁₁)
     T₂ = sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])/(dFdθ*Rg[2,2]*D₂₂)
     T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]/(dFdθ*D₁₂)
     T₄ = R[1,2]/R[2,1]
 
-    ST₁ = S*T₁
-    ST₃ = S*T₃
+    # Here eigenangle is at the ground (as is everything else)
+    S₀T₁ = S₀*T₁
+    S₀T₃ = S₀*T₃
     if component == FC_Ez
-        λv = S²*T₁
-        λb = -ST₃*T₄
-        λe = -ST₁
+        λv = S₀*S₀T₁
+        λb = -S₀T₃*T₄
+        λe = -S₀T₁
     elseif component == FC_Ey
-        λv = -ST₃
+        λv = -S₀T₃
         λb = T₂
         λe = T₃
     elseif component == FC_Ex
-        λv = ST₁
+        λv = S₀T₁
         λb = -T₃*T₄
         λe = -T₁
     end
@@ -197,23 +218,15 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
 
-    # fz0, fx0, fy0 = heightgains(0, ea, frequency, efconstants)
     λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
-
-    # NOTE:
-    # λv, λb, λe are of opposite sign to LWPC hgt
-
-    # λv = -λv
-    # λb = -λb
-    # λe = -λe
 
     # Transmitter term
     fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
-    # λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
     xmtrterm = λv*fz_t*t1 + λb*fy_t*t2 + λe*fx_t*t3
 
     # Receiver term
     # TODO: Handle multiple components - maybe just always return all 3
+    # TODO: Check if zr == zt so we don't need to recalculate heightgains
     fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
     if rxcomponent == FC_Ez
         rcvrterm = fz_r
@@ -286,6 +299,7 @@ function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWave
     # Q *= 100 # for V/m to uV/m
 
     # TODO: Radiation resistance correction if zt > 0
+    # See, e.g. Pappert Hitney 1989 TWIRE paper
 
     @inbounds for i in eachindex(E)
         E[i] *= Q/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
@@ -384,15 +398,7 @@ function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
                 xmtrfields[n] = xmtrfields_sum
             end
 
-            S₀ = referencetoground(eas[n].sinθ)
-            if rxcomponent == FC_Ez
-                selectedfield = -S₀*xmtrfields[n]
-            elseif rxcomponent == FC_Ex
-                selectedfield = -xmtrfields[n]
-            elseif rxcomponent == FC_Ey
-                selectedfield = efc.f0fr*xmtrfields[n]
-            end
-            rcvrfields[n] = selectedfield*rcvrterm
+            rcvrfields[n] = xmtrfields[n]*rcvrterm
         end
 
         while X[Xidx] < segment_end
@@ -435,6 +441,7 @@ end
 radiation resistance correction factor for when zt isn't 0.
 
 From lw_sum_modes.for
+but could also see Pappert and Hitney 1989 TWIRE paper
 """
 function radiationresistance(k, Cγ, zt)
     x = 2*k*zt

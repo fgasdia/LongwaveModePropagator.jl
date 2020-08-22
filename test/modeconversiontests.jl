@@ -107,7 +107,8 @@ end
 
 
 using GRUtils
-colorscheme("light")  # matches atom, otherwise "light"
+colorscheme("dark")  # matches atom, otherwise "light"
+GRUtils.setfont() = GRUtils.GR.settextfontprec(105,0)  # Helvetica, otherwise CM
 
 ceilto(x, a) = ceil(Int, x/a)*a
 floorto(x, a) = floor(Int, x/a)*a
@@ -170,7 +171,7 @@ gcf()
 
 savefig(joinpath(basepath,"homogeneous_amp.png"))
 
-subplot(4, 1, (1, 3));
+subplot(4, 1, (1, 3));z
 plot(X/1000, rad2deg.(phase), "b", linewidth=1.5)
 oplot(X/1000, dat.phase, "r", linewidth=1.5)
 oplot(X/1000, dft.phase, "y", linewidth=1.5)
@@ -261,8 +262,6 @@ _, thresh_phase, thresh_amp = mc_scenario(3e9)
 nthresh_amp = copy(thresh_amp)
 nthresh_amp[1] = nthresh_amp[2]
 
-# TODO: why?
-thresh_phase .+= π
 
 subplot(4, 1, (1, 3));
 plot(X/1000, nthresh_amp, "b", linewidth=1.5);
@@ -282,7 +281,6 @@ oplot(X/1000, dftdiff, "y-", linewidth=1.5);
 lowplot.viewport.inner[3] = 0.075;  # override bottom margin
 lowplot.viewport.inner[4] = 0.2;  # and top margin
 ylim(ylim_min, ylim_max)
-# ylim(-2, 2)
 yticks(fld(ylim_max-ylim_min,3))
 ylabel("Δ BPM");
 xlabel("Distance (km)");
@@ -348,8 +346,6 @@ _, thresh_phase, thresh_amp = mc_scenario_3(3e9)
 nthresh_amp = copy(thresh_amp)
 nthresh_amp[1] = nthresh_amp[2]
 
-# TODO  why offset?
-thresh_phase .+= π
 
 subplot(4, 1, (1, 3));
 plot(X/1000, nthresh_amp, "b", linewidth=1.5);
@@ -369,7 +365,6 @@ oplot(X/1000, dftdiff, "y-", linewidth=1.5);
 lowplot.viewport.inner[3] = 0.075;  # override bottom margin
 lowplot.viewport.inner[4] = 0.2;  # and top margin
 ylim(ylim_min, ylim_max)
-# ylim(-2, 2)
 yticks(fld(ylim_max-ylim_min,3))
 ylabel("Δ BPM");
 xlabel("Distance (km)");
@@ -384,9 +379,6 @@ ylim_max = max(quantile(rad2deg.(thresh_phase), 0.99), quantile(dat.phase, 0.99)
 ylim_min = floorto(ylim_min, 5) - 1
 ylim_max = ceilto(ylim_max, 5) + 1
 
-# ylim_min = -130
-# ylim_max = 380
-
 subplot(4, 1, (1, 3));
 plot(X/1000, rad2deg.(thresh_phase), "b", linewidth=1.5);
 oplot(X/1000, dat.phase, "r", linewidth=1.5);
@@ -399,9 +391,6 @@ dftdiff = rad2deg.(thresh_phase)-dft.phase
 datdiff = rad2deg.(thresh_phase)-dat.phase
 ylim_min = floorto(min(quantile(dftdiff, 0.01), quantile(datdiff, 0.01)), 5) - 1
 ylim_max = ceilto(max(quantile(dftdiff, 0.99), quantile(datdiff, 0.99)), 5) + 1
-
-# ylim_min = -20
-# ylim_max = 20
 
 subplot(4, 1, 4);
 plot(dat.dist, datdiff, "r-", linewidth=1.5);
