@@ -509,7 +509,7 @@ as ``e = b1*e1 + b2*e2``.
 This process is used by LWPC ("wf_bndy.FOR") and is similar to the calculation of excitation
 factor at the ground because it makes use of the mode condition.
 """
-function boundaryscalars(R, Rg, e1, e2, isotropic::Bool)
+function boundaryscalars(R, Rg, e1, e2, isotropic=false)
     # This process is similar to excitation factor calculation, using the
     # waveguide mode condition
 

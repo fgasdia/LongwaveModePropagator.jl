@@ -7,8 +7,6 @@ import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
 using LinearAlgebra
 
-using Printf
-
 using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks

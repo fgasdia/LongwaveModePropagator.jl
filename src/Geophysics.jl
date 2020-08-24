@@ -142,7 +142,7 @@ end
 ########
 
 """
-    waitprofile(z, h′, β)
+    waitprofile(z, h′, β; cutoff_low=0, threshold=Inf)
 
 Return the electron number density in m⁻³ at altitude `z` (m) using Wait's
 exponential profile with parameters `h′` (km) and `β` (km⁻¹).

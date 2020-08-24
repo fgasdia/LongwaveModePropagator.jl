@@ -10,7 +10,7 @@ function ne_waitprofile()
     end
 
     # Check if zero below cutoff height
-    waitprofile(30e3, 60, 0.35, 50e3) == 0 || return false
+    waitprofile(30e3, 60, 0.35, cutoff_low=50e3) == 0 || return false
 
     return true
 end

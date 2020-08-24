@@ -118,7 +118,7 @@ function drdzwavefield_equivalence_test()
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
                 saveat=zs, save_everystep=false)
 
-    return all(isapprox.(wavefieldRs, sol.u, atol=1e-7))
+    return all(isapprox.(wavefieldRs, sol.u, atol=1e-6))
 end
 
 function homogeneous_scenario()
@@ -202,7 +202,6 @@ function resonance_test()
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
     R = LWMS.vacuumreflectioncoeffs(ea, e[end])
     Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
-    b1, b2 = LWMS.boundaryscalars(R, Rg, e[end])
 
     # Ensure we are close to mode resonance with R
     f = LWMS.modalequation(R, Rg)

@@ -123,6 +123,7 @@ X = LWMS.distance(rx,tx);
 # Homogeneous scenario
 scenario = "homoscenario"
 
+LinearAlgebra.BLAS.set_num_threads(1)
 E, phase, amp = homoscenario(3e9)
 namp = copy(amp)
 

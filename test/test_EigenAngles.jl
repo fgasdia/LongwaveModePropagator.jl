@@ -17,5 +17,5 @@ end
     @test bitstype()
     @test sorting()
 
-    @test_logs (:warn, "θ should be in radians") warns_radians()
+    @test_logs (:warn, "θ > 2π. Make sure θ is in radians.") warns_radians()
 end

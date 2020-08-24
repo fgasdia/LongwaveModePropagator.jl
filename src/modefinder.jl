@@ -436,6 +436,9 @@ function dRdz(R, params, z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
+    # TEMP BUG TODO XXX
+    # return R*1.01
+
     # the factor k/(2i) isn't explicitly in Budden1955a b/c of his change of variable ``s = kz``
     return -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
@@ -465,7 +468,6 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
     @unpack bfield, species = waveguide
 
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
-
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     # TODO: Pass parameters with tolerances, integration method
@@ -590,7 +592,7 @@ See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
 function modalequationdθ(R, dR, Rg, dRg)
     A = Rg*R - I
     dA = dRg*R + Rg*dR
-    return det(A)*tr(A\dA)  # much faster than A\dA
+    return det(A)*tr(A\dA)  # much faster than A\dA TODO: preferred approach?
 end
 
 function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
@@ -625,7 +627,7 @@ function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::
     # TODO: don't hardcode 30000
 
     # WARNING: If tolerance of mode finder is much less than the R integration
-    # tolerance, it is possible multiple identical modes will be identified.
+    # tolerance, it may possible multiple identical modes will be identified.
 
     # TODO: Make a `triangulardomain` for this problem o avoid the low right
 
