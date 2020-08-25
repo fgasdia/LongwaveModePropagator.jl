@@ -4,7 +4,7 @@ using StaticArrays
 using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
 using RootsAndPoles
 using NLsolve
-
+using JSON3, StructTypes
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
@@ -22,4 +22,6 @@ const qₑ = -1.602176634e-19  # C
 
     include("test_wavefields.jl")
     include("test_modefinder.jl")
+
+    include("test_IO.jl")
 end

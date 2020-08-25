@@ -624,15 +624,14 @@ end
 components.
 """
 function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::HomogeneousWaveguide{T}, tolerance=1e-8) where {T}
-    # TODO: don't hardcode 30000
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified.
 
-    # TODO: Make a `triangulardomain` for this problem o avoid the low right
+    est_num_nodes = ceil(Int, length(origcoords)*1.1)
 
     zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide),
-                          origcoords, GRPFParams(30000, tolerance))
+                          origcoords, GRPFParams(est_num_nodes, tolerance, true))
 
     return EigenAngle.(zroots)
 end

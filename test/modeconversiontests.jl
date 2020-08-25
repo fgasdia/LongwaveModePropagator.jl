@@ -123,7 +123,7 @@ X = LWMS.distance(rx,tx);
 # Homogeneous scenario
 scenario = "homoscenario"
 
-LinearAlgebra.BLAS.set_num_threads(1)
+# LinearAlgebra.BLAS.set_num_threads(1)
 E, phase, amp = homoscenario(3e9)
 namp = copy(amp)
 
@@ -268,7 +268,7 @@ subplot(4, 1, (1, 3));
 plot(X/1000, nthresh_amp, "b", linewidth=1.5);
 oplot(X/1000, dat.amp, "r", linewidth=1.5);
 oplot(X/1000, dft.amp, "y", linewidth=1.5);
-legend("BPM_thresh", "LWPC", "FDTD");
+legend("BPM", "LWPC", "FDTD");
 ylabel("Amp (dB μV/m)");
 
 dftdiff = nthresh_amp .- dft.amp
@@ -301,7 +301,7 @@ plot(X/1000, rad2deg.(thresh_phase), "b", linewidth=1.5);
 oplot(X/1000, dat.phase, "r", linewidth=1.5);
 oplot(X/1000, dft.phase, "y", linewidth=1.5);
 ylim(ylim_min, ylim_max)
-legend("BPM_thresh", "LWPC", "FDTD", location="lower right");
+legend("BPM", "LWPC", "FDTD", location="lower right");
 ylabel("Phase (deg)");
 
 dftdiff = rad2deg.(thresh_phase)-dft.phase
@@ -352,7 +352,7 @@ subplot(4, 1, (1, 3));
 plot(X/1000, nthresh_amp, "b", linewidth=1.5);
 oplot(X/1000, dat.amp, "r", linewidth=1.5);
 oplot(X/1000, dft.amp, "y", linewidth=1.5);
-legend("BPM_thresh", "LWPC", "FDTD");
+legend("BPM", "LWPC", "FDTD");
 ylabel("Amp (dB μV/m)");
 
 dftdiff = nthresh_amp .- dft.amp
@@ -385,7 +385,7 @@ plot(X/1000, rad2deg.(thresh_phase), "b", linewidth=1.5);
 oplot(X/1000, dat.phase, "r", linewidth=1.5);
 oplot(X/1000, dft.phase, "y", linewidth=1.5);
 ylim(ylim_min, ylim_max)
-legend("BPM_thresh", "LWPC", "FDTD", location="lower right");
+legend("BPM", "LWPC", "FDTD", location="lower right");
 ylabel("Phase (deg)");
 
 dftdiff = rad2deg.(thresh_phase)-dft.phase

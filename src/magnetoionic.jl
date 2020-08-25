@@ -174,7 +174,7 @@ function sortquarticroots!(v::AbstractArray{Complex{T}}) where {T}
     # Uncomment to test if order of q₁, q₂ matters for `sharpboundaryreflection()`
     # v[2], v[1] = v[1], v[2]
 
-    # BUG: (?) Nagano et al 1975 says that of v1 and v2, the one with the largest
+    # NOTE: Nagano et al 1975 says that of v1 and v2, the one with the largest
     # absolute value corresponds to e1 and the other to e2, although this method
     # does not guarantee that. In fact, I find that this criteria is often not met.
 
