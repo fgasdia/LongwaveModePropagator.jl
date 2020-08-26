@@ -50,6 +50,12 @@ mutable struct BasicInput
 end
 StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
 
+mutable struct BasicOutput
+    output_ranges::Vector{Float64}
+    amplitude::Vector{ComplexF64}
+    phase::Vector{ComplexF64}
+end
+StructTypes.StructType(::Type{BasicOutput}) = StructTypes.Mutable()
 
 """
     iscomplete(s)
@@ -77,9 +83,9 @@ function validlengths(s)
     return true
 end
 
-function parse(io)
+function parse(filename)
     inputtypes = (BasicInput)
-    open(io, "r") do f
+    open(filename, "r") do f
         for t in inputtypes
             s = JSON3.read(f, t)
             completetype = iscomplete(s)
@@ -103,10 +109,10 @@ function buildandrun(s::BasicInput)
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
         tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
-        rx = GroundSampler(s.output_ranges, LWMS.FC_Ez)
+        rx = GroundSampler(s.output_ranges, FC_Ez)
     else
         # SegmentedWaveguide
-        waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
+        waveguide = SegmentedWaveguide(HomogeneousWaveguide)
         for i in eachindex(s.segment_ranges)
             bfield = BField(s.b_mag[i], deg2rad(s.b_dip[i]), deg2rad(s.b_az[i]))
             species = Species(qₑ, mₑ, z -> waitprofile(z, s.hprimes[i], s.betas[i]),
@@ -115,11 +121,12 @@ function buildandrun(s::BasicInput)
             push!(waveguide, HomogeneousWaveguide(bfield, species, ground))
         end
         tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
-        rx = GroundSampler(s.output_ranges, LWMS.FC_Ez)
+        rx = GroundSampler(s.output_ranges, FC_Ez)
     end
 
-    E, phase, amp = LWMS.bpm(waveguide, tx, rx)
+    E, phase, amp = bpm(waveguide, tx, rx)
 
-    # TODO: we should be writing to file (if Julia input, no need to write to file)
     return s.output_ranges, E, phase, amp
+end
+
 end

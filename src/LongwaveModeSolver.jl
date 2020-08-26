@@ -19,6 +19,9 @@ using PolynomialRoots: roots!
 using RootsAndPoles
 using ModifiedHankelFunctionsOfOrderOneThird
 
+# LongwaveModeSolver.jl
+export bpm
+
 # Geophysics.jl
 export BField, Species, EigenAngle, FieldComponent, Ground
 export dip, azimuth
@@ -257,6 +260,33 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     end
 
     return v
+end
+
+"""
+    bpm(filename::AbstractString)
+
+Run the model given a String filename.
+"""
+function bpm(file::AbstractString)
+    ispath(file) || error("$filename is not a valid file name")
+
+    s = parse(file)
+    output_ranges, E, phase, amp = buildandrun(s)
+
+    # Save output
+    basepath = dirname(file)
+    filename, fileextension = splitext(basename(file))
+
+    output = BasicOutput()
+    output.output_ranges = s.output_ranges
+    output.amplitude = amp
+    output.phase = phase
+
+    json_str = JSON3.write(output)
+
+    open(fullfile(basepath,filename*"_output",fileextension), "w") do f
+        write(f, json_str)
+    end
 end
 
 end
