@@ -1,7 +1,7 @@
 using Test
 using LinearAlgebra, Statistics
 using StaticArrays
-using DiffEqBase, OrdinaryDiffEq, DiffEqCallbacks
+using OrdinaryDiffEq, DiffEqCallbacks
 using RootsAndPoles
 using NLsolve
 using JSON3, StructTypes

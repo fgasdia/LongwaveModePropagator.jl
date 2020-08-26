@@ -26,6 +26,9 @@ export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 export VACUUM_SPEED_OF_LIGHT, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY
 export EARTH_RADIUS, CURVATURE_HEIGHT
 
+# IO.jl
+export BasicInput
+
 # Samplers.jl
 export Receiver, GroundSampler
 

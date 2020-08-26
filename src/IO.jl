@@ -24,8 +24,6 @@ Output:
         - E field component(r)?
 """
 
-using JSON3, StructTypes
-
 """
     BasicInput
 
@@ -41,12 +39,17 @@ mutable struct BasicInput
     b_az::Vector{Float64}
     ground_sigmas::Vector{Float64}
     ground_epsr::Vector{Int}
-    freq::Float64
+    frequency::Float64
     output_ranges::Vector{Float64}
 
-    Basic() = new()
+    function BasicInput()
+        s = new()
+        setfield!(s, :frequency, NaN)
+        return s
+    end
 end
 StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
+
 
 """
     iscomplete(s)
@@ -99,7 +102,7 @@ function buildandrun(s::BasicInput)
         ground = Ground(s.epsr, s.sigmas)
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.freq), 100e3)
+        tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
         rx = GroundSampler(s.output_ranges, LWMS.FC_Ez)
     else
         # SegmentedWaveguide
@@ -109,9 +112,9 @@ function buildandrun(s::BasicInput)
             species = Species(qₑ, mₑ, z -> waitprofile(z, s.hprimes[i], s.betas[i]),
                               electroncollisionfrequency)
             ground = Ground(s.epsr, s.sigmas)
-            push!(waveguide, HomogeneousWaveguide(bfield, species, ground)
+            push!(waveguide, HomogeneousWaveguide(bfield, species, ground))
         end
-        tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.freq), 100e3)
+        tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
         rx = GroundSampler(s.output_ranges, LWMS.FC_Ez)
     end
 
