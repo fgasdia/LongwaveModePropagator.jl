@@ -17,6 +17,7 @@ function generate_basic()
 
     input = BasicInput()
     input.id = uuid1()
+    input.name = "basic"
     input.description = "Test BasicInput"
     input.datetime = Dates.now()
 
