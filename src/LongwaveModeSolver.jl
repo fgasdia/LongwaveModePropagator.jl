@@ -5,6 +5,7 @@ module LongwaveModeSolver
 
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
+using UUIDs, Dates
 using LinearAlgebra
 
 using StaticArrays
@@ -26,8 +27,6 @@ export bpm
 export BField, Species, EigenAngle, FieldComponent, Ground
 export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
-export VACUUM_SPEED_OF_LIGHT, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY
-export EARTH_RADIUS, CURVATURE_HEIGHT
 
 # IO.jl
 export BasicInput
@@ -112,6 +111,10 @@ function bpm(waveguide::HomogeneousWaveguide, tx, rx)
         amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
     end
 
+    # Amplitude at transmitter may be calculated as Inf
+    # TODO: replace with something accurate?
+    isinf(amp[1]) && (amp[1] = 0)
+
     # By definition, phase at transmitter is 0, but is calculated as NaN
     isnan(phase[1]) && (phase[1] = 0)
     unwrap!(phase)
@@ -164,6 +167,10 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
         phase[i] = angle(e)  # ranges between -π:π rad
         amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
     end
+
+    # Amplitude at transmitter may be calculated as Inf
+    # TODO: replace with something accurate?
+    isinf(amp[1]) && (amp[1] = 0)
 
     # By definition, phase at transmitter is 0, but is calculated as NaN
     isnan(phase[1]) && (phase[1] = 0)
@@ -278,15 +285,21 @@ function bpm(file::AbstractString)
     filename, fileextension = splitext(basename(file))
 
     output = BasicOutput()
+    output.id = s.id
+    output.description = s.description
+    output.datetime = s.datetime
+
     output.output_ranges = s.output_ranges
     output.amplitude = amp
     output.phase = phase
 
     json_str = JSON3.write(output)
 
-    open(fullfile(basepath,filename*"_output",fileextension), "w") do f
+    open(joinpath(basepath,filename*"_bpm"*fileextension), "w") do f
         write(f, json_str)
     end
+
+    return nothing
 end
 
 end

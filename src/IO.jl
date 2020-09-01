@@ -30,6 +30,10 @@ Output:
 # TODO: list default paramers that aren't specified in struct
 """
 mutable struct BasicInput
+    id::UUID
+    description::String
+    datetime::DateTime
+
     # All units SI
     segment_ranges::Vector{Float64}
     hprimes::Vector{Float64}
@@ -51,9 +55,15 @@ end
 StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
 
 mutable struct BasicOutput
+    id::UUID
+    description::String
+    datetime::DateTime
+
     output_ranges::Vector{Float64}
-    amplitude::Vector{ComplexF64}
-    phase::Vector{ComplexF64}
+    amplitude::Vector{Float64}
+    phase::Vector{Float64}
+
+    BasicOutput() = new()
 end
 StructTypes.StructType(::Type{BasicOutput}) = StructTypes.Mutable()
 
@@ -83,29 +93,39 @@ function validlengths(s)
     return true
 end
 
-function parse(filename)
-    inputtypes = (BasicInput)
-    open(filename, "r") do f
+function parse(file)
+    inputtypes = (BasicInput,)
+
+    # To clarify the syntax here, `filecontents` is what is returned from inside
+    # the `do` block; the json contents if it matched an input type, otherwise
+    # nothing
+    matched = false
+    filecontents = open(file, "r") do f
         for t in inputtypes
             s = JSON3.read(f, t)
-            completetype = iscomplete(s)
-            if completetype
-                validlengths(s) && return s
+            if iscomplete(s) && validlengths(s)
+                matched = true
+                return s
             end
         end
+        return nothing
     end
 
     # If we haven't returned, then no valid format
-    error("$io could not be matched to a valid format.")
+    if matched
+        return filecontents
+    else
+        error("$file could not be matched to a valid format.")
+    end
 end
 
 function buildandrun(s::BasicInput)
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
-        bfield = BField(s.b_mag, deg2rad(s.b_dip), deg2rad(s.b_az))
-        species = Species(qₑ, mₑ, z -> waitprofile(z, s.hprimes, s.betas),
+        bfield = BField(only(s.b_mag), deg2rad(only(s.b_dip)), deg2rad(only(s.b_az)))
+        species = Species(QE, ME, z -> waitprofile(z, only(s.hprimes), only(s.betas), cutoff_low=50e3, threshold=3e9),
                           electroncollisionfrequency)
-        ground = Ground(s.epsr, s.sigmas)
+        ground = Ground(only(s.ground_epsr), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
         tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
@@ -115,10 +135,10 @@ function buildandrun(s::BasicInput)
         waveguide = SegmentedWaveguide(HomogeneousWaveguide)
         for i in eachindex(s.segment_ranges)
             bfield = BField(s.b_mag[i], deg2rad(s.b_dip[i]), deg2rad(s.b_az[i]))
-            species = Species(qₑ, mₑ, z -> waitprofile(z, s.hprimes[i], s.betas[i]),
+            species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i], cutoff_low=50e3, threshold=3e9),
                               electroncollisionfrequency)
-            ground = Ground(s.epsr, s.sigmas)
-            push!(waveguide, HomogeneousWaveguide(bfield, species, ground))
+            ground = Ground(s.ground_epsr, s.ground_sigmas)
+            push!(waveguide, HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i]))
         end
         tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
         rx = GroundSampler(s.output_ranges, FC_Ez)
@@ -127,6 +147,4 @@ function buildandrun(s::BasicInput)
     E, phase, amp = bpm(waveguide, tx, rx)
 
     return s.output_ranges, E, phase, amp
-end
-
 end

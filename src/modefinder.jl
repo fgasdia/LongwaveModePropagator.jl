@@ -514,7 +514,7 @@ function _fresnelreflection(ea, ground, frequency)
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
 
-    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*VACUUM_PERMITTIVITY))
+    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
 
     CNg² = C*Ng²
     sqrtNg²mS² = sqrt(Ng² - S²)

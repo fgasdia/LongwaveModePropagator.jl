@@ -1,8 +1,11 @@
 # CODATA 2018 NIST SP 961
-const VACUUM_SPEED_OF_LIGHT = 299792458.0  # c, speed of light in vacuum, m/s
-const VACUUM_PERMEABILITY = 1.25663706212e-6  # μ₀, vacuum permeability, H/m
-const VACUUM_PERMITTIVITY = 1/(VACUUM_PERMEABILITY*VACUUM_SPEED_OF_LIGHT^2)  # ϵ₀, vacuum permittivity, F/m
-const VACUUM_IMPEDANCE = 376.730313668  # Z₀, vacuum impedance, Ω
+const C0 = 299792458.0  # c, speed of light in vacuum, m/s
+const U0 = 1.25663706212e-6  # μ₀, vacuum permeability, H/m
+const E0 = 1/(U0*C0^2)  # ϵ₀, vacuum permittivity, F/m
+const Z0 = 376.730313668  # Z₀, vacuum impedance, Ω
+
+const QE = -1.602176634e-19  # qₑ, charge of an electron, C
+const ME = 9.1093837015e-31  # mₑ, mass of an electron, kg
 
 const EARTH_RADIUS = 6366e3  # earth radius, m
 const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
@@ -99,7 +102,7 @@ end
 
 Return the plasma frequency ``ωₚ = √(nq²/(ϵ₀m))`` for a ``cold'' plasma.
 """
-plasmafrequency(n, q, m) = sqrt(n*q^2/(VACUUM_PERMITTIVITY*m))
+plasmafrequency(n, q, m) = sqrt(n*q^2/(E0*m))
 plasmafrequency(z, s::Species) = plasmafrequency(s.numberdensity(z), s.charge, s.mass)
 
 """

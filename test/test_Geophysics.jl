@@ -61,9 +61,7 @@ function groundbits()
 end
 
 function speciesbits()
-    mₑ = 9.1093837015e-31
-    qₑ = -1.602176634e-19
-    electrons = Species(qₑ, mₑ,
+    electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32),
                         z -> electroncollisionfrequency)
     return isbits(electrons)

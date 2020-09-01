@@ -1,4 +1,5 @@
 using Test
+using UUIDs, Dates
 using LinearAlgebra, Statistics
 using StaticArrays
 using OrdinaryDiffEq, DiffEqCallbacks
@@ -9,8 +10,8 @@ using JSON3, StructTypes
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
 
-const mₑ = 9.1093837015e-31  # kg
-const qₑ = -1.602176634e-19  # C
+const QE = LWMS.QE
+const ME = LWMS.ME
 
 # To profile in Juno
 # @profiler (for i = 1:1000; LWMS.fcn(); end)

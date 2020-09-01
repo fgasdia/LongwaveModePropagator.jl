@@ -50,7 +50,7 @@ function excitationfactorconstants(ea::EigenAngle, R, Rg, frequency::Frequency, 
     H₂0 = h₂p0 + αok23*h₂0/2
 
     n₀² = 1 - αH  # modified index of refraction (free space) squared
-    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*VACUUM_PERMITTIVITY))  # ground index of refraction
+    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))  # ground index of refraction
 
     # Precompute
     n₀²oNg² = n₀²/Ng²

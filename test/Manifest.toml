@@ -78,7 +78,7 @@ deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[DiffEqBase]]
-deps = ["ArrayInterface", "ChainRulesCore", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "MuladdMacro", "Parameters", "Printf", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews", "ZygoteRules"]
+deps = ["ArrayInterface", "ChainRulesCore", "DataStructures", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "MuladdMacro", "Parameters", "Printf", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "TreeViews", "ZygoteRules"]
 git-tree-sha1 = "c25c2eb947446f4bdb4b34d08ba55c24e0674b0e"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
 version = "6.45.1"

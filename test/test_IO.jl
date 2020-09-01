@@ -16,6 +16,10 @@ function generate_basic()
     output_ranges = collect(0:20e3:2000e3)
 
     input = BasicInput()
+    input.id = uuid1()
+    input.description = "Test BasicInput"
+    input.datetime = Dates.now()
+
     input.segment_ranges = segment_ranges
     input.hprimes = hprimes
     input.betas = betas
@@ -32,6 +36,8 @@ function generate_basic()
     open("basic.json","w") do f
         write(f, json_str)
     end
+
+    return nothing
 end
 
 function read_basic()
@@ -49,8 +55,14 @@ function read_corrupted_basic()
     end
 end
 
+function test_bpm()
+    E, amp, phase = LWMS.bpm("basic.json")
+end
+
 @testset "Testing IO" begin
     @test LWMS.iscomplete(read_basic()) == true
     @test LWMS.validlengths(read_basic()) == true
     @test LWMS.iscomplete(read_corrupted_basic()) == false
+
+    @test_skip test_bpm()
 end

@@ -3,7 +3,7 @@ function scenario()
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
     ground = Ground(15, 0.001)
 
-    electrons = Species(qₑ, mₑ,
+    electrons = Species(QE, ME,
                             z -> waitprofile(z, 75, 0.32),
                             electroncollisionfrequency)
 
@@ -127,7 +127,7 @@ function homogeneous_scenario()
     ground = Ground(15, 0.001)
 
     ionobottom = 50e3
-    species = Species(qₑ, mₑ, z -> z >= ionobottom ? ionobottom : 0.0,
+    species = Species(QE, ME, z -> z >= ionobottom ? ionobottom : 0.0,
                               z -> 5e6)  # ν is constant
 
     # Resonant EigenAngle

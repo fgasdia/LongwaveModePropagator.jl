@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 BetterExp = "7cffe744-45fd-4178-b173-cf893948b8b7"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
@@ -16,6 +17,7 @@ PolynomialRoots = "3a141323-8675-5d76-9d11-e1df1406c778"
 RootsAndPoles = "a0859a10-ccb4-11e8-145d-674b3750773a"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [extras]
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"

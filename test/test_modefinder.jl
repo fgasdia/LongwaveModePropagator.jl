@@ -1,6 +1,3 @@
-const mₑ = 9.1093837015e-31  # kg
-const qₑ = -1.602176634e-19  # C
-
 const Δθ = deg2rad(0.01)
 
 centereddiff(v, Δθ) = (v[3:end] - v[1:end-2])/(2Δθ)  # aligns to [2:end-1]
@@ -13,7 +10,7 @@ function derivative_scenario()
     freq = Frequency(24e3)
     bfield = BField(50e-6, π/2, 0)
     ground = Ground(15, 0.001)
-    electrons = Species(qₑ, mₑ,
+    electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
                         z -> electroncollisionfrequency(z, LWMS.CURVATURE_HEIGHT))
 
@@ -220,7 +217,7 @@ function scenario()
     ground = Ground(15, 0.001)
     bfield = BField(50e-6, deg2rad(90), 0)
 
-    electrons = Species(qₑ, mₑ,
+    electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
                         z -> electroncollisionfrequency(z, LWMS.CURVATURE_HEIGHT))
 

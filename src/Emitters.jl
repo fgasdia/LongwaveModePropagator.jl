@@ -14,8 +14,8 @@ struct Frequency
 end
 function Frequency(f)
     ω = 2π*f
-    k = ω/VACUUM_SPEED_OF_LIGHT
-    λ = VACUUM_SPEED_OF_LIGHT/f
+    k = ω/C0
+    λ = C0/f
 
     Frequency(f, ω, k, λ)
 end

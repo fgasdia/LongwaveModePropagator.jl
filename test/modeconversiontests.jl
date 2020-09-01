@@ -14,13 +14,10 @@ using RootsAndPoles
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
 
-const mₑ = 9.1093837015e-31  # kg
-const qₑ = -1.602176634e-19  # C
-
 
 function homoscenario(threshold)
     waveguide =  HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 75, 0.32, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001))
@@ -36,7 +33,7 @@ end
 
 function homoscenario2(threshold)
     waveguide =  HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 70, 0.25, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001))
@@ -54,13 +51,13 @@ function mc_scenario(threshold)
     waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 75, 0.32, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001)))
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 70, 0.25, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001), 1000e3))
@@ -78,19 +75,19 @@ function mc_scenario_3(threshold)
     waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 75, 0.32, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001)))
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 73, 0.30, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001), 800e3))
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
-                                          Species(qₑ, mₑ,
+                                          Species(QE, ME,
                                                   z -> waitprofile(z, 70, 0.25, threshold=threshold),
                                                   electroncollisionfrequency),
                                           Ground(15, 0.001), 1000e3))
@@ -107,7 +104,7 @@ end
 
 
 using GRUtils
-colorscheme("dark")  # matches atom, otherwise "light"
+colorscheme("light")  # matches atom, otherwise "light"
 GRUtils.setfont() = GRUtils.GR.settextfontprec(105,0)  # Helvetica, otherwise CM
 
 ceilto(x, a) = ceil(Int, x/a)*a
@@ -135,8 +132,9 @@ rawdft = CSV.File(joinpath(basepath, scenario, "alldfts.csv");
 dft = DataFrame(dist=rawdft.Column1, amp=rawdft.Column2, phase=rawdft.Column3);
 dft = dft[1:findfirst(dft.dist .== X[end]/1000),:]
 dft = dft[1:10:end,:]
-dft.amp .+= 116  # used for Jamesina comparison
-dft.phase .-= 33
+# dft.amp .+= 116  # used for Jamesina comparison
+dft.amp .+= 297
+dft.phase .-= 31
 
 raw = CSV.File(joinpath(basepath, scenario, scenario*".log");
                skipto=40, delim=' ', ignorerepeated=true, header=false)
@@ -172,11 +170,11 @@ gcf()
 
 savefig(joinpath(basepath,"homogeneous_amp.png"))
 
-subplot(4, 1, (1, 3));z
+subplot(4, 1, (1, 3));
 plot(X/1000, rad2deg.(phase), "b", linewidth=1.5)
 oplot(X/1000, dat.phase, "r", linewidth=1.5)
 oplot(X/1000, dft.phase, "y", linewidth=1.5)
-legend("BPM", "LWPC", "FDTD");
+legend("BPM", "LWPC", "FDTD", location="lower right");
 ylabel("Phase (deg)");
 
 dftdiff = rad2deg.(phase) - dft.phase
@@ -238,10 +236,13 @@ gcf()
 savefig(joinpath(basepath,"homogeneous2.png"))
 
 
-
-
 # Single transition
 scenario = "singletransition"
+
+_, thresh_phase, thresh_amp = mc_scenario(3e9)
+nthresh_amp = copy(thresh_amp)
+nthresh_amp[1] = nthresh_amp[2]
+
 raw = CSV.File(joinpath(basepath, scenario, "singletransition.log");
                skipto=40, delim=' ', ignorerepeated=true, header=false)
 
@@ -256,13 +257,9 @@ rawdft = CSV.File(joinpath(basepath, scenario, "alldfts.csv");
 dft = DataFrame(dist=rawdft.Column1, amp=rawdft.Column2, phase=rawdft.Column3);
 dft = dft[1:findfirst(dft.dist .== X[end]/1000),:]
 dft = dft[1:10:end,:]
-dft.amp .+= 116  # used for Jamesina comparison
-dft.phase .-= 33
-
-_, thresh_phase, thresh_amp = mc_scenario(3e9)
-nthresh_amp = copy(thresh_amp)
-nthresh_amp[1] = nthresh_amp[2]
-
+# dft.amp .+= 116  # used for Jamesina comparison
+dft.amp .+= 246.5
+dft.phase .-= 31
 
 subplot(4, 1, (1, 3));
 plot(X/1000, nthresh_amp, "b", linewidth=1.5);
@@ -326,6 +323,11 @@ savefig(joinpath(basepath,"single_phase.png"))
 
 # Double transition
 scenario = "doubletransition"
+
+_, thresh_phase, thresh_amp = mc_scenario_3(3e9)
+nthresh_amp = copy(thresh_amp)
+nthresh_amp[1] = nthresh_amp[2]
+
 raw = CSV.File(joinpath(basepath, scenario, "doubletransition.log");
                skipto=40, delim=' ', ignorerepeated=true, header=false)
 
@@ -340,12 +342,9 @@ rawdft = CSV.File(joinpath(basepath, scenario, "alldfts.csv");
 dft = DataFrame(dist=rawdft.Column1, amp=rawdft.Column2, phase=rawdft.Column3);
 dft = dft[1:findfirst(dft.dist .== X[end]/1000),:]
 dft = dft[1:10:end,:]
-dft.amp .+= 116  # used for Jamesina comparison
-dft.phase .-= 33  # used for Jamesina comparison
-
-_, thresh_phase, thresh_amp = mc_scenario_3(3e9)
-nthresh_amp = copy(thresh_amp)
-nthresh_amp[1] = nthresh_amp[2]
+# dft.amp .+= 116  # used for Jamesina comparison
+dft.amp .+= 248
+dft.phase .-= 31  # used for Jamesina comparison
 
 
 subplot(4, 1, (1, 3));
