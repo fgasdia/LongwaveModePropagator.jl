@@ -30,7 +30,6 @@ Output:
 # TODO: list default paramers that aren't specified in struct
 """
 mutable struct BasicInput
-    id::UUID
     name::String
     description::String
     datetime::DateTime

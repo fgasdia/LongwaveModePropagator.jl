@@ -16,7 +16,6 @@ function generate_basic()
     output_ranges = collect(0:20e3:2000e3)
 
     input = BasicInput()
-    input.id = uuid1()
     input.name = "basic"
     input.description = "Test BasicInput"
     input.datetime = Dates.now()
