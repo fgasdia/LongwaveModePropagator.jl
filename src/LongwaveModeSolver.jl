@@ -285,13 +285,13 @@ function bpm(file::AbstractString)
     filename, fileextension = splitext(basename(file))
 
     output = BasicOutput()
-    output.id = s.id
+    output.name = s.name
     output.description = s.description
     output.datetime = s.datetime
 
     output.output_ranges = s.output_ranges
     output.amplitude = amp
-    output.phase = phase
+    output.phase = rad2deg.(phase)
 
     json_str = JSON3.write(output)
 

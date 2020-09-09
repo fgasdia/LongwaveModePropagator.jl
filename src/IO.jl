@@ -55,7 +55,6 @@ end
 StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
 
 mutable struct BasicOutput
-    id::UUID
     name::String
     description::String
     datetime::DateTime
