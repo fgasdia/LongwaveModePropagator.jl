@@ -457,17 +457,12 @@ end
 ########
 # Utility functions
 
-function unwrap!(phasearray::AbstractVector)
-    @inbounds for i in 2:length(phasearray)
-        d = phasearray[i] - phasearray[i-1]
-        if d >= π
-            d -= 2π
-        elseif d < -π
-            d += 2π
-        end
-        phasearray[i] = phasearray[i-1] + d
-    end
-    return nothing
+function unwrap!(x)
+	v = first(x)
+	@inbounds for k in eachindex(x)
+		x[k] = v = v + rem2pi(x[k]-v, RoundNearest)
+	end
+	return x
 end
 
 # see, e.g. PS71 pg 11

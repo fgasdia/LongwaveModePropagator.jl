@@ -272,7 +272,7 @@ end
 """
     bpm(filename::AbstractString)
 
-Run the model given a String filename.
+Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
 function bpm(file::AbstractString)
     ispath(file) || error("$filename is not a valid file name")
