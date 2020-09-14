@@ -137,7 +137,7 @@ function buildandrun(s::BasicInput)
             bfield = BField(s.b_mag[i], deg2rad(s.b_dip[i]), deg2rad(s.b_az[i]))
             species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i], cutoff_low=50e3, threshold=3e9),
                               electroncollisionfrequency)
-            ground = Ground(s.ground_epsr, s.ground_sigmas)
+            ground = Ground(s.ground_epsr[i], s.ground_sigmas[i])
             push!(waveguide, HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i]))
         end
         tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)

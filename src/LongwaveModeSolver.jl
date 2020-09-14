@@ -289,6 +289,9 @@ function bpm(file::AbstractString)
     output.description = s.description
     output.datetime = s.datetime
 
+    # TEMP, otherwise amp may be NaN which cannot be written to JSON
+    amp[1] = amp[2]
+
     output.output_ranges = s.output_ranges
     output.amplitude = amp
     output.phase = rad2deg.(phase)
