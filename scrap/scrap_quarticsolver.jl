@@ -74,8 +74,6 @@ function solvequartic(B4, B3, B2, B1, B0)
 end
 
 
-
-
 """
 Solution for the roots of a fourth-order polynomial (quartic equation) taken from Burnside
 and Panton (1904), the Theory of Equations. A summary of the equations and process is given
@@ -217,3 +215,65 @@ C = cos(complex(0.672, -0.12))
 
 Rpar = ((T1*C - P1)*(C + q2) - (T2*C - P2)*(C + q1))
 Xpar = (T1*(C+q2) - T2*(C+q1))*2
+
+
+
+
+"""
+Return a cube roots of a complex number `z`.
+
+See https://math.stackexchange.com/questions/394432/cube-roots-of-the-complex-numbers-1i
+"""
+function complexcbrts(z::Complex)
+    r = abs(z)
+    rroot = cbrt(r)
+    θ = angle(z)
+    dθ = θ/3
+
+    r1 = rroot*cis(dθ)
+    r2 = rroot*cis(2π/3 + dθ)
+    r3 = rroot*cis(2π*2/3 + dθ)
+
+    return r1, r2, r3
+end
+
+function bookerquartic(B4, B3, B2, B1, B0)
+    b3 = B3/(4*B4)
+    b2 = B2/(6*B4)
+    b1 = B1/(4*B4)
+    b0 = B0/B4
+
+    b3² = b3^2
+
+    H = b2 - b3²
+    Iv = b0 - 4*b3*b1 + 3*b2^2
+    G = b1 - 3*b3*b2 + 2*b3²
+    h = -Iv/12
+    g = -G^2/4 - H*(H^2 + 3*h)
+
+    tmpsqrt = sqrt(complex(g^2 + 4*h^3))
+    p = (-g + tmpsqrt)/2
+    abs(p) < 1e-10 && (p = (-g - tmpsqrt)/2)
+
+    # LWPC hard codes two of the unit cube roots and uses exp(log(p)/3) for cbrt
+    s1, s2, s3 = complexcbrts(p)
+
+    r1 = sqrt(s1 - h/s1 - H)
+    r2 = sqrt(s2 - h/s2 - H)
+    r3 = sqrt(s3 - h/s3 - H)
+
+    # If G != 0, G should = +1, if G = -1, switch sign of one r
+    abs2(G) > 0 && real(-2*r1*r2*r3/G) < 0 && (r1 = -r1)
+
+    q1 = r1 + r2 + r3 - b3
+    q2 = r1 - r2 - r3 - b3
+    q3 = -r1 + r2 - r3 - b3
+    q4 = -r1 - r2 + r3 - b3
+
+    # LWPC then does first order Newton-Raphson iterative improvement, probably
+    # because the above algorithm is AWFUL in comparison to the above algorithms
+    # It's not clear if I need to an iterative refinement to the above closed
+    # form solution
+
+    return q1, q2, q3, q4
+end
