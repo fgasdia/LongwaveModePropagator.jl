@@ -76,7 +76,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
          S*q[i]+M[3,1] M[3,2] C²+M[3,3]]
     ==#
 
-    #BUG: Need to check that Sheddy actually wants roots 2, 1 in that order rather
+    # BUG: Need to check that Sheddy actually wants roots 2, 1 in that order rather
     # than the order used by Pitteway.
 
     # Precompute
@@ -234,10 +234,13 @@ function sharpboundaryreflection(ea::EigenAngle, M, ::Derivative_dθ)
             C*(dP₁ - dT₁*q[2] + dT₂*q[1] - T₁*dq_2 + T₂*dq_1 - dP₂) +
             dP₂*q[1] + P₂*dq_1 - dP₁*q[2] - P₁*dq_2)
 
-    return @SMatrix [R11 R12;
-                     R21 R22;
-                     dR11 dR12;
-                     dR21 dR22]
+    #==
+    [R11 R12;
+     R21 R22;
+     dR11 dR12;
+     dR21 dR22]
+    ==#
+    return SMatrix{4,2,typeof(R11),8}(R11, R21, dR11, dR21, R12, R22, dR12, dR22)
 end
 
 """
@@ -431,9 +434,6 @@ function dRdz(R, params, z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
-    # TEMP BUG TODO XXX
-    # return R*1.01
-
     # the factor k/(2i) isn't explicitly in Budden1955a b/c of his change of variable ``s = kz``
     return -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
@@ -473,7 +473,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
-    R::typeof(Rtop) = sol[end]  # TODO: why is sol::Any?
+    R = sol[end]
 
     return R
 end
@@ -495,7 +495,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
-    R::typeof(RdRdθtop) = sol[end]  # TODO: why is sol::Any?
+    R = sol[end]
 
     return R
 end
@@ -587,7 +587,7 @@ See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
 function modalequationdθ(R, dR, Rg, dRg)
     A = Rg*R - I
     dA = dRg*R + Rg*dR
-    return det(A)*tr(A\dA)  # much faster than A\dA TODO: preferred approach?
+    return det(A)*tr(A\dA)
 end
 
 function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
@@ -629,4 +629,93 @@ function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::
                           origcoords, GRPFParams(est_num_nodes, tolerance, true))
 
     return EigenAngle.(zroots)
+end
+
+"""
+    triangulardomain(Za, Zb, Zc, Δr)
+
+Generate initial mesh node coordinates for a *grid-aligned right* triangle domain
+∈ {`Za`, `Zb`, `Zc`} with initial mesh step `Δr`.
+
+This function generates a mesh grid for particular right triangles where two
+sides of the triangle are aligned to the underlying real/imaginary grid. Examples
+of such triangles are:
+
+a ----- b
+|     /
+|   /
+| /
+c
+
+where
+    - a, b have greatest extent in x
+    - a, c have greatest extent in y
+"""
+function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
+    rZa, iZa = reim(Za)
+    rZb, iZb = reim(Zb)
+    rZc, iZc = reim(Zc)
+
+    #==
+    # Check if this is a right triangle
+    validtriangle = true
+    if rZa == rZb == rZc
+        validtriangle = false
+    elseif iZa == iZb == iZc
+        validtriangle = false
+    elseif rZa == rZb
+        iZa == iZc || iZb == iZc || (validtriangle = false)
+    elseif rZa == rZc
+        iZa == iZb || iZb == iZc || (validtriangle = false)
+    elseif rZb == rZc
+        iZa == iZb || iZa == iZc || (validtriangle = false)
+    else
+        validtriangle = false
+    end
+    validtriangle || throw(ArgumentError("`Za`, `Zb`, `Zc` do not define a grid-aligned right triangle"))
+
+    iZa == iZb || ((Zb, Zc) = (Zc, Zb))
+    rZb > rZa || ((Za, Zb) = (Zb, Za))
+    ==#
+
+    # Determine `dx` and `dy`
+    X = rZb - rZa
+    Y = abs(iZa - iZc)
+
+    n = ceil(Int, Y/Δr + 1)
+    dy = Y/(n-1)
+    half_dy = dy/2
+
+    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4) + 1)
+    dx = X/(m-1)
+
+    # precalculate
+    mn = m*n
+    slope = Y/X
+
+    vlength = mn + div(m, 2)  # BUG?
+    T = promote_type(typeof(Za), typeof(Zb), typeof(Zc), typeof(Δr), Float64)
+    v = Vector{T}()
+
+    on = false
+    for j = 0:m-1  # col
+        for i = 0:n-1  # row (we're traversing down column)
+
+            x = rZa + dx*j
+            y = iZc + dy*i
+
+            if (i+1) == n
+                on = !on
+            end
+            if on
+                y -= half_dy
+            end
+
+            if y >= (iZc + slope*(x - rZa))
+                push!(v, complex(x, y))
+            end
+        end
+    end
+
+    return v
 end
