@@ -7,7 +7,7 @@ const Z0 = 376.730313668  # Z₀, vacuum impedance, Ω
 const QE = -1.602176634e-19  # qₑ, charge of an electron, C
 const ME = 9.1093837015e-31  # mₑ, mass of an electron, kg
 
-const EARTH_RADIUS = 6366e3  # earth radius, m
+const EARTHRADIUS = 6366e3  # earth radius, m
 const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
 
 ########

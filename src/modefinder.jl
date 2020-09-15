@@ -57,7 +57,7 @@ end
 function _sharpboundaryreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
-    # XXX: `bookerquartic` (really `roots!`) dominates this functions runtime
+    # XXX: `bookerquartic` (really `roots!`) dominates this function's runtime
     bookerquartic!(ea, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being
@@ -153,7 +153,7 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     R12 = -C2*(T₁*P₂ - T₂*P₁)*Δ⁻¹  # ⟂R∥
     R21 = -C2*(q[1] - q[2])*Δ⁻¹  # ∥R⟂
 
-    return SMatrix{2,2}(R11, R21, R12, R22)
+    return SMatrix{2,2,ComplexF64,4}(R11, R21, R12, R22)
 end
 
 # TODO: Autodiff with Zygote?
@@ -631,7 +631,7 @@ function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::
     est_num_nodes = ceil(Int, length(origcoords)*1.1)
 
     zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide),
-                          origcoords, GRPFParams(est_num_nodes, tolerance, true))
+                          origcoords, GRPFParams(est_num_nodes, tolerance, false))  # TEMP false
 
     return EigenAngle.(zroots)
 end

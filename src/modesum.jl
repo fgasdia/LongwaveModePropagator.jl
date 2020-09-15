@@ -34,7 +34,7 @@ function excitationfactorconstants(ea::EigenAngle, R, Rg, frequency::Frequency, 
     # `ea` is at height `CURVATURE_HEIGHT`. See, e.g. Pappert1971 pg 8
 
     # Precompute
-    α = 2/EARTH_RADIUS
+    α = 2/EARTHRADIUS
     αH = α*CURVATURE_HEIGHT
     koα = k/α
     cbrtkoα = cbrt(koα)
@@ -103,9 +103,9 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::Excit
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
 
     # Precompute
-    α = 2/EARTH_RADIUS
+    α = 2/EARTHRADIUS
     koα23 = pow23(k/α)  # (k/α)^(2/3)
-    expzore = exp(z/EARTH_RADIUS)  # assumes `d = 0`
+    expzore = exp(z/EARTHRADIUS)  # assumes `d = 0`
 
     qz = koα23*(C² - α*(CURVATURE_HEIGHT - z))
 
@@ -124,7 +124,7 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::Excit
 
     # Height gain for Ex, also called g(z)
     # f₂ = 1/(im*k) df₁/dz
-    fx = -im*expzore/(EARTH_RADIUS*k)*(F₁h₁z + F₂h₂z + EARTH_RADIUS*(F₁*h₁pz + F₂*h₂pz))
+    fx = -im*expzore/(EARTHRADIUS*k)*(F₁h₁z + F₂h₂z + EARTHRADIUS*(F₁*h₁pz + F₂*h₂pz))
 
     # Height gain for Ey, also called f⟂(z)
     fy = (F₃*h₁z + F₄*h₂z)
@@ -302,7 +302,7 @@ function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWave
     # See, e.g. Pappert Hitney 1989 TWIRE paper
 
     @inbounds for i in eachindex(E)
-        E[i] *= Q/sqrt(abs(sin(X[i]/EARTH_RADIUS)))
+        E[i] *= Q/sqrt(abs(sin(X[i]/EARTHRADIUS)))
     end
 
     return nothing
@@ -403,7 +403,7 @@ function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
 
         while X[Xidx] < segment_end
             x = X[Xidx] - segment_start
-            factor = Q/sqrt(abs(sin(X[Xidx]/EARTH_RADIUS)))
+            factor = Q/sqrt(abs(sin(X[Xidx]/EARTHRADIUS)))
 
             totalfield = zero(ComplexF64)
             for n = 1:current_eacount
@@ -467,9 +467,9 @@ end
 
 # see, e.g. PS71 pg 11
 function referencetoground(ea::EigenAngle)
-    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/EARTH_RADIUS*CURVATURE_HEIGHT)))
+    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/EARTHRADIUS*CURVATURE_HEIGHT)))
 end
-referencetoground(x::Number) = x/sqrt(1 - 2/EARTH_RADIUS*CURVATURE_HEIGHT)
+referencetoground(x::Number) = x/sqrt(1 - 2/EARTHRADIUS*CURVATURE_HEIGHT)
 
 """
     pow23(x)
