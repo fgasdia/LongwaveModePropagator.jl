@@ -245,9 +245,7 @@ function test_bookerquartic()
     ea, tx, ground, bfield, electrons = scenario()
 
     M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
-    LWMS.bookerquartic!(ea, M)
-
-    q, B = LWMS.BOOKER_QUARTIC_ROOTS, LWMS.BOOKER_QUARTIC_COEFFS
+    q, B = LWMS.bookerquartic(ea, M)
 
     S = ea.sinθ
     S², C² = ea.sin²θ, ea.cos²θ
@@ -275,7 +273,6 @@ function test_sharplybounded()
     M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
     W = LWMS.wmatrix(ea, T)
-    LWMS.bookerquartic!(ea, M)
 
     initR = LWMS.sharpboundaryreflection(ea, M)
 
@@ -295,8 +292,7 @@ function numericalsharpR()
     ea, tx, ground, bfield, electrons = scenario()
 
     M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
-    LWMS.bookerquartic!(ea, M)
-    q, B = LWMS.BOOKER_QUARTIC_ROOTS, LWMS.BOOKER_QUARTIC_COEFFS
+    q, B = LWMS.bookerquartic(ea, M)
 
     sort!(q, by=LWMS.upgoing)
 

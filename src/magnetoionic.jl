@@ -13,7 +13,7 @@ See also: [`sharplybounded_R`](@ref)
 
 [^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
-function bookerquartic!(ea::EigenAngle, M)
+function bookerquartic(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # Precompute
@@ -43,13 +43,14 @@ function bookerquartic!(ea::EigenAngle, M)
          M11p1*M23M32 -
          M[1,2]*M[2,1]*C²pM33
 
-    BOOKER_QUARTIC_COEFFS.data = (B0, B1, B2, B3, B4)
+    booker_quartic_coeffs = MVector{5, ComplexF64}(B0, B1, B2, B3, B4)
+    booker_quartic_roots = MVector{4, ComplexF64}(0, 0, 0, 0)
 
     # NOTE: `roots!` dominates this functions runtime
     # It may be worthwhile to replace this with my own or improve PolynomialRoots.
-    roots!(BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS, NaN, 4, false)
+    roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
 
-    return nothing
+    return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
 """
@@ -60,7 +61,7 @@ wavefield subroutines, e.g. "wf_init.for".
 
 This function is ~2× as fast as [`bookerquartic(ea, M)`](@ref).
 """
-function bookerquartic!(T::TMatrix)
+function bookerquartic(T::TMatrix)
     # This is the depressed form of the quartic
     b3 = -(T[1,1] + T[4,4])
     b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]
@@ -69,11 +70,12 @@ function bookerquartic!(T::TMatrix)
         T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
         T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
 
-    BOOKER_QUARTIC_COEFFS.data = (b0, b1, b2, b3, complex(1.0))
+    booker_quartic_coeffs = MVector{5, ComplexF64}(b0, b1, b2, b3, complex(1.0))
+    booker_quartic_roots = MVector{4, ComplexF64}(0, 0, 0, 0)
 
-    roots!(BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS, NaN, 4, false)
+    roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
 
-    return nothing
+    return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
 """
@@ -97,6 +99,7 @@ function upgoing(v::Real)
 end
 
 """
+    sortquarticroots!(v)
 
           Im
       3 . |
@@ -125,37 +128,22 @@ same reflection coefficient matrix.
 
 NOTE: It looks like we could just `sort!(q, by=real)`, but the quadrants of each
 root are not fixed and the positions in the Argand diagram are just approximate.
-
-See also [`sortquarticroots!`](@ref)
 """
-function sortquarticroots(v::AbstractArray{T}) where {T <: Complex}
-    # Array where we order roots
-    swap = copy(v)
-
-    sortquarticroots!(swap)
-
-    if v isa MVector
-        return SVector(swap)
-    else
-        return swap
-    end
-end
-
-function sortquarticroots!(v::AbstractArray{Complex{T}}) where {T}
+function sortquarticroots!(v::MVector{4,Complex{T}}) where {T}
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
     # This is faster than `sort!(v, by=upgoing)`
-    dist = MVector{length(v),T}(undef)
-    for i in eachindex(v)
+    dist = MVector{4,T}(undef)
+    @inbounds for i in eachindex(v)
         dist[i] = upgoing(v[i])
     end
 
-    i = length(v)
-    while i > 1
+    i = 4
+    @inbounds while i > 1
         if dist[i] < dist[i-1]
             dist[i], dist[i-1] = dist[i-1], dist[i]
             v[i], v[i-1] = v[i-1], v[i]
-            i = length(v) # Need to restart at the end
+            i = 4 # Need to restart at the end
         else
             i -= 1
         end
