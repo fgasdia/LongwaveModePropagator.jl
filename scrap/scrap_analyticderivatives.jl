@@ -91,3 +91,77 @@ f1 = exp(z/a)*(F1*h1 + F2*h2)/(F1*h10 + F2*h20)
 
 
 # = -im/(a*k)*exp(z/a)*(F1*h1(z) + F2*h2(z) + a*(F1*h1p(z) + F2*h2p(z)))/(F1*h10 + F2h20)
+
+f₁ = exp(z/Rₑ)*(F₁*h₁z + F₂*h₂z)/(F₁*h₁0 + F₂*h₂0)
+
+
+@vars k z Re F₁ F₂
+
+h1 = sympy.Function("h1")(z)
+h2 = sympy.Function("h2")(z)
+
+f₁ = exp(z/Re)*(F₁*h1 + F₂*h2)
+
+1/(im*k)*diff(f₁, z)
+
+
+#
+# dRdz
+#
+@vars k θ
+
+W1_11 = sympy.Function("W1_11")(θ)
+W1_12 = sympy.Function("W1_12")(θ)
+W1_21 = sympy.Function("W1_21")(θ)
+W1_22 = sympy.Function("W1_22")(θ)
+
+W2_11 = sympy.Function("W2_11")(θ)
+W2_12 = sympy.Function("W2_12")(θ)
+W2_21 = sympy.Function("W2_21")(θ)
+W2_22 = sympy.Function("W2_22")(θ)
+
+W3_11 = sympy.Function("W3_11")(θ)
+W3_12 = sympy.Function("W3_12")(θ)
+W3_21 = sympy.Function("W3_21")(θ)
+W3_22 = sympy.Function("W3_22")(θ)
+
+W4_11 = sympy.Function("W4_11")(θ)
+W4_12 = sympy.Function("W4_12")(θ)
+W4_21 = sympy.Function("W4_21")(θ)
+W4_22 = sympy.Function("W4_22")(θ)
+
+R11 = sympy.Function("R11")(θ)
+R21 = sympy.Function("R21")(θ)
+R12 = sympy.Function("R12")(θ)
+R22 = sympy.Function("R22")(θ)
+
+R = [R11 R12;
+     R21 R22]
+
+W1 = [W1_11 W1_12;
+      W1_21 W1_22]
+W2 = [W2_11 W2_12;
+      W2_21 W2_22]
+W3 = [W3_11 W3_12;
+      W3_21 W3_22]
+W4 = [W4_11 W4_12;
+      W4_21 W4_22]
+
+@vars k θ
+
+R = sympy.Function("R")(θ)
+W1 = sympy.Function("W1")(θ)
+W2 = sympy.Function("W2")(θ)
+W3 = sympy.Function("W3")(θ)
+W4 = sympy.Function("W4")(θ)
+
+dz = -im/2*k*(W2 + W4*R - R*W1 - R*W3*R)
+
+diff(dz, θ)
+
+
+dθdz = i/2*k*(-R*dW3*R + 2*R*W3*dR + R*dW1 - dW4*R + dR*W1 - W4*dR - dW2)
+
+dθdz = -im/2*k*(dW[2] + dW[4]*R + W[4]*dRdθ -
+        (dRdθ*W[1] + R*dW[1]) -
+        (dRdθ*W[3]*R + R*dW[3]*R + R*W[3]*dRdθ))
