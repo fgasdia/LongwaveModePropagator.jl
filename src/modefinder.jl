@@ -9,7 +9,7 @@ radio wave through free space over curved earth.
 ==#
 
 # TODO: G as its own type contained within this?
-@with_kw struct SharpBoundaryVariables{T<:Number} @deftype T
+@with_kw struct SharpBoundaryVariables{T} @deftype T
     G12
     G32
     G33
@@ -29,6 +29,8 @@ radio wave through free space over curved earth.
     T₂
     Δ
     Δ⁻¹
+    q::MVector{4,T}
+    B::SVector{5,T}
 end
 
 function Base.show(io::IO, ::MIME"text/plain", s::SharpBoundaryVariables{T}) where {T}
@@ -58,11 +60,11 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     # XXX: `bookerquartic` (really `roots!`) dominates this function's runtime
-    bookerquartic!(ea, M)
+    q, B = bookerquartic(ea, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being
     # those that lie close to the positive real axis and negative imaginary axis
-    sortquarticroots!(BOOKER_QUARTIC_ROOTS)
+    q = sortquarticroots!(MVector(q))
 
     #==
     Γ = [0 -q 0;
@@ -78,7 +80,6 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     # than the order used by Pitteway.
 
     # Precompute
-    q = BOOKER_QUARTIC_ROOTS
     q₁S = q[1]*S
     q₂S = q[2]*S
 
@@ -114,7 +115,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     Δ⁻¹ = 1/Δ
 
     return SharpBoundaryVariables(G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
-                                  G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹)
+                                  G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹, q, B)
 end
 
 """
@@ -138,12 +139,7 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     C = ea.cosθ
     C2 = 2*C
 
-    @unpack P₁, T₁, P₂, T₂, Δ⁻¹ = _sharpboundaryreflection(ea, M)
-
-    # NOTE: `BOOKER_QUARTIC_ROOTS` is sorted in _sharpboundaryreflection
-    # Could write an `issorted` function, but sorting time is dominated by
-    # `upgoing`, which would presumably be required by an `issorted`
-    q = BOOKER_QUARTIC_ROOTS
+    @unpack P₁, T₁, P₂, T₂, Δ⁻¹, q = _sharpboundaryreflection(ea, M)
 
     T₁C = T₁*C
     T₂C = T₂*C
@@ -161,8 +157,7 @@ function sharpboundaryreflection(ea::EigenAngle, M, ::Derivative_dθ)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     @unpack G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
-        G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹ = _sharpboundaryreflection(ea, M)
-    q, B = BOOKER_QUARTIC_ROOTS, BOOKER_QUARTIC_COEFFS
+        G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹, q, B = _sharpboundaryreflection(ea, M)
 
     # Precompute some variables
     C2 = 2*C
@@ -631,7 +626,7 @@ function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::
     est_num_nodes = ceil(Int, length(origcoords)*1.1)
 
     zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide),
-                          origcoords, GRPFParams(est_num_nodes, tolerance, false))  # TEMP false
+                          origcoords, GRPFParams(est_num_nodes, tolerance, true))
 
     return EigenAngle.(zroots)
 end

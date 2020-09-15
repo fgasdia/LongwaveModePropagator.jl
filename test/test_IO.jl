@@ -60,9 +60,13 @@ function test_bpm()
 end
 
 @testset "Testing IO" begin
+    generate_basic()
+
     @test LWMS.iscomplete(read_basic()) == true
     @test LWMS.validlengths(read_basic()) == true
     @test LWMS.iscomplete(read_corrupted_basic()) == false
 
     @test_skip test_bpm()
+
+    isfile("basic.json") && rm("basic.json")
 end

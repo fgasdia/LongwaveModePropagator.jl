@@ -127,10 +127,8 @@ analytical solution is used where `e[2,:] = 1`.
 function initialwavefields(T::TMatrix)
     # TODO: rename to bookerwavefields?
 
-    bookerquartic!(T)
-    sortquarticroots!(BOOKER_QUARTIC_ROOTS)
-
-    q = BOOKER_QUARTIC_ROOTS
+    q, B = bookerquartic(T)
+    sortquarticroots!(q)
 
     # Precompute
     T14T41 = T[1,4]*T[4,1]

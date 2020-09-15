@@ -27,11 +27,8 @@ function booker_MTequivalence_test()
     M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
 
-    LWMS.bookerquartic!(ea, M)
-    qM, BM = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
-
-    LWMS.bookerquartic!(T)
-    qT, BT = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
+    qM, BM = LWMS.bookerquartic(ea, M)
+    qT, BT = LWMS.bookerquartic(T)
 
     return sort(qM, by=real) ≈ sort(qT, by=real)
 end
@@ -45,8 +42,7 @@ function booker_Tvalidity_test()
     M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
 
-    LWMS.bookerquartic!(T)
-    qT, BT = copy(LWMS.BOOKER_QUARTIC_ROOTS), copy(LWMS.BOOKER_QUARTIC_COEFFS)
+    qT, BT = LWMS.bookerquartic(T)
 
     # eigvals is >20 times slower than bookerquartic
     sort(eigvals(Array(T)), by=real) ≈ sort(qT, by=real) || return false
@@ -71,7 +67,8 @@ function initialwavefields_test()
 
     # Verify initialwavefields produces a valid solution
     e = LWMS.initialwavefields(T)
-    q = LWMS.BOOKER_QUARTIC_ROOTS
+    q, B = LWMS.bookerquartic(T)
+    LWMS.sortquarticroots!(q)
 
     for i = 1:2
         T*e[:,i] ≈ q[i]*e[:,i] || return false
@@ -169,7 +166,8 @@ function homogeneous_iono_test()
     e1diff = e1 .- booker[:,1]
     e2diff = e2 .- booker[:,2]
 
-    q = LWMS.BOOKER_QUARTIC_ROOTS
+    q, B = LWMS.bookerquartic(T)
+    LWMS.sortquarticroots!(q)
 
     all(e1 .≈ booker[:,1]) || return false
     all(e2 .≈ booker[:,2]) || return false

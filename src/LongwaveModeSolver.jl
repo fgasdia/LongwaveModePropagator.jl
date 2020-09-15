@@ -53,26 +53,6 @@ const BOTTOMHEIGHT = zero(TOPHEIGHT)  # should this be an actual const? Nothing 
 # TODO: where does this need to be considered?
 const EARTHCURVATURE = Ref(true)
 
-#==
-A struct like this could be used in place of the `const`s below.
-It would allow us to parameterize the Complex type, but realistically it will
-never be anything other than ComplexF64.
-
-# PolynomialRoots package requires complex floats of arbitrary precision
-struct BookerQuartic{T<:Complex{<:AbstractFloat}}
-    roots::MVector{4,T}
-    coeffs::MVector{5,T}
-end
-==#
-# Passing MArrays between functions causes allocations. They are avoided by
-# mutating this const in place. `roots!` requires Complex values and TMatrix
-# is always ComplexF64, from which the coeffs are calculated.
-const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(ComplexF64, 4))
-const BOOKER_QUARTIC_COEFFS = MVector{5,ComplexF64}(undef)
-
-# const BOOKER_QUARTIC_ROOTS = MVector{4}(zeros(Complex{BigFloat}, 4))
-# const BOOKER_QUARTIC_COEFFS = MVector{5,Complex{BigFloat}}(undef)
-
 struct Derivative_dθ end
 
 #
