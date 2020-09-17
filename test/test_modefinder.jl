@@ -355,18 +355,45 @@ function modefinder()
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
-    # TODO: Make a `triangulardomain` for this problem o avoid the low right
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    # Δr from 0.5->0.25 => time from 4.9->5.5 sec
+    # tolerance from 1e-8->1e-7 => time from 4.9->3.9 sec
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
 
     modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, tolerance)
 
     for m in modes
-        f = LWMS.solvemodalequation(EigenAngle(m), tx.frequency, waveguide)
+        f = LWMS.solvemodalequation(m, tx.frequency, waveguide)
         isapprox(f, complex(0), atol=1e-4) || return false
+        # println(isapprox(f, complex(0), atol=1e-4))
+        # println(f)
     end
     return true
+end
+
+function test_triangulardomain()
+    za = complex(60, -0.1)
+    zb = complex(89, -0.1)
+    zc = complex(60, -10.0)
+    r = 1
+    v = LWMS.triangulardomain(za, zb, zc, r)
+    # plot(real(v),imag(v),"o")
+
+    # Scale points for tesselation
+    rmin, rmax = minimum(real, v), maximum(real, v)
+    imin, imax = minimum(imag, v), maximum(imag, v)
+
+    width = RootsAndPoles.MAXCOORD - RootsAndPoles.MINCOORD
+    ra = width/(rmax-rmin)
+    rb = RootsAndPoles.MAXCOORD - ra*rmax
+
+    ia = width/(imax-imin)
+    ib = RootsAndPoles.MAXCOORD - ia*imax
+
+    nodes = [Point2D(real(coord), imag(coord)) for coord in v]
+    tess = DelaunayTessellation(length(nodes))
+    push!(tess, nodes)
 end
 
 @testset "modefinder.jl" begin

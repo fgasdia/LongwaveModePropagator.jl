@@ -185,7 +185,7 @@ function resonant_scenario()
     bfield, tx, ground, electrons, ea, zs = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
 

@@ -18,6 +18,7 @@ RootsAndPoles = "a0859a10-ccb4-11e8-145d-674b3750773a"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+VoronoiDelaunay = "72f80fcb-8c52-57d9-aff0-40c1a3526986"
 
 [extras]
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
