@@ -7,6 +7,7 @@ using RootsAndPoles
 using NLsolve
 using VoronoiDelaunay
 using JSON3, StructTypes
+using Interpolations
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
@@ -22,6 +23,7 @@ const ME = LWMS.ME
     include("test_Geophysics.jl")
     include("test_Waveguides.jl")
 
+    include("test_magnetoionic.jl")
     include("test_wavefields.jl")
     include("test_modefinder.jl")
 

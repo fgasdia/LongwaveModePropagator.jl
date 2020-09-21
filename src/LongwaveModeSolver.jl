@@ -14,6 +14,7 @@ using OrdinaryDiffEq, DiffEqCallbacks  # DiffEqBase,
 using Parameters
 using BetterExp  # TEMP faster exp() until merged into Base
 using JSON3, StructTypes
+using Interpolations
 
 using PolynomialRoots: roots!
 

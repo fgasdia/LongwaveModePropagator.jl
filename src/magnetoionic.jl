@@ -35,9 +35,7 @@ function susceptibility(alt, frequency, bfield, species)
     X = N(alt)*e^2*invω*invmω/E0  # ωₚ²/ω² plasma frequency / ω
     Y = e*B*invmω  # ωₕ/ω  gyrofrequency / ω; Ratcliffe1959 pg. 182 specifies that sign of `e` is included here
     Z = nu(alt)*invω  # collision frequency / ω
-    U = complex(1, -Z)  # == 1 - im*Z
-    # TEMP
-    # U = 1 -im*Z
+    U = 1 - 1im*Z
 
     # TODO: Support multiple species, e.g.
     # U²D = zero()
@@ -88,7 +86,7 @@ function susceptibility(alt, frequency, bfield, species)
         M33 -= earthcurvature
     end
 
-    M = SMatrix{3,3,ComplexF64,9}(M11, M21, M31, M12, M22, M32, M13, M23, M33)
+    M = SMatrix{3,3}(M11, M21, M31, M12, M22, M32, M13, M23, M33)
 
     return M
 end
@@ -137,11 +135,10 @@ function bookerquartic(ea::EigenAngle, M)
          M11p1*M23M32 -
          M[1,2]*M[2,1]*C²pM33
 
-    booker_quartic_coeffs = MVector{5, ComplexF64}(B0, B1, B2, B3, B4)
-    booker_quartic_roots = MVector{4, ComplexF64}(0, 0, 0, 0)
+    booker_quartic_coeffs = MVector{5}(B0, B1, B2, B3, B4)
+    booker_quartic_roots = MVector{4,eltype(booker_quartic_coeffs)}(0, 0, 0, 0)
 
-    # NOTE: `roots!` dominates this functions runtime
-    # It may be worthwhile to replace this with my own or improve PolynomialRoots.
+    # `roots!` dominates this functions runtime
     roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
 
     return booker_quartic_roots, SVector(booker_quartic_coeffs)
@@ -155,7 +152,7 @@ wavefield subroutines, e.g. "wf_init.for".
 
 This function is ~2× as fast as [`bookerquartic(ea, M)`](@ref).
 """
-function bookerquartic(T::TMatrix)
+function bookerquartic(T::TMatrix{V}) where V
     # This is the depressed form of the quartic
     b3 = -(T[1,1] + T[4,4])
     b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]
@@ -164,8 +161,8 @@ function bookerquartic(T::TMatrix)
         T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
         T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
 
-    booker_quartic_coeffs = MVector{5, ComplexF64}(b0, b1, b2, b3, complex(1.0))
-    booker_quartic_roots = MVector{4, ComplexF64}(0, 0, 0, 0)
+    booker_quartic_coeffs = MVector{5,V}(b0, b1, b2, b3, 1)
+    booker_quartic_roots = MVector{4,V}(0, 0, 0, 0)
 
     roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
 
@@ -220,14 +217,18 @@ negative imaginary axis, although in [`sharpboundaryreflection`](@ref) the order
 of the two upgoing waves doesn't matter---swapping q₁ and q₂ will result in the
 same reflection coefficient matrix.
 
-NOTE: It looks like we could just `sort!(q, by=real)`, but the quadrants of each
+!!! note
+
+    It looks like we could just `sort!(q, by=real)`, but the quadrants of each
 root are not fixed and the positions in the Argand diagram are just approximate.
 """
-function sortquarticroots!(v::MVector{4,Complex{T}}) where {T}
+function sortquarticroots!(v)
+    length(v) != 4 && @warn "length of `v` is not 4"
+
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
     # This is faster than `sort!(v, by=upgoing)`
-    dist = MVector{4,T}(undef)
+    dist = MVector{4,real(eltype(v))}(undef)
     @inbounds for i in eachindex(v)
         dist[i] = upgoing(v[i])
     end
@@ -237,7 +238,7 @@ function sortquarticroots!(v::MVector{4,Complex{T}}) where {T}
         if dist[i] < dist[i-1]
             dist[i], dist[i-1] = dist[i-1], dist[i]
             v[i], v[i-1] = v[i-1], v[i]
-            i = 4 # Need to restart at the end
+            i = 4  # Need to restart at the end
         else
             i -= 1
         end
@@ -252,9 +253,6 @@ function sortquarticroots!(v::MVector{4,Complex{T}}) where {T}
     if imag(v[3]) < imag(v[4])
         v[4], v[3] = v[3], v[4]
     end
-
-    # Uncomment to test if order of q₁, q₂ matters for `sharpboundaryreflection()`
-    # v[2], v[1] = v[1], v[2]
 
     # NOTE: Nagano et al 1975 says that of v1 and v2, the one with the largest
     # absolute value corresponds to e1 and the other to e2, although this method
@@ -293,7 +291,6 @@ function tmatrix(ea::EigenAngle, M)
     S, C² = ea.sinθ, ea.cos²θ
 
     # Denominator of most of the entries of `T`
-    # This expression dominates the function runtime
     den = inv(1 + M[3,3])
 
     M31den = M[3,1]*den
@@ -316,7 +313,7 @@ function tmatrix(ea::EigenAngle, M)
     # T43 = 0
     T44 = -S*M[1,3]*den
 
-    # Remember, column major. And it's actually a special 4×4.
+    # `TMatrix` is a special 4×4 matrix
     return TMatrix(T11, T31, T41,
                    T12, T32, T42,
                    T14, T34, T44)

@@ -59,12 +59,11 @@ end
 function _sharpboundaryreflection(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
-    # XXX: `bookerquartic` (really `roots!`) dominates this function's runtime
     q, B = bookerquartic(ea, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being
     # those that lie close to the positive real axis and negative imaginary axis
-    q = sortquarticroots!(MVector(q))
+    q = sortquarticroots!(q)
 
     #==
     Γ = [0 -q 0;
@@ -76,8 +75,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
          S*q[i]+M[3,1] M[3,2] C²+M[3,3]]
     ==#
 
-    # BUG: Need to check that Sheddy actually wants roots 2, 1 in that order rather
-    # than the order used by Pitteway.
+    # NOTE: Sheddy specifies roots 2, 1 rather than the order used by Pitteway
 
     # Precompute
     q₁S = q[1]*S
@@ -149,7 +147,7 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     R12 = -C2*(T₁*P₂ - T₂*P₁)*Δ⁻¹  # ⟂R∥
     R21 = -C2*(q[1] - q[2])*Δ⁻¹  # ∥R⟂
 
-    return SMatrix{2,2,ComplexF64,4}(R11, R21, R12, R22)
+    return SMatrix{2,2}(R11, R21, R12, R22)
 end
 
 # TODO: Autodiff with Zygote?
@@ -240,11 +238,11 @@ function sharpboundaryreflection(ea::EigenAngle, M, ::Derivative_dθ)
      dR11 dR12;
      dR21 dR22]
     ==#
-    return SMatrix{4,2,typeof(R11),8}(R11, R21, dR11, dR21, R12, R22, dR12, dR22)
+    return SMatrix{4,2}(R11, R21, dR11, dR21, R12, R22, dR12, dR22)
 end
 
 """
-    wmatrix(ea, T)
+    wmatrix(ea::EigenAngle, T)
 
 Compute submatrix elements of `W` for solving the differential equation of reflection matrix
 `R` wrt `z`.
@@ -269,7 +267,7 @@ See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 [^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
 """
-function wmatrix(ea::EigenAngle, T::TMatrix)
+function wmatrix(ea::EigenAngle, T)
     C = ea.cosθ
     Cinv = ea.secθ
 
@@ -338,10 +336,10 @@ function wmatrix(ea::EigenAngle, T::TMatrix)
 
     # Form the four 2x2 submatrices of `S`
     # Ttype is already promoted type of ea and M
-    W11 = SMatrix{2,2,ComplexF64,4}(a11+a11r, -c11, -b11, d11)
-    W12 = SMatrix{2,2,ComplexF64,4}(a21+a21r, c12, -b11, d12)
-    W21 = SMatrix{2,2,ComplexF64,4}(a21-a21r, c11, b21, -d12)
-    W22 = SMatrix{2,2,ComplexF64,4}(a11-a11r, -c12, b21, -d11)
+    W11 = SMatrix{2,2}(a11+a11r, -c11, -b11, d11)
+    W12 = SMatrix{2,2}(a21+a21r, c12, -b11, d12)
+    W21 = SMatrix{2,2}(a21-a21r, c11, b21, -d12)
+    W22 = SMatrix{2,2}(a11-a11r, -c12, b21, -d11)
 
     return W11, W21, W12, W22
 end
@@ -353,7 +351,7 @@ Return the 4 submatrix elements of the derivative of the `W` matrix wrt θ.
 
 See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
 """
-function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
+function dwmatrixdθ(ea::EigenAngle, M, T)
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
     Cinv = ea.secθ
     C²inv = Cinv^2
@@ -400,10 +398,10 @@ function dwmatrixdθ(ea::EigenAngle, M, T::TMatrix)
     dd22 = dC - dt32Cinv
 
     # Form the four 2x2 submatrices of `dS`
-    dW11 = SMatrix{2,2,ComplexF64,4}(ds11a+ds11b, -ds21, -ds12, ds22)
-    dW12 = SMatrix{2,2,ComplexF64,4}(-dd11a+dd11b, dd21, -ds12, -dd22)
-    dW21 = SMatrix{2,2,ComplexF64,4}(-dd11a-dd11b, ds21, dd12, dd22)
-    dW22 = SMatrix{2,2,ComplexF64,4}(ds11a-ds11b, -dd21, dd12, -ds22)
+    dW11 = SMatrix{2,2}(ds11a+ds11b, -ds21, -ds12, ds22)
+    dW12 = SMatrix{2,2}(-dd11a+dd11b, dd21, -ds12, -dd22)
+    dW21 = SMatrix{2,2}(-dd11a-dd11b, ds21, dd12, dd22)
+    dW22 = SMatrix{2,2}(ds11a-ds11b, -dd21, dd12, -ds22)
 
     return dW11, dW21, dW12, dW22
 end
@@ -423,14 +421,17 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, params, z)
-    ea, frequency, waveguide = params
-    @unpack bfield, species = waveguide
+    ea, frequency, waveguide, interpolator = params
 
     k = frequency.k
 
-    # XXX: `susceptibility` takes as much time as `tmatrix` and `wmatrix` combined
-    # TODO: Maybe use a function approximator version of M b/c it's not dependent on θ
-    M = susceptibility(z, frequency, bfield, species)
+    if isnothing(interpolator)
+        @unpack bfield, species = waveguide
+        M = susceptibility(z, frequency, bfield, species)
+    else
+        M = interpolator(z)
+    end
+
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -459,15 +460,35 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
-    @unpack bfield, species = waveguide
+function integratedreflection(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}) where T
 
+    @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     # TODO: Pass parameters with tolerances, integration method
-    # TODO: Does saving actually alter performance?
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency,
+        waveguide, nothing))
+
+    # NOTE: When save_on=false, don't try interpolating the solution!
+    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+                save_on=false, save_start=false, save_end=true)
+
+    R = sol[end]
+
+    return R
+end
+
+function integratedreflection(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}, interpolator::AbstractInterpolation) where T
+
+    Mtop = interpolator(TOPHEIGHT)
+    Rtop = sharpboundaryreflection(ea, Mtop)
+
+    # TODO: Pass parameters with tolerances, integration method
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency,
+        waveguide, interpolator))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
@@ -482,7 +503,9 @@ end
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}, ::Derivative_dθ) where T
+function integratedreflection(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}, ::Derivative_dθ) where T
+
     @unpack bfield, species = waveguide
 
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
@@ -505,7 +528,7 @@ end
 # Ground reflection coefficient matrix
 ##########
 
-function _fresnelreflection(ea, ground, frequency)
+function _fresnelreflection(ea::EigenAngle, ground, frequency)
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
 
@@ -590,8 +613,20 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
+function solvemodalequation(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}) where T
+
     R = integratedreflection(ea, frequency, waveguide)
+    Rg = fresnelreflection(ea, waveguide.ground, frequency)
+
+    f = modalequation(R, Rg)
+    return f
+end
+
+function solvemodalequation(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}, interpolator::AbstractInterpolation) where T
+
+    R = integratedreflection(ea, frequency, waveguide, interpolator)
     Rg = fresnelreflection(ea, waveguide.ground, frequency)
 
     f = modalequation(R, Rg)
@@ -602,7 +637,9 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide{T}) where T
+function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}) where T
+
     RdR = integratedreflection(ea, frequency, waveguide, Derivative_dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
@@ -613,12 +650,21 @@ function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::
     return df, R, Rg
 end
 
+function susceptibilityinterpolator(frequency, bfield, species)
+    zs = BOTTOMHEIGHT:TOPHEIGHT
+    Ms = [susceptibility(zs[i], frequency, bfield, species) for i in eachindex(zs)]
+    interpolator = CubicSplineInterpolation(zs, Ms)
+
+    return interpolator
+end
+
 """
 `tolerance` is how close solution of modal equation gets to 0. Difference in θ between
 `tolerance=1e-6` and `tolerance=1e-8` is less than 1e-5° in both real and imaginary
 components.
 """
-function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::HomogeneousWaveguide{T}, tolerance=1e-8) where {T}
+function findmodes(origcoords, frequency::Frequency,
+    waveguide::HomogeneousWaveguide{T}, tolerance=1e-8, approximate::Bool=true) where {T}
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
@@ -626,7 +672,14 @@ function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::
 
     est_num_nodes = ceil(Int, length(origcoords)*1.2)
 
-    zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide),
+    if approximate
+        @unpack bfield, species = waveguide
+        interpolator = susceptibilityinterpolator(frequency, bfield, species)
+    else
+        interpolator = nothing
+    end
+
+    zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, interpolator),
                           origcoords, GRPFParams(est_num_nodes, tolerance, true))
 
     # Ensure roots are real

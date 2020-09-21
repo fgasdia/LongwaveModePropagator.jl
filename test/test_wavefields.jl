@@ -4,8 +4,8 @@ function scenario()
     ground = Ground(15, 0.001)
 
     electrons = Species(QE, ME,
-                            z -> waitprofile(z, 75, 0.32),
-                            electroncollisionfrequency)
+                        z -> waitprofile(z, 75, 0.32),
+                        electroncollisionfrequency)
 
     ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
 
@@ -111,7 +111,7 @@ function drdzwavefield_equivalence_test()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, tx.frequency, waveguide))
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (ea, tx.frequency, waveguide, nothing))
     sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
                 saveat=zs, save_everystep=false)
 

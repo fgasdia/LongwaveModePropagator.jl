@@ -12,7 +12,7 @@ function derivative_scenario()
     ground = Ground(15, 0.001)
     electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-                        z -> electroncollisionfrequency(z, LWMS.CURVATURE_HEIGHT))
+                        z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
 
     return eas, freq, ground, bfield, electrons
 end
@@ -225,46 +225,20 @@ function scenario()
 end
 
 function test_wmatrix()
-    # Make sure "analytical" solution for W matches numerical
+    # Check that "analytical" solution for W matches numerical
     ea, tx, ground, bfield, electrons = scenario()
 
     C = ea.cosθ
-    L = @SMatrix [C 0 -C 0;
-                  0 -1 0 -1;
-                  0 -C 0 C;
-                  1 0 1 0]
+    L = [C 0 -C 0;
+         0 -1 0 -1;
+         0 -C 0 C;
+         1 0 1 0]
 
     M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
     W = LWMS.wmatrix(ea, T)
 
     return [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
-end
-
-function test_bookerquartic()
-    ea, tx, ground, bfield, electrons = scenario()
-
-    M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
-    q, B = LWMS.bookerquartic(ea, M)
-
-    S = ea.sinθ
-    S², C² = ea.sin²θ, ea.cos²θ
-
-    # Confirm roots of Booker quartic satisfy ``det(Γ² + I + M) = 0``
-    for i in eachindex(q)
-        G = [1-q[i]^2+M[1,1] M[1,2] S*q[i]+M[1,3];
-             M[2,1] 1-q[i]^2-S²+M[2,2] M[2,3];
-             S*q[i]+M[3,1] M[3,2] C²+M[3,3]]
-        isapprox(det(G), 0, atol=sqrt(eps())) || return false
-    end
-
-    # Confirm Booker quartic is directly satisfied
-    for i in eachindex(q)
-        booker = B[5]*q[i]^4 + B[4]*q[i]^3 + B[3]*q[i]^2 + B[2]*q[i] + B[1]
-        isapprox(booker, 0, atol=sqrt(eps())) || return false
-    end
-
-    return true
 end
 
 function test_sharplybounded()
@@ -305,9 +279,9 @@ function numericalsharpR()
              0 S 0]
         G = Γ^2 + I + M
         E = nullspace(G)
-        ℋ = Γ*E  # Γℋ == -(I + M)*E
+        H = Γ*E  # Γℋ == -(I + M)*E
 
-        esum += [E[1]; E[2]; ℋ[1]; ℋ[2]]
+        esum += [E[1]; E[2]; H[1]; H[2]]
     end
     A = [C 0 -C 0; 0 1 0 1; 0 -C 0 C; 1 0 1 0]
     e = A\esum
@@ -342,9 +316,8 @@ function modalequation()
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
-    # TODO: check this - it's not a great match to zero
-    # known solution w/ tolerance=1e-9
-    ea = EigenAngle(1.305895494889554 - 0.030739068016986393im)
+    # known solution w/ tolerance=1e-8
+    ea = EigenAngle(1.3804798527274889 - 0.021159517331064276im)
     f = LWMS.solvemodalequation(ea, tx.frequency, waveguide)
 
     return isapprox(f, complex(0), atol=0.001)
@@ -355,9 +328,9 @@ function modefinder()
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
-    # Δr from 0.5->0.25 => time from 4.9->5.5 sec
-    # tolerance from 1e-8->1e-7 => time from 4.9->3.9 sec
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
+    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
+    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
 
@@ -400,7 +373,6 @@ end
     @info "Testing modefinder"
 
     @test test_wmatrix()
-    @test test_bookerquartic()
     @test test_sharplybounded()
     @test_skip numericalsharpR()
     @test verticalreflection()
