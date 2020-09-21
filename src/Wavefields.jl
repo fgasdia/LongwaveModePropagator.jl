@@ -19,7 +19,7 @@ Base.getindex(A::Wavefields, i::Int) = A.v[i]
 Base.similar(A::Wavefields) = Wavefields(A.eas, A.zs)
 Base.copy(A::Wavefields{T}) where T = Wavefields{T}(copy(A.v), copy(A.eas), copy(A.zs))
 
-function (==)(A::Wavefields,B::Wavefields)
+function (==)(A::Wavefields, B::Wavefields)
     A.zs == B.zs || return false
     A.eas == B.eas || return false
     A.v == B.v || return false

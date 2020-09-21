@@ -219,7 +219,7 @@ function scenario()
 
     electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-                        z -> electroncollisionfrequency(z, LWMS.CURVATURE_HEIGHT))
+                        z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
 
     return ea, tx, ground, bfield, electrons
 end
@@ -347,7 +347,7 @@ function modalequation()
     ea = EigenAngle(1.305895494889554 - 0.030739068016986393im)
     f = LWMS.solvemodalequation(ea, tx.frequency, waveguide)
 
-    return isapprox(f, complex(0), atol=0.01)
+    return isapprox(f, complex(0), atol=0.001)
 end
 
 function modefinder()

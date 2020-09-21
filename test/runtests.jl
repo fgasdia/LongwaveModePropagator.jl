@@ -5,6 +5,7 @@ using StaticArrays
 using OrdinaryDiffEq, DiffEqCallbacks
 using RootsAndPoles
 using NLsolve
+using VoronoiDelaunay
 using JSON3, StructTypes
 
 using LongwaveModeSolver

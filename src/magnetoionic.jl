@@ -1,3 +1,97 @@
+"""
+    susceptibility(alt, frequency, bfield, species)
+
+Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
+
+Includes first order correction for earth curvature by means of a fictitious refractive index.
+
+Budden's formalism [^Budden1955a] assumes that the ionosphere is horizontally stratified and contains
+electrons whose motion is influenced by the earth's magnetic field and is damped by collisions.
+A plane wave of specified polarization is incident at some (generally oblique) angle from
+below and we wish to find the amplitude, phase, and polarization of the reflected wave.
+
+The differential equations for calculating the reflection coefficient are derived from
+Maxwell's equations together with the constitutive relations for the ionosphere. The
+constitutive relations for the ionosphere may be written ``P = ϵ₀ M ⋅ E`` where ``P`` is the
+electric polarization vector, ``E`` is the electric field vector, and ``M`` is a 3×3
+susceptibility matrix calculated by this function.
+
+# References
+
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
+[^Budden1988]: K. G. Budden
+[^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the ionosphere," Cambridge University Press, 1959.
+"""
+function susceptibility(alt, frequency, bfield, species)
+    B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+    x², y², z² = x^2, y^2, z^2
+    ω = frequency.ω
+
+    # Constitutive relations (see Budden1955a, pg. 517 or Budden1988 pg. 39)
+    e, m, N, nu = species.charge, species.mass, species.numberdensity, species.collisionfrequency
+    invω = inv(ω)
+    invmω = invω/m  # == inv(m*ω)
+
+    X = N(alt)*e^2*invω*invmω/E0  # ωₚ²/ω² plasma frequency / ω
+    Y = e*B*invmω  # ωₕ/ω  gyrofrequency / ω; Ratcliffe1959 pg. 182 specifies that sign of `e` is included here
+    Z = nu(alt)*invω  # collision frequency / ω
+    U = complex(1, -Z)  # == 1 - im*Z
+    # TEMP
+    # U = 1 -im*Z
+
+    # TODO: Support multiple species, e.g.
+    # U²D = zero()
+    # Y²D = zero()
+    # UYD = zero()
+    # for i = 1:length(species)
+    #     U²D += U^2*D
+    #     UYD += Y*U*D
+    #     Y²D += Y^2*D
+    # end
+
+    # Precompute variables
+    # These are formulated such that application to multiple species is trivial. Direction
+    # cosines are applied last
+    U² = U^2
+    Y² = Y^2
+
+    D = -X/(U*(U² - Y²))
+
+    U²D = U²*D
+    Y²D = Y²*D
+    UYD = U*Y*D
+
+    # Leverage partial symmetry of M to reduce computations
+    izUYD = 1im*z*UYD
+    xyY²D = x*y*Y²D
+    iyUYD = 1im*y*UYD
+    xzY²D = x*z*Y²D
+    ixUYD = 1im*x*UYD
+    yzY²D = y*z*Y²D
+
+    earthcurvature = 2/EARTHRADIUS*(CURVATURE_HEIGHT - alt)
+
+    # Elements of `M`
+    M11 = U²D - x²*Y²D
+    M21 = izUYD - xyY²D
+    M31 = -iyUYD - xzY²D
+    M12 = -izUYD - xyY²D
+    M22 = U²D - y²*Y²D
+    M32 = ixUYD - yzY²D
+    M13 = iyUYD - xzY²D
+    M23 = -ixUYD - yzY²D
+    M33 = U²D - z²*Y²D
+
+    if EARTHCURVATURE[]
+        M11 -= earthcurvature
+        M22 -= earthcurvature
+        M33 -= earthcurvature
+    end
+
+    M = SMatrix{3,3,ComplexF64,9}(M11, M21, M31, M12, M22, M32, M13, M23, M33)
+
+    return M
+end
 
 """
     bookerquartic(ea, M)
@@ -173,102 +267,6 @@ end
 ##########
 # Reflection coefficient matrix for a vertically stratified ionosphere
 ##########
-
-"""
-    susceptibility(z, frequency, bfield, species)
-
-Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
-
-TODO: additional references on curvature correction
-Includes first order correction for earth curvature by means of a fictitious refractive index.
-
-Budden's formalism [^Budden1955a] assumes that the ionosphere is horizontally stratified and contains
-electrons whose motion is influenced by the earth's magnetic field and is damped by collisions.
-A plane wave of specified polarization is incident at some (generally oblique) angle from
-below and we wish to find the amplitude, phase, and polarization of the reflected wave.
-
-The differential equations for calculating the reflection coefficient are derived from
-Maxwell's equations together with the constitutive relations for the ionosphere. The
-constitutive relations for the ionosphere may be written ``P = ϵ₀ M ⋅ E`` where ``P`` is the
-electric polarization vector, ``E`` is the electric field vector, and ``M`` is a 3×3
-susceptibility matrix calculated by this function.
-
-# References
-
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
-[^Budden1988]: K. G. Budden
-"""
-function susceptibility(z, frequency::Frequency, bfield::BField, species::Species)
-    B, lx, ly, lz = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
-    lx², ly², lz² = lx^2, ly^2, lz^2
-    ω = frequency.ω
-
-    # Constitutive relations (see Budden1955a, pg. 517 or Budden1988 pg. 39)
-    e, m, N, ν = species.charge, species.mass, species.numberdensity, species.collisionfrequency
-    invω = inv(ω)
-    invmω = invω/m  # == inv(m*ω)
-
-    X = N(z)*e^2*invω*invmω/E0  # ωₚ²/ω² plasma frequency / ω
-    Y = abs(e*B*invmω)  # |ωₕ/ω|  gyrofrequency / ω  # Nagano et al 1975 specifies |ωₕ/ω|
-    Z = ν(z)*invω  # collision frequency / ω
-    U = complex(1, -Z)  # == 1 - im*Z
-
-    # TODO: Support multiple species, e.g.
-    # U²D = zero()
-    # Y²D = zero()
-    # YUD = zero()
-    # for i = 1:length(species)
-    #     U²D += U^2*D
-    #     YUD += Y*U*D
-    #     Y²D += Y^2*D
-    # end
-
-    # Precompute variables
-    # These are formulated such that application to multiple species is trivial. Direction
-    # cosines are applied last
-    U² = U^2
-    Y² = Y^2
-
-    D = -X/(U*(U² - Y²))
-
-    U²D = U²*D
-    Y²D = Y²*D
-    YUD = Y*U*D
-
-    # Leverage partial symmetry of M to reduce computations
-    izYUD = im*lz*YUD
-    xyY²D = lx*ly*Y²D
-    iyYUD = im*ly*YUD
-    xzY²D = lx*lz*Y²D
-    ixYUD = im*lx*YUD
-    yzY²D = ly*lz*Y²D
-
-    earthcurvature = 2/EARTHRADIUS*(CURVATURE_HEIGHT - z)
-
-    # Elements of `M`
-    M11 = U²D - lx²*Y²D
-    M21 = izYUD - xyY²D
-    M31 = -iyYUD - xzY²D
-    M12 = -izYUD - xyY²D
-    M22 = U²D - ly²*Y²D
-    M32 = ixYUD - yzY²D
-    M13 = iyYUD - xzY²D
-    M23 = -ixYUD - yzY²D
-    M33 = U²D - lz²*Y²D
-
-    if EARTHCURVATURE[]
-        M11 -= earthcurvature
-        M22 -= earthcurvature
-        M33 -= earthcurvature
-    end
-
-    # Remember, column major
-    M = SMatrix{3,3,ComplexF64,9}(M11, M21, M31,
-                                  M12, M22, M32,
-                                  M13, M23, M33)
-
-    return M
-end
 
 """
     tmatrix(ea, M)

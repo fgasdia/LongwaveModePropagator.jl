@@ -36,7 +36,7 @@ export Receiver, GroundSampler
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
-export distance, elevation, azimuth, altitude, fieldcomponent
+export elevation, azimuth, altitude, fieldcomponent
 
 # TMatrix.jl
 export TMatrix
@@ -75,7 +75,7 @@ include("modesum.jl")
 
 
 function bpm(waveguide::HomogeneousWaveguide, tx, rx)
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
     origcoords .= deg2rad.(origcoords)
     tolerance = 1e-8
 
@@ -110,9 +110,9 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
     wavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
     adjwavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
 
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
     origcoords .= deg2rad.(origcoords)
-    tolerance = 1e-7
+    tolerance = 1e-8
 
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]

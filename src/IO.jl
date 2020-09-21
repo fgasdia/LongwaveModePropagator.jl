@@ -122,7 +122,7 @@ end
 function buildandrun(s::BasicInput)
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
-        bfield = BField(only(s.b_mag), deg2rad(only(s.b_dip)), deg2rad(only(s.b_az)))
+        bfield = BField(only(s.b_mag), only(s.b_dip), only(s.b_az))
         species = Species(QE, ME, z -> waitprofile(z, only(s.hprimes), only(s.betas), cutoff_low=50e3, threshold=3e9),
                           electroncollisionfrequency)
         ground = Ground(only(s.ground_epsr), only(s.ground_sigmas))
@@ -134,7 +134,7 @@ function buildandrun(s::BasicInput)
         # SegmentedWaveguide
         waveguide = SegmentedWaveguide(HomogeneousWaveguide)
         for i in eachindex(s.segment_ranges)
-            bfield = BField(s.b_mag[i], deg2rad(s.b_dip[i]), deg2rad(s.b_az[i]))
+            bfield = BField(s.b_mag[i], s.b_dip[i], s.b_az[i])
             species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i], cutoff_low=50e3, threshold=3e9),
                               electroncollisionfrequency)
             ground = Ground(s.ground_epsr[i], s.ground_sigmas[i])

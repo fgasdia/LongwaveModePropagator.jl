@@ -34,22 +34,31 @@ end
 """
     BField
 
-Background magnetic field vector (T).
-
-`B` should be in Teslas, angles in radians!
+Background magnetic field vector of strength `B` (T) with direction cosines `dcl`, `dcm`,
+and `dcn` corresponding to x, y, and z directions.
 """
 struct BField
     B::Float64
     dcl::Float64
     dcm::Float64
     dcn::Float64
+
+    function BField(B, dcl, dcm, dcn)
+        iszero(B) && error("B field magnitude of exactly 0 is not supported. Try setting B = 1e-15.")
+        new(B, dcl, dcm, dcn)
+    end
 end
 
 """
     BField(B, dip, azimuth)
 
 Return a `BField` vector of strength `B` (T), `dip` angle (rad) from the
-horizontal, and `azimuth` angle (rad) from ???.
+horizontal, and `azimuth` angle (rad) from the propagation direction, positive towards y.
+
+Dip (inclination) is the angle made with the horizontal by the background magnetic field
+lines. Positive dip corresponds to when B is directed downward into Earth. Therefore, it
+ranges between +π in Earth's geographic northern hemisphere and -π in the southern
+hemisphere.
 """
 function BField(B, dip, azimuth)
     # BUG: How can we avoid this?
@@ -57,7 +66,7 @@ function BField(B, dip, azimuth)
     # outside the normal. The roots aren't accurately found, although I'm not
     # sure where the issue is.
     abs(rad2deg(dip)) <= 1 && @warn "magnetic dip angles between ±1° have known numerical issues."
-    abs(dip) > 2π && @warn "magnetic dip angle should be in radians"
+    abs(dip) > π && @warn "magnetic dip angle should be in radians"
     abs(azimuth) > 2π && @warn "magnetic azimuth angle should be in radians"
 
     Sdip, Cdip = sincos(dip)
@@ -153,6 +162,7 @@ exponential profile with parameters `h′` (km) and `β` (km⁻¹).
 ``Nₑ = 1.43 × 10¹³ \\exp(-0.15 h') ⋅ \\exp[(β - 0.15)(z/1000 - h')]``
 
 Optional Arguments:
+
     - When `z` is below `cutoff_low`, return 0.
     - When density is greater than `threshold`, return `threshold` (3e9 in FDTD)
 
@@ -160,16 +170,16 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 
 # References
 [^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the
-earth-ionosphere waveguide for VLF radio waves,” U.S. National Bureau of
-Standards, Boulder, CO, Technical Note 300, Dec. 1964.
+    earth-ionosphere waveguide for VLF radio waves,” U.S. National Bureau of
+    Standards, Boulder, CO, Technical Note 300, Dec. 1964.
 
 [^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric
-parameters,” Journal of Atmospheric and Terrestrial Physics, vol. 55, no. 2,
-pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
+    parameters,” Journal of Atmospheric and Terrestrial Physics, vol. 55, no. 2,
+    pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
 
 [^Cummer1998]: S. A. Cummer, U. S. Inan, and T. F. Bell, “Ionospheric D region
-remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
-pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
+    remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
+    pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
 function waitprofile(z, hp, β; cutoff_low=0, threshold=Inf)
     if z > cutoff_low
@@ -186,10 +196,10 @@ function waitprofile(z, hp, β; cutoff_low=0, threshold=Inf)
 end
 
 """
-    electroncollisionfrequency(z)
+    electroncollisionfrequency(z; cutoff_low=0)
 
 Return the electron-neutral collision frequency (s⁻¹) at altitude `z` (m) based
-on Wait's conductivity profile.
+on Wait's conductivity profile. When `z` is below `cutoff_low` (m), return 0.
 
 ``νₑ(z) = 1.816 × 10¹¹ \\exp(-0.15e-3 z)``
 
@@ -208,27 +218,19 @@ pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
 remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
 pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function electroncollisionfrequency(z)
-    return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
-end
-
-"""
-    electroncollisionfrequency(z, cutoff_low)
-
-When `z` is below `cutoff_low` (m), return 0.
-"""
-function electroncollisionfrequency(z, cutoff_low)
+function electroncollisionfrequency(z; cutoff_low=0)
     if z > cutoff_low
-        return electroncollisionfrequency(z)
+        return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
     else
         return zero(promote_type(Float64, typeof(z)))
     end
 end
 
 """
-    ioncollisionfrequency(z)
+    ioncollisionfrequency(z; cutoff_low=0)
 
 Return ion-neutral collision frequency (s⁻¹) at height `z` (m) from [^Morfitt1976].
+When `z` is below `cutoff_low` (m), return 0.
 
 ``νᵢ(z) = 4.54 × 10⁹ \\exp(-0.15e-3 z)``
 
@@ -244,18 +246,9 @@ Oct. 1976.
 remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
 pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function ioncollisionfrequency(z)
-    return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
-end
-
-"""
-    ioncollisionfrequency(z, cutoff_low)
-
-When `z` is below `cutoff_low` (m), return 0.
-"""
-function ioncollisionfrequency(z, cutoff_low)
+function ioncollisionfrequency(z; cutoff_low=0)
     if z > cutoff_low
-        return ioncollisionfrequency(z)
+        return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
     else
         return zero(promote_type(Float64, typeof(z)))
     end

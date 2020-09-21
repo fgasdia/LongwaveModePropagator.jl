@@ -621,12 +621,27 @@ components.
 function findmodes(origcoords::AbstractVector, frequency::Frequency, waveguide::HomogeneousWaveguide{T}, tolerance=1e-8) where {T}
 
     # WARNING: If tolerance of mode finder is much less than the R integration
-    # tolerance, it may possible multiple identical modes will be identified.
+    # tolerance, it may possible multiple identical modes will be identified. Checks for
+    # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    est_num_nodes = ceil(Int, length(origcoords)*1.1)
+    est_num_nodes = ceil(Int, length(origcoords)*1.2)
 
     zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide),
                           origcoords, GRPFParams(est_num_nodes, tolerance, true))
+
+    # Ensure roots are real
+    i = 1
+    while i <= length(zroots)
+        f = solvemodalequation(EigenAngle(zroots[i]), frequency, waveguide)
+        valid = isapprox(f, complex(0), atol=0.01)
+        valid || deleteat!(zroots, i)
+        i += 1
+    end
+
+    # Remove any redundant modes
+    # if tolerance is 1e-8, this rounds to 7 decimal places
+    sort!(zroots, by=reim)
+    unique!(z->round(z, digits=round(Int, abs(log10(tolerance)+1), RoundDown)), zroots)
 
     return EigenAngle.(zroots)
 end
@@ -717,5 +732,15 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
         end
     end
 
+    return v
+end
+
+function targetdomain(modes::Vector{T}, delta::T, Δr) where {T<:Complex}
+    v = Vector{T}(undef)
+    for i in eachindex(modes)
+        zb = v[i] - delta
+        ze = v[i] + delta
+        append!(rectangulardomain(zb, ze, Δr))
+    end
     return v
 end
