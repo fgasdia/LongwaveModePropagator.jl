@@ -472,7 +472,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
         waveguide, nothing))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+    sol = solve(prob, Vern7(), abstol=1e-9, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -483,7 +483,8 @@ end
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
     waveguide::HomogeneousWaveguide{T}, interpolator::AbstractInterpolation) where T
 
-    Mtop = interpolator(TOPHEIGHT)
+    @unpack bfield, species = waveguide
+    Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     # TODO: Pass parameters with tolerances, integration method
@@ -491,7 +492,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
         waveguide, interpolator))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+    sol = solve(prob, Vern7(), abstol=1e-9, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -507,15 +508,13 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
     waveguide::HomogeneousWaveguide{T}, ::Derivative_dθ) where T
 
     @unpack bfield, species = waveguide
-
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
-
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-8, reltol=1e-8,
+    sol = solve(prob, Vern7(), abstol=1e-9, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -788,6 +787,64 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     return v
 end
 
+function uppertriangularrectangledomain(Zb::Complex, Ze::Complex, Δr)
+    rZb, iZb = reim(Zb)
+    rZe, iZe = reim(Ze)
+
+    # Determine `dx` and `dy`
+    X = rZe - rZb
+    Y = abs(iZe - iZb)
+
+    n = trunc(Int, cld(Y, Δr) + 1)
+    dy = Y/(n-1)
+    half_dy = dy/2
+
+    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4) + 1)
+    dx = X/(m-1)
+
+    slope = 1  # 45° angle
+
+    v = Vector{complex(typeof(X))}()
+
+    on = false
+    for j = 0:m-1  # col
+        x = rZb + dx*j
+
+        for i = 0:n-1  # row (we're traversing down column)
+            y = iZb + dy*i
+
+            if (i+1) == n
+                on = !on
+            end
+            if on
+                y -= half_dy
+            end
+
+            if x <= (rZe - (iZe - y)/slope)
+                push!(v, complex(x, y))
+            end
+        end
+    end
+
+    return v
+end
+
+# TODO: Finish this function
+function ldomain(Za::Complex, Zb::Complex, Zc::Complex, width, Δr)
+    rZa, iZa = reim(Za)
+    rZb, iZb = reim(Zb)
+    rZc, iZc = reim(Zc)
+
+    uppercoords = rectangulardomain(complex(rZa, iZa-width), complex(rZb, iZb), Δr)
+    lowercoords = rectangulardomain(complex(rZa, iZc), complex(rZc+width,iZa-width), Δr)
+
+    coords = vcat(uppercoords, lowercoords)
+    unique!(coords)
+
+    return coords
+end
+
+# TODO: Finish this function
 function targetdomain(modes::Vector{T}, delta::T, Δr) where {T<:Complex}
     v = Vector{T}(undef)
     for i in eachindex(modes)
