@@ -481,17 +481,16 @@ function vacuumreflectioncoeffs(ea::EigenAngle, e1::AbstractArray{T}, e2::Abstra
     Cinv = ea.secθ
 
     # TODO: Special Sv matrix (also useful elsewhere?)
-    Sv_inv = SMatrix{4,4,ComplexF64,16}(Cinv, 0, -Cinv, 0,
-                                        0, -1, 0, -1,
-                                        0, -Cinv, 0, Cinv,
-                                        1, 0, 1, 0)
+    Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
+                          0, -1, 0, -1,
+                          0, -Cinv, 0, Cinv,
+                          1, 0, 1, 0)
 
     f1 = Sv_inv*e1
     f2 = Sv_inv*e2
 
-    out_type = promote_type(ComplexF64, T)
-    U = SMatrix{2,2,out_type,4}(f1[1], f1[2], f2[1], f2[2])
-    D = SMatrix{2,2,out_type,4}(f1[3], f1[4], f2[3], f2[4])
+    U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
+    D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
 
     return D/U
 end

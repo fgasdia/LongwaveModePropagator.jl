@@ -247,12 +247,6 @@ Calculate the complex electric field at a distance `x` from transmitter `tx`.
 `modes` is a collection of `EigenAngles` for the earth-ionosphere waveguide with the parameters
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
-
-NOTE: this returns modesum without `x`. To get correct values, need to raise sum to x power
-
-# References
-
-
 """
 function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     X = distance(rx,tx)

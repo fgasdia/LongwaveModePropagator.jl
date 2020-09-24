@@ -669,8 +669,6 @@ function findmodes(origcoords, frequency::Frequency,
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    est_num_nodes = ceil(Int, length(origcoords)*1.2)
-
     if approximate
         @unpack bfield, species = waveguide
         interpolator = susceptibilityinterpolator(frequency, bfield, species)
@@ -678,24 +676,25 @@ function findmodes(origcoords, frequency::Frequency,
         interpolator = nothing
     end
 
-    zroots, zpoles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, interpolator),
-                          origcoords, GRPFParams(est_num_nodes, tolerance, true))
+    est_num_nodes = ceil(Int, length(origcoords)*1.25)
+    roots, poles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, interpolator),
+                        origcoords, GRPFParams(est_num_nodes, tolerance, true))
 
-    # Ensure roots are real
+    # Ensure roots are valid roots (function value is ≈ 0)
     i = 1
-    while i <= length(zroots)
-        f = solvemodalequation(EigenAngle(zroots[i]), frequency, waveguide)
+    while i <= length(roots)
+        f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide)
         valid = isapprox(f, complex(0), atol=0.01)
-        valid || deleteat!(zroots, i)
-        i += 1
+        valid ? (i += 1) : deleteat!(roots, i)
     end
 
     # Remove any redundant modes
     # if tolerance is 1e-8, this rounds to 7 decimal places
-    sort!(zroots, by=reim)
-    unique!(z->round(z, digits=round(Int, abs(log10(tolerance)+1), RoundDown)), zroots)
+    sort!(roots, by=reim)
+    ndigits = round(Int, abs(log10(tolerance)+1), RoundDown)
+    unique!(z->round(z, digits=ndigits), roots)
 
-    return EigenAngle.(zroots)
+    return EigenAngle.(roots)
 end
 
 """
@@ -760,7 +759,6 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     mn = m*n
     slope = Y/X
 
-    vlength = mn + div(m, 2)  # BUG?
     T = promote_type(typeof(Za), typeof(Zb), typeof(Zc), typeof(Δr), Float64)
     v = Vector{T}()
 
@@ -787,7 +785,27 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     return v
 end
 
-function uppertriangularrectangledomain(Zb::Complex, Ze::Complex, Δr)
+"""
+    eiwgdomain(Zb, Ze, d, Δr)
+
+This generates a vector of complex coordinates as a rectangulardomain with Δr on the left
+and a uppertriangularrectdomain with Δr/5 on the right. The transition occurs at `d` in real.
+"""
+function eiwgdomain(Zb, Ze, d, Δr)
+    if real(Zb) > d
+        tricoords = uppertriangularrectdomain(Zb, Ze, Δr/5)
+    else
+        tricoords = uppertriangularrectdomain(complex(d, imag(Zb)), Ze, Δr/5)
+        rectcoords = rectangulardomain(Zb, complex(d, imag(Ze)), Δr)
+    end
+
+    origcoords = vcat(tricoords, rectcoords)
+    unique!(origcoords)
+
+    return origcoords
+end
+
+function uppertriangularrectdomain(Zb::Complex, Ze::Complex, Δr)
     rZb, iZb = reim(Zb)
     rZe, iZe = reim(Ze)
 
@@ -827,21 +845,6 @@ function uppertriangularrectangledomain(Zb::Complex, Ze::Complex, Δr)
     end
 
     return v
-end
-
-# TODO: Finish this function
-function ldomain(Za::Complex, Zb::Complex, Zc::Complex, width, Δr)
-    rZa, iZa = reim(Za)
-    rZb, iZb = reim(Zb)
-    rZc, iZc = reim(Zc)
-
-    uppercoords = rectangulardomain(complex(rZa, iZa-width), complex(rZb, iZb), Δr)
-    lowercoords = rectangulardomain(complex(rZa, iZc), complex(rZc+width,iZa-width), Δr)
-
-    coords = vcat(uppercoords, lowercoords)
-    unique!(coords)
-
-    return coords
 end
 
 # TODO: Finish this function

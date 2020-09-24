@@ -75,10 +75,40 @@ include("modefinder.jl")
 include("modesum.jl")
 
 
-function bpm(waveguide::HomogeneousWaveguide, tx, rx)
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
+function coordgrid(frequency)
+    # TODO: get a better idea of frequency transition
+    if frequency > 15000
+        Zb = complex(0.0, -10.0)
+        Ze = complex(89.9, 0.0)
+        d = 60
+        Δr = 0.5
+        origcoords = eiwgdomain(Zb, Ze, d, Δr)
+    else
+        Zb = complex(0.0, -30.0)
+        Ze = complex(89.9, 0.0)
+        Δr = 1.0
+        origcoords = uppertriangularrectangledomain(Zb, Ze, Δr)
+    end
+
     origcoords .= deg2rad.(origcoords)
+
+    return origcoords
+end
+
+function bpm(waveguide::HomogeneousWaveguide, tx, rx)
+    origcoords = coordgrid(tx.frequency.f)
     tolerance = 1e-8
+
+    E, phase, amp = bpm(waveguide, tx, rx, origcoords, tolerance)
+
+    return E, phase, amp
+end
+
+function bpm(waveguide::HomogeneousWaveguide, tx, rx, origcoords, tolerance)
+    if minimum(imag(origcoords)) < deg2rad(-31)
+        @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+            calculated with modified Hankel functions to overflow."
+    end
 
     modes = findmodes(origcoords, tx.frequency, waveguide, tolerance)
 
@@ -105,14 +135,22 @@ end
 
 function bpm(waveguide::SegmentedWaveguide, tx, rx)
     zs = range(TOPHEIGHT, 0, length=513)
-    # zs = range(TOPHEIGHT, 0, length=129)
     nrsgmnt = length(waveguide)
 
     wavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
     adjwavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
 
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.25)
-    origcoords .= deg2rad.(origcoords)
+    if tx.frequency.f > 15000  # TODO: get a better idea of frequency transition
+        Zb = complex(0.0, -10.0)
+        Ze = complex(89.9, 0.0)
+        Δr = 0.5
+    else
+        Zb = complex(0.0, -30.0)
+        Ze = complex(89.9, 0.0)
+        Δr = 1.0
+    end
+
+    origcoords = coordgrid(tx.frequency.f)
     tolerance = 1e-8
 
     for nsgmnt in 1:nrsgmnt
@@ -120,12 +158,10 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
         modes = findmodes(origcoords, tx.frequency, wvg, tolerance)
 
         # TEMP: not necessary to sort, but easier to compare to LWPC
-        sort!(modes,rev=true)
-        # if nsgmnt > 1
-        #     modes = modes[1:12]
-        # end
+        # sort!(modes,rev=true)
 
-        # adjoint wavefields are wavefields through adjoint waveguide, but for same modes as wavefield
+        # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
+        # as wavefield
         @unpack bfield, species, ground = wvg
         adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
         adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
@@ -150,7 +186,7 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
     end
 
     # Amplitude at transmitter may be calculated as Inf
-    # TODO: replace with something accurate?
+    # TODO: replace with something accurate
     isinf(amp[1]) && (amp[1] = 0)
 
     # By definition, phase at transmitter is 0, but is calculated as NaN
@@ -166,7 +202,7 @@ end
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
 function bpm(file::AbstractString)
-    ispath(file) || error("$filename is not a valid file name")
+    ispath(file) || error("$file is not a valid file name")
 
     s = parse(file)
     output_ranges, E, phase, amp = buildandrun(s)

@@ -31,7 +31,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
     for m in eachindex(modes)
         for i in eachindex(zs)
             @inbounds f = wavefields[m][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-            @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
+            @inbounds g = SVector{4}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
             product[i] = transpose(g)*f
         end
 
@@ -50,7 +50,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
         for m in eachindex(adjmodes)
             for i in eachindex(zs)
                 @inbounds f = previous_wavefields[k][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-                @inbounds g = SVector{4,ComplexF64}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
+                @inbounds g = SVector{4}(adjwavefields[m][i][6], -adjwavefields[m][i][5], -adjwavefields[m][i][3], adjwavefields[m][i][2])  # Hz, -Hy, -Ez, Ey
                 product[i] = transpose(g)*f
             end
             I = romberg(zs, product)

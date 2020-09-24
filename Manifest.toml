@@ -20,9 +20,9 @@ version = "0.0.4"
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "46b7a194b8ac6b4e530b7bbcebf1dc344de90afd"
+git-tree-sha1 = "b3d3169e63585457f38b38b9c0d53855ee1258ab"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.13.1"
+version = "2.13.2"
 
 [[ArrayLayouts]]
 deps = ["Compat", "FillArrays", "LinearAlgebra", "SparseArrays"]
@@ -436,9 +436,9 @@ version = "3.20.0"
 
 [[ModifiedHankelFunctionsOfOrderOneThird]]
 deps = ["Documenter", "Markdown", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "b1043bb66e3a97c1f519ed20b58279e4b6d5c384"
+git-tree-sha1 = "ec431aada1d8789edd028153bb50d2922bbf7a36"
 uuid = "b1c65800-dbf0-11e8-0001-4d87e1e07e69"
-version = "1.0.0"
+version = "1.0.1"
 
 [[MuladdMacro]]
 git-tree-sha1 = "c6190f9a7fc5d9d5915ab29f2134421b12d24a68"
