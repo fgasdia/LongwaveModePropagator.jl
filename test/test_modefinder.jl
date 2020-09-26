@@ -304,6 +304,13 @@ function verticalreflection()
     return R[1,2] ≈ R[2,1]
 end
 
+# TEMP function for testing
+function manyint(eas, tx, waveguide)
+    for i in eachindex(eas)
+        LWMS.integratedreflection(ea, tx.frequency, waveguide)
+    end
+end
+
 function pecground()
     pec_ground = LWMS.Ground(1, 1e12)
     vertical_ea = LWMS.EigenAngle(0)  # not necessary for PEC test?

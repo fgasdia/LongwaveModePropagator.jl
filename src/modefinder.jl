@@ -62,6 +62,23 @@ function isroot(z::Complex; atol=1e-3)
     isapprox(rz, 0, atol=atol) && isapprox(iz, 0, atol=atol)
 end
 
+"""
+    filterroots!(zs, frequency, waveguide)
+
+Remove elements from `zs` if they are not valid roots (determined by `isroot`) to the modal
+equation.
+"""
+function filterroots!(zs, frequency, waveguide)
+    # Ensure roots are valid roots (function value is ≈ 0)
+    i = 1
+    while i <= length(zs)
+        f = solvemodalequation(EigenAngle(zs[i]), frequency, waveguide)
+        isroot(f) ? (i += 1) : deleteat!(zs, i)
+    end
+    return nothing
+end
+
+
 ##########
 # Reflection coefficients
 ##########
@@ -430,17 +447,11 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, params, z)
-    ea, frequency, waveguide, interpolator = params
+    ea, frequency, Mfcn = params
 
     k = frequency.k
 
-    if isnothing(interpolator)
-        @unpack bfield, species = waveguide
-        M = susceptibility(z, frequency, bfield, species)
-    else
-        M = interpolator(z)
-    end
-
+    M = Mfcn(z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -449,12 +460,11 @@ function dRdz(R, params, z)
 end
 
 function dRdθdz(RdRdθ, params, z)
-    ea, frequency, waveguide = params
-    @unpack bfield, species = waveguide
+    ea, frequency, Mfcn = params
 
     k = frequency.k
 
-    M = susceptibility(z, frequency, bfield, species)
+    M  = Mfcn(z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
     dW11, dW21, dW12, dW22 = dwmatrixdθ(ea, M, T)
@@ -469,19 +479,25 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}) where T
+function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     # TODO: Pass parameters with tolerances, integration method
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency,
-        waveguide, nothing))
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT),
+        (ea, frequency, z->susceptibility(z, frequency, bfield, species)))
+
+    #==
+    | tolerance | method |
+    |-----------|--------|
+    | 1e-8      | Vern8  | slightly higher memory, much faster than Vern6, Vern7
+    | 1e-6      | Tsit5 | ~3% slower than Vern8 at this tolerance, but only ~2/3 memory
+    ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-9, reltol=1e-8,
+    sol = solve(prob, Tsit5(), abstol=1e-6, reltol=1e-6,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -497,11 +513,11 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     # TODO: Pass parameters with tolerances, integration method
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency,
-        waveguide, interpolator))
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT),
+        (ea, frequency, interpolator))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-9, reltol=1e-8,
+    sol = solve(prob, Tsit5(), abstol=1e-6, reltol=1e-6,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -520,10 +536,12 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
-    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), (ea, frequency, waveguide))
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT),
+        (ea, frequency, z->susceptibility(z, frequency, bfield, species)))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern7(), abstol=1e-9, reltol=1e-8,
+    # Purposefully higher tolerance than non-derivative version
+    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -688,12 +706,8 @@ function findmodes(origcoords, frequency::Frequency,
     roots, poles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, interpolator),
                         origcoords, grpfparams)
 
-    # Ensure roots are valid roots (function value is ≈ 0)
-    i = 1
-    while i <= length(roots)
-        f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide)
-        isroot(f) ? (i += 1) : deleteat!(roots, i)
-    end
+    # Ensure roots are valid solutions to the modal equation
+    filterroots!(roots, frequency, waveguide)
 
     # Remove any redundant modes
     # if tolerance is 1e-8, this rounds to 7 decimal places
@@ -766,8 +780,7 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     mn = m*n
     slope = Y/X
 
-    T = promote_type(typeof(Za), typeof(Zb), typeof(Zc), typeof(Δr), Float64)
-    v = Vector{T}()
+    v = Vector{complex(typeof(dx))}()
 
     on = false
     for j = 0:m-1  # col

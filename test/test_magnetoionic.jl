@@ -65,7 +65,7 @@ function test_bookerquarticT()
         G = [1-q[i]^2+M[1,1] M[1,2] S*q[i]+M[1,3];
              M[2,1] 1-q[i]^2-S²+M[2,2] M[2,3];
              S*q[i]+M[3,1] M[3,2] C²+M[3,3]]
-        LMWS.isroot(det(G), atol=sqrt(eps())) || return false
+        LWMS.isroot(det(G), atol=sqrt(eps())) || return false
     end
 
     # Confirm Booker quartic is directly satisfied
