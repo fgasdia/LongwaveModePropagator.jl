@@ -12,7 +12,7 @@ function scenario()
     return ea, tx, ground, bfield, electrons
 end
 
-function test_susceptibilityinterp()
+function test_waitsusceptibilityinterp()
     ea, tx, ground, bfield, electrons = scenario()
 
     zs = rand(1000).*(LWMS.TOPHEIGHT-LWMS.BOTTOMHEIGHT) .+ LWMS.BOTTOMHEIGHT
@@ -92,7 +92,8 @@ end
 @testset "magnetoionic.jl" begin
     @info "Testing magnetoionic"
 
-    @test test_susceptibilityinterp()
+    @test test_waitsusceptibilityinterp()
+    @test_skip test_nonwaitsusceptibilityinterp()
 
     # TODO: Off-diagonal terms should be 0 with no B field
     @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0

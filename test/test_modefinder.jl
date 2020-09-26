@@ -91,12 +91,13 @@ end
 function integratedreflection_deriv()
     eas, freq, ground, bfield, electrons = derivative_scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    susceptibilityfcn(z) = LWMS.susceptibility(z, freq, bfield, electrons)
 
     Ros = SMatrix{2,2,ComplexF64,4}[]
     dRs = SMatrix{2,2,ComplexF64,4}[]
     @info "    Integrating dR/dz twice for each eigenangle. This may take a minute."
     for ea in eas
-        Ro = LWMS.integratedreflection(ea, freq, waveguide)
+        Ro = LWMS.integratedreflection(ea, freq, waveguide, susceptibilityfcn)
         RdR = LWMS.integratedreflection(ea, freq, waveguide, LWMS.Derivative_dθ())
 
         isapprox(Ro, RdR[SVector(1,2),:], rtol=1e-3) || return false
@@ -184,14 +185,16 @@ function resonantmodalequation_deriv()
     eas, freq, ground, bfield, electrons = derivative_scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
+    susceptibilityfcn(z) = LWMS.susceptibility(z, freq, bfield, electrons)
+
     # known solution
     ea = EigenAngle(0.8654508431405412 - 0.026442282713736928im)
     dFdθ, R, Rg = LWMS.solvemodalequationdθ(ea, freq, waveguide)
 
     # If dθ is too small, the finitedF blows up
     dθ = deg2rad(1e-2)
-    Fm = LWMS.solvemodalequation(EigenAngle(ea.θ-dθ/2), freq, waveguide)
-    Fp = LWMS.solvemodalequation(EigenAngle(ea.θ+dθ/2), freq, waveguide)
+    Fm = LWMS.solvemodalequation(EigenAngle(ea.θ-dθ/2), freq, waveguide, susceptibilityfcn)
+    Fp = LWMS.solvemodalequation(EigenAngle(ea.θ+dθ/2), freq, waveguide, susceptibilityfcn)
 
     finitedF = (Fp - Fm)/dθ
 
@@ -299,15 +302,18 @@ function verticalreflection()
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
-    R = LWMS.integratedreflection(ea, tx.frequency, waveguide)
+    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    R = LWMS.integratedreflection(ea, tx.frequency, waveguide, susceptibilityfcn)
 
     return R[1,2] ≈ R[2,1]
 end
 
 # TEMP function for testing
 function manyint(eas, tx, waveguide)
+    @unpack bfield, species = waveguide
+    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, species)
     for i in eachindex(eas)
-        LWMS.integratedreflection(ea, tx.frequency, waveguide)
+        LWMS.integratedreflection(ea, tx.frequency, waveguide, susceptibilityfcn)
     end
 end
 
@@ -322,10 +328,11 @@ function modalequation()
     ea, tx, ground, bfield, electrons = scenario()
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
     # known solution w/ tolerance=1e-8
     ea = EigenAngle(1.3804798527274889 - 0.021159517331064276im)
-    f = LWMS.solvemodalequation(ea, tx.frequency, waveguide)
+    f = LWMS.solvemodalequation(ea, tx.frequency, waveguide, susceptibilityfcn)
 
     return LWMS.isroot(f)
 end
@@ -343,8 +350,9 @@ function modefinder()
 
     modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, grpfparams)
 
+    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
     for m in modes
-        f = LWMS.solvemodalequation(m, tx.frequency, waveguide)
+        f = LWMS.solvemodalequation(m, tx.frequency, waveguide, susceptibilityfcn)
         # println(f)
         LWMS.isroot(f) || return false
     end

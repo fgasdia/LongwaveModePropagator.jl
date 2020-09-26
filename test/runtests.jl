@@ -1,7 +1,7 @@
 using Test
 using Dates
 using LinearAlgebra, Statistics
-using StaticArrays
+using StaticArrays, Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
 using RootsAndPoles
 using NLsolve

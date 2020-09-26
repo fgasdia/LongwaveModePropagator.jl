@@ -63,21 +63,22 @@ function isroot(z::Complex; atol=1e-3)
 end
 
 """
-    filterroots!(zs, frequency, waveguide)
+    filterroots!(roots, frequency, waveguide)
 
-Remove elements from `zs` if they are not valid roots (determined by `isroot`) to the modal
+Remove elements from `roots` if they are not valid roots (determined by `isroot`) to the modal
 equation.
 """
-function filterroots!(zs, frequency, waveguide)
-    # Ensure roots are valid roots (function value is ≈ 0)
+function filterroots!(roots, frequency, waveguide)
+    @unpack bfield, species = waveguide
+    susceptibilityfcn(z) = susceptibility(z, frequency, bfield, species)
+
     i = 1
-    while i <= length(zs)
-        f = solvemodalequation(EigenAngle(zs[i]), frequency, waveguide)
+    while i <= length(roots)
+        f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide, susceptibilityfcn)
         isroot(f) ? (i += 1) : deleteat!(zs, i)
     end
     return nothing
 end
-
 
 ##########
 # Reflection coefficients
@@ -479,7 +480,8 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+function integratedreflection(ea::EigenAngle, frequency::Frequency,
+    waveguide::HomogeneousWaveguide, susceptibilityfcn)
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
@@ -487,7 +489,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
 
     # TODO: Pass parameters with tolerances, integration method
     prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT),
-        (ea, frequency, z->susceptibility(z, frequency, bfield, species)))
+        (ea, frequency, susceptibilityfcn))
 
     #==
     | tolerance | method |
@@ -505,32 +507,12 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency, waveguide::H
     return R
 end
 
-function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}, interpolator::AbstractInterpolation) where T
-
-    @unpack bfield, species = waveguide
-    Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
-    Rtop = sharpboundaryreflection(ea, Mtop)
-
-    # TODO: Pass parameters with tolerances, integration method
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT),
-        (ea, frequency, interpolator))
-
-    # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Tsit5(), abstol=1e-6, reltol=1e-6,
-                save_on=false, save_start=false, save_end=true)
-
-    R = sol[end]
-
-    return R
-end
-
 # This is kept as a completely separate function because the size of the matrix being
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}, ::Derivative_dθ) where T
+    waveguide::HomogeneousWaveguide, ::Derivative_dθ)
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
@@ -640,19 +622,9 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 function solvemodalequation(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}) where T
+    waveguide::HomogeneousWaveguide, susceptibilityfcn)
 
-    R = integratedreflection(ea, frequency, waveguide)
-    Rg = fresnelreflection(ea, waveguide.ground, frequency)
-
-    f = modalequation(R, Rg)
-    return f
-end
-
-function solvemodalequation(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}, interpolator::AbstractInterpolation) where T
-
-    R = integratedreflection(ea, frequency, waveguide, interpolator)
+    R = integratedreflection(ea, frequency, waveguide, susceptibilityfcn)
     Rg = fresnelreflection(ea, waveguide.ground, frequency)
 
     f = modalequation(R, Rg)
@@ -663,8 +635,7 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}) where T
+function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
 
     RdR = integratedreflection(ea, frequency, waveguide, Derivative_dθ())
     R = RdR[SVector(1,2),:]
@@ -676,34 +647,23 @@ function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency,
     return df, R, Rg
 end
 
-function susceptibilityinterpolator(frequency, bfield, species)
-    zs = BOTTOMHEIGHT:TOPHEIGHT
-    Ms = [susceptibility(zs[i], frequency, bfield, species) for i in eachindex(zs)]
-    interpolator = CubicSplineInterpolation(zs, Ms)
-
-    return interpolator
-end
-
 """
-`tolerance` is how close solution of modal equation gets to 0. Difference in θ between
-`tolerance=1e-6` and `tolerance=1e-8` is less than 1e-5° in both real and imaginary
-components.
 """
-function findmodes(origcoords, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}, grpfparams::GRPFParams, approximate::Bool=true) where {T}
+function findmodes(origcoords, frequency::Frequency, waveguide::HomogeneousWaveguide,
+    grpfparams::GRPFParams, approximate::Bool=true)
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
+    @unpack bfield, species = waveguide
     if approximate
-        @unpack bfield, species = waveguide
-        interpolator = susceptibilityinterpolator(frequency, bfield, species)
+        susceptibilityfcn = susceptibilityinterpolator(frequency, bfield, species)
     else
-        interpolator = nothing
+        susceptibilityfcn = z->susceptibility(z, frequency, bfield, species)
     end
 
-    roots, poles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, interpolator),
+    roots, poles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, susceptibilityfcn),
                         origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation

@@ -91,6 +91,16 @@ function susceptibility(alt, frequency, bfield, species)
     return M
 end
 
+function susceptibilityinterpolator(frequency, bfield, species)
+    # length(z) scales linearly with this functions run time
+    # preallocating `Ms` saves <10% of time
+    zs = BOTTOMHEIGHT:2:TOPHEIGHT
+    Ms = [susceptibility(zs[i], frequency, bfield, species) for i in eachindex(zs)]
+    interpolator = CubicSplineInterpolation(zs, Ms)
+
+    return interpolator
+end
+
 """
     bookerquartic(ea, M)
 
