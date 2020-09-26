@@ -215,7 +215,7 @@ function scenario()
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
     # `tx` isn't just bits
     ground = Ground(15, 0.001)
-    bfield = BField(50e-6, deg2rad(90), 0)
+    bfield = BField(50e-6, π/2, 0)
 
     electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
@@ -330,16 +330,19 @@ function modefinder()
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
     # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
-    origcoords .= deg2rad.(origcoords)
-    tolerance = 1e-8
+    # origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
+    # origcoords .= deg2rad.(origcoords)
+    # tolerance = 1e-8
 
-    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, tolerance)
+    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
+
+    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, grpfparams)
 
     for m in modes
         f = LWMS.solvemodalequation(m, tx.frequency, waveguide)
-        isapprox(f, complex(0), atol=1e-4) || return false
-        # println(isapprox(f, complex(0), atol=1e-4))
+        isapprox(f, complex(0), atol=1e-3) || return false
         # println(f)
     end
     return true

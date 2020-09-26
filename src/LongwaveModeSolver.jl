@@ -47,8 +47,8 @@ export HomogeneousWaveguide
 export eigenangles
 
 #
-const TOPHEIGHT = 110e3  # TODO: temporary - should be part of an actual IntegrationParameters
-const BOTTOMHEIGHT = zero(TOPHEIGHT)  # should this be an actual const? Nothing works if it's not 0...
+const TOPHEIGHT = 110e3
+const BOTTOMHEIGHT = zero(TOPHEIGHT)  # NOTE: if this isn't 0, many assumptions break
 
 # Not great, but can be changed as `EARTHCURVATURE[]=false`
 # TODO: where does this need to be considered?
@@ -75,42 +75,41 @@ include("modefinder.jl")
 include("modesum.jl")
 
 
-function coordgrid(frequency)
+function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
-        Zb = complex(0.0, -10.0)
-        Ze = complex(89.9, 0.0)
-        d = 60
-        Δr = 0.5
+        Zb = deg2rad(complex(0.0, -10.0))
+        Ze = deg2rad(complex(89.9, 0.0))
+        d = deg2rad(60)
+        Δr = deg2rad(0.5)
         origcoords = eiwgdomain(Zb, Ze, d, Δr)
     else
-        Zb = complex(0.0, -30.0)
-        Ze = complex(89.9, 0.0)
-        Δr = 1.0
-        origcoords = uppertriangularrectangledomain(Zb, Ze, Δr)
+        Zb = deg2rad(complex(0.0, -30.0))
+        Ze = deg2rad(complex(89.9, 0.0))
+        Δr = deg2rad(1.0)
+        origcoords = uppertriangularrectdomain(Zb, Ze, Δr)
     end
-
-    origcoords .= deg2rad.(origcoords)
 
     return origcoords
 end
 
 function bpm(waveguide::HomogeneousWaveguide, tx, rx)
-    origcoords = coordgrid(tx.frequency.f)
-    tolerance = 1e-8
+    origcoords = defaultcoordinates(tx.frequency.f)
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
-    E, phase, amp = bpm(waveguide, tx, rx, origcoords, tolerance)
+    E, phase, amp = bpm(waveguide, tx, rx, origcoords, grpfparams)
 
     return E, phase, amp
 end
 
-function bpm(waveguide::HomogeneousWaveguide, tx, rx, origcoords, tolerance)
+function bpm(waveguide::HomogeneousWaveguide, tx, rx, origcoords, grpfparams::GRPFParams)
     if minimum(imag(origcoords)) < deg2rad(-31)
         @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
             calculated with modified Hankel functions to overflow."
     end
 
-    modes = findmodes(origcoords, tx.frequency, waveguide, tolerance)
+    modes = findmodes(origcoords, tx.frequency, waveguide, grpfparams)
 
     E = Efield(modes, waveguide, tx, rx)
 
@@ -151,7 +150,8 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
     end
 
     origcoords = coordgrid(tx.frequency.f)
-    tolerance = 1e-8
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]

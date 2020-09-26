@@ -335,7 +335,6 @@ function wmatrix(ea::EigenAngle, T)
     d12 = T32Cinv - C
 
     # Form the four 2x2 submatrices of `S`
-    # Ttype is already promoted type of ea and M
     W11 = SMatrix{2,2}(a11+a11r, -c11, -b11, d11)
     W12 = SMatrix{2,2}(a21+a21r, c12, -b11, d12)
     W21 = SMatrix{2,2}(a21-a21r, c11, b21, -d12)
@@ -663,7 +662,7 @@ end
 components.
 """
 function findmodes(origcoords, frequency::Frequency,
-    waveguide::HomogeneousWaveguide{T}, tolerance=1e-8, approximate::Bool=true) where {T}
+    waveguide::HomogeneousWaveguide{T}, grpfparams::GRPFParams, approximate::Bool=true) where {T}
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
@@ -676,9 +675,8 @@ function findmodes(origcoords, frequency::Frequency,
         interpolator = nothing
     end
 
-    est_num_nodes = ceil(Int, length(origcoords)*1.25)
     roots, poles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, interpolator),
-                        origcoords, GRPFParams(est_num_nodes, tolerance, true))
+                        origcoords, grpfparams)
 
     # Ensure roots are valid roots (function value is ≈ 0)
     i = 1
@@ -691,7 +689,7 @@ function findmodes(origcoords, frequency::Frequency,
     # Remove any redundant modes
     # if tolerance is 1e-8, this rounds to 7 decimal places
     sort!(roots, by=reim)
-    ndigits = round(Int, abs(log10(tolerance)+1), RoundDown)
+    ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
     unique!(z->round(z, digits=ndigits), roots)
 
     return EigenAngle.(roots)
