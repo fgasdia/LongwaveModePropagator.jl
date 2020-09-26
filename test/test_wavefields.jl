@@ -50,7 +50,7 @@ function booker_Tvalidity_test()
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(qT)
         booker = qT[i]^4 + BT[4]*qT[i]^3 + BT[3]*qT[i]^2 + BT[2]*qT[i] + BT[1]
-        isapprox(booker, 0, atol=1e-7) || return false
+        LWMS.isroot(booker, atol=1e-7) || return false
     end
 
     return true
@@ -203,7 +203,7 @@ function resonance_test()
 
     # Ensure we are close to mode resonance with R
     f = LWMS.modalequation(R, Rg)
-    isapprox(f, 0, atol=1e-6)
+    return LWMS.isroot(f, atol=1e-6)
 end
 
 @testset "wavefields.jl" begin

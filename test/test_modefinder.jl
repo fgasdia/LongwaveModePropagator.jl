@@ -320,7 +320,7 @@ function modalequation()
     ea = EigenAngle(1.3804798527274889 - 0.021159517331064276im)
     f = LWMS.solvemodalequation(ea, tx.frequency, waveguide)
 
-    return isapprox(f, complex(0), atol=0.001)
+    return LWMS.isroot(f)
 end
 
 function modefinder()
@@ -330,10 +330,6 @@ function modefinder()
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
     # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    # origcoords = rectangulardomain(complex(40, -10.0), complex(89.9, 0.0), 0.5)
-    # origcoords .= deg2rad.(origcoords)
-    # tolerance = 1e-8
-
     origcoords = LWMS.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
@@ -342,8 +338,8 @@ function modefinder()
 
     for m in modes
         f = LWMS.solvemodalequation(m, tx.frequency, waveguide)
-        isapprox(f, complex(0), atol=1e-3) || return false
         # println(f)
+        LWMS.isroot(f) || return false
     end
     return true
 end

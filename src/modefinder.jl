@@ -52,6 +52,16 @@ end
     Rg::SDiagonal{2,T}
 end
 
+"""
+    isroot(z::Complex; atol=1e-3)
+
+Return `true` if both real and imaginary components of `z` are approximately equal to 0.
+"""
+function isroot(z::Complex; atol=1e-3)
+    rz, iz = reim(z)
+    isapprox(rz, 0, atol=atol) && isapprox(iz, 0, atol=atol)
+end
+
 ##########
 # Reflection coefficients
 ##########
@@ -682,8 +692,7 @@ function findmodes(origcoords, frequency::Frequency,
     i = 1
     while i <= length(roots)
         f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide)
-        valid = isapprox(f, complex(0), atol=0.01)
-        valid ? (i += 1) : deleteat!(roots, i)
+        isroot(f) ? (i += 1) : deleteat!(roots, i)
     end
 
     # Remove any redundant modes
