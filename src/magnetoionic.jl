@@ -294,8 +294,13 @@ See also: [`wmatrix`](@ref), [`susceptibility`](@ref)
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
-[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations governing radio propagation in the ionosphere,” Mathematical Proceedings of the Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955.
+
+[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
+    governing radio propagation in the ionosphere,” Mathematical Proceedings of the
+    Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """
 function tmatrix(ea::EigenAngle, M)
     S, C² = ea.sinθ, ea.cos²θ

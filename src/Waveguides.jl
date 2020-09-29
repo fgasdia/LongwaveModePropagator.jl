@@ -12,13 +12,13 @@ abstract type Waveguide end
 Defines a homogeneous segment of waveguide with a `BField`, `Species`,
 `Ground`, and `distance` of the start of the segment from the `Emitter`.
 """
-@with_kw struct HomogeneousWaveguide{S} <: Waveguide
+struct HomogeneousWaveguide{S} <: Waveguide
     bfield::BField  # BField
     species::S  # `Species` or `Vector{Species}`
     ground::Ground  # Ground
     distance::Float64
 end
-HomogeneousWaveguide(bfield, species, ground) = HomogeneousWaveguide(bfield, species, ground, 0)
+HomogeneousWaveguide(bfield, species, ground) = HomogeneousWaveguide(bfield, species, ground, 0.0)
 
 struct SegmentedWaveguide{T<:AbstractVector{<:Waveguide}} <: Waveguide
     v::T
@@ -39,6 +39,5 @@ Convenience function that generates a `SegmentedWaveguide` with an empty `Vector
 of type `w`.
 """
 SegmentedWaveguide(::Type{T}) where T<:Waveguide = SegmentedWaveguide(Vector{T}())
-
 
 # TODO: WKBWaveguide (that's why we can't call SegmentedWaveguide -> InhomogeneousWaveguide)

@@ -40,7 +40,6 @@ end
     end
 end
 
-# TODO: Will this promote properly?
 @generated function TMatrix(a::NTuple{N,Any}) where {N}
     if N != 9
         throw(DimensionMismatch("Tuple length must be 9. Length of input was $N."))

@@ -348,7 +348,8 @@ function modefinder()
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
-    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, grpfparams)
+    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, grpfparams,
+        approximate=true, modifiedR=false)
 
     susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
     for m in modes
@@ -393,9 +394,6 @@ end
     @test pecground()
     @test modalequation()
     @test modefinder()
-
-    # TODO: Off-diagonal terms should be 0 with no B field
-    @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
 
     @testset "Derivatives" begin
         @info "  Derivatives..."

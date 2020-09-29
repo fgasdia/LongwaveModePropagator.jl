@@ -8,6 +8,12 @@ fictitious medium with a refractive index that mimicks the propagation of the
 radio wave through free space over curved earth.
 ==#
 
+struct DZParams{T,F}
+    ea::EigenAngle{T}
+    frequency::Frequency
+    Mfcn::F
+end
+
 # TODO: G as its own type contained within this?
 @with_kw struct SharpBoundaryVariables{T} @deftype T
     G12
@@ -70,12 +76,12 @@ equation.
 """
 function filterroots!(roots, frequency, waveguide)
     @unpack bfield, species = waveguide
-    susceptibilityfcn(z) = susceptibility(z, frequency, bfield, species)
+    Mfcn = z->susceptibility(z, frequency, bfield, species)
 
     i = 1
     while i <= length(roots)
-        f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide, susceptibilityfcn)
-        isroot(f) ? (i += 1) : deleteat!(zs, i)
+        f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide, Mfcn)
+        isroot(f) ? (i += 1) : deleteat!(roots, i)
     end
     return nothing
 end
@@ -145,7 +151,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
 end
 
 """
-    sharplyboundedreflection(ea, M)
+    sharpboundaryreflection(ea, M)
 
 Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere.
 
@@ -448,7 +454,7 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, params, z)
-    ea, frequency, Mfcn = params
+    @unpack ea, frequency, Mfcn = params
 
     k = frequency.k
 
@@ -457,11 +463,11 @@ function dRdz(R, params, z)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
     # the factor k/(2i) isn't explicitly in Budden1955a b/c of his change of variable ``s = kz``
-    return -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
+    return -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
 
 function dRdθdz(RdRdθ, params, z)
-    ea, frequency, Mfcn = params
+    @unpack ea, frequency, Mfcn = params
 
     k = frequency.k
 
@@ -481,15 +487,15 @@ function dRdθdz(RdRdθ, params, z)
 end
 
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, susceptibilityfcn)
+    waveguide::HomogeneousWaveguide, Mfcn)
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     # TODO: Pass parameters with tolerances, integration method
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT),
-        (ea, frequency, susceptibilityfcn))
+    dzparams = DZParams(ea, frequency, Mfcn)
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
 
     #==
     | tolerance | method |
@@ -518,8 +524,8 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
-    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT),
-        (ea, frequency, z->susceptibility(z, frequency, bfield, species)))
+    dzparams = DZParams(ea, frequency, z->susceptibility(z, frequency, bfield, species))
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
@@ -548,7 +554,7 @@ function _fresnelreflection(ea::EigenAngle, ground, frequency)
     Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
     Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
 
-    Rg = SDiagonal(Rg11, Rg22)
+    Rg = SDiagonal(Rg11, Rg22)  # TODO: time this - slower than SMatrix?
 
     return FresnelReflectionVariables(Ng², CNg², sqrtNg²mS², Rg)
 end
@@ -561,7 +567,9 @@ ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
 
 # References
 
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
+[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
+    for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
+    Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
     @unpack Rg = _fresnelreflection(ea, ground, frequency)
@@ -622,9 +630,9 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 function solvemodalequation(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, susceptibilityfcn)
+    waveguide::HomogeneousWaveguide, Mfcn)
 
-    R = integratedreflection(ea, frequency, waveguide, susceptibilityfcn)
+    R = integratedreflection(ea, frequency, waveguide, Mfcn)
     Rg = fresnelreflection(ea, waveguide.ground, frequency)
 
     f = modalequation(R, Rg)
@@ -650,21 +658,30 @@ end
 """
 """
 function findmodes(origcoords, frequency::Frequency, waveguide::HomogeneousWaveguide,
-    grpfparams::GRPFParams, approximate::Bool=true)
+    grpfparams::GRPFParams; approximate::Bool=true, modifiedR::Bool=true)
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
     @unpack bfield, species = waveguide
+
     if approximate
-        susceptibilityfcn = susceptibilityinterpolator(frequency, bfield, species)
+        Mfcn = susceptibilityinterpolator(frequency, bfield, species)
     else
-        susceptibilityfcn = z->susceptibility(z, frequency, bfield, species)
+        Mfcn(alt) = susceptibility(alt, frequency, bfield, species)
     end
 
-    roots, poles = grpf(z->solvemodalequation(EigenAngle(z), frequency, waveguide, susceptibilityfcn),
-                        origcoords, grpfparams)
+    # TODO: Create two ModeEquation structs with
+    # freq, waveguide, Mfcn and then solvemodalequation can be built for X or regular form
+
+    if modifiedR
+        f(θ) = solvemodalequationX(EigenAngle(θ), frequency, waveguide, Mfcn)
+    else
+        f(θ) = solvemodalequation(EigenAngle(θ), frequency, waveguide, Mfcn)
+    end
+
+    roots, poles = grpf(f, origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
     filterroots!(roots, frequency, waveguide)

@@ -5,7 +5,7 @@ module LongwaveModeSolver
 
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
-using UUIDs, Dates
+using Dates
 using LinearAlgebra
 
 using StaticArrays
@@ -72,6 +72,7 @@ include("romberg.jl")
 include("magnetoionic.jl")
 include("modeconversion.jl")
 include("modefinder.jl")
+include("modefinderX.jl")
 include("modesum.jl")
 
 

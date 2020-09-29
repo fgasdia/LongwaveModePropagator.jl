@@ -54,7 +54,7 @@ Parameters passed to Pitteway integration of wavefields.
     `bfield::BField`
     `species::Species{F,G}`
 """
-@with_kw struct WavefieldIntegrationParams{T1,T2,F,G}
+struct WavefieldIntegrationParams{T1,T2,F,G}
     z::T1
     bottomz::T1
     ortho_scalar::Complex{T2}

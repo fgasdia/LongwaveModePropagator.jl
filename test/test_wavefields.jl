@@ -111,8 +111,9 @@ function drdzwavefield_equivalence_test()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)),
-        (ea, tx.frequency, z->LWMS.susceptibility(z, tx.frequency, bfield, electrons)))
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
+    dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), dzparams)
     sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8,
                 saveat=zs, save_everystep=false)
 
