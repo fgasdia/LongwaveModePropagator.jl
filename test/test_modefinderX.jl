@@ -34,13 +34,13 @@ end
 function test_dX()
     ea, tx, ground, bfield, electrons = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
     Mtop = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
     Xtop = LWMS.R2X(ea, Rtop)
 
-    dzparams = LWMS.DZParams(ea, tx.frequency, susceptibilityfcn)
+    dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
     X = LWMS.dXdz(Xtop, dzparams, 80e3)
     Xref = dXdzW(Xtop, dzparams, 80e3)
 
@@ -56,20 +56,68 @@ function test_R2XX2R()
     return Rtest ≈ X
 end
 
+function test_modalequationX()
+    ea, tx, ground, bfield, electrons = scenario()
+    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
+    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+
+    # known solution w/ tolerance=1e-8
+    ea = EigenAngle(1.3804798527274889 - 0.021159517331064276im)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    f = LWMS.solvemodalequation(ea, modeequation)
+
+    return LWMS.isroot(f)
+end
+
 function test_modefinderX()
     ea, tx, ground, bfield, electrons = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
+    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+
+    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
+    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
+    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-5, true)
+
+    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+
+    physicalmodeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    for m in modes
+        f = LWMS.solvemodalequation(m, physicalmodeequation)
+        LWMS.isroot(f) || return false
+    end
+    return true
+end
+
+
+
+
+
+
+
+
+
+
+function test_modefinderX()
+    ea, tx, ground, bfield, electrons = scenario()
+    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
     origcoords = LWMS.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
     @unpack bfield, species = waveguide
-    susceptibilityfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
+    Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
 
-    roots, poles = grpf(z->solvemodalequationX(EigenAngle(z), tx.frequency, waveguide, susceptibilityfcn),
-                        origcoords, grpfparams)
+    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+    f(θ) = solvemodalequation(EigenAngle(θ), modeequation)
+    roots, poles = grpf(f, origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
     filterroots!(roots, frequency, waveguide)
@@ -84,86 +132,25 @@ end
 function test_integratedX()
     ea, tx, ground, bfield, electrons = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
     origcoords = LWMS.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
     @unpack bfield, species = waveguide
-    # susceptibilityfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, species)
+    # Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, species)
     susceptibilitymfcn = alt->LWMS.susceptibility(alt, tx.frequency, bfield, species)
 
     LWMS.integratedreflectionX(ea, tx.frequency, waveguide, susceptibilitymfcn)
 end
 
-function test_modalequationX()
-    ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
-
-    LWMS.solvemodalequationX(ea, tx.frequency, waveguide, susceptibilityfcn)
-
-    # eas = EigenAngle.(rand(ComplexF64, 1000))
-    # for i in eachindex(eas)
-    #     LWMS.solvemodalequationX(eas[i], tx.frequency, waveguide, susceptibilityfcn)
-    # end
-end
-
-function modefinderX()
-    ea, tx, ground, bfield, electrons = scenario()
-
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-
-    # origcoords = LWMS.defaultcoordinates(tx.frequency.f)
-    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    # grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
-
-    Zb = deg2rad(complex(40.0, -10.0))
-    Ze = deg2rad(complex(89.9, 0.0))
-    d = deg2rad(60)
-    Δr = deg2rad(0.6)
-    origcoords = LWMS.uppertriangularrectdomain(Zb, Ze, Δr)
-
-    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
-    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    # origcoords = LWMS.defaultcoordinates(tx.frequency.f)
-    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    # grpfparams = GRPFParams(est_num_nodes, 1e-7, false)
-
-    # if approximate
-    #     Mfcn = susceptibilityinterpolator(frequency, bfield, species)
-    # else
-        # Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
-    # end
-
-    # for i in eachindex(origcoords)
-    #     LWMS.solvemodalequation(EigenAngle(origcoords[i]), tx.frequency, waveguide, Mfcn)
-    # end
-
-    # f(z) = LWMS.solvemodalequationX(EigenAngle(z), tx.frequency, waveguide, Mfcn)
-    # f(80e3)
-    # roots, poles = grpf(f, origcoords, grpfparams)
-
-    # return roots
-    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, grpfparams, true, true)
-
-    M(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
-    for m in modes
-        fval = LWMS.solvemodalequationX(m, tx.frequency, waveguide, M)
-        # println(f)
-        LWMS.isroot(fval) || return false
-    end
-    return true
-end
-
-
 function tdx()
     ea, tx, ground, bfield, electrons = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
-    dzparams = LWMS.DZParams(ea, tx.frequency, susceptibilityfcn)
+    dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
 
     Xtop = rand(SMatrix{2,2,ComplexF64})
     # Xtop = @SMatrix [2.0+1.0im 2.1+1.1im
@@ -175,12 +162,12 @@ end
 function tsx()
     ea, tx, ground, bfield, electrons = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    susceptibilityfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
-    # dzparams = LWMS.DZParams(ea, tx.frequency, susceptibilityfcn)
+    # dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
 
-    LWMS.solvemodalequationX(ea, tx.frequency, waveguide, susceptibilityfcn)
-    # LWMS.solvemodalequation(ea, tx.frequency, waveguide, susceptibilityfcn)
+    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+    LWMS.solvemodalequation(ea, modeequation)
 end
 
 

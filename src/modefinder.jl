@@ -8,6 +8,20 @@ fictitious medium with a refractive index that mimicks the propagation of the
 radio wave through free space over curved earth.
 ==#
 
+abstract type ModeEquation end
+
+struct PhysicalModeEquation{W<:HomogeneousWaveguide,F} <: ModeEquation
+    frequency::Frequency
+    waveguide::W
+    Mfcn::F
+end
+
+struct ModifiedModeEquation{W<:HomogeneousWaveguide,F} <: ModeEquation
+    frequency::Frequency
+    waveguide::W
+    Mfcn::F
+end
+
 struct DZParams{T,F}
     ea::EigenAngle{T}
     frequency::Frequency
@@ -51,7 +65,7 @@ function Base.show(io::IO, ::MIME"text/plain", s::SharpBoundaryVariables{T}) whe
     end
 end
 
-@with_kw struct FresnelReflectionVariables{T<:Number} @deftype T
+@with_kw struct FresnelReflectionVariables{T<:Complex} @deftype T
     Ng²
     CNg²
     sqrtNg²mS²
@@ -69,6 +83,13 @@ function isroot(z::Complex; atol=1e-3)
 end
 
 """
+    isroot(x::Real; atol=1e-3)
+
+Return `true` if the value of `x` is approximately equal to 0.
+"""
+isroot(x::Real; atol=1e-3) = isapprox(z, 0, atol=atol)
+
+"""
     filterroots!(roots, frequency, waveguide)
 
 Remove elements from `roots` if they are not valid roots (determined by `isroot`) to the modal
@@ -77,10 +98,11 @@ equation.
 function filterroots!(roots, frequency, waveguide)
     @unpack bfield, species = waveguide
     Mfcn = z->susceptibility(z, frequency, bfield, species)
+    modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
 
     i = 1
     while i <= length(roots)
-        f = solvemodalequation(EigenAngle(roots[i]), frequency, waveguide, Mfcn)
+        f = solvemodalequation(EigenAngle(roots[i]), modeequation)
         isroot(f) ? (i += 1) : deleteat!(roots, i)
     end
     return nothing
@@ -487,13 +509,12 @@ function dRdθdz(RdRdθ, params, z)
 end
 
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn)
+    waveguide::HomogeneousWaveguide, Mfcn::F) where {F}  # `F` forces dispatch on functions
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
-    # TODO: Pass parameters with tolerances, integration method
     dzparams = DZParams(ea, frequency, Mfcn)
     prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
 
@@ -501,11 +522,11 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
     | tolerance | method |
     |-----------|--------|
     | 1e-8      | Vern8  | slightly higher memory, much faster than Vern6, Vern7
-    | 1e-6      | Tsit5 | ~3% slower than Vern8 at this tolerance, but only ~2/3 memory
+    | 1e-6      | Vern8  |
     ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Tsit5(), abstol=1e-6, reltol=1e-6,
+    sol = solve(prob, Vern8(), abstol=1e-6, reltol=1e-6,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -629,9 +650,8 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn)
-
+function solvemodalequation(ea::EigenAngle, modeequation::PhysicalModeEquation)
+    @unpack frequency, waveguide, Mfcn = modeequation
     R = integratedreflection(ea, frequency, waveguide, Mfcn)
     Rg = fresnelreflection(ea, waveguide.ground, frequency)
 
@@ -655,32 +675,15 @@ function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::
     return df, R, Rg
 end
 
-"""
-"""
-function findmodes(origcoords, frequency::Frequency, waveguide::HomogeneousWaveguide,
-    grpfparams::GRPFParams; approximate::Bool=true, modifiedR::Bool=true)
+function findmodes(origcoords, grpfparams::GRPFParams, modeequation::ModeEquation)
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    @unpack bfield, species = waveguide
+    @unpack frequency, waveguide = modeequation
 
-    if approximate
-        Mfcn = susceptibilityinterpolator(frequency, bfield, species)
-    else
-        Mfcn(alt) = susceptibility(alt, frequency, bfield, species)
-    end
-
-    # TODO: Create two ModeEquation structs with
-    # freq, waveguide, Mfcn and then solvemodalequation can be built for X or regular form
-
-    if modifiedR
-        f(θ) = solvemodalequationX(EigenAngle(θ), frequency, waveguide, Mfcn)
-    else
-        f(θ) = solvemodalequation(EigenAngle(θ), frequency, waveguide, Mfcn)
-    end
-
+    f(θ) = solvemodalequation(EigenAngle(θ), modeequation)
     roots, poles = grpf(f, origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
