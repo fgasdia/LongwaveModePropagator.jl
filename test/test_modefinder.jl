@@ -1,11 +1,7 @@
-const Δθ = deg2rad(0.01)
-
-centereddiff(v, Δθ) = (v[3:end] - v[1:end-2])/(2Δθ)  # aligns to [2:end-1]
+err_func(a,b) = maximum(abs.(a-b))
 
 function derivative_scenario()
-    # NOTE: as a finite diff, Δθ determines the accuracy
-    # Setting too small will _greatly_ increase test runtime
-    eas = [EigenAngle(th) for th in complex.(range(0, π/2; step=Δθ), -4π/180)]
+    θs = [complex(r,i) for r = range(deg2rad(30), deg2rad(89), length=100) for i = range(deg2rad(-30), deg2rad(0), length=100)]
 
     freq = Frequency(24e3)
     bfield = BField(50e-6, π/2, 0)
@@ -14,40 +10,21 @@ function derivative_scenario()
                         z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
                         z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
 
-    return eas, freq, ground, bfield, electrons
+    return θs, freq, ground, bfield, electrons
 end
 
 function wmatrix_deriv()
-    eas, freq, ground, bfield, electrons = derivative_scenario()
+    θs, freq, ground, bfield, electrons = derivative_scenario()
 
     M = LWMS.susceptibility(70e3, freq, bfield, electrons)
 
-    Ws = NTuple{4,SArray{Tuple{2,2},ComplexF64,2,4}}[]
-    dWs = NTuple{4,SArray{Tuple{2,2},ComplexF64,2,4}}[]
-    for ea in eas
-        T = LWMS.tmatrix(ea, M)
-        W = LWMS.wmatrix(ea, T)
-        dW = LWMS.dwmatrixdθ(ea, M, T)
-        push!(Ws, W)
-        push!(dWs, dW)
-    end
-
     for i = 1:4
-        # Extract each tuple matrix of Ws
-        ws = [w[i] for w in Ws]
-        dws = [dw[i] for dw in dWs]
-
-        re_ws = Tuple.(real.(ws))
-        im_ws = Tuple.(imag.(ws))
-
-        re_dws = Tuple.(real.(dws))
-        im_dws = Tuple.(imag.(dws))
-
         for j = 1:4
-            re_diff = centereddiff(getfield.(re_ws, j), Δθ) - getfield.(re_dws, j)[2:end-1]
-            im_diff = centereddiff(getfield.(im_ws, j), Δθ) - getfield.(im_dws, j)[2:end-1]
-            maximum(abs.(re_diff)) < 1e-3 || return false
-            maximum(abs.(im_diff)) < 1e-3 || return false
+            Wfcn(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M); LWMS.wmatrix(ea, T)[i][j])
+            dWref = FiniteDiff.finite_difference_derivative(Wfcn, θs, Val{:central})
+            dW(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M); LWMS.dwmatrixdθ(ea, M, T)[i][j])
+
+            err_func(dW.(θs), dWref) < 1e-3 || return false
         end
     end
 
@@ -55,151 +32,117 @@ function wmatrix_deriv()
 end
 
 function sharpboundaryreflection_deriv()
-    eas, freq, ground, bfield, electrons = derivative_scenario()
+    θs, freq, ground, bfield, electrons = derivative_scenario()
 
     M = LWMS.susceptibility(70e3, freq, bfield, electrons)
 
-    Ros = SMatrix{2,2,ComplexF64,4}[]
-    dRs = SMatrix{2,2,ComplexF64,4}[]
-    for ea in eas
-        Ro = LWMS.sharpboundaryreflection(ea, M)
-        RdR = LWMS.sharpboundaryreflection(ea, M, LWMS.Derivative_dθ())
+    for i = 1:4
+        Rref(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M)[i])
+        dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
+        R(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Derivative_dθ())[SVector(1,2),:][i])
+        dR(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Derivative_dθ())[SVector(3,4),:][i])
 
-        Ro ≈ RdR[SVector(1,2),:] || return false
-
-        push!(Ros, Ro)
-        push!(dRs, RdR[SVector(3,4),:])
-    end
-
-    re_ros = Tuple.(real.(Ros))
-    im_ros = Tuple.(imag.(Ros))
-
-    re_drs = Tuple.(real.(dRs))
-    im_drs = Tuple.(imag.(dRs))
-
-    for j = 1:4
-        re_diff = centereddiff(getfield.(re_ros, j), Δθ) - getfield.(re_drs, j)[2:end-1]
-        im_diff = centereddiff(getfield.(im_ros, j), Δθ) - getfield.(im_drs, j)[2:end-1]
-        maximum(abs.(re_diff)) < 1e-5 || return false
-        maximum(abs.(im_diff)) < 1e-5 || return false
+        Rref.(θs) ≈ R.(θs) || return false
+        err_func(dR.(θs), dRref) < 1e-4 || return false
     end
 
     return true
 end
 
-# NOTE: This function takes a relatively long time because it has to do 2*length(eas) integrations
 function integratedreflection_deriv()
-    eas, freq, ground, bfield, electrons = derivative_scenario()
+    θs, freq, ground, bfield, electrons = derivative_scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, freq, bfield, electrons)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, electrons)
 
-    Ros = SMatrix{2,2,ComplexF64,4}[]
-    dRs = SMatrix{2,2,ComplexF64,4}[]
-    @info "    Integrating dR/dz twice for each eigenangle. This may take a minute."
-    for ea in eas
-        Ro = LWMS.integratedreflection(ea, freq, waveguide, Mfcn)
-        RdR = LWMS.integratedreflection(ea, freq, waveguide, LWMS.Derivative_dθ())
+    @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
-        isapprox(Ro, RdR[SVector(1,2),:], rtol=1e-3) || return false
+    Rref(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn)[1])
+    dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
+    R(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())[SVector(1,2),:][1])
+    dR(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())[SVector(3,4),:][1])
 
-        push!(Ros, Ro)
-        push!(dRs, RdR[SVector(3,4),:])
-    end
-    @info "    Integrations of dR/dz complete."
+    # Rref.(θs) !≈ R.(θs) because of difference in integration atol. For a small number of
+    # `R` values that are quite large (thousands), the difference in tolerance can be significant
+    Rdiff = Rref.(θs) .- R.(θs)
+    quantile(real(Rdiff), 0.99) < 0.01 || return false
+    quantile(imag(Rdiff), 0.99) < 0.01 || return false
 
-    re_ros = Tuple.(real.(Ros))
-    im_ros = Tuple.(imag.(Ros))
-
-    re_drs = Tuple.(real.(dRs))
-    im_drs = Tuple.(imag.(dRs))
-
-    for j = 1:4
-        # XXX: Tolerance is so low because R we might be passing through a branch point and
-        # R is unreasonably large (and probably) not defined
-        # TODO: Handle branch point calculation of R
-        isapprox(centereddiff(getfield.(re_ros, j), Δθ), getfield.(re_drs, j)[2:end-1], rtol=0.1) || return false
-        isapprox(centereddiff(getfield.(im_ros, j), Δθ), getfield.(im_drs, j)[2:end-1], rtol=0.1) || return false
-    end
+    # Similar issue with dR...
+    dRθs = dR.(θs)
+    dRdiff = dRθs .- dRref
+    quantile(abs.(dRdiff./dRref), 0.99) < 1 || return false
 
     return true
 end
 
 function fresnelreflection_deriv()
-    eas, freq, ground, bfield, electrons = derivative_scenario()
+    θs, freq, ground, bfield, electrons = derivative_scenario()
 
-    Rgos = SMatrix{2,2,ComplexF64,4}[]
-    dRgs = SMatrix{2,2,ComplexF64,4}[]
-    for ea in eas
-        Rgo = LWMS.fresnelreflection(ea, ground, freq)
-        Rg, dRg = LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())
+    for i = 1:4
+        Rgref(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq)[1])
+        dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
+        Rg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())[1][1])
+        dRg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())[2][1])
 
-        Rgo ≈ Rg || return false
-
-        push!(Rgos, Rgo)
-        push!(dRgs, dRg)
-    end
-
-    re_rgos = Tuple.(real.(Rgos))
-    im_rgos = Tuple.(imag.(Rgos))
-
-    re_drgs = Tuple.(real.(dRgs))
-    im_drgs = Tuple.(imag.(dRgs))
-
-    for j = 1:4
-        re_diff = centereddiff(getfield.(re_rgos, j), Δθ) - getfield.(re_drgs, j)[2:end-1]
-        im_diff = centereddiff(getfield.(im_rgos, j), Δθ) - getfield.(im_drgs, j)[2:end-1]
-        maximum(abs.(re_diff)) < 1e-4 || return false
-        maximum(abs.(im_diff)) < 1e-4 || return false
+        Rgref.(θs) ≈ Rg.(θs) || return false
+        err_func(dRg.(θs), dRgref) < 1e-6 || return false
     end
 
     return true
 end
 
 function modalequation_deriv()
-    eas, freq, ground, bfield, electrons = derivative_scenario()
+    θs, freq, ground, bfield, electrons = derivative_scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, electrons)
 
-    Fs = ComplexF64[]
-    dFs = ComplexF64[]
-    for ea in eas
-        RdR = LWMS.integratedreflection(ea, freq, waveguide, LWMS.Derivative_dθ())
+    function Fref(θ)
+        ea = EigenAngle(θ)
+        R = LWMS.integratedreflection(ea, freq, waveguide, Mfcn)
+        Rg = LWMS.fresnelreflection(ea, ground, freq)
+
+        return LWMS.modalequation(R, Rg)
+    end
+
+    function dF(θ)
+        ea = EigenAngle(θ)
+        RdR = LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())
         Rg, dRg = LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())
 
         R = RdR[SVector(1,2),:]
         dR = RdR[SVector(3,4),:]
 
-        F = LWMS.modalequation(R, Rg)
-        dF = LWMS.modalequationdθ(R, dR, Rg, dRg)
-
-        push!(Fs, F)
-        push!(dFs, dF)
+        return LWMS.modalequationdθ(R, dR, Rg, dRg)
     end
-    # XXX: Suffering from same branch point (?) issue as `eval_integratedreflection`
-    isapprox(centereddiff(real.(Fs), Δθ), real.(dFs)[2:end-1], rtol=0.05) || return false
-    isapprox(centereddiff(imag.(Fs), Δθ), imag.(dFs)[2:end-1], rtol=0.05) || return false
+
+    @info "    Integrating dR/dz for many eigenangles. This may take a minute."
+
+    Fθ = Fref.(θs)
+    dFref = FiniteDiff.finite_difference_derivative(Fref, θs, Val{:forward}, eltype(θs), Fθ)
+
+    dFθ = dF.(θs)
+    dFdiff = dFθ .- dFref
+    quantile(abs.(dFdiff./dFref), 0.99) < 2 || return false
 
     return true
 end
 
 function resonantmodalequation_deriv()
-    eas, freq, ground, bfield, electrons = derivative_scenario()
+    θs, freq, ground, bfield, electrons = derivative_scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
-    Mfcn(z) = LWMS.susceptibility(z, freq, bfield, electrons)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, electrons)
+    modeequation = LWMS.PhysicalModeEquation(freq, waveguide, Mfcn)
 
     # known solution
-    ea = EigenAngle(0.8654508431405412 - 0.026442282713736928im)
-    dFdθ, R, Rg = LWMS.solvemodalequationdθ(ea, freq, waveguide)
+    θ = 1.4152764714690873 - 0.01755942938376613im
+    ea = EigenAngle(θ)
+    dFdθ, R, Rg = LWMS.solvemodalequation(ea, modeequation, LWMS.Derivative_dθ())
 
-    # If dθ is too small, the finitedF blows up
-    dθ = deg2rad(1e-2)
-    modeequation = LWMS.PhysicalModeEquation(freq, waveguide, Mfcn)
-    Fm = LWMS.solvemodalequation(EigenAngle(ea.θ-dθ/2), modeequation)
-    Fp = LWMS.solvemodalequation(EigenAngle(ea.θ+dθ/2), modeequation)
+    Fref(θ) = (ea = EigenAngle(θ); LWMS.solvemodalequation(ea, modeequation))
+    dFref = FiniteDiff.finite_difference_derivative(Fref, θ, Val{:central})
 
-    finitedF = (Fp - Fm)/dθ
-
-    return isapprox(dFdθ, finitedF, rtol=1e-2)
+    return isapprox(dFdθ, dFref, rtol=1e-1)
 end
 
 ########
@@ -322,8 +265,8 @@ function modalequation()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
     Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
 
-    # known solution w/ tolerance=1e-8
-    ea = EigenAngle(1.3804729586583675 - 0.02115163497838071im)
+    # known solution
+    ea = EigenAngle(1.4152764714690873 - 0.01755942938376613im)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
     f = LWMS.solvemodalequation(ea, modeequation)
 
@@ -341,16 +284,16 @@ function modefinder()
     # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
     origcoords = LWMS.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-5, true)
+    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-6, true)
 
     modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
-
+    
     for m in modes
         f = LWMS.solvemodalequation(m, modeequation)
         # println(f)
         LWMS.isroot(f) || return false
     end
-    return modes
+    return true
 end
 
 

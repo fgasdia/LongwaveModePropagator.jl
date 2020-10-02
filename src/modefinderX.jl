@@ -11,16 +11,9 @@ Convert reflection matrix `R` to modified reflection matrix `X` for `EigenAngle`
     Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
 @inline function R2X(ea::EigenAngle, R)
-    C = ea.cosθ
-    return R2X(C, R)
+    Cinv = ea.secθ
+    return (R + I)*Cinv
 end
-
-"""
-    R2X(C, R)
-
-Convert reflection matrix `R` to modified reflection matrix `X` at cosine angle `C`.
-"""
-@inline R2X(C, R) = (R + I)*inv(C)
 
 """
     X2R(ea::EigenAngle, X)
@@ -62,13 +55,13 @@ function dXdz(X, params, z)
 
     k = frequency.k
     C = ea.cosθ
+    C² = ea.cos²θ
 
     M = Mfcn(z)
     T = tmatrix(ea, M)
 
     # Precompute
     C2 = 2*C
-    C² = C^2
 
     CT41 = C*T[4,1]
 
@@ -82,7 +75,7 @@ function dXdz(X, params, z)
 end
 
 function integratedreflectionX(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn)
+    waveguide::HomogeneousWaveguide, Mfcn::F) where F
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
@@ -100,7 +93,7 @@ function integratedreflectionX(ea::EigenAngle, frequency::Frequency,
     ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern8(), abstol=1e-6, reltol=1e-6,
+    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
     X = sol[end]
@@ -166,9 +159,8 @@ function modalequationX(X, n, d)
     return (n[1,1] - X[1,1]*d[1,1])*(n[2,2] - X[2,2]*d[2,2]) - X[1,2]*X[2,1]*d[1,1]*d[2,2]
 end
 
-function solvemodalequationX(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn)
-
+function solvemodalequation(ea::EigenAngle, modeequation::ModifiedModeEquation)
+    @unpack frequency, waveguide, Mfcn = modeequation
     X = integratedreflectionX(ea, frequency, waveguide, Mfcn)
     n, d = fresnelreflectionX(ea, waveguide.ground, frequency)
 

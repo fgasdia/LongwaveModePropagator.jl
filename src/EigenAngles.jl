@@ -16,16 +16,25 @@ struct EigenAngle{T}
     θ::T  # radians, because df/dθ are in radians
     cosθ::T
     sinθ::T
-    secθ::T  # == 1/cosθ  # TODO Is it really worth calculating here? (pre mode-find)
+    secθ::T  # == 1/cosθ
     cos²θ::T
     sin²θ::T
 end
 EigenAngle(ea::EigenAngle) = ea
-EigenAngle(θ::Real) = EigenAngle(complex(float(θ)))
 
 function EigenAngle(θ::Complex)
     rθ, iθ = reim(θ)
     ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ > 2π. Make sure θ is in radians."
+    S, C = sincos(θ)
+    Cinv = inv(C)  # == sec(θ)
+    C² = C^2
+    S² = 1 - C²
+    EigenAngle(θ, C, S, Cinv, C², S²)
+end
+
+function EigenAngle(θ::Real)
+    abs(θ) > 2π && @warn "θ > 2π. Make sure θ is in radians."
+    θ = float(θ)
     S, C = sincos(θ)
     Cinv = inv(C)  # == sec(θ)
     C² = C^2

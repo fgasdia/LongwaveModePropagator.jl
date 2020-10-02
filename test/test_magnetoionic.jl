@@ -15,13 +15,19 @@ end
 function test_waitsusceptibilityinterp()
     ea, tx, ground, bfield, electrons = scenario()
 
-    zs = rand(1000).*(LWMS.TOPHEIGHT-LWMS.BOTTOMHEIGHT) .+ LWMS.BOTTOMHEIGHT
+    zs = rand(100000).*(LWMS.TOPHEIGHT-LWMS.BOTTOMHEIGHT) .+ LWMS.BOTTOMHEIGHT
     trueM = LWMS.susceptibility.(zs, (tx.frequency,), (bfield,), (electrons,))
 
     itp = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
     interpM = itp(zs)
 
     return trueM ≈ interpM
+end
+
+function evalMfcn(Mfcn, zs)
+    for i in eachindex(zs)
+        Mfcn(zs[i])
+    end
 end
 
 function test_bookerquarticM()

@@ -4,10 +4,9 @@ using LinearAlgebra, Statistics
 using StaticArrays, Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
 using RootsAndPoles
-using NLsolve
 using VoronoiDelaunay
 using JSON3, StructTypes
-using Interpolations
+using Interpolations, NLsolve, FiniteDiff
 
 using LongwaveModeSolver
 const LWMS = LongwaveModeSolver
@@ -26,6 +25,7 @@ const ME = LWMS.ME
     include("test_magnetoionic.jl")
     include("test_wavefields.jl")
     include("test_modefinder.jl")
+    include("test_modefinderX.jl")
 
     include("test_IO.jl")
 end

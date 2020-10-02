@@ -34,15 +34,15 @@ end
 function test_dX()
     ea, tx, ground, bfield, electrons = scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
 
-    Mtop = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
+    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, electrons)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
     Xtop = LWMS.R2X(ea, Rtop)
 
     dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
-    X = LWMS.dXdz(Xtop, dzparams, 80e3)
-    Xref = dXdzW(Xtop, dzparams, 80e3)
+    X = LWMS.dXdz(Xtop, dzparams, LWMS.TOPHEIGHT-500)
+    Xref = dXdzW(Xtop, dzparams, LWMS.TOPHEIGHT-500)
 
     return X ≈ Xref
 end
@@ -53,7 +53,7 @@ function test_R2XX2R()
     X = LWMS.R2X(ea, R)
     Rtest = LWMS.X2R(ea, X)
 
-    return Rtest ≈ X
+    return Rtest ≈ R
 end
 
 function test_modalequationX()
@@ -63,9 +63,9 @@ function test_modalequationX()
     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
     modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
 
-    # known solution w/ tolerance=1e-8
-    ea = EigenAngle(1.3804798527274889 - 0.021159517331064276im)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    # known solution
+    ea = EigenAngle(1.4152764714690873 - 0.01755942938376613im)
+
     f = LWMS.solvemodalequation(ea, modeequation)
 
     return LWMS.isroot(f)
@@ -176,4 +176,5 @@ end
 
     @test test_dX()
     @test test_R2XX2R()
+    @test test_modalequationX()
 end

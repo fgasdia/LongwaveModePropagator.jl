@@ -7,7 +7,7 @@ function scenario()
                         z -> waitprofile(z, 75, 0.32),
                         electroncollisionfrequency)
 
-    ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
+    ea = EigenAngle(1.4152764714690873 - 0.01755942938376613im)
 
     ztop = LWMS.TOPHEIGHT
     zs = ztop:-100:zero(LWMS.TOPHEIGHT)
@@ -189,9 +189,12 @@ function resonant_scenario()
 
     origcoords = LWMS.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
+    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-6, true)
 
-    modes = LWMS.findmodes(origcoords, tx.frequency, waveguide, grpfparams)
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+
+    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
     ea = modes[argmax([real(x.θ) for x in modes])]  # largest real resonant mode
 
     return bfield, tx, ground, electrons, ea, zs
@@ -205,7 +208,7 @@ function resonance_test()
 
     # Ensure we are close to mode resonance with R
     f = LWMS.modalequation(R, Rg)
-    return LWMS.isroot(f, atol=1e-6)
+    return LWMS.isroot(f, atol=1e-4)
 end
 
 @testset "wavefields.jl" begin

@@ -508,6 +508,7 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
+# TODO: Function args first
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
     waveguide::HomogeneousWaveguide, Mfcn::F) where {F}  # `F` forces dispatch on functions
 
@@ -526,7 +527,7 @@ function integratedreflection(ea::EigenAngle, frequency::Frequency,
     ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern8(), abstol=1e-6, reltol=1e-6,
+    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -539,13 +540,13 @@ end
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, ::Derivative_dθ)
+    waveguide::HomogeneousWaveguide, Mfcn::F, ::Derivative_dθ) where {F}
 
     @unpack bfield, species = waveguide
     Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
     RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
 
-    dzparams = DZParams(ea, frequency, z->susceptibility(z, frequency, bfield, species))
+    dzparams = DZParams(ea, frequency, Mfcn)
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
 
     # NOTE: When save_on=false, don't try interpolating the solution!
@@ -663,9 +664,11 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequationdθ(ea::EigenAngle, frequency::Frequency, waveguide::HomogeneousWaveguide)
+function solvemodalequation(ea::EigenAngle, modeequation::PhysicalModeEquation, ::Derivative_dθ)
+    # Derivative_dθ always uses `susceptibility` as Mfcn
+    @unpack frequency, waveguide, Mfcn = modeequation
 
-    RdR = integratedreflection(ea, frequency, waveguide, Derivative_dθ())
+    RdR = integratedreflection(ea, frequency, waveguide, Mfcn, Derivative_dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 

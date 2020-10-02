@@ -94,7 +94,7 @@ end
 function susceptibilityinterpolator(frequency, bfield, species)
     # length(z) scales linearly with this functions run time
     # preallocating `Ms` saves <10% of time
-    zs = BOTTOMHEIGHT:2:TOPHEIGHT
+    zs = BOTTOMHEIGHT:TOPHEIGHT
     Ms = [susceptibility(zs[i], frequency, bfield, species) for i in eachindex(zs)]
     interpolator = CubicSplineInterpolation(zs, Ms)
 
