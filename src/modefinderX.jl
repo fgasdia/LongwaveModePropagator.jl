@@ -1,3 +1,15 @@
+#==
+Functions related to the modified mode equation formulated by Morfitt and Shellman (1976) as
+part of their `MODESRCH` procedure. The modified mode equation has identical zeros to the
+physical mode equation except it has no poles in the complex plane
+_at the reflection height_. At the ground, the poles appear identical to the physical mode
+equation.
+
+In its current form, BPM always references the ground and ionosphere reflection coefficients
+at the ground height (0), so there is no advantage in using these modified equations
+compared to the physical equations.
+==#
+
 """
     R2X(ea::EigenAngle, R)
 

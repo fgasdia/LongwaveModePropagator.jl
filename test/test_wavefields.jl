@@ -1,21 +1,3 @@
-function scenario()
-    bfield = BField(50e-6, deg2rad(68), deg2rad(111))
-    tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
-    ground = Ground(15, 0.001)
-
-    electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32),
-                        electroncollisionfrequency)
-
-    ea = EigenAngle(1.4152764714690873 - 0.01755942938376613im)
-
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
-
-    return bfield, tx, ground, electrons, ea, zs
-end
-
-
 """
 Check for equivalence of Booker quartic computed by M and T.
 
@@ -62,6 +44,9 @@ Confirm `initialwavefields(T)` satisfies field eigenvector equation ``Te = qe``
 function initialwavefields_test()
     bfield, tx, ground, electrons, ea, zs = scenario()
 
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+
     M = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
 
@@ -85,6 +70,9 @@ function initialR_test()
     # Confirm reflection coefficient from wavefields at top height
     bfield, tx, ground, electrons, ea, zs = scenario()
 
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, bfield, electrons)
     Ttop = LWMS.tmatrix(ea, Mtop)
     etop = LWMS.initialwavefields(Ttop)
@@ -104,6 +92,9 @@ Confirm reflection coefficients from wavefields match with dr/dz calculation.
 """
 function drdzwavefield_equivalence_test()
     bfield, tx, ground, electrons, ea, zs = scenario()
+
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
@@ -146,6 +137,9 @@ See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
 """
 function homogeneous_iono_test()
     bfield, tx, ground, species, ea, zs = homogeneous_scenario()
+
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
 
     LWMS.EARTHCURVATURE[] = false
 
@@ -202,6 +196,10 @@ end
 
 function resonance_test()
     bfield, tx, ground, electrons, ea, zs = resonant_scenario()
+
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+    
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, electrons)
     R = LWMS.vacuumreflectioncoeffs(ea, e[end])
     Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)

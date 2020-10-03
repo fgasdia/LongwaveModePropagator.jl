@@ -1,21 +1,6 @@
 err_func(a,b) = maximum(abs.(a-b))
 
-function derivative_scenario()
-    θs = [complex(r,i) for r = range(deg2rad(30), deg2rad(89), length=100) for i = range(deg2rad(-30), deg2rad(0), length=100)]
-
-    freq = Frequency(24e3)
-    bfield = BField(50e-6, π/2, 0)
-    ground = Ground(15, 0.001)
-    electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-                        z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
-
-    return θs, freq, ground, bfield, electrons
-end
-
 function wmatrix_deriv()
-    θs, freq, ground, bfield, electrons = derivative_scenario()
-
     M = LWMS.susceptibility(70e3, freq, bfield, electrons)
 
     for i = 1:4
@@ -157,23 +142,9 @@ end
 # @testset "Vertical B-field" begin
 #
 
-function scenario()
-    ea = EigenAngle(deg2rad(complex(85.0, -1.0)))
-    tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-    # `tx` isn't just bits
-    ground = Ground(15, 0.001)
-    bfield = BField(50e-6, π/2, 0)
-
-    electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-                        z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
-
-    return ea, tx, ground, bfield, electrons
-end
-
 function test_wmatrix()
     # Check that "analytical" solution for W matches numerical
-    ea, tx, ground, bfield, electrons = scenario()
+    ea, tx, ground, bfield, electrons = verticalB_scenario()
 
     C = ea.cosθ
     L = [C 0 -C 0;
@@ -189,7 +160,7 @@ function test_wmatrix()
 end
 
 function test_sharplybounded()
-    ea, tx, ground, bfield, electrons = scenario()
+    ea, tx, ground, bfield, electrons = verticalB_scenario()
 
     M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
     T = LWMS.tmatrix(ea, M)
@@ -210,7 +181,7 @@ end
 
 # BUG: This isn't working? Possibly foundational math error
 function numericalsharpR()
-    ea, tx, ground, bfield, electrons = scenario()
+    ea, tx, ground, bfield, electrons = verticalB_scenario()
 
     M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
     q, B = LWMS.bookerquartic(ea, M)
@@ -274,7 +245,7 @@ function modalequation()
 end
 
 function modefinder()
-    ea, tx, ground, bfield, electrons = scenario()
+    ea, tx, ground, bfield, electrons = verticalB_scenario()
     waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
 
     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
@@ -287,7 +258,7 @@ function modefinder()
     grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-6, true)
 
     modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
-    
+
     for m in modes
         f = LWMS.solvemodalequation(m, modeequation)
         # println(f)

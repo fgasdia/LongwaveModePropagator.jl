@@ -1,25 +1,16 @@
-function scenario()
-    ea = EigenAngle(deg2rad(complex(85.0, -1.0)))
-    tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-    # `tx` isn't just bits
-    ground = Ground(15, 0.001)
-    bfield = BField(50e-6, deg2rad(90), 0)
-
-    electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-                        z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
-
-    return ea, tx, ground, bfield, electrons
-end
-
-function test_waitsusceptibilityinterp()
-    ea, tx, ground, bfield, electrons = scenario()
+function test_waitsusceptibilityinterp(scenario)
+    @unpack tx, bfield, species = scenario
 
     zs = rand(100000).*(LWMS.TOPHEIGHT-LWMS.BOTTOMHEIGHT) .+ LWMS.BOTTOMHEIGHT
-    trueM = LWMS.susceptibility.(zs, (tx.frequency,), (bfield,), (electrons,))
+    trueM = LWMS.susceptibility.(zs, (tx.frequency,), (bfield,), (species,))
 
-    itp = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
+    itp = LWMS.susceptibilityinterpolator(tx.frequency, bfield, species)
     interpM = itp(zs)
+
+    # In use, recommend
+    # import FunctionWrappers: FunctionWrapper
+    # itp = LWMS.susceptibilityinterpolator(frequency, bfield, species)
+    # Mfcn = FunctionWrapper{SMatrix{3,3,ComplexF64,9}, Tuple{Float64}}(itp)
 
     return trueM ≈ interpM
 end
@@ -30,10 +21,10 @@ function evalMfcn(Mfcn, zs)
     end
 end
 
-function test_bookerquarticM()
-    ea, tx, ground, bfield, electrons = scenario()
+function test_bookerquarticM(scenario)
+    @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
+    M = LWMS.susceptibility(80e3, tx.frequency, bfield, species)
     q, B = LWMS.bookerquartic(ea, M)
 
     S = ea.sinθ
@@ -56,10 +47,10 @@ function test_bookerquarticM()
     return true
 end
 
-function test_bookerquarticT()
-    ea, tx, ground, bfield, electrons = scenario()
+function test_bookerquarticT(scenario)
+    @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
+    M = LWMS.susceptibility(80e3, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
     q, B = LWMS.bookerquartic(T)
 
@@ -83,10 +74,10 @@ function test_bookerquarticT()
     return true
 end
 
-function test_bookerquartics()
-    ea, tx, ground, bfield, electrons = scenario()
+function test_bookerquartics(scenario)
+    @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
+    M = LWMS.susceptibility(80e3, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
 
     qM, BM = LWMS.bookerquartic(ea, M)
@@ -98,13 +89,16 @@ end
 @testset "magnetoionic.jl" begin
     @info "Testing magnetoionic"
 
-    @test test_waitsusceptibilityinterp()
-    @test_skip test_nonwaitsusceptibilityinterp()
+    for scn in (verticalB_scenario, scenario)
+        @test test_waitsusceptibilityinterp(scn)
+        @test test_waitsusceptibilityinterp(scn)
+        @test_skip test_nonwaitsusceptibilityinterp(scn)
 
-    # TODO: Off-diagonal terms should be 0 with no B field
-    @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
+        # TODO: Off-diagonal terms should be 0 with no B field
+        @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
 
-    @test test_bookerquarticM()
-    @test test_bookerquarticT()
-    @test test_bookerquartics()
+        @test test_bookerquarticM(scn)
+        @test test_bookerquarticT(scn)
+        @test test_bookerquartics(scn)
+    end
 end

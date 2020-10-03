@@ -73,37 +73,39 @@ end
 end
 
 """
-    isroot(z::Complex; atol=1e-3)
+    isroot(z::Complex; atol=1e-2)
 
 Return `true` if both real and imaginary components of `z` are approximately equal to 0.
 """
-function isroot(z::Complex; atol=1e-3)
+function isroot(z::Complex; atol=1e-2)
     rz, iz = reim(z)
     isapprox(rz, 0, atol=atol) && isapprox(iz, 0, atol=atol)
 end
 
 """
-    isroot(x::Real; atol=1e-3)
+    isroot(x::Real; atol=1e-2)
 
 Return `true` if the value of `x` is approximately equal to 0.
 """
-isroot(x::Real; atol=1e-3) = isapprox(z, 0, atol=atol)
+isroot(x::Real; atol=1e-2) = isapprox(z, 0, atol=atol)
 
 """
-    filterroots!(roots, frequency, waveguide)
+    filterroots!(roots, frequency, waveguide; atol=1e-2)
 
 Remove elements from `roots` if they are not valid roots (determined by `isroot`) to the modal
 equation.
+
+The absolute tolerance `atol` is passed through to `isroot`.
 """
-function filterroots!(roots, frequency, waveguide)
+function filterroots!(roots, frequency, waveguide; atol=1e-2)
     @unpack bfield, species = waveguide
-    Mfcn = z->susceptibility(z, frequency, bfield, species)
+    Mfcn(alt) = susceptibility(alt, frequency, bfield, species)
     modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
 
     i = 1
     while i <= length(roots)
         f = solvemodalequation(EigenAngle(roots[i]), modeequation)
-        isroot(f) ? (i += 1) : deleteat!(roots, i)
+        isroot(f, atol=atol) ? (i += 1) : deleteat!(roots, i)
     end
     return nothing
 end
