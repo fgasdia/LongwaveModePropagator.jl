@@ -89,7 +89,7 @@ end
 @testset "magnetoionic.jl" begin
     @info "Testing magnetoionic"
 
-    for scn in (verticalB_scenario, scenario)
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         @test test_waitsusceptibilityinterp(scn)
         @test test_waitsusceptibilityinterp(scn)
         @test_skip test_nonwaitsusceptibilityinterp(scn)

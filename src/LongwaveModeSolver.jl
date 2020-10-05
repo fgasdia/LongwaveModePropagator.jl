@@ -72,7 +72,6 @@ include("romberg.jl")
 include("magnetoionic.jl")
 include("modeconversion.jl")
 include("modefinder.jl")
-include("modefinderX.jl")
 include("modesum.jl")
 
 

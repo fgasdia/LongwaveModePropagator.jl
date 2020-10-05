@@ -1,7 +1,9 @@
 err_func(a,b) = maximum(abs.(a-b))
 
-function wmatrix_deriv()
-    M = LWMS.susceptibility(70e3, freq, bfield, electrons)
+function wmatrix_deriv(scenario)
+    @unpack tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(70e3, tx.frequency, bfield, species)
 
     for i = 1:4
         for j = 1:4
@@ -16,10 +18,10 @@ function wmatrix_deriv()
     return true
 end
 
-function sharpboundaryreflection_deriv()
-    θs, freq, ground, bfield, electrons = derivative_scenario()
+function sharpboundaryreflection_deriv(scenario)
+    @unpack tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(70e3, freq, bfield, electrons)
+    M = LWMS.susceptibility(70e3, tx.frequency, bfield, species)
 
     for i = 1:4
         Rref(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M)[i])
@@ -34,10 +36,12 @@ function sharpboundaryreflection_deriv()
     return true
 end
 
-function integratedreflection_deriv()
-    θs, freq, ground, bfield, electrons = derivative_scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, electrons)
+function integratedreflection_deriv(scenario)
+    @unpack tx, ground, bfield, species = scenario
+    freq = tx.frequency
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
 
     @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
@@ -60,8 +64,9 @@ function integratedreflection_deriv()
     return true
 end
 
-function fresnelreflection_deriv()
-    θs, freq, ground, bfield, electrons = derivative_scenario()
+function fresnelreflection_deriv(scenario)
+    @unpack tx, ground = scenario
+    freq = tx.frequency
 
     for i = 1:4
         Rgref(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq)[1])
@@ -76,10 +81,12 @@ function fresnelreflection_deriv()
     return true
 end
 
-function modalequation_deriv()
-    θs, freq, ground, bfield, electrons = derivative_scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, electrons)
+function modalequation_deriv(scenario)
+    @unpack tx, ground, bfield, species = scenario
+    freq = tx.frequency
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
 
     function Fref(θ)
         ea = EigenAngle(θ)
@@ -112,11 +119,13 @@ function modalequation_deriv()
     return true
 end
 
-function resonantmodalequation_deriv()
-    θs, freq, ground, bfield, electrons = derivative_scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+function resonantmodalequation_deriv(scenario)
+    @unpack tx, ground, bfield, species = scenario
+    freq = tx.frequency
 
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, electrons)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
     modeequation = LWMS.PhysicalModeEquation(freq, waveguide, Mfcn)
 
     # known solution
@@ -131,20 +140,12 @@ function resonantmodalequation_deriv()
 end
 
 ########
-# No B-field
+# Non-derivative
 ########
 
-
-
-########
-# Vertical B-field
-########
-# @testset "Vertical B-field" begin
-#
-
-function test_wmatrix()
+function test_wmatrix(scenario)
     # Check that "analytical" solution for W matches numerical
-    ea, tx, ground, bfield, electrons = verticalB_scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     C = ea.cosθ
     L = [C 0 -C 0;
@@ -152,17 +153,17 @@ function test_wmatrix()
          0 -C 0 C;
          1 0 1 0]
 
-    M = LWMS.susceptibility(80e3, tx.frequency, bfield, electrons)
+    M = LWMS.susceptibility(80e3, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
     W = LWMS.wmatrix(ea, T)
 
     return [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
 end
 
-function test_sharplybounded()
-    ea, tx, ground, bfield, electrons = verticalB_scenario()
+function test_sharplybounded(scenario)
+    @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
+    M = LWMS.susceptibility(95e3, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
     W = LWMS.wmatrix(ea, T)
 
@@ -180,10 +181,10 @@ function test_sharplybounded()
 end
 
 # BUG: This isn't working? Possibly foundational math error
-function numericalsharpR()
-    ea, tx, ground, bfield, electrons = verticalB_scenario()
+function numericalsharpR(species)
+    @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(95e3, tx.frequency, bfield, electrons)
+    M = LWMS.susceptibility(95e3, tx.frequency, bfield, species)
     q, B = LWMS.bookerquartic(ea, M)
 
     sort!(q, by=LWMS.upgoing)
@@ -212,12 +213,12 @@ function numericalsharpR()
     initR ≈ R
 end
 
-function verticalreflection()
-    ea, tx, ground, bfield, electrons = scenario()
+function verticalreflection(scenario)
+    @unpack ea, tx, ground, bfield, species = scenario
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
 
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, species)
     R = LWMS.integratedreflection(ea, tx.frequency, waveguide, Mfcn)
 
     return R[1,2] ≈ R[2,1]
@@ -230,25 +231,23 @@ function pecground()
     return abs.(LWMS.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))) ≈ I
 end
 
-function modalequation()
-    ea, tx, ground, bfield, electrons = scenario()
+function modalequation(scenario)
+    @unpack ea, tx, ground, bfield, species = scenario
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, species)
 
-    # known solution
-    ea = EigenAngle(1.4152764714690873 - 0.01755942938376613im)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
     f = LWMS.solvemodalequation(ea, modeequation)
 
     return LWMS.isroot(f)
 end
 
-function modefinder()
-    ea, tx, ground, bfield, electrons = verticalB_scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+function modefinder(scenario)
+    @unpack tx, bfield, species, ground = scenario
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
@@ -267,9 +266,34 @@ function modefinder()
     return true
 end
 
-
-
-
+# using Roots
+#
+# function refineroots(root, scenario)
+#     #verticalB_scenario
+#     @unpack tx, bfield, species, ground = scenario
+#     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+#
+#     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
+#     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+#     f(θ) = LWMS.solvemodalequation(EigenAngle(θ), modeequation)
+#     # df(θ) = LWMS.solvemodalequation(EigenAngle(θ), modeequation, LWMS.Derivative_dθ())[1]
+#
+#     # D(f) = x->ForwardDiff.derivative(f, float(x))
+#     # Roots.newton(f, D(f), root, atol=1e-6)
+#     # find_zero(f, root)
+#     Roots.muller(f, root, xrtol=1e-8)
+#     # Roots.secant_method(f, root, atol=1e-6)
+#     # Roots.find_zero(f, root, Roots.Order1(), atol=1e-6, verbose=true)
+# end
+#
+# function evalroot(root, scenario)
+#     @unpack tx, bfield, species, ground = scenario
+#     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+#
+#     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
+#     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+#     LWMS.solvemodalequation(EigenAngle(root), modeequation)
+# end
 
 
 
@@ -374,22 +398,25 @@ end
 @testset "modefinder.jl" begin
     @info "Testing modefinder"
 
-    @test test_wmatrix()
-    @test test_sharplybounded()
-    @test_skip numericalsharpR()
-    @test verticalreflection()
-    @test pecground()
-    @test modalequation()
-    @test modefinder()
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+        @test test_wmatrix(scn)
+        @test test_sharplybounded(scn)
+        @test_skip numericalsharpR(scn)
+        @test verticalreflection(scn)
+        @test pecground()
+        @test modalequation(scn)
+        @test modefinder(scn)
+    end
 
     @testset "Derivatives" begin
         @info "  Derivatives..."
-
-        @test wmatrix_deriv()
-        @test sharpboundaryreflection_deriv()
-        @test fresnelreflection_deriv()
-        @test integratedreflection_deriv()
-        @test modalequation_deriv()
-        @test resonantmodalequation_deriv()
+        for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+            @test wmatrix_deriv(scn)
+            @test sharpboundaryreflection_deriv(scn)
+            @test fresnelreflection_deriv(scn)
+            @test integratedreflection_deriv(scn)
+            @test modalequation_deriv(scn)
+            @test resonantmodalequation_deriv(scn)
+        end
     end
 end

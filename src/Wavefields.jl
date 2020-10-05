@@ -480,7 +480,7 @@ function vacuumreflectioncoeffs(ea::EigenAngle, e1::AbstractArray{T}, e2::Abstra
     C = ea.cosθ
     Cinv = ea.secθ
 
-    # TODO: Special Sv matrix (also useful elsewhere?)
+    # TODO: Specialize this matrix math?
     Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
                           0, -1, 0, -1,
                           0, -Cinv, 0, Cinv,
