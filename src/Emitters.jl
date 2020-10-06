@@ -3,7 +3,7 @@
 """
     Frequency
 
-Electromagnetic wave component defined by frequency `f`, but also carrying angular wave
+Electromagnetic wave defined by frequency `f`, but also carrying angular wave
 frequency, wavenumber, and wavelength.
 """
 struct Frequency

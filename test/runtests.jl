@@ -34,7 +34,7 @@ const verticalB_scenario = TestScenario(
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
     Ground(15, 0.001),
     Transmitter(24e3),
-    GroundSampler(2000e3, LWMS.FC_Ez)
+    GroundSampler(2000e3, Fields.Ez)
 )
 
 const resonant_scenario = TestScenario(
@@ -45,7 +45,7 @@ const resonant_scenario = TestScenario(
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
     Ground(15, 0.001),
     Transmitter(24e3),
-    GroundSampler(2000e3, LWMS.FC_Ez)
+    GroundSampler(2000e3, Fields.Ez)
 )
 
 const nonresonant_scenario = TestScenario(
@@ -56,7 +56,7 @@ const nonresonant_scenario = TestScenario(
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
     Ground(15, 0.001),
     Transmitter(24e3),
-    GroundSampler(2000e3, LWMS.FC_Ez)
+    GroundSampler(2000e3, Fields.Ez)
 )
 
 const homogeneousiono_scenario = TestScenario(
@@ -67,7 +67,7 @@ const homogeneousiono_scenario = TestScenario(
             z->z >= LWMS.CURVATURE_HEIGHT ? 1e8 : 0.0),
     Ground(15, 0.001),
     Transmitter(24e3),
-    GroundSampler(2000e3, LWMS.FC_Ez)
+    GroundSampler(2000e3, Fields.Ez)
 )
 
 const θs = [complex(r,i) for r = range(deg2rad(30), deg2rad(89), length=100) for i = range(deg2rad(-30), deg2rad(0), length=100)]

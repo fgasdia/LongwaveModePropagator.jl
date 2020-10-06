@@ -136,9 +136,9 @@ function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
 end
 
 """
-    excitationfactor(ea, dFdθ, R, Rg, component)
+    excitationfactor(ea, dFdθ, R, Rg, field)
 
-Calculate the excitation factor for electric field `component`.
+Calculate the excitation factor for electric `field`.
 
 These excitation factors are used in conjunction with the function
 [`heightgains`](@ref).
@@ -168,7 +168,7 @@ Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
 San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
-    component::FieldComponent)
+    field::Fields.Field)
 
     S, S², C² = ea.sinθ, ea.sin²θ, ea.cos²θ
     sqrtS = sqrt(S)
@@ -194,15 +194,15 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
     # Here eigenangle is at the ground (as is everything else)
     S₀T₁ = S₀*T₁
     S₀T₃ = S₀*T₃
-    if component == FC_Ez
+    if field == Fields.Ez
         λv = S₀*S₀T₁
         λb = -S₀T₃*T₄
         λe = -S₀T₁
-    elseif component == FC_Ey
+    elseif field == Fields.Ey
         λv = -S₀T₃
         λb = T₂
         λe = T₃
-    elseif component == FC_Ex
+    elseif field == Fields.Ex
         λv = S₀T₁
         λb = -T₃*T₄
         λe = -T₁
@@ -228,7 +228,7 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     | t3 | Sγ*Cϕ |
     ==#
     t1, t2, t3, zt = emitter_orientation
-    rxcomponent, zr = sampler_orientation
+    rxfield, zr = sampler_orientation
 
     Mfcn(alt) = susceptibility(alt, frequency, waveguide)
     modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
@@ -236,7 +236,7 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
 
     # Transmitter term
     fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
@@ -249,12 +249,12 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
         fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
     end
 
-    # TODO: Handle multiple components - maybe just always return all 3?
-    if rxcomponent == FC_Ez
+    # TODO: Handle multiple fields - maybe just always return all 3?
+    if rxfield == Fields.Ez
         rcvrterm = fz_r
-    elseif rxcomponent == FC_Ex
+    elseif rxfield == Fields.Ex
         rcvrterm = fx_r
-    elseif rxcomponent == FC_Ey
+    elseif rxfield == Fields.Ey
         rcvrterm = fy_r
     end
 
@@ -274,7 +274,7 @@ function Efield!(E, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abs
     X = distance(rx,tx)
     @assert length(E) == length(X)  # or boundscheck
 
-    # TODO: special function for vertical component, transmitter, and at ground
+    # TODO: special function for vertical field, transmitter, and at ground
     # TODO: Special Efield() for point measurement
 
     frequency = tx.frequency
@@ -283,7 +283,7 @@ function Efield!(E, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abs
     zt = altitude(tx)
     k = frequency.k
     zr = altitude(rx)
-    rxcomponent = fieldcomponent(rx)
+    rxfield = fieldcomponent(rx)
 
     # Transmit dipole antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
@@ -292,7 +292,7 @@ function Efield!(E, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abs
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
     emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
-    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
+    sampler_orientation = (rxfield=rxfield, zr=zr)
 
     # Initialize E if necessary
     iszero(E) || fill!(E, 0)
@@ -362,7 +362,7 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
     zr = altitude(rx)
 
     emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
-    sampler_orientation = (rxcomponent=rxcomponent, zr=zr)
+    sampler_orientation = (rxfield=rxfield, zr=zr)
 
     # Initialize
     segmentcount = length(waveguide)

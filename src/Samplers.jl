@@ -3,7 +3,7 @@
 
 Abstract supertype for sampling fields in the waveguide.
 
-Subtypes of AbstractSampler have a position in the guide and a `FieldComponent`.
+Subtypes of AbstractSampler have a position in the guide and a `Fields.Field`.
 """
 abstract type AbstractSampler end
 
@@ -18,13 +18,13 @@ end
 """
     Sampler{R} <: AbstractSampler
 
-`Sampler` types sample the field specified by `fieldcomponent` at `altitude` and
+`Sampler` types sample the field specified by `Fields.Field` at `altitude` and
 distance(s) `distance` from the transmitter.
 """
 struct Sampler{R} <: AbstractSampler
     distance::R
     altitude::Float64
-    fieldcomponent::FieldComponent
+    fieldcomponent::Fields.Field
 
     Sampler(d::R, fc) where R = distancechecks(d, Sampler) && new{R}(d, fc)
 end
@@ -36,12 +36,12 @@ fieldcomponent(s::Sampler) = s.fieldcomponent
 """
     GroundSampler{R} <: AbstractSampler
 
-Ground samplers are designed to sample the field specified by `fieldcomponent`
+Ground samplers are designed to sample the field specified by `Fields.Field`
 at distance(s) `distance` along the ground from the transmitter.
 """
 struct GroundSampler{R} <: AbstractSampler
     distance::R  # R is usually <: AbstractVector but could be a scalar
-    fieldcomponent::FieldComponent
+    fieldcomponent::Fields.Field
 
     GroundSampler(d::R, fc) where R = distancechecks(d, GroundSampler) && new{R}(d, fc)
 end

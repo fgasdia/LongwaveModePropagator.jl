@@ -16,18 +16,15 @@ const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.fo
     Species{F, G}
 
 Ionosphere constituent `Species` with a `charge` (C), `mass` (kg),
-`numberdensity(z)` (m⁻³), and `collisionfrequency(z)` (s⁻¹).
+`numberdensity(z)` (m⁻³), and `collisionfrequency(z)` (s⁻¹) where the latter two
+should be callable functions of height `z`.
 """
-struct Species{F<:Function, G<:Function}
+struct Species{F, G}
     charge::Float64  # C
     mass::Float64  # kg
-    numberdensity::F  # function that obtains number density (m⁻³)
-    collisionfrequency::G  # function that obtains collision frequency (s⁻¹)
+    numberdensity::F  # m⁻³
+    collisionfrequency::G  # s⁻¹
 end
-# TODO: Suggest to user that F (and maybe G) be an interpolated object, which
-# may be faster than the calls to `exp` that will likely appear in F. The calls
-# to `exp` accounts for ~30% of `susceptibility` runtime. `G` also has a call to
-# exp typically, but this is much less time.
 
 ########
 
@@ -137,18 +134,15 @@ end
 
 ########
 
-# NOTE:
-# @kristoffer.carlson suggests this is faster than e.g. dispatch
-# https://discourse.julialang.org/t/dispatch-and-symbols/21162/5
-# However, there are limitations to enum in Julia 1.0, mainly the enum fields are in scope
-# everywhere.
-# TODO: Use SuperEnum or something else with improved scoping? >
-# https://discourse.julialang.org/t/encapsulating-enum-access-via-dot-syntax/11785/9
-@enum FieldComponent begin
-    FC_Ez
-    FC_Ey
-    FC_Ex
-    FC_ALL
+"""
+    Fields
+
+This `baremodule` allows scoped enum-like access to electric field components
+`Ex`, `Ey`, and `Ez` as e.g., `Fields.Ex`.
+"""
+baremodule Fields
+using Base: @enum
+@enum Field Ex Ey Ez
 end
 
 ########

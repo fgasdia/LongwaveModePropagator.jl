@@ -27,7 +27,7 @@ using Debugger  # TEMP
 export bpm
 
 # Geophysics.jl
-export BField, Species, EigenAngle, FieldComponent, Ground
+export BField, Species, EigenAngle, Fields, Ground
 export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 

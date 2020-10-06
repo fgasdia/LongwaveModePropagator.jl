@@ -23,7 +23,7 @@ function homoscenario(threshold)
                                           Ground(15, 0.001))
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-    rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
+    rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
     E, phase, amp = LWMS.bpm(waveguide, tx, rx)
 
@@ -39,7 +39,7 @@ function homoscenario2(threshold)
                                           Ground(15, 0.001))
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-    rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
+    rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
     E, phase, amp = LWMS.bpm(waveguide, tx, rx)
 
@@ -64,7 +64,7 @@ function mc_scenario(threshold)
 
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-    rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
+    rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
     E, phase, amp = LWMS.bpm(waveguide, tx, rx)
 
@@ -94,7 +94,7 @@ function mc_scenario_3(threshold)
 
 
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-    rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
+    rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
     E, phase, amp = LWMS.bpm(waveguide, tx, rx)
 
@@ -113,7 +113,7 @@ floorto(x, a) = floor(Int, x/a)*a
 basepath = "/home/forrest/research/LAIR/ModeSolver/lwpc_comparisons/"
 
 tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
-rx = GroundSampler(0:5e3:2000e3, LWMS.FC_Ez)
+rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 X = LWMS.distance(rx,tx);
 
 
