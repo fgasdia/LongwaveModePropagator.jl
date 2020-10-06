@@ -36,33 +36,31 @@ function excitationfactorconstants(ea, R, Rg, frequency, ground)
     # Precompute
     α = 2/EARTHRADIUS
     αH = α*CURVATURE_HEIGHT
-    koα = k/α
-    cbrtkoα = cbrt(koα)
-    koα23 = cbrtkoα^2  # (k/α)^(2/3)
-    αok23 = inv(koα23)  # (α/k)^(2/3)
 
-    q₀ = koα23*(C² - αH)  # (k/α)^(2/3)*(C² - αH)
+    t1 = cbrt(k/α)
+    t2 = t1^2  # == (k/α)^(2/3)
+    t3 = inv(t2)/2  # == (α/k)^(2/3)/2
 
-    # XXX: `modifiedhankel` dominates runtime of this function
+    q₀ = t2*(C² - αH)
     h₁0, h₂0, h₁p0, h₂p0 = modifiedhankel(q₀)
 
-    H₁0 = h₁p0 + αok23*h₁0/2
-    H₂0 = h₂p0 + αok23*h₂0/2
+    H₁0 = h₁p0 + t3*h₁0
+    H₂0 = h₂p0 + t3*h₂0
 
     n₀² = 1 - αH  # modified index of refraction (free space) squared
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))  # ground index of refraction
 
     # Precompute
-    n₀²oNg² = n₀²/Ng²
-    sqrtNg²mS² = sqrt(Ng² - S²)
+    t4 = n₀²/Ng²
+    t5 = sqrt(Ng² - S²)
 
-    cbrtkoαsqrtNg²mS²h₂0 = cbrtkoα*sqrtNg²mS²*h₂0
-    cbrtkoαsqrtNg²mS²h₁0 = cbrtkoα*sqrtNg²mS²*h₁0
+    t6 = t1*t5*h₂0
+    t7 = t1*t5*h₁0
 
-    F₁ = -H₂0 + im*n₀²oNg²*cbrtkoαsqrtNg²mS²h₂0
-    F₂ = H₁0 - im*n₀²oNg²*cbrtkoαsqrtNg²mS²h₁0
-    F₃ = -h₂p0 + im*cbrtkoαsqrtNg²mS²h₂0
-    F₄ = h₁p0 - im*cbrtkoαsqrtNg²mS²h₁0
+    F₁ = -H₂0 + 1im*t4*t6
+    F₂ = H₁0 - 1im*t4*t7
+    F₃ = -h₂p0 + 1im*t6
+    F₄ = h₁p0 - 1im*t7
 
     # ey/hy; polarization ratio; Normalizes y component of H to unity at thr ground.
     # Sometimes called `f` in papers
@@ -104,10 +102,9 @@ function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
 
     # Precompute
     α = 2/EARTHRADIUS
-    koα23 = pow23(k/α)  # (k/α)^(2/3)
-    expzore = exp(z/EARTHRADIUS)  # assumes `d = 0`
+    t1 = exp(z/EARTHRADIUS)  # assumes `d = 0`
 
-    qz = koα23*(C² - α*(CURVATURE_HEIGHT - z))
+    qz = (k/α)^(2/3)*(C² - α*(CURVATURE_HEIGHT - z))
 
     h₁z, h₂z, h₁pz, h₂pz = modifiedhankel(qz)
 
@@ -119,11 +116,11 @@ function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
 
     # From Ferguson1981 pg 10 or Pappert1971 pg 6, 8:
     # Height gain for Ez, also called f∥(z)
-    fz = expzore*(F₁h₁z + F₂h₂z)
+    fz = t1*(F₁h₁z + F₂h₂z)
 
     # Height gain for Ex, also called g(z)
     # f₂ = 1/(im*k) df₁/dz
-    fx = -1im*expzore/(EARTHRADIUS*k)*(F₁h₁z + F₂h₂z + EARTHRADIUS*(F₁*h₁pz + F₂*h₂pz))
+    fx = -1im*t1/(EARTHRADIUS*k)*(F₁h₁z + F₂h₂z + EARTHRADIUS*(F₁*h₁pz + F₂*h₂pz))
 
     # Height gain for Ey, also called f⟂(z)
     fy = (F₃*h₁z + F₄*h₂z)
