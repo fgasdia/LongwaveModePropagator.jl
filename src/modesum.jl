@@ -27,7 +27,7 @@ Based on Morfitt 1980, Pappert Shockey 1971, and Pappert Shockey 1976 (this last
 
 [^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
-function excitationfactorconstants(ea::EigenAngle, R, Rg, frequency::Frequency, ground::Ground)
+function excitationfactorconstants(ea, R, Rg, frequency, ground)
     S², C² = ea.sin²θ, ea.cos²θ
     k, ω = frequency.k, frequency.ω
 
@@ -97,7 +97,7 @@ Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
 Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
 San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
-function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::ExcitationFactor)
+function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
     C² = ea.cos²θ
     k = frequency.k
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
@@ -109,7 +109,6 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::Excit
 
     qz = koα23*(C² - α*(CURVATURE_HEIGHT - z))
 
-    # XXX: `modifiedhankel` dominates this functions runtime
     h₁z, h₂z, h₁pz, h₂pz = modifiedhankel(qz)
 
     # Precompute
@@ -124,7 +123,7 @@ function heightgains(z, ea::EigenAngle, frequency::Frequency, efconstants::Excit
 
     # Height gain for Ex, also called g(z)
     # f₂ = 1/(im*k) df₁/dz
-    fx = -im*expzore/(EARTHRADIUS*k)*(F₁h₁z + F₂h₂z + EARTHRADIUS*(F₁*h₁pz + F₂*h₂pz))
+    fx = -1im*expzore/(EARTHRADIUS*k)*(F₁h₁z + F₂h₂z + EARTHRADIUS*(F₁*h₁pz + F₂*h₂pz))
 
     # Height gain for Ey, also called f⟂(z)
     fy = (F₃*h₁z + F₄*h₂z)
@@ -162,7 +161,7 @@ NOSC/TR-514, Jan. 1980.
 Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
 San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
-function excitationfactor(ea::EigenAngle, dFdθ, R, Rg, efconstants::ExcitationFactor, component::FieldComponent)
+function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor, component::FieldComponent)
     S, S², C² = ea.sinθ, ea.sin²θ, ea.cos²θ
     sqrtS = sqrt(S)
 
@@ -215,7 +214,10 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     t1, t2, t3, zt = emitter_orientation
     rxcomponent, zr = sampler_orientation
 
-    dFdθ, R, Rg = solvemodalequationdθ(ea, frequency, waveguide)
+    Mfcn(alt) = susceptibility(alt, frequency, waveguide)
+    modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
+
+    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
 
     λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxcomponent)
@@ -225,9 +227,13 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
     xmtrterm = λv*fz_t*t1 + λb*fy_t*t2 + λe*fx_t*t3
 
     # Receiver term
-    # TODO: Handle multiple components - maybe just always return all 3
-    # TODO: Check if zr == zt so we don't need to recalculate heightgains
-    fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
+    if zr == zt
+        fz_r, fx_r, fy_r = fz_t, fx_t, fy_t
+    else
+        fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
+    end
+
+    # TODO: Handle multiple components - maybe just always return all 3?
     if rxcomponent == FC_Ez
         rcvrterm = fz_r
     elseif rxcomponent == FC_Ex
@@ -248,7 +254,7 @@ Calculate the complex electric field at a distance `x` from transmitter `tx`.
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
 """
-function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
+function Efield!(E, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     X = distance(rx,tx)
     @assert length(E) == length(X)  # or boundscheck
 
@@ -266,7 +272,7 @@ function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWave
     # Transmit dipole antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
     # TODO: Confirm alignment of coord system and magnetic field
-    Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
+    Sγ, Cγ = sincos(π/2 - inclination(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
     emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
@@ -303,17 +309,16 @@ function Efield!(E::AbstractVector{<:Complex}, modes, waveguide::HomogeneousWave
 end
 
 function Efield(
-    modes,
+    modes::Vector{EigenAngle{T}},
     waveguide::HomogeneousWaveguide,
     tx::Emitter,
     rx::AbstractSampler
-    )
+    ) where T
 
     X = distance(rx, tx)
     Xlength = length(X)
 
-    Etype = eltype(eltype(modes))
-    E = zeros(Etype, Xlength)
+    E = zeros(complex(T), Xlength)
 
     Efield!(E, modes, waveguide, tx, rx)
 
@@ -332,7 +337,7 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
     Q = 0.6822408*sqrt(frequency.f*tx.power)
 
     # Antenna orientation factors
-    Sγ, Cγ = sincos(π/2 - elevation(tx))  # γ is measured from vertical
+    Sγ, Cγ = sincos(π/2 - inclination(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from propagation direction `x`
 
     zt = altitude(tx)

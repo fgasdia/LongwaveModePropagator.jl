@@ -90,6 +90,8 @@ function susceptibility(alt, frequency, bfield, species)
 
     return M
 end
+susceptibility(alt, f::Frequency, w::HomogeneousWaveguide) =
+    susceptibility(alt, f, w.bfield, w.species)
 
 function susceptibilityinterpolator(frequency, bfield, species)
     # length(z) scales linearly with this functions run time
@@ -100,6 +102,8 @@ function susceptibilityinterpolator(frequency, bfield, species)
 
     return interpolator
 end
+susceptibilityinterpolator(f::Frequency, w::HomogeneousWaveguide) =
+    susceptibilityinterpolator(f, w.bfield, w.species)
 
 """
     bookerquartic(ea, M)

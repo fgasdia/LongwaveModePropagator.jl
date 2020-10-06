@@ -2,7 +2,7 @@ function wavefields_test(scenario)
     @unpack tx, bfield, species, ground = scenario
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
@@ -119,9 +119,9 @@ function drdzwavefield_equivalence_test(scenario)
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, species)
+    Mtop = LWMS.susceptibility(ztop, tx.frequency, waveguide)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
     dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
     prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), dzparams)
     sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8, # lower tolerance doesn't help match

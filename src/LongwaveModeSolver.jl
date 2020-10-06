@@ -21,6 +21,8 @@ using PolynomialRoots: roots!
 using RootsAndPoles
 using ModifiedHankelFunctionsOfOrderOneThird
 
+using Debugger  # TEMP
+
 # LongwaveModeSolver.jl
 export bpm
 
@@ -37,7 +39,7 @@ export Receiver, GroundSampler
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
-export elevation, azimuth, altitude, fieldcomponent
+export inclination, azimuth, altitude, fieldcomponent
 
 # TMatrix.jl
 export TMatrix
@@ -48,13 +50,13 @@ export eigenangles
 
 #
 const TOPHEIGHT = 110e3
-const BOTTOMHEIGHT = zero(TOPHEIGHT)  # NOTE: if this isn't 0, many assumptions break
+const BOTTOMHEIGHT = zero(TOPHEIGHT)  # WARNING: if this isn't 0, many assumptions break
 
 # Not great, but can be changed as `EARTHCURVATURE[]=false`
 # TODO: where does this need to be considered?
 const EARTHCURVATURE = Ref(true)
 
-struct Derivative_dθ end
+struct Dθ end
 
 #
 include("Antennas.jl")
@@ -93,23 +95,27 @@ function defaultcoordinates(frequency)
     return origcoords
 end
 
-function bpm(waveguide::HomogeneousWaveguide, tx, rx)
+function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     origcoords = defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
-    E, phase, amp = bpm(waveguide, tx, rx, origcoords, grpfparams)
+    Mfcn = susceptibilityinterpolator(tx.frequency, waveguide)
+    modeequation = PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+
+    E, phase, amp = bpm(waveguide, tx, rx, origcoords, grpfparams, modeequation)
 
     return E, phase, amp
 end
 
-function bpm(waveguide::HomogeneousWaveguide, tx, rx, origcoords, grpfparams::GRPFParams)
+function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
+    origcoords, grpfparams::GRPFParams, modeequation::ModeEquation)
     if minimum(imag(origcoords)) < deg2rad(-31)
         @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
             calculated with modified Hankel functions to overflow."
     end
 
-    modes = findmodes(origcoords, tx.frequency, waveguide, grpfparams)
+    modes = findmodes(origcoords, grpfparams, modeequation)
 
     E = Efield(modes, waveguide, tx, rx)
 

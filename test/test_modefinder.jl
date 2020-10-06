@@ -26,8 +26,8 @@ function sharpboundaryreflection_deriv(scenario)
     for i = 1:4
         Rref(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M)[i])
         dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-        R(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Derivative_dθ())[SVector(1,2),:][i])
-        dR(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Derivative_dθ())[SVector(3,4),:][i])
+        R(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Dθ())[SVector(1,2),:][i])
+        dR(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Dθ())[SVector(3,4),:][i])
 
         Rref.(θs) ≈ R.(θs) || return false
         err_func(dR.(θs), dRref) < 1e-3 || return false
@@ -41,14 +41,14 @@ function integratedreflection_deriv(scenario)
     freq = tx.frequency
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, waveguide)
 
     @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
     Rref(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn)[1])
     dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-    R(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())[SVector(1,2),:][1])
-    dR(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())[SVector(3,4),:][1])
+    R(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Dθ())[SVector(1,2),:][1])
+    dR(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Dθ())[SVector(3,4),:][1])
 
     # Rref.(θs) !≈ R.(θs) because of difference in integration tolerance.
     # For very large Rs, the difference can be significant, therefore we use rtol
@@ -65,8 +65,8 @@ function fresnelreflection_deriv(scenario)
     for i = 1:4
         Rgref(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq)[1])
         dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
-        Rg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())[1][1])
-        dRg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())[2][1])
+        Rg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[1][1])
+        dRg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[2][1])
 
         Rgref.(θs) ≈ Rg.(θs) || return false
         err_func(dRg.(θs), dRgref) < 1e-6 || return false
@@ -80,7 +80,7 @@ function modalequation_deriv(scenario)
     freq = tx.frequency
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, waveguide)
 
     function Fref(θ)
         ea = EigenAngle(θ)
@@ -92,8 +92,8 @@ function modalequation_deriv(scenario)
 
     function dF(θ)
         ea = EigenAngle(θ)
-        RdR = LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())
-        Rg, dRg = LWMS.fresnelreflection(ea, ground, freq, LWMS.Derivative_dθ())
+        RdR = LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Dθ())
+        Rg, dRg = LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())
 
         R = RdR[SVector(1,2),:]
         dR = RdR[SVector(3,4),:]
@@ -117,10 +117,10 @@ function resonantmodalequation_deriv(scenario)
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
+    Mfcn(alt) = LWMS.susceptibility(alt, freq, waveguide)
     modeequation = LWMS.PhysicalModeEquation(freq, waveguide, Mfcn)
 
-    dFdθ, R, Rg = LWMS.solvemodalequation(ea, modeequation, LWMS.Derivative_dθ())
+    dFdθ, R, Rg = LWMS.solvemodalequation(ea, modeequation, LWMS.Dθ())
 
     Fref(θ) = (ea = EigenAngle(θ); LWMS.solvemodalequation(ea, modeequation))
     dFref = FiniteDiff.finite_difference_derivative(Fref, ea.θ, Val{:central})
@@ -216,7 +216,7 @@ function verticalreflection(scenario)
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
 
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, species)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, waveguide)
     R = LWMS.integratedreflection(ea, tx.frequency, waveguide, Mfcn)
 
     return R[1,2] ≈ R[2,1]
@@ -233,7 +233,7 @@ function modalequation(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, species)
+    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, waveguide)
 
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
     f = LWMS.solvemodalequation(ea, modeequation)
@@ -245,7 +245,7 @@ function modefinder(scenario)
     @unpack tx, bfield, species, ground = scenario
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
@@ -275,7 +275,7 @@ end
 #     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
 #     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 #     f(θ) = LWMS.solvemodalequation(EigenAngle(θ), modeequation)
-#     # df(θ) = LWMS.solvemodalequation(EigenAngle(θ), modeequation, LWMS.Derivative_dθ())[1]
+#     # df(θ) = LWMS.solvemodalequation(EigenAngle(θ), modeequation, LWMS.Dθ())[1]
 #
 #     # D(f) = x->ForwardDiff.derivative(f, float(x))
 #     # Roots.newton(f, D(f), root, atol=1e-6)

@@ -98,8 +98,7 @@ equation.
 The absolute tolerance `atol` is passed through to `isroot`.
 """
 function filterroots!(roots, frequency, waveguide; atol=1e-2)
-    @unpack bfield, species = waveguide
-    Mfcn(alt) = susceptibility(alt, frequency, bfield, species)
+    Mfcn(alt) = susceptibility(alt, frequency, waveguide)
     modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
 
     i = 1
@@ -209,7 +208,7 @@ function sharpboundaryreflection(ea::EigenAngle, M)
 end
 
 # TODO: Autodiff with Zygote?
-function sharpboundaryreflection(ea::EigenAngle, M, ::Derivative_dθ)
+function sharpboundaryreflection(ea::EigenAngle, M, ::Dθ)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     @unpack G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
@@ -503,8 +502,8 @@ function dRdθdz(RdRdθ, params, z)
     R = RdRdθ[SVector(1,2),:]
     dRdθ = RdRdθ[SVector(3,4),:]
 
-    dz = -im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
-    dθdz = -im/2*k*(dW21 + dW22*R + W22*dRdθ - (dRdθ*W11 + R*dW11) -
+    dz = -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
+    dθdz = -1im/2*k*(dW21 + dW22*R + W22*dRdθ - (dRdθ*W11 + R*dW11) -
                     (dRdθ*W12*R + R*dW12*R + R*W12*dRdθ))
 
     return vcat(dz, dθdz)
@@ -514,8 +513,7 @@ end
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
     waveguide::HomogeneousWaveguide, Mfcn::F) where {F}  # `F` forces dispatch on functions
 
-    @unpack bfield, species = waveguide
-    Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
+    Mtop = susceptibility(TOPHEIGHT, frequency, waveguide)
     Rtop = sharpboundaryreflection(ea, Mtop)
 
     dzparams = DZParams(ea, frequency, Mfcn)
@@ -542,11 +540,10 @@ end
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
 function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn::F, ::Derivative_dθ) where {F}
+    waveguide::HomogeneousWaveguide, Mfcn::F, ::Dθ) where {F}
 
-    @unpack bfield, species = waveguide
-    Mtop = susceptibility(TOPHEIGHT, frequency, bfield, species)
-    RdRdθtop = sharpboundaryreflection(ea, Mtop, Derivative_dθ())
+    Mtop = susceptibility(TOPHEIGHT, frequency, waveguide)
+    RdRdθtop = sharpboundaryreflection(ea, Mtop, Dθ())
 
     dzparams = DZParams(ea, frequency, Mfcn)
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
@@ -601,7 +598,7 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
     return Rg
 end
 
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Derivative_dθ)
+function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
     ω = frequency.ω
 
@@ -666,15 +663,15 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequation(ea::EigenAngle, modeequation::PhysicalModeEquation, ::Derivative_dθ)
-    # Derivative_dθ always uses `susceptibility` as Mfcn
+function solvemodalequation(ea::EigenAngle, modeequation::PhysicalModeEquation, ::Dθ)
+    # Dθ always uses `susceptibility` as Mfcn
     @unpack frequency, waveguide, Mfcn = modeequation
 
-    RdR = integratedreflection(ea, frequency, waveguide, Mfcn, Derivative_dθ())
+    RdR = integratedreflection(ea, frequency, waveguide, Mfcn, Dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = fresnelreflection(ea, waveguide.ground, frequency, Derivative_dθ())
+    Rg, dRg = fresnelreflection(ea, waveguide.ground, frequency, Dθ())
 
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg

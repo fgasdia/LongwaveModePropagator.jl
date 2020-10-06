@@ -60,5 +60,5 @@ Transmitter(freq, power, antenna::A) where {A<:Antenna} =
 altitude(t::Transmitter) = t.altitude
 frequency(t::Transmitter) = t.frequency
 azimuth(t::Transmitter) = azimuth(t.antenna)
-elevation(t::Transmitter) = elevation(t.antenna)
+inclination(t::Transmitter) = inclination(t.antenna)
 power(t::Transmitter) = t.power
