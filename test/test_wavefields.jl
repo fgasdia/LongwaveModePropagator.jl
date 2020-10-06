@@ -1,3 +1,25 @@
+function wavefields_test(scenario)
+    @unpack tx, bfield, species, ground = scenario
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+
+    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+
+    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
+    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
+    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-5, true)
+
+    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+
+    zs = LWMS.TOPHEIGHT:-100:zero(LWMS.TOPHEIGHT)
+
+    wavefields = LWMS.Wavefields{ComplexF64}(modes, zs)
+
+    return isvalid(wavefields)
+end
+
 """
 Check for equivalence of Booker quartic computed by M and T.
 
@@ -169,6 +191,10 @@ end
 
 @testset "wavefields.jl" begin
     @info "Testing wavefields"
+
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+        @test wavefields_test(scn)
+    end
 
     @testset "Initial conditions" begin
         @info "  Initial conditions..."

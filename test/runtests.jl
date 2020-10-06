@@ -17,12 +17,13 @@ const ME = LWMS.ME
 # To profile in Juno
 # @profiler (for i = 1:1000; LWMS.fcn(); end)
 
-struct TestScenario{T1,T2,T3}
+struct TestScenario{T1,T2,T3,T4}
     ea::T1
     bfield::BField
     species::T2
     ground::Ground
     tx::T3
+    rx::T4
 end
 
 const verticalB_scenario = TestScenario(
@@ -32,7 +33,9 @@ const verticalB_scenario = TestScenario(
             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
     Ground(15, 0.001),
-    Transmitter(24e3))
+    Transmitter(24e3),
+    GroundSampler(2000e3, LWMS.FC_Ez)
+)
 
 const resonant_scenario = TestScenario(
     EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
@@ -41,7 +44,8 @@ const resonant_scenario = TestScenario(
             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
     Ground(15, 0.001),
-    Transmitter(24e3)
+    Transmitter(24e3),
+    GroundSampler(2000e3, LWMS.FC_Ez)
 )
 
 const nonresonant_scenario = TestScenario(
@@ -51,7 +55,8 @@ const nonresonant_scenario = TestScenario(
             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
     Ground(15, 0.001),
-    Transmitter(24e3)
+    Transmitter(24e3),
+    GroundSampler(2000e3, LWMS.FC_Ez)
 )
 
 const homogeneousiono_scenario = TestScenario(
@@ -61,7 +66,8 @@ const homogeneousiono_scenario = TestScenario(
             z->z >= LWMS.CURVATURE_HEIGHT ? 2.65e6 : 0.0,
             z->z >= LWMS.CURVATURE_HEIGHT ? 1e8 : 0.0),
     Ground(15, 0.001),
-    Transmitter(24e3)
+    Transmitter(24e3),
+    GroundSampler(2000e3, LWMS.FC_Ez)
 )
 
 const θs = [complex(r,i) for r = range(deg2rad(30), deg2rad(89), length=100) for i = range(deg2rad(-30), deg2rad(0), length=100)]

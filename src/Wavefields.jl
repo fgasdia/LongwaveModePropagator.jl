@@ -3,21 +3,36 @@ Functions related to calculating electromagnetic field components at any height
 within the ionosphere.
 ==#
 
-struct Wavefields{T}
+"""
+    Wavefields{T1,T2,T3}
+
+Struct containing wavefield components for each mode and height.
+
+The Wavefields are stored in the `v` field and as accessed as a `Vector` of `Vector`s
+of `SVector{6,T1}` corresponding to `v[mode][height]` where `T1` is the type of
+the wavefields.
+"""
+struct Wavefields{T1,T2,T3}
     # fields(z) for each mode, v[mode][height]
-    # fields are ComplexF64 from Booker Quartic
-    v::Vector{Vector{SVector{6,ComplexF64}}}
-    eas::Vector{EigenAngle}
-    zs::T
+    v::Vector{Vector{SVector{6,T1}}}
+    eas::Vector{EigenAngle{T2}}
+    zs::T3
 end
 
-function Wavefields(eas::Vector{EigenAngle}, zs::T) where {T}
-    Wavefields{T}([Vector{SVector{6,ComplexF64}}(undef, length(zs)) for i = 1:length(eas)], eas, zs)
+"""
+    Wavefields{T1}(eas::Vector{EigenAngle{T2}}, zs::T3)
+
+A constructor for Wavefields which creates appropriately sized `undef` vectors
+given eigenangles `eas` and heights `zs`. Wavefield type `T1` must be provided
+explicitly.
+"""
+function Wavefields{T1}(eas::Vector{EigenAngle{T2}}, zs::T3) where {T1,T2,T3}
+    Wavefields{T1,T2,T3}([Vector{SVector{6,T1}}(undef, length(zs)) for i in eachindex(eas)], eas, zs)
 end
 
 Base.getindex(A::Wavefields, i::Int) = A.v[i]
 Base.similar(A::Wavefields) = Wavefields(A.eas, A.zs)
-Base.copy(A::Wavefields{T}) where T = Wavefields{T}(copy(A.v), copy(A.eas), copy(A.zs))
+Base.copy(A::Wavefields{T1,T2,T3}) where {T1,T2,T3} = Wavefields{T1,T2,T3}(copy(A.v), copy(A.eas), copy(A.zs))
 
 function (==)(A::Wavefields, B::Wavefields)
     A.zs == B.zs || return false
@@ -112,8 +127,8 @@ end
 
 Calculate the initial wavefields vector ``[Ex₁ Ex₂
                                            Ey₁ Ey₂
-                                           ℋx₁ ℋx₂
-                                           ℋy₁ ℋy₂]``
+                                           Hx₁ Hx₂
+                                           Hy₁ Hy₂]``
 for the two upgoing wavefields where subscript `1` is the evanescent wave and
 `2` is the travelling wave.
 
@@ -124,7 +139,7 @@ selected, where eigenvalue ``q₁`` corresponds to the evanescent wave and ``q�
 the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
-function initialwavefields(T::TMatrix)
+function initialwavefields(T::TMatrix{T1}) where T1
     # TODO: rename to bookerwavefields?
 
     q, B = bookerquartic(T)
@@ -137,7 +152,7 @@ function initialwavefields(T::TMatrix)
 
     # Temporary MArray for filling in wavefields
     # (04/2020) Somehow, this is slightly faster than hard coding the 1s and 2s
-    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
+    e = MArray{Tuple{4,2},T1,2,8}(undef)
 
     @inbounds for i = 1:2
         d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
@@ -158,7 +173,7 @@ end
 
 Calculates derivative of field components vector ``de/dz = -i k T e``.
 """
-dedz(e, k, T::TMatrix) = -im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
+dedz(e, k, T::TMatrix) = -1im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
 
 """
     dedz(e, p, z)
@@ -256,7 +271,7 @@ reflexion coefficients and polarizations for long radio waves in the lower
 ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
 pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
 """
-function scalewavefields(e1::AbstractVector, e2::AbstractVector)
+function scalewavefields(e1, e2)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
     e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), `imag(dot(e1,e1)) == 0`
@@ -279,7 +294,7 @@ end
 
     This function only applies scaling to the first 2 columns of `e`.
 """
-function scalewavefields(e::AbstractArray)
+function scalewavefields(e)
     e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
 
     if size(e, 2) == 2
@@ -300,7 +315,7 @@ Assumes fields have been scaled by [`scalewavefields`](@ref) during integration.
 
 See also [`unscalewavefields`](@ref) for additional details.
 """
-function unscalewavefields!(e::AbstractVector, saved_values::SavedValues)
+function unscalewavefields!(e, saved_values::SavedValues)
 
     zs = saved_values.t
     records = saved_values.saveval
@@ -434,7 +449,7 @@ end
 integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-250:BOTTOMHEIGHT, ea, frequency, bfield, species)
 
 """
-    vacuumreflectioncoeffs(ea, e)
+    vacuumreflectioncoeffs(ea, e1, e2)
 
 Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
 
@@ -476,7 +491,7 @@ For additional details, see [^Budden1988], chapter 18, section 7.
 waves of low power in the ionosphere and magnetosphere, First paperback edition.
 New York: Cambridge University Press, 1988.
 """
-function vacuumreflectioncoeffs(ea::EigenAngle, e1::AbstractArray{T}, e2::AbstractArray{T}) where {T}
+function vacuumreflectioncoeffs(ea::EigenAngle, e1, e2)
     C = ea.cosθ
     Cinv = ea.secθ
 
@@ -495,6 +510,12 @@ function vacuumreflectioncoeffs(ea::EigenAngle, e1::AbstractArray{T}, e2::Abstra
     return D/U
 end
 
+"""
+    vacuumreflectioncoeffs(ea, e)
+
+Calculate `vacuumreflectioncoeffs` where `e` can be decomposed into `e[:,1]` and
+`e[:,2]`.
+"""
 vacuumreflectioncoeffs(ea, e) = vacuumreflectioncoeffs(ea, e[:,1], e[:,2])
 
 """

@@ -1,5 +1,5 @@
 """
-    TMatrix <: SMatrix{4, 4, ComplexF64, 16}
+    TMatrix <: SMatrix{4, 4, T, 16}
 
 A custom `SMatrix` subtype that represents the `T` matrix from Clemmow and Heading
 that is semi-sparse. The form of the matrix is:

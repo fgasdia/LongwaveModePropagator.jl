@@ -2,14 +2,14 @@
 this function takes just 1 mode conversion step
 
 """
-function modeconversion(previous_wavefields::Wavefields{T},
-                        wavefields::Wavefields{T}, adjwavefields::Wavefields{T}) where {T}
+function modeconversion(previous_wavefields::Wavefields{T1,T2,T3},
+                        wavefields::Wavefields{T1,T2,T3}, adjwavefields::Wavefields{T1,T2,T3}) where {T1,T2,T3}
 
     @assert numheights(previous_wavefields) == numheights(wavefields)
     zs = heights(wavefields)
 
     # TODO: Assuming `length(zs)` is always the same, we can reuse `product` b/t calls
-    product = Vector{ComplexF64}(undef, numheights(wavefields))
+    product = Vector{T1}(undef, numheights(wavefields))
 
     modes = eigenangles(wavefields)
     adjmodes = eigenangles(adjwavefields)
@@ -27,7 +27,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
     # by N later.
     # Ideally ``N = 1``, but doesn't because we can't integrate over all space and
     # instead integrate from 0 to TOPHEIGHT
-    invN = Vector{ComplexF64}(undef, nummodes)
+    invN = Vector{T1}(undef, nummodes)
     for m in eachindex(modes)
         for i in eachindex(zs)
             @inbounds f = wavefields[m][i][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
@@ -45,7 +45,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
     # are relatively large
 
     # `a` is total conversion
-    a = Matrix{ComplexF64}(undef, numadjmodes, numprevmodes)
+    a = Matrix{T1}(undef, numadjmodes, numprevmodes)
     for k in eachindex(prevmodes)
         for m in eachindex(adjmodes)
             for i in eachindex(zs)

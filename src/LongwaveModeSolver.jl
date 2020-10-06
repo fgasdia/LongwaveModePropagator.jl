@@ -96,7 +96,7 @@ end
 function bpm(waveguide::HomogeneousWaveguide, tx, rx)
     origcoords = defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
+    grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
     E, phase, amp = bpm(waveguide, tx, rx, origcoords, grpfparams)
 
@@ -151,14 +151,11 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
 
     origcoords = coordgrid(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
+    grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]
         modes = findmodes(origcoords, tx.frequency, wvg, tolerance)
-
-        # TEMP: not necessary to sort, but easier to compare to LWPC
-        # sort!(modes,rev=true)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -166,8 +163,11 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
         adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
         adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
 
-        wavefields = Wavefields(modes, zs)
-        adjwavefields = Wavefields(modes, zs)
+        # TODO< just empty and resize the Wavefields
+        Mtype = eltype(susceptibility(TOPHEIGHT, tx.frequency, bfield, species))
+        wftype = promote_type(Mtype, eltype(modes))
+        wavefields = Wavefields{wftype}(modes, zs)
+        adjwavefields = Wavefields{wftype}(modes, zs)
 
         calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg)
 
