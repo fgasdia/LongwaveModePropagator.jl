@@ -17,50 +17,57 @@ end
 
 Return an `ExcitationFactor` struct used in calculating height gains.
 
+!!! note
+
+    Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`. See, e.g.
+    [^Pappert1971], page 8.
+
 Based on Morfitt 1980, Pappert Shockey 1971, and Pappert Shockey 1976 (this last one has H=0)
 
 # References
 
-[^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
+[^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for
+    VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics
+    Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
 
-[^Ferguson1981] J. A. Ferguson and D. G. Morfitt, “WKB mode summing program for dipole antennas of arbitrary orientation and elevation for VLF/LF propagation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-697, Oct. 1981.
+[^Ferguson1981] J. A. Ferguson and D. G. Morfitt, “WKB mode summing program for
+    dipole antennas of arbitrary orientation and elevation for VLF/LF propagation,”
+    Naval Ocean Systems Center, San Diego, CA, NOSC/TR-697, Oct. 1981.
 
-[^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891, Aug. 1983.
+[^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF
+    (Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for
+    Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
+    San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function excitationfactorconstants(ea, R, Rg, frequency, ground)
     S², C² = ea.sin²θ, ea.cos²θ
     k, ω = frequency.k, frequency.ω
 
-    # `ea` is at height `CURVATURE_HEIGHT`. See, e.g. Pappert1971 pg 8
+    # This function could be further optimized by reducing repeated computations,
+    # but <100 ns can be gained and this function is not in a hot loop.
+    # Clarity outways efficiency here.
 
     # Precompute
     α = 2/EARTHRADIUS
     αH = α*CURVATURE_HEIGHT
+    t0 = (α/k)^(2/3)/2
 
-    t1 = cbrt(k/α)
-    t2 = t1^2  # == (k/α)^(2/3)
-    t3 = inv(t2)/2  # == (α/k)^(2/3)/2
-
-    q₀ = t2*(C² - αH)
+    q₀ = (k/α)^(2/3)*(C² - αH)
     h₁0, h₂0, h₁p0, h₂p0 = modifiedhankel(q₀)
 
-    H₁0 = h₁p0 + t3*h₁0
-    H₂0 = h₂p0 + t3*h₂0
+    H₁0 = h₁p0 + t0*h₁0
+    H₂0 = h₂p0 + t0*h₂0
 
     n₀² = 1 - αH  # modified index of refraction (free space) squared
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))  # ground index of refraction
 
     # Precompute
-    t4 = n₀²/Ng²
-    t5 = sqrt(Ng² - S²)
+    t1 = 1im*cbrt(k/α)*sqrt(Ng² - S²)
 
-    t6 = t1*t5*h₂0
-    t7 = t1*t5*h₁0
-
-    F₁ = -H₂0 + 1im*t4*t6
-    F₂ = H₁0 - 1im*t4*t7
-    F₃ = -h₂p0 + 1im*t6
-    F₄ = h₁p0 - 1im*t7
+    F₁ = -H₂0 + (n₀²/Ng²)*t1*h₂0
+    F₂ = H₁0 - (n₀²/Ng²)*t1*h₁0
+    F₃ = -h₂p0 + t1*h₂0
+    F₄ = h₁p0 - t1*h₁0
 
     # ey/hy; polarization ratio; Normalizes y component of H to unity at thr ground.
     # Sometimes called `f` in papers
@@ -87,13 +94,13 @@ See also: [`excitationfactor`](@ref), [`excitationfactorconstants`](@ref)
 # References
 
 [^Pappert1971] R. A. Pappert and L. R. Shockey, “WKB Mode Summing Program for
-VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics
-Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
+    VLF/ELF Antennas of Arbitrary Length, Shape and Elevation,” Naval Electronics
+    Lab Center, San Diego, CA, NELC-IR-713, M402, Jun. 1971.
 
 [^Pappert1983] R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF
-(Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for
-Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
-San Diego, CA, NOSC/TR-891, Aug. 1983.
+    (Extremely Low Frequency/Very Low Frequency) Long Path Pulse Program for
+    Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
+    San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
     C² = ea.cos²θ
@@ -133,11 +140,13 @@ end
 
 Calculate the excitation factor for electric field `component`.
 
-This function assumes that the reflection coefficient matrices are referenced to
-the ground.
-
 These excitation factors are used in conjunction with the function
 [`heightgains`](@ref).
+
+!!! note
+
+    Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`. This function
+    internally references `ea` to ground where necessary.
 
 # References
 
@@ -158,7 +167,9 @@ NOSC/TR-514, Jan. 1980.
 Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
 San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
-function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor, component::FieldComponent)
+function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
+    component::FieldComponent)
+
     S, S², C² = ea.sinθ, ea.sin²θ, ea.cos²θ
     sqrtS = sqrt(S)
 
@@ -174,7 +185,7 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor, compo
     D₁₂ = fz*fy
     D₂₂ = fy^2
 
-    # `S` is at `CURVATURE_HEIGHT`, specified in e.g. [Morfitt1980]
+    # `S` is at `CURVATURE_HEIGHT`, specified in e.g. [^Morfitt1980]
     T₁ = sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])/(dFdθ*Rg[1,1]*D₁₁)
     T₂ = sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])/(dFdθ*Rg[2,2]*D₂₂)
     T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]/(dFdθ*D₁₂)
@@ -201,13 +212,21 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor, compo
 end
 
 """
-antenna orientation factors
-t1: Cγ
-t2: Sγ*Sϕ
-t3: Sγ*Cϕ
+    modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
+
+!!! note
+
+    Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`.
 """
 function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
     # Unpack
+    #==
+    Transmit antenna orientation factors
+
+    | t1 |   Cγ  |
+    | t2 | Sγ*Sϕ |
+    | t3 | Sγ*Cϕ |
+    ==#
     t1, t2, t3, zt = emitter_orientation
     rxcomponent, zr = sampler_orientation
 
@@ -430,7 +449,6 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
 
     return E
 end
-
 
 
 """
