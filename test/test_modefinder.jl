@@ -30,7 +30,7 @@ function sharpboundaryreflection_deriv(scenario)
         dR(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Derivative_dθ())[SVector(3,4),:][i])
 
         Rref.(θs) ≈ R.(θs) || return false
-        err_func(dR.(θs), dRref) < 1e-4 || return false
+        err_func(dR.(θs), dRref) < 1e-3 || return false
     end
 
     return true
@@ -50,18 +50,12 @@ function integratedreflection_deriv(scenario)
     R(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())[SVector(1,2),:][1])
     dR(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Derivative_dθ())[SVector(3,4),:][1])
 
-    # Rref.(θs) !≈ R.(θs) because of difference in integration atol. For a small number of
-    # `R` values that are quite large (thousands), the difference in tolerance can be significant
-    Rdiff = Rref.(θs) .- R.(θs)
-    quantile(real(Rdiff), 0.99) < 0.01 || return false
-    quantile(imag(Rdiff), 0.99) < 0.01 || return false
+    # Rref.(θs) !≈ R.(θs) because of difference in integration tolerance.
+    # For very large Rs, the difference can be significant, therefore we use rtol
+    Rs = R.(θs)
+    Rrefs = Rref.(θs)
 
-    # Similar issue with dR...
-    dRθs = dR.(θs)
-    dRdiff = dRθs .- dRref
-    quantile(abs.(dRdiff./dRref), 0.99) < 1 || return false
-
-    return true
+    return isapprox(Rs, Rrefs, rtol=1e-4)
 end
 
 function fresnelreflection_deriv(scenario)
@@ -110,17 +104,15 @@ function modalequation_deriv(scenario)
     @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
     Fθ = Fref.(θs)
-    dFref = FiniteDiff.finite_difference_derivative(Fref, θs, Val{:forward}, eltype(θs), Fθ)
+    dFref = FiniteDiff.finite_difference_derivative(Fref, θs, Val{:central})
 
     dFθ = dF.(θs)
-    dFdiff = dFθ .- dFref
-    quantile(abs.(dFdiff./dFref), 0.99) < 2 || return false
 
-    return true
+    return isapprox(dFθ, dFref, rtol=1e-2)
 end
 
 function resonantmodalequation_deriv(scenario)
-    @unpack tx, ground, bfield, species = scenario
+    @unpack ea, tx, ground, bfield, species = scenario
     freq = tx.frequency
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
@@ -128,15 +120,12 @@ function resonantmodalequation_deriv(scenario)
     Mfcn(alt) = LWMS.susceptibility(alt, freq, bfield, species)
     modeequation = LWMS.PhysicalModeEquation(freq, waveguide, Mfcn)
 
-    # known solution
-    θ = 1.4152764714690873 - 0.01755942938376613im
-    ea = EigenAngle(θ)
     dFdθ, R, Rg = LWMS.solvemodalequation(ea, modeequation, LWMS.Derivative_dθ())
 
     Fref(θ) = (ea = EigenAngle(θ); LWMS.solvemodalequation(ea, modeequation))
-    dFref = FiniteDiff.finite_difference_derivative(Fref, θ, Val{:central})
+    dFref = FiniteDiff.finite_difference_derivative(Fref, ea.θ, Val{:central})
 
-    return isapprox(dFdθ, dFref, rtol=1e-1)
+    return isapprox(dFdθ, dFref, rtol=1e-1)  # why so bad?
 end
 
 ########
@@ -160,27 +149,36 @@ function test_wmatrix(scenario)
     return [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
 end
 
-function test_sharplybounded(scenario)
+function test_sharplybounded_vertical(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(95e3, tx.frequency, bfield, species)
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
     W = LWMS.wmatrix(ea, T)
 
     initR = LWMS.sharpboundaryreflection(ea, M)
 
-    initR[1,2] ≈ initR[2,1] || return false
+    return initR[1,2] ≈ initR[2,1]
+end
+
+function test_sharplybounded(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
+    T = LWMS.tmatrix(ea, M)
+    W = LWMS.wmatrix(ea, T)
+
+    initR = LWMS.sharpboundaryreflection(ea, M)
 
     function iterativesharpR!(f, R, W)
         f .= W[2] + W[4]*R - R*W[1] - R*W[3]*R
     end
-    initR0 = complex([1 0.1; 0.1 1])
+    initR0 = complex([1 0.1; 0.1 -1])
     res = nlsolve((f,x)->iterativesharpR!(f,x,W), initR0)
 
     return initR ≈ res.zero
 end
 
-# BUG: This isn't working? Possibly foundational math error
 function numericalsharpR(species)
     @unpack ea, tx, bfield, species = scenario
 
@@ -260,12 +258,13 @@ function modefinder(scenario)
 
     for m in modes
         f = LWMS.solvemodalequation(m, modeequation)
-        # println(f)
         LWMS.isroot(f) || return false
     end
     return true
 end
 
+# Is it worth refining a low tolerance GRPF solution with Roots? probably not
+# but best method is `Roots.muller`
 # using Roots
 #
 # function refineroots(root, scenario)
@@ -398,14 +397,20 @@ end
 @testset "modefinder.jl" begin
     @info "Testing modefinder"
 
+    @test pecground()
+
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         @test test_wmatrix(scn)
         @test test_sharplybounded(scn)
-        @test_skip numericalsharpR(scn)
-        @test verticalreflection(scn)
-        @test pecground()
-        @test modalequation(scn)
+        @test_broken numericalsharpR(scn)
         @test modefinder(scn)
+    end
+    for scn in (resonant_scenario, )
+        @test modalequation(scn)
+    end
+    for scn in (verticalB_scenario, )
+        @test test_sharplybounded_vertical(scn)
+        @test verticalreflection(scn)
     end
 
     @testset "Derivatives" begin
@@ -416,6 +421,8 @@ end
             @test fresnelreflection_deriv(scn)
             @test integratedreflection_deriv(scn)
             @test modalequation_deriv(scn)
+        end
+        for scn in (resonant_scenario, )
             @test resonantmodalequation_deriv(scn)
         end
     end

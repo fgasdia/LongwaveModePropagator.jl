@@ -1,10 +1,10 @@
 using Test
 using Dates
 using LinearAlgebra, Statistics
-using StaticArrays, Parameters
+using StaticArrays
+using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
-using RootsAndPoles
-using VoronoiDelaunay
+using RootsAndPoles, VoronoiDelaunay
 using JSON3, StructTypes
 using Interpolations, NLsolve, FiniteDiff
 
@@ -35,7 +35,7 @@ const verticalB_scenario = TestScenario(
     Transmitter(24e3))
 
 const resonant_scenario = TestScenario(
-    EigenAngle(1.4152764714690873 - 0.01755942938376613im),  # resonant
+    EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
@@ -50,6 +50,16 @@ const nonresonant_scenario = TestScenario(
     Species(QE, ME,
             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
+    Ground(15, 0.001),
+    Transmitter(24e3)
+)
+
+const homogeneousiono_scenario = TestScenario(
+    EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
+    BField(50e-6, deg2rad(68), deg2rad(111)),
+    Species(QE, ME,
+            z->z >= LWMS.CURVATURE_HEIGHT ? 2.65e6 : 0.0,
+            z->z >= LWMS.CURVATURE_HEIGHT ? 1e8 : 0.0),
     Ground(15, 0.001),
     Transmitter(24e3)
 )

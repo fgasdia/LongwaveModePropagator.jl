@@ -102,29 +102,11 @@ function drdzwavefield_equivalence_test(scenario)
     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, species)
     dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
     prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), dzparams)
-    sol = solve(prob, Vern8(), abstol=1e-12, reltol=1e-12,
+    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8, # lower tolerance doesn't help match
                 saveat=zs, save_everystep=false)
 
-    # Why does tolerance need to be so high? - it's only off for resonant scenario at ground...
-    return all(isapprox.(wavefieldRs, sol.u, atol=1e-2))
+    return all(isapprox.(wavefieldRs, sol.u, rtol=1e-2))
 end
-
-# function homogeneous_scenario()
-#     bfield = BField(50e-6, deg2rad(68), deg2rad(111))
-#     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(16e3), 100e3)
-#     ground = Ground(15, 0.001)
-#
-#     ionobottom = 50e3
-#     species = Species(QE, ME, z -> z >= ionobottom ? ionobottom : 0.0,
-#                               z -> 5e6)  # ν is constant
-#
-#     # Resonant EigenAngle
-#     ea = EigenAngle(1.45964665843992 - 0.014974434753336im)
-#
-#     zs = 200e3:-500:ionobottom
-#
-#     return bfield, tx, ground, species, ea, zs
-# end
 
 """
 Check wavefields in homogeneous ionosphere are valid solutions to wave equation.
@@ -136,12 +118,10 @@ See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
 function homogeneous_iono_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
 
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+    ionobottom = LWMS.CURVATURE_HEIGHT
+    zs = 200e3:-500:ionobottom
 
     LWMS.EARTHCURVATURE[] = false
-
-    ionobottom = last(zs)
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
 
@@ -157,16 +137,13 @@ function homogeneous_iono_test(scenario)
     T = LWMS.tmatrix(ea, M)
     booker = LWMS.initialwavefields(T)
 
-    e1diff = e1 .- booker[:,1]
-    e2diff = e2 .- booker[:,2]
-
-    q, B = LWMS.bookerquartic(T)
-    LWMS.sortquarticroots!(q)
-
     all(e1 .≈ booker[:,1]) || return false
     all(e2 .≈ booker[:,2]) || return false
 
     # This is basically the same test...
+    q, B = LWMS.bookerquartic(T)
+    LWMS.sortquarticroots!(q)
+
     T*e1 ≈ q[1]*e1 || return false
     T*e2 ≈ q[2]*e2 || return false
 
@@ -187,7 +164,7 @@ function resonance_test(scenario)
 
     # Ensure we are close to mode resonance with R
     f = LWMS.modalequation(R, Rg)
-    return LWMS.isroot(f, atol=1e-4)
+    return LWMS.isroot(f)
 end
 
 @testset "wavefields.jl" begin
@@ -209,10 +186,12 @@ end
 
         for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
             @test drdzwavefield_equivalence_test(scn)
-            @test homogeneous_iono_test(scn)
         end
-        for scn in (resonant_scenario)
+        for scn in (resonant_scenario, )
             @test resonance_test(scn)
+        end
+        for scn in (homogeneousiono_scenario, )
+            @test homogeneous_iono_test(scn)
         end
     end
 
