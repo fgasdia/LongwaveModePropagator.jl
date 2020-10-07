@@ -212,23 +212,26 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
 end
 
 """
-    modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
+    modeterms(ea, frequency, waveguide, tx, rx)
 
 !!! note
 
     Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`.
 """
-function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
-    # Unpack
-    #==
-    Transmit antenna orientation factors
+function modeterms(ea, frequency, waveguide, tx::Emitter, rx::AbstractSampler)
+    zt = altitude(tx)
+    zr = altitude(rx)
+    rxfield = fieldcomponent(rx)
 
-    | t1 |   Cγ  |
-    | t2 | Sγ*Sϕ |
-    | t3 | Sγ*Cϕ |
-    ==#
-    t1, t2, t3, zt = emitter_orientation
-    rxfield, zr = sampler_orientation
+    # Transmit antenna orientation with respect to propagation direction
+    # See Morfitt 1980 pg 22
+    # TODO: Confirm alignment of coord system and magnetic field
+    Sγ, Cγ = sincos(inclination(tx))  # γ is measured from vertical
+    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
+
+    t1 = Cγ
+    t2 = Sγ*Sϕ
+    t3 = Sγ*Cϕ
 
     Mfcn(alt) = susceptibility(alt, frequency, waveguide)
     modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
@@ -262,6 +265,66 @@ function modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orient
 end
 
 """
+    modeterms()
+
+Specialized `modeterms` for the common case of `GroundSampler` and
+`Transmitter{VerticalDipole}`.
+"""
+function modeterms(ea, frequency, waveguide, tx::Transmitter{VerticalDipole},
+    rx::GroundSampler)
+
+    rxfield = fieldcomponent(rx)
+
+    Mfcn(alt) = susceptibility(alt, frequency, waveguide)
+    modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
+
+    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
+    efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
+
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
+
+    # Transmitter term
+    fz, fx, fy = heightgains(0.0, ea, frequency, efconstants)
+    xmtrterm = λv*fz
+
+    # Receiver term
+    # TODO: Handle multiple fields - maybe just always return all 3?
+    if rxfield == Fields.Ez
+        rcvrterm = fz
+    elseif rxfield == Fields.Ex
+        rcvrterm = fx
+    elseif rxfield == Fields.Ey
+        rcvrterm = fy
+    end
+
+    return xmtrterm, rcvrterm, efconstants
+end
+
+###
+
+"""
+    Efield(modes, waveguide, tx, rx)
+
+Calculate the complex electric field by summing `modes` in `waveguide` with
+transmitter `tx` and receiver `rx`.
+"""
+function Efield(
+    modes::Vector{EigenAngle{T}},
+    waveguide::HomogeneousWaveguide,
+    tx::Emitter,
+    rx::AbstractSampler
+    ) where T
+
+    X = distance(rx, tx)
+    Xlength = length(X)
+
+    E = zeros(complex(T), Xlength)
+    Efield!(E, X, modes, waveguide, tx, rx)
+
+    return E
+end
+
+"""
     Efield!(E, X, modes, waveguide, tx, rx)
 
 Calculate the complex electric field at a distance `x` from transmitter `tx`.
@@ -270,35 +333,26 @@ Calculate the complex electric field at a distance `x` from transmitter `tx`.
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
 """
-function Efield!(E, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
-    X = distance(rx,tx)
-    @assert length(E) == length(X)  # or boundscheck
-
-    # TODO: special function for vertical field, transmitter, and at ground
-    # TODO: Special Efield() for point measurement
+function Efield!(
+    E,
+    X::AbstractVector,
+    modes::AbstractVector,
+    waveguide::HomogeneousWaveguide,
+    tx::Emitter,
+    rx::AbstractSampler
+    )
+    @assert length(E) == length(X) "`E` and `X` must be same length"
 
     frequency = tx.frequency
 
     txpower = power(tx)
-    zt = altitude(tx)
     k = frequency.k
-    zr = altitude(rx)
-    rxfield = fieldcomponent(rx)
-
-    # Transmit dipole antenna orientation with respect to propagation direction
-    # See Morfitt 1980 pg 22
-    # TODO: Confirm alignment of coord system and magnetic field
-    Sγ, Cγ = sincos(π/2 - inclination(tx))  # γ is measured from vertical
-    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
-
-    emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
-    sampler_orientation = (rxfield=rxfield, zr=zr)
 
     # Initialize E if necessary
     iszero(E) || fill!(E, 0)
 
     for ea in modes
-        xmtrterm, rcvrterm = modeterms(ea, frequency, waveguide, emitter_orientation, sampler_orientation)
+        xmtrterm, rcvrterm = modeterms(ea, frequency, waveguide, tx, rx)
 
         # Precalculate
         S₀ = referencetoground(ea.sinθ)
@@ -324,24 +378,48 @@ function Efield!(E, modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abs
     return nothing
 end
 
+"""
+    Efield(modes, waveguide, tx, rx)
+
+Return the single scalar electric field when `AbstractSampler` has a (single)
+`Real` distance.
+"""
 function Efield(
     modes::Vector{EigenAngle{T}},
     waveguide::HomogeneousWaveguide,
     tx::Emitter,
-    rx::AbstractSampler
-    ) where T
+    rx::AbstractSampler{R}
+    ) where {T, R<:Real}
 
-    X = distance(rx, tx)
-    Xlength = length(X)
+    # Unpack
+    frequency = tx.frequency
+    k = frequency.k
 
-    E = zeros(complex(T), Xlength)
+    txpower = power(tx)
+    x = distance(rx, tx)
 
-    Efield!(E, modes, waveguide, tx, rx)
+    E = zero(T)
+    for ea in modes
+        xmtrterm, rcvrterm = modeterms(ea, frequency, waveguide, tx, rx)
+
+        S₀ = referencetoground(ea.sinθ)
+        expterm = -k*(S₀ - 1)
+        xmtr_rcvr_term = xmtrterm*rcvrterm
+
+        E += xmtr_rcvr_term*cis(expterm*x)
+    end
 
     return E
 end
 
-function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_vec, tx, rx) where {T1,T2,T3}
+function Efield(
+    waveguide,
+    wavefields_vec::Wavefields{T1,T2,T3},
+    adjwavefields_vec,
+    tx,
+    rx
+    ) where {T1,T2,T3}
+
     X = distance(rx, tx)
     maxX = maximum(X)
     Xlength = length(X)
@@ -352,36 +430,29 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
 
     Q = 0.6822408*sqrt(frequency.f*tx.power)
 
-    # Antenna orientation factors
-    Sγ, Cγ = sincos(π/2 - inclination(tx))  # γ is measured from vertical
-    Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from propagation direction `x`
-
-    zt = altitude(tx)
-
-    rxcomponent = fieldcomponent(rx)
-    zr = altitude(rx)
-
-    emitter_orientation = (t1=Cγ, t2=Sγ*Sϕ, t3=Sγ*Cϕ, zt=zt)
-    sampler_orientation = (rxfield=rxfield, zr=zr)
-
     # Initialize
-    segmentcount = length(waveguide)
+    numsegments = length(waveguide)
     previous_eacount = 0  # number of eigenangles in previous segment
     xmtrfields = Vector{T1}(undef, 0)  # fields generated by transmitter
     previous_xmtrfields = similar(xmtrfields)  # fields saved from previous segment
     rcvrfields = similar(xmtrfields)  # fields at receiver location
 
     Xidx = 1
-    for segmentidx = 1:segmentcount
+    for segmentidx = 1:numsegments
         wvg = waveguide[segmentidx]
         wavefields = wavefields_vec[segmentidx]
         eas = eigenangles(wavefields)
         current_eacount = length(eas)
 
-        segment_start = wvg.distance  # @assert wvg.distance == 0 for segmentidx == 1
+        # Identify distance at beginning of segment
+        segment_start = wvg.distance
+        if segmentidx == 1
+            @assert segment_start == 0 "First waveguide segment should have distance 0"
+        end
         maxX < segment_start && break  # no farther X; break
 
-        if segmentidx < segmentcount
+        # Identify distance at end of segment
+        if segmentidx < numsegments
             segment_end = waveguide[segmentidx+1].distance
         else
             segment_end = typemax(typeof(segment_start))
@@ -396,13 +467,14 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
             conversioncoeffs = modeconversion(prevwavefields, wavefields, adjwavefields)
         end
 
+        # Calculate the mode terms (height gains and excitation factors) up to
+        # the current segment
         for n = 1:current_eacount
             # `xmtrterm` includes excitation factor and transmitter height gain
             # `rcvrterm` is receiver height gain only
-            xmtrterm, rcvrterm, efc = modeterms(eas[n], frequency, wvg,
-                                                emitter_orientation, sampler_orientation)
+            xmtrterm, rcvrterm, efc = modeterms(eas[n], frequency, wvg, tx, rx)
             if segmentidx == 1
-                # Transmitter only in transmitter slab
+                # Transmitter exists only in the transmitter slab (obviously)
                 xmtrfields[n] = xmtrterm
             else
                 # Otherwise, mode conversion of transmitted fields
@@ -416,6 +488,7 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
             rcvrfields[n] = xmtrfields[n]*rcvrterm
         end
 
+        # Calculate E at each distance in the current waveguide segment
         while X[Xidx] < segment_end
             x = X[Xidx] - segment_start
             factor = Q/sqrt(abs(sin(X[Xidx]/EARTHRADIUS)))
@@ -431,7 +504,9 @@ function Efield(waveguide, wavefields_vec::Wavefields{T1,T2,T3}, adjwavefields_v
             Xidx > Xlength && break
         end
 
-        if segmentidx < segmentcount
+        # If we've reached the end of the current segment and there are more
+        # segments, prepare for next segment
+        if segmentidx < numsegments
             # End of current slab
             x = segment_end - segment_start
 
