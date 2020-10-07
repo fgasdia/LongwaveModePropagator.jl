@@ -97,7 +97,7 @@ Transmitter(name, lat, lon, freq) =
 Generate a default transmitter with frequency `freq`, transmit `power`, and
 `antenna` and zeroed geographic position.
 """
-Transmitter(freq, power, antenna::A) where {A<:Antenna} =
+Transmitter(antenna::A, freq::Frequency, power) where {A<:Antenna} =
     Transmitter{A}("", 0, 0, antenna, Frequency(freq), power)
 
 altitude(t::Transmitter) = 0.0

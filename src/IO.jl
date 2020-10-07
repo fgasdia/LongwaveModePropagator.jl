@@ -128,8 +128,8 @@ function buildandrun(s::BasicInput)
         ground = Ground(only(s.ground_epsr), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
-        rx = GroundSampler(s.output_ranges, FC_Ez)
+        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
         waveguide = SegmentedWaveguide(HomogeneousWaveguide)
@@ -140,8 +140,8 @@ function buildandrun(s::BasicInput)
             ground = Ground(s.ground_epsr[i], s.ground_sigmas[i])
             push!(waveguide, HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i]))
         end
-        tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(s.frequency), 100e3)
-        rx = GroundSampler(s.output_ranges, FC_Ez)
+        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
     E, phase, amp = bpm(waveguide, tx, rx)
