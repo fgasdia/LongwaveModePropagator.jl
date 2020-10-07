@@ -95,6 +95,17 @@ function defaultcoordinates(frequency)
     return origcoords
 end
 
+"""
+    bpm(waveguide::HomogeneousWaveguide, tx, rx)
+
+Return electric field `E`, and field `phase` and `amplitude` using parameters:
+
+    - `defaultcoordinates` for GRPF region
+    - `GRPFParams.tolerance = 1e-6`
+    - `GRPFParams.multithreaded = true`
+    - `susceptibilityinterpolator`
+    - `PhysicalModeEquation`
+"""
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     origcoords = defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
@@ -104,6 +115,29 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     modeequation = PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 
     E, phase, amp = bpm(waveguide, tx, rx, origcoords, grpfparams, modeequation)
+
+    return E, phase, amp
+end
+
+"""
+    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}, origcoords, grpfparams,
+    modeequation) where {R<:Real}
+
+Specialized form for `AbstractSampler`s with a single distance which returns
+scalar `E`, `phase`, and `amp`.
+"""
+function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R},
+    origcoords, grpfparams::GRPFParams, modeequation::ModeEquation) where {R<:Real}
+    if minimum(imag(origcoords)) < deg2rad(-31)
+        @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+            calculated with modified Hankel functions to overflow."
+    end
+
+    modes = findmodes(origcoords, grpfparams, modeequation)
+
+    E = Efield(modes, waveguide, tx, rx)
+    phase = angle(E)
+    amp = 10log10(abs2(E))  # == 20log10(abs(E))
 
     return E, phase, amp
 end
