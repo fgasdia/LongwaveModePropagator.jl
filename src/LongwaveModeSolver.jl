@@ -77,6 +77,14 @@ include("modefinder.jl")
 include("modesum.jl")
 
 
+function jsonsafe!(v)
+    for i in eachindex(v)
+        if isnan(v[i]) || isinf(v[i])
+            v[i] = 0
+        end
+    end
+end
+
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
@@ -256,8 +264,9 @@ function bpm(file::AbstractString)
     output.description = s.description
     output.datetime = s.datetime
 
-    # TEMP, otherwise amp may be NaN which cannot be written to JSON
-    amp[1] = amp[2]
+    # Otherwise amp may be NaN which cannot be written to JSON
+    jsonsafe!(amp)
+    jsonsafe!(phase)
 
     output.output_ranges = s.output_ranges
     output.amplitude = amp
