@@ -1,3 +1,14 @@
+function construct_wavefields()
+    ztop = LWMS.TOPHEIGHT
+    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+
+    modes = EigenAngle.(rand(ComplexF64, 10))
+
+    wavefields = LWMS.Wavefields{ComplexF64}(zs, modes)
+
+    return wavefields
+end
+
 function wavefields_test(scenario)
     @unpack tx, bfield, species, ground = scenario
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
@@ -15,7 +26,7 @@ function wavefields_test(scenario)
 
     zs = LWMS.TOPHEIGHT:-100:zero(LWMS.TOPHEIGHT)
 
-    wavefields = LWMS.Wavefields{ComplexF64}(modes, zs)
+    wavefields = LWMS.Wavefields{ComplexF64}(zs, modes)
 
     return isvalid(wavefields)
 end
@@ -189,11 +200,26 @@ function resonance_test(scenario)
     return LWMS.isroot(f)
 end
 
+function fieldstrengths_test(scenario)
+    @unpack ea, bfield, tx, ground, species = scenario
+    wavefields = construct_wavefields()
+
+    zs = LWMS.heights(wavefields)
+    modes = LWMS.eigenangles(wavefields)
+
+    LWMS.fieldstrengths!(wavefields[1], zs, modes[1], tx.frequency,
+                        bfield, species, ground)
+end
+
 @testset "wavefields.jl" begin
     @info "Testing wavefields"
 
+    @test LWMS.heights(construct_wavefields()) == LWMS.TOPHEIGHT:-100:zero(LWMS.TOPHEIGHT)
+    @test length(LWMS.eigenangles(construct_wavefields())) == 10
+
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         @test wavefields_test(scn)
+        @test_nowarn fieldstrengths_test(scn)
     end
 
     @testset "Initial conditions" begin

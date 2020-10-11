@@ -47,3 +47,90 @@ function bpm_test(scenario)
 end
 
 # excitationfactorconstants(e, R, Rg, f, g)
+
+
+function test_segmented(scenario)
+    @unpack tx, rx, bfield, species, ground = scenario
+
+    waveguide = LWMS.SegmentedWaveguide(LWMS.HomogeneousWaveguide)
+    for i in eachindex(bfield)
+        wvg = LWMS.HomogeneousWaveguide(bfield[i], species[i], ground[i])
+        push!(waveguide, wvg)
+    end
+
+    E, amp, phase = bpm(waveguide, tx, rx)
+end
+
+
+function ttt(scenario)
+    @unpack tx, rx, bfield, species, ground = scenario
+
+    # b = bfield[1]
+    # s = species[1]
+    # g = ground[1]
+
+    # jnk =  LWMS.HomogeneousWaveguide(b, s, g)
+
+    waveguide = LWMS.SegmentedWaveguide(LWMS.HomogeneousWaveguide)
+    for i in eachindex(bfield)
+        wvg = LWMS.HomogeneousWaveguide(bfield[i], species[i], ground[i])
+        push!(waveguide, wvg)
+    end
+
+    zs = range(LWMS.TOPHEIGHT, 0, length=513)
+    nrsgmnt = length(waveguide)
+
+    # Predetermine types
+    Mtype = eltype(LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, waveguide[1]))
+    wftype = promote_type(Mtype, Float64)
+    ztype = typeof(zs)
+
+    wavefields_vec = Vector{LWMS.Wavefields{wftype,ztype}}(undef, nrsgmnt)
+    adjwavefields_vec = Vector{LWMS.Wavefields{wftype,ztype}}(undef, nrsgmnt)
+
+    return nothing
+end
+
+    origcoords = LWMS.defaultcoordinates(tx.frequency)
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-6, true)
+
+
+
+
+end
+
+
+    nsgmnt = 1
+    wvg = waveguide[nsgmnt]
+
+    interpolateM = true
+    if interpolateM
+        # TODO: check if functionwrapper is necessary
+        Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, wvg)
+    else
+        Mfcn = alt -> LWMS.susceptibility(alt, tx.frequency, wvg)
+    end
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, wvg, Mfcn)
+
+    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+
+    # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
+    # as wavefield
+    @unpack bfield, species, ground = wvg
+    adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
+    adjwvg = LWMS.HomogeneousWaveguide(adjoint_bfield, species, ground)
+
+    # TODO< just empty and resize the Wavefields
+    wavefields = LWMS.Wavefields{wftype}(modes, zs)
+    adjwavefields = LWMS.Wavefields{wftype}(modes, zs)
+
+    LWMS.calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg)
+
+    wavefields_vec[1] = wavefields
+    adjwavefields_vec[1] = adjwavefields
+
+    return nothing
+
+    # return wavefields, adjwavefields, tx.frequency, wvg, adjwvg
+end

@@ -13,26 +13,27 @@ of `SVector{6,T1}` corresponding to `v[mode][height]` where `T1` is the type of
 the wavefields.
 """
 struct Wavefields{T1,T2}
-    # fields(z) for each mode, v[mode][height]
-    v::Vector{Vector{SVector{6,T1}}}
-    eas::Vector{EigenAngle}
+    v::Matrix{SVector{6,T1}}  # v[height,mode]  ; type is derived from typeof T, which is from M
     zs::T2
+    eas::Vector{EigenAngle}
 end
 
 """
-    Wavefields{T1}(eas::Vector{EigenAngle}, zs::T2)
+    Wavefields{T1}(zs::T2, eas::Vector{EigenAngle})
 
 A constructor for Wavefields which creates appropriately sized `undef` vectors
 given eigenangles `eas` and heights `zs`. Wavefield type `T1` must be provided
 explicitly.
 """
-function Wavefields{T1}(eas::Vector{EigenAngle}, zs::T2) where {T1,T2}
-    Wavefields{T1,T2}([Vector{SVector{6,T1}}(undef, length(zs)) for i in eachindex(eas)], eas, zs)
+function Wavefields{T1}(zs::T2, eas::Vector{EigenAngle}) where {T1,T2}
+    v = Matrix{SVector{6,T1}}(undef, length(zs), length(eas))
+    Wavefields{T1,T2}(v, zs, eas)
 end
 
-Base.getindex(A::Wavefields, i::Int) = A.v[i]
+Base.getindex(A::Wavefields, i) = view(A.v, :, i)
+Base.setindex!(A::Wavefields, x, i) = (A.v[i] = x)
 Base.similar(A::Wavefields) = Wavefields(A.eas, A.zs)
-Base.copy(A::Wavefields{T1,T2}) where {T1,T2} = Wavefields{T1,T2}(copy(A.v), copy(A.eas), copy(A.zs))
+Base.copy(A::Wavefields{T1,T2}) where {T1,T2} = Wavefields{T1,T2}(copy(A.v), copy(A.zs), copy(A.eas))
 
 function (==)(A::Wavefields, B::Wavefields)
     A.zs == B.zs || return false
@@ -42,10 +43,11 @@ function (==)(A::Wavefields, B::Wavefields)
 end
 
 function Base.isvalid(A::Wavefields)
+    vzs, veas = size(A.v)
     ealen = length(A.eas)
-    length(A.v) == ealen || return false
+    veas == ealen || return false
     zlen = length(A.zs)
-    all(length(A.v[i]) == zlen for i in 1:ealen) || return false
+    vzs == zlen || return false
     return true
 end
 
@@ -228,7 +230,7 @@ function scale!(integrator)
     next `tprev`, `t`).
     ==#
 
-    # NOTE: we must entirely reconstruct the entire NamedTuple from scratch
+    # NOTE: we must entirely reconstruct the entire struct from scratch
     integrator.p = WavefieldIntegrationParams(integrator.t,
                                               bottomz,
                                               new_orthos,
@@ -279,8 +281,8 @@ function scalewavefields(e1, e2)
     e2 -= a*e1
 
     # Normalize `e1` and `e2`
-    e1_scale_val = 1/sqrt(e1_dot_e1)
-    e2_scale_val = 1/norm(e2)  # == 1/sqrt(dot(e2,e2))
+    e1_scale_val = inv(sqrt(e1_dot_e1))
+    e2_scale_val = inv(norm(e2))  # == 1/sqrt(dot(e2,e2))
     e1 *= e1_scale_val
     e2 *= e2_scale_val  # == normalize(e2)
 
@@ -573,8 +575,8 @@ boundaryscalars(R, Rg, e, isotropic::Bool) = boundaryscalars(R, Rg, e[:,1], e[:,
 """
     fieldstrengths()
 
-Calculate `Ex`, `Ey`, `Ez`, `ℋx`, `ℋy`, `ℋz` wavefields by full wave
-integration at heights `zs`.
+Calculate `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by full wave integration at heights
+`zs`.
 
 Scales wavefields for waveguide boundary conditions.
 """
@@ -626,15 +628,19 @@ function calculate_wavefields!(wavefields, adjoint_wavefields,
     # Check to see if we only need a single loop
     if length(modes) == length(adjoint_modes)
         @inbounds for m in eachindex(modes)
-            fieldstrengths!(wavefields[m], zs, modes[m], frequency, bfield, species, ground)
-            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency, adjoint_bfield, species, ground)
+            fieldstrengths!(wavefields[m], zs, modes[m], frequency,
+                            bfield, species, ground)
+            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency,
+                            adjoint_bfield, species, ground)
         end
     else
         @inbounds for m in eachindex(modes)
-            fieldstrengths!(wavefields[m], zs, modes[m], frequency, bfield, species, ground)
+            fieldstrengths!(wavefields[m], zs, modes[m], frequency,
+                            bfield, species, ground)
         end
         @inbounds for m in eachindex(adjoint_modes)
-            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency, adjoint_bfield, species, ground)
+            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency,
+                            adjoint_bfield, species, ground)
         end
     end
 
