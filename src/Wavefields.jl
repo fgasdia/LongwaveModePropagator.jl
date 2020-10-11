@@ -580,7 +580,7 @@ Scales wavefields for waveguide boundary conditions.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
     species::Species, ground::Ground)
-    
+
     @assert length(EH) == length(zs)
     zs[end] == 0 || @warn "Waveguide math assumes fields and reflection
         coefficients are calculated at the ground (`z = 0`)."

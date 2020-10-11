@@ -93,6 +93,7 @@ function defaultcoordinates(frequency)
 
     return origcoords
 end
+defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
 """
     bpm(waveguide::HomogeneousWaveguide, tx, rx)
@@ -172,7 +173,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
 end
 
 function bpm(waveguide::SegmentedWaveguide, tx, rx)
-    origcoords = defaultcoordinates(tx.frequency.f)
+    origcoords = defaultcoordinates(tx.frequency)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
@@ -189,12 +190,13 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
     zs = range(TOPHEIGHT, 0, length=513)
     nrsgmnt = length(waveguide)
 
-    wavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
-    adjwavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
-
     # Predetermine types
     Mtype = eltype(susceptibility(TOPHEIGHT, tx.frequency, waveguide[1]))
-    wftype = promote_type(Mtype, Float64)
+    wftype = promote_type(Mtype, ComplexF64)
+    ztype = typeof(zs)
+
+    wavefields_vec = Vector{Wavefields{wftype,ztype}}(undef, nrsgmnt)
+    adjwavefields_vec = Vector{Wavefields{wftype,ztype}}(undef, nrsgmnt)
 
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]

@@ -18,7 +18,8 @@ struct HomogeneousWaveguide{S} <: Waveguide
     ground::Ground
     distance::Float64
 end
-HomogeneousWaveguide(bfield, species, ground) = HomogeneousWaveguide(bfield, species, ground, 0.0)
+HomogeneousWaveguide(bfield, species::S, ground) where S =
+    HomogeneousWaveguide{S}(bfield, species, ground, 0.0)
 
 struct SegmentedWaveguide{T<:Vector{<:Waveguide}} <: Waveguide
     v::T
