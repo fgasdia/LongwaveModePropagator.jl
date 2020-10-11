@@ -97,7 +97,7 @@ end
 """
     bpm(waveguide::HomogeneousWaveguide, tx, rx)
 
-Return electric field `E`, and field `phase` and `amplitude` using parameters:
+Return electric field `E`, and field `amplitude` and `phase` using parameters:
 
     - `defaultcoordinates` for GRPF region
     - `GRPFParams.tolerance = 1e-6`
@@ -113,9 +113,9 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     Mfcn = susceptibilityinterpolator(tx.frequency, waveguide)
     modeequation = PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 
-    E, phase, amp = bpm(waveguide, tx, rx, origcoords, grpfparams, modeequation)
+    E, amp, phase = bpm(waveguide, tx, rx, origcoords, grpfparams, modeequation)
 
-    return E, phase, amp
+    return E, amp, phase
 end
 
 """
@@ -123,7 +123,7 @@ end
     modeequation) where {R<:Real}
 
 Specialized form for `AbstractSampler`s with a single distance which returns
-scalar `E`, `phase`, and `amp`.
+scalar `E`, `amp`, and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R},
     origcoords, grpfparams::GRPFParams, modeequation::ModeEquation) where {R<:Real}
@@ -135,10 +135,10 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
     modes = findmodes(origcoords, grpfparams, modeequation)
 
     E = Efield(modes, waveguide, tx, rx)
-    phase = angle(E)
     amp = 10log10(abs2(E))  # == 20log10(abs(E))
+    phase = angle(E)
 
-    return E, phase, amp
+    return E, amp, phase
 end
 
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
@@ -152,12 +152,12 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
 
     E = Efield(modes, waveguide, tx, rx)
 
-    phase = Vector{Float64}(undef, length(E))
-    amp = similar(phase)
+    amp = Vector{Float64}(undef, length(E))
+    phase = similar(amp)
     @inbounds for i in eachindex(E)
         e = E[i]
-        phase[i] = angle(e)  # ranges between -π:π rad
         amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
+        phase[i] = angle(e)  # ranges between -π:π rad
     end
 
     # Amplitude at transmitter may be calculated as Inf
@@ -168,33 +168,46 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
     isnan(phase[1]) && (phase[1] = 0)
     unwrap!(phase)
 
-    return E, phase, amp
+    return E, amp, phase
 end
 
 function bpm(waveguide::SegmentedWaveguide, tx, rx)
+    origcoords = defaultcoordinates(tx.frequency.f)
+    est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
+
+    E, amp, phase = bpm(waveguide, tx, rx, origcoords, grpfparams, true)
+end
+
+function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
+    origcoords, grpfparams::GRPFParams, interpolateM::Bool)
+    if minimum(imag(origcoords)) < deg2rad(-31)
+        @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+            calculated with modified Hankel functions to overflow."
+    end
+
     zs = range(TOPHEIGHT, 0, length=513)
     nrsgmnt = length(waveguide)
 
     wavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
     adjwavefields_vec = Vector{Wavefields{typeof(zs)}}(undef, nrsgmnt)
 
-    if tx.frequency.f > 15000  # TODO: get a better idea of frequency transition
-        Zb = complex(0.0, -10.0)
-        Ze = complex(89.9, 0.0)
-        Δr = 0.5
-    else
-        Zb = complex(0.0, -30.0)
-        Ze = complex(89.9, 0.0)
-        Δr = 1.0
-    end
-
-    origcoords = coordgrid(tx.frequency.f)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
+    # Predetermine types
+    Mtype = eltype(susceptibility(TOPHEIGHT, tx.frequency, waveguide[1]))
+    wftype = promote_type(Mtype, Float64)
 
     for nsgmnt in 1:nrsgmnt
         wvg = waveguide[nsgmnt]
-        modes = findmodes(origcoords, tx.frequency, wvg, tolerance)
+
+        if interpolateM
+            # TODO: check if functionwrapper is necessary
+            Mfcn = susceptibilityinterpolator(tx.frequency, wvg)
+        else
+            Mfcn = alt -> susceptibility(alt, tx.frequency, wvg)
+        end
+        modeequation = PhysicalModeEquation(tx.frequency, wvg, Mfcn)
+
+        modes = findmodes(origcoords, grpfparams, modeequation)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -203,8 +216,6 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
         adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
 
         # TODO< just empty and resize the Wavefields
-        Mtype = eltype(susceptibility(TOPHEIGHT, tx.frequency, bfield, species))
-        wftype = promote_type(Mtype, eltype(modes))
         wavefields = Wavefields{wftype}(modes, zs)
         adjwavefields = Wavefields{wftype}(modes, zs)
 
@@ -216,12 +227,12 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
 
     E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
 
-    phase = Vector{Float64}(undef, length(E))
-    amp = similar(phase)
+    amp = Vector{Float64}(undef, length(E))
+    phase = similar(amp)
     @inbounds for i in eachindex(E)
         e = E[i]
-        phase[i] = angle(e)  # ranges between -π:π rad
         amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
+        phase[i] = angle(e)  # ranges between -π:π rad
     end
 
     # Amplitude at transmitter may be calculated as Inf
@@ -232,7 +243,7 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
     isnan(phase[1]) && (phase[1] = 0)
     unwrap!(phase)
 
-    return E, phase, amp
+    return E, amp, phase
 end
 
 """
@@ -240,33 +251,26 @@ end
 
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
-function bpm(file::AbstractString)
+function bpm(file::AbstractString; incrementalwrite=false, append=false)
     ispath(file) || error("$file is not a valid file name")
-
-    s = parse(file)
-    output_ranges, E, phase, amp = buildandrun(s)
 
     # Save output
     basepath = dirname(file)
     filename, fileextension = splitext(basename(file))
 
-    output = BasicOutput()
-    output.name = s.name
-    output.description = s.description
-    output.datetime = s.datetime
+    outfile = joinpath(basepath, filename)
 
-    # Otherwise amp may be NaN which cannot be written to JSON
-    jsonsafe!(amp)
-    jsonsafe!(phase)
+    s = parse(file)
+    if incrementalwrite
+        output = buildrunsave(outfile, s, append)
+    else
+        output = buildrun(s)
 
-    output.output_ranges = s.output_ranges
-    output.amplitude = amp
-    output.phase = rad2deg.(phase)
+        json_str = JSON3.write(output)
 
-    json_str = JSON3.write(output)
-
-    open(joinpath(basepath,filename*"_bpm"*fileextension), "w") do f
-        write(f, json_str)
+        open(outfile*"_bpm.json", "w") do f
+            write(f, json_str)
+        end
     end
 
     return nothing
