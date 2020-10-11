@@ -19,7 +19,7 @@ Return an `ExcitationFactor` struct used in calculating height gains.
 
 !!! note
 
-    Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`. See, e.g.
+    Eigenangle `ea` should be referenced to `CURVATURE_HEIGHT`. See, e.g.
     [^Pappert1971], page 8.
 
 Based on Morfitt 1980, Pappert Shockey 1971, and Pappert Shockey 1976 (this last one has H=0)
@@ -216,7 +216,7 @@ end
 
 !!! note
 
-    Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`.
+    Eigenangle `ea` should be referenced to `CURVATURE_HEIGHT`.
 """
 function modeterms(ea, frequency, waveguide, tx::Emitter, rx::AbstractSampler)
     zt = altitude(tx)
@@ -309,16 +309,16 @@ Calculate the complex electric field by summing `modes` in `waveguide` with
 transmitter `tx` and receiver `rx`.
 """
 function Efield(
-    modes::Vector{EigenAngle{T}},
+    modes::Vector{EigenAngle},
     waveguide::HomogeneousWaveguide,
     tx::Emitter,
     rx::AbstractSampler
-    ) where T
+    )
 
     X = distance(rx, tx)
     Xlength = length(X)
 
-    E = zeros(complex(T), Xlength)
+    E = zeros(ComplexF64, Xlength)
     Efield!(E, X, modes, waveguide, tx, rx)
 
     return E
@@ -385,11 +385,11 @@ Return the single scalar electric field when `AbstractSampler` has a (single)
 `Real` distance.
 """
 function Efield(
-    modes::Vector{EigenAngle{T}},
+    modes::Vector{EigenAngle},
     waveguide::HomogeneousWaveguide,
     tx::Emitter,
     rx::AbstractSampler{R}
-    ) where {T, R<:Real}
+    ) where {R<:Real}
 
     # Unpack
     frequency = tx.frequency
@@ -414,11 +414,11 @@ end
 
 function Efield(
     waveguide,
-    wavefields_vec::Wavefields{T1,T2,T3},
+    wavefields_vec::Wavefields{T1,T2},
     adjwavefields_vec,
     tx,
     rx
-    ) where {T1,T2,T3}
+    ) where {T1,T2}
 
     X = distance(rx, tx)
     maxX = maximum(X)

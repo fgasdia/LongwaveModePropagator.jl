@@ -2,8 +2,8 @@
 this function takes just 1 mode conversion step
 
 """
-function modeconversion(previous_wavefields::Wavefields{T1,T2,T3},
-                        wavefields::Wavefields{T1,T2,T3}, adjwavefields::Wavefields{T1,T2,T3}) where {T1,T2,T3}
+function modeconversion(previous_wavefields::Wavefields{T1,T2},
+                        wavefields::Wavefields{T1,T2}, adjwavefields::Wavefields{T1,T2}) where {T1,T2}
 
     @assert numheights(previous_wavefields) == numheights(wavefields)
     zs = heights(wavefields)

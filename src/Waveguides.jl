@@ -7,20 +7,20 @@ and `Ground`.
 abstract type Waveguide end
 
 """
-    HomogeneousWaveguide{B,C,G} <: Waveguide
+    HomogeneousWaveguide{S} <: Waveguide
 
-Defines a homogeneous segment of waveguide with a `BField`, `Species`,
-`Ground`, and `distance` of the start of the segment from the `Emitter`.
+Defines a homogeneous segment of waveguide with a `bfield::BField`, `species::S`,
+`ground::Ground`, and `distance` of the start of the segment from the `Emitter`.
 """
 struct HomogeneousWaveguide{S} <: Waveguide
-    bfield::BField  # BField
+    bfield::BField
     species::S  # `Species` or `Vector{Species}`
-    ground::Ground  # Ground
+    ground::Ground
     distance::Float64
 end
 HomogeneousWaveguide(bfield, species, ground) = HomogeneousWaveguide(bfield, species, ground, 0.0)
 
-struct SegmentedWaveguide{T<:AbstractVector{<:Waveguide}} <: Waveguide
+struct SegmentedWaveguide{T<:Vector{<:Waveguide}} <: Waveguide
     v::T
 end
 Base.length(w::SegmentedWaveguide) = length(w.v)

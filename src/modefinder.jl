@@ -22,8 +22,8 @@ struct ModifiedModeEquation{W<:HomogeneousWaveguide,F} <: ModeEquation
     Mfcn::F
 end
 
-struct DZParams{T,F}
-    ea::EigenAngle{T}
+struct DZParams{F}
+    ea::EigenAngle
     frequency::Frequency
     Mfcn::F
 end

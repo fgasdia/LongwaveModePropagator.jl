@@ -4,7 +4,7 @@ within the ionosphere.
 ==#
 
 """
-    Wavefields{T1,T2,T3}
+    Wavefields{T1,T2}
 
 Struct containing wavefield components for each mode and height.
 
@@ -12,27 +12,27 @@ The Wavefields are stored in the `v` field and as accessed as a `Vector` of `Vec
 of `SVector{6,T1}` corresponding to `v[mode][height]` where `T1` is the type of
 the wavefields.
 """
-struct Wavefields{T1,T2,T3}
+struct Wavefields{T1,T2}
     # fields(z) for each mode, v[mode][height]
     v::Vector{Vector{SVector{6,T1}}}
-    eas::Vector{EigenAngle{T2}}
-    zs::T3
+    eas::Vector{EigenAngle}
+    zs::T2
 end
 
 """
-    Wavefields{T1}(eas::Vector{EigenAngle{T2}}, zs::T3)
+    Wavefields{T1}(eas::Vector{EigenAngle}, zs::T2)
 
 A constructor for Wavefields which creates appropriately sized `undef` vectors
 given eigenangles `eas` and heights `zs`. Wavefield type `T1` must be provided
 explicitly.
 """
-function Wavefields{T1}(eas::Vector{EigenAngle{T2}}, zs::T3) where {T1,T2,T3}
-    Wavefields{T1,T2,T3}([Vector{SVector{6,T1}}(undef, length(zs)) for i in eachindex(eas)], eas, zs)
+function Wavefields{T1}(eas::Vector{EigenAngle}, zs::T2) where {T1,T2}
+    Wavefields{T1,T2}([Vector{SVector{6,T1}}(undef, length(zs)) for i in eachindex(eas)], eas, zs)
 end
 
 Base.getindex(A::Wavefields, i::Int) = A.v[i]
 Base.similar(A::Wavefields) = Wavefields(A.eas, A.zs)
-Base.copy(A::Wavefields{T1,T2,T3}) where {T1,T2,T3} = Wavefields{T1,T2,T3}(copy(A.v), copy(A.eas), copy(A.zs))
+Base.copy(A::Wavefields{T1,T2}) where {T1,T2} = Wavefields{T1,T2}(copy(A.v), copy(A.eas), copy(A.zs))
 
 function (==)(A::Wavefields, B::Wavefields)
     A.zs == B.zs || return false

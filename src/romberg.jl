@@ -1,4 +1,4 @@
-function romberg(x::AbstractVector, y::AbstractVector)
+function romberg(x::AbstractVector, y::AbstractVector{T}) where T
     # Adapted from NumericalIntegration.jl
     # This version always goes the maximum number of steps
     half = 1/2
@@ -7,7 +7,7 @@ function romberg(x::AbstractVector, y::AbstractVector)
     @assert ((length(x) - 1) & (length(x) - 2)) == 0 "Need length of vector to be 2^n + 1"
 
     maxsteps = Int(log2(length(x)-1))
-    rombaux = zeros(eltype(y), maxsteps, 2)
+    rombaux = zeros(T, maxsteps, 2)
     prevcol = 1
     currcol = 2
     @inbounds h = x[end] - x[1]
@@ -17,7 +17,7 @@ function romberg(x::AbstractVector, y::AbstractVector)
         h *= half
         npoints = 1 << (i-1)
         jumpsize = div(length(x)-1, 2*npoints)
-        c = zero(eltype(y))
+        c = zero(T)
         for j in 1:npoints
             c += y[1 + (2*j-1)*jumpsize]
         end
