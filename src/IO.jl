@@ -24,6 +24,14 @@ Output:
         - E field component(r)?
 """
 
+function jsonsafe!(v)
+    for i in eachindex(v)
+        if isnan(v[i]) || isinf(v[i])
+            v[i] = 0
+        end
+    end
+end
+
 """
     BasicInput
 """
@@ -79,6 +87,19 @@ mutable struct BasicOutput
     BasicOutput() = new()
 end
 StructTypes.StructType(::Type{BasicOutput}) = StructTypes.Mutable()
+
+mutable struct BatchOutput{T}
+    name::String
+    description::String
+    datetime::DateTime
+
+    outputs::Vector{T}
+
+    BatchOutput{T}() where {T} = new{T}()
+end
+BatchOutput() = BatchOutput{Any}()
+StructTypes.StructType(::Type{<:BatchOutput}) = StructTypes.Mutable()
+jsonsafe!(s::BatchOutput) = jsonsafe!(s.outputs)
 
 """
     iscomplete(s)
@@ -151,7 +172,7 @@ function parse(file)
     end
 end
 
-function buildandrun(s::BasicInput)
+function buildrun(s::BasicInput)
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
@@ -176,12 +197,67 @@ function buildandrun(s::BasicInput)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, phase, amp = bpm(waveguide, tx, rx)
+    E, amp, phase = bpm(waveguide, tx, rx)
 
-    return s.output_ranges, E, phase, amp
+    output = BasicOutput()
+    output.name = s.name
+    output.description = s.description
+    output.datetime = s.datetime
+
+    output.output_ranges = s.output_ranges
+    output.amplitude = amp
+    output.phase = phase
+
+    jsonsafe!(output.amp)
+    jsonsafe!(output.phase)
+
+    return output
 end
 
-# TODO
-function buildandrun(s::BatchInput{T}) where T
+function buildrun(s::BatchInput{BasicInput})
+    batch = BatchOutput{BasicOutput}()
+    batch.name = s.name
+    batch.description = s.description
+    batch.datetime = s.datetime
 
+    for i in eachindex(s.inputs)
+        output = buildandrun(s.inputs[i])
+        push!(batch.outputs, output)
+    end
+
+    return batch
+end
+
+function buildrunsave(outfile, s::BatchInput{BasicInput}; append=false)
+    if append
+        batch = open(outfile, "r") do f
+            s = JSON3.read(f, BatchOutput{BasicOutput})
+            return s
+        end
+    else
+        batch = BatchOutput{BasicOutput}()
+        batch.name = s.name
+        batch.description = s.description
+        batch.datetime = s.datetime
+    end
+
+    for i in eachindex(s.inputs)
+        name = s.inputs[i].name
+
+        # Check if this case has already been run (useful for append)
+        for o in eachindex(batch.outputs)
+            name == batch.outputs[o].name && continue
+        end
+
+        output = buildandrun(s.inputs[i])
+        push!(batch.outputs, output)
+
+        json_str = JSON3.write(outputs)
+
+        open(outfile*"_bpm.json", "w") do f
+            write(f, json_str)
+        end
+    end
+
+    return batch
 end

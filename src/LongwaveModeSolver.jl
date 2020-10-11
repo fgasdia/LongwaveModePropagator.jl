@@ -76,15 +76,6 @@ include("modeconversion.jl")
 include("modefinder.jl")
 include("modesum.jl")
 
-
-function jsonsafe!(v)
-    for i in eachindex(v)
-        if isnan(v[i]) || isinf(v[i])
-            v[i] = 0
-        end
-    end
-end
-
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000

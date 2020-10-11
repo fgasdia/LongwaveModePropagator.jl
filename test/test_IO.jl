@@ -4,7 +4,7 @@ function generate_basic()
     hprimes = [72.0, 74, 75, 76]
     betas = [0.28, 0.30, 0.32, 0.35]
     b_mags = fill(50e-6, length(segment_ranges))
-    b_dips = fill(90.0, length(segment_ranges))
+    b_dips = fill(π/2, length(segment_ranges))
     b_azs = fill(0.0, length(segment_ranges))
     ground_sigmas = [0.001, 0.001, 0.0005, 0.0001]
     ground_epsrs = [4, 4, 10, 10]
@@ -48,7 +48,7 @@ function generate_batchbasic()
     nsegments = 4
     segment_ranges = [0, 500e3, 1000e3, 1500e3]
     b_mags = fill(50e-6, nsegments)
-    b_dips = fill(90.0, nsegments)
+    b_dips = fill(π/2, nsegments)
     b_azs = fill(0.0, nsegments)
     ground_sigmas = [0.001, 0.001, 0.0005, 0.0001]
     ground_epsrs = [4, 4, 10, 10]
@@ -121,6 +121,12 @@ function read_corrupted_basic()
     end
 end
 
+function run_basic()
+    s = LWMS.parse("basic.json")
+    output = LWMS.buildrun(s)
+    return output
+end
+
 function test_bpm()
     E, amp, phase = LWMS.bpm("basic.json")
 end
@@ -139,6 +145,8 @@ end
     @test LWMS.iscomplete(read_batchbasic())
     @test LWMS.validlengths(read_batchbasic())
     @test LWMS.parse("batchbasic.json") isa BatchInput{BasicInput}
+
+    @test run_basic() isa BasicOutput
 
     @test_skip test_bpm()
 
