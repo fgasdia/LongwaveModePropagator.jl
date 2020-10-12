@@ -1,3 +1,5 @@
+err_func(a,b) = maximum(abs.(a-b))
+
 function test_waitsusceptibilityinterp(scenario)
     @unpack tx, bfield, species = scenario
 
@@ -86,6 +88,42 @@ function test_bookerquartics(scenario)
     return qM ≈ qT
 end
 
+function test_bookerquarticM_deriv(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
+
+    for i = 1:4
+        qfcn(θ) = (ea = EigenAngle(θ); (q, B) = LWMS.bookerquartic(ea, M);
+            sort!(q, by=LWMS.upgoing); q[i])
+        dqref = FiniteDiff.finite_difference_derivative(qfcn, θs, Val{:central})
+        dq(θ) = (ea = EigenAngle(θ); (q, B) = LWMS.bookerquartic(ea, M);
+            sort!(q, by=LWMS.upgoing); LWMS.bookerquartic(ea, M, q, B, LWMS.Dθ())[i])
+
+        err_func(dq.(θs), dqref) < 1e-6 || return false
+    end
+
+    return true
+end
+
+function tmatrix_deriv(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
+
+    for i = 1:4
+        for j = 1:4
+            Tfcn(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M)[i,j])
+            dTref = FiniteDiff.finite_difference_derivative(Tfcn, θs, Val{:central})
+            dT(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M, LWMS.Dθ())[i,j])
+
+            err_func(dT.(θs), dTref) < 1e-6 || return false
+        end
+    end
+
+    return true
+end
+
 @testset "magnetoionic.jl" begin
     @info "Testing magnetoionic"
 
@@ -94,11 +132,14 @@ end
         @test test_waitsusceptibilityinterp(scn)
         @test_skip test_nonwaitsusceptibilityinterp(scn)
 
+        @test tmatrix_deriv(scn)
+
         # TODO: Off-diagonal terms should be 0 with no B field
         @test_skip +(M[1,2], M[1,3], M[2,1], M[2,3], M[3,1], M[3,2]) == 0
 
         @test test_bookerquarticM(scn)
         @test test_bookerquarticT(scn)
         @test test_bookerquartics(scn)
+        @test test_bookerquarticM_deriv(scn)
     end
 end

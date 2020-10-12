@@ -183,6 +183,28 @@ function bookerquartic(T::TMatrix{V}) where V
     return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
+function bookerquartic(ea::EigenAngle, M, q, B, ::Dθ)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    dS = C
+    dC = -S
+    dC² = -2*S*C
+
+    dB3 = dS*(M[1,3] + M[3,1])
+    dB2 = -dC²*(2 + M[1,1] + M[3,3])
+    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
+    dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
+            M[1,3]*M[3,1] - M[1,2]*M[2,1])
+
+    dq = similar(q)
+    for i in eachindex(dq)
+        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
+                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
+    end
+
+    return SVector(dq)
+end
+
 """
     upgoing(v)
 
@@ -336,4 +358,32 @@ function tmatrix(ea::EigenAngle, M)
     return TMatrix(T11, T31, T41,
                    T12, T32, T42,
                    T14, T34, T44)
+end
+
+function tmatrix(ea::EigenAngle, M, ::Dθ)
+    S, C = ea.sinθ, ea.cosθ
+
+    den = inv(1 + M[3,3])
+
+    dT11 = -C*M[3,1]*den
+    dT12 = C*M[3,2]*den
+    dT13 = 0
+    dT14 = -2*S*C*den
+    dT21 = 0
+    dT22 = 0
+    dT23 = 0
+    dT24 = 0
+    dT31 = 0
+    dT32 = -2*S*C
+    dT33 = 0
+    dT34 = C*M[2,3]*den
+    dT41 = 0
+    dT42 = 0
+    dT43 = 0
+    dT44 = -C*M[1,3]*den
+
+    return SMatrix{4,4}(dT11, dT21, dT31, dT41,
+                        dT12, dT22, dT32, dT42,
+                        dT13, dT23, dT33, dT43,
+                        dT14, dT24, dT34, dT44)
 end
