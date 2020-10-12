@@ -1,10 +1,7 @@
-function construct_wavefields()
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
-
+function randomwavefields()
     modes = EigenAngle.(rand(ComplexF64, 10))
 
-    wavefields = LWMS.Wavefields{ComplexF64}(zs, modes)
+    wavefields = LWMS.Wavefields{ComplexF64}(modes)
 
     return wavefields
 end
@@ -24,9 +21,7 @@ function wavefields_test(scenario)
 
     modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
 
-    zs = LWMS.TOPHEIGHT:-100:zero(LWMS.TOPHEIGHT)
-
-    wavefields = LWMS.Wavefields{ComplexF64}(zs, modes)
+    wavefields = LWMS.Wavefields{ComplexF64}(modes)
 
     return isvalid(wavefields)
 end
@@ -77,10 +72,7 @@ Confirm `initialwavefields(T)` satisfies field eigenvector equation ``Te = qe``
 function initialwavefields_test(scenario)
     @unpack ea, bfield, tx, species = scenario
 
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
-
-    M = LWMS.susceptibility(ztop, tx.frequency, bfield, species)
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
 
     # Verify initialwavefields produces a valid solution
@@ -102,10 +94,7 @@ top height.
 function initialR_test(scenario)
     @unpack ea, bfield, tx, species = scenario
 
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
-
-    Mtop = LWMS.susceptibility(ztop, tx.frequency, bfield, species)
+    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
     Ttop = LWMS.tmatrix(ea, Mtop)
     etop = LWMS.initialwavefields(Ttop)
 
@@ -123,20 +112,17 @@ Confirm reflection coefficients from wavefields match with dr/dz calculation.
 function drdzwavefield_equivalence_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
 
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
-
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
+    e = LWMS.integratewavefields(LWMS.WAVEFIELD_HEIGHTS, ea, tx.frequency, bfield, species)
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mtop = LWMS.susceptibility(ztop, tx.frequency, waveguide)
+    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, waveguide)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
     Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
     dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), dzparams)
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (LWMS.TOPHEIGHT, LWMS.BOTTOMHEIGHT), dzparams)
     sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8, # lower tolerance doesn't help match
-                saveat=zs, save_everystep=false)
+                saveat=LWMS.WAVEFIELD_HEIGHTS, save_everystep=false)
 
     return all(isapprox.(wavefieldRs, sol.u, rtol=1e-2))
 end
@@ -202,20 +188,19 @@ end
 
 function fieldstrengths_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
-    wavefields = construct_wavefields()
+    wavefields = randomwavefields()
 
-    zs = LWMS.heights(wavefields)
     modes = LWMS.eigenangles(wavefields)
 
-    LWMS.fieldstrengths!(wavefields[1], zs, modes[1], tx.frequency,
+    LWMS.fieldstrengths!(view(wavefields,:,1), LWMS.WAVEFIELD_HEIGHTS, modes[1], tx.frequency,
                         bfield, species, ground)
 end
 
 @testset "wavefields.jl" begin
     @info "Testing wavefields"
 
-    @test LWMS.heights(construct_wavefields()) == LWMS.TOPHEIGHT:-100:zero(LWMS.TOPHEIGHT)
-    @test length(LWMS.eigenangles(construct_wavefields())) == 10
+    @test size(randomwavefields(),1) == length(LWMS.WAVEFIELD_HEIGHTS)
+    @test length(LWMS.eigenangles(randomwavefields())) == 10
 
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         @test wavefields_test(scn)

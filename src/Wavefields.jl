@@ -3,40 +3,44 @@ Functions related to calculating electromagnetic field components at any height
 within the ionosphere.
 ==#
 
-"""
-    Wavefields{T1,T2}
+const WAVEFIELD_HEIGHTS = range(TOPHEIGHT, 0, length=513)
 
-Struct containing wavefield components for each mode and height.
-
-The Wavefields are stored in the `v` field and as accessed as a `Vector` of `Vector`s
-of `SVector{6,T1}` corresponding to `v[mode][height]` where `T1` is the type of
-the wavefields.
 """
-struct Wavefields{T1,T2}
-    v::Matrix{SVector{6,T1}}  # v[height,mode]  ; type is derived from typeof T, which is from M
-    zs::T2
+    Wavefields{T}
+
+Struct containing wavefield components for each mode of `eas` and heights `zs`.
+
+The `Wavefields` are stored in the `v` field and accessed as a `Matrix` of `SVector{6,T}`
+corresponding to `wavefields[height,mode]`.
+
+`T` is the type of the wavefields.
+"""
+struct Wavefields{T}
+    v::Matrix{SVector{6,T}}  # v[height,mode]  ; type is derived from typeof T, which is from M
     eas::Vector{EigenAngle}
 end
 
 """
-    Wavefields{T1}(zs::T2, eas::Vector{EigenAngle})
+    Wavefields{T}(eas::Vector{EigenAngle})
 
-A constructor for Wavefields which creates appropriately sized `undef` vectors
-given eigenangles `eas` and heights `zs`. Wavefield type `T1` must be provided
+A constructor for `Wavefields` which creates appropriately sized `undef` vectors
+given eigenangles `eas` and `WAVEFIELD_HEIGHTS`. Wavefield type `T` must be provided
 explicitly.
 """
-function Wavefields{T1}(zs::T2, eas::Vector{EigenAngle}) where {T1,T2}
-    v = Matrix{SVector{6,T1}}(undef, length(zs), length(eas))
-    Wavefields{T1,T2}(v, zs, eas)
+function Wavefields{T}(eas::Vector{EigenAngle}) where {T}
+    v = Matrix{SVector{6,T}}(undef, length(WAVEFIELD_HEIGHTS), length(eas))
+    Wavefields{T}(v, eas)
 end
 
-Base.getindex(A::Wavefields, i) = view(A.v, :, i)
+Base.size(A::Wavefields) = size(A.v)
+Base.size(A::Wavefields, I...) = size(A.v, I...)
+Base.getindex(A::Wavefields, I) = A.v[I]
 Base.setindex!(A::Wavefields, x, i) = (A.v[i] = x)
-Base.similar(A::Wavefields) = Wavefields(A.eas, A.zs)
-Base.copy(A::Wavefields{T1,T2}) where {T1,T2} = Wavefields{T1,T2}(copy(A.v), copy(A.zs), copy(A.eas))
+Base.similar(A::Wavefields{T}) where {T} = Wavefields{T}(A.eas)
+Base.copy(A::Wavefields{T}) where {T} = Wavefields{T}(copy(A.v), copy(A.eas))
+Base.view(A::Wavefields, I...) = view(A.v, I...) 
 
 function (==)(A::Wavefields, B::Wavefields)
-    A.zs == B.zs || return false
     A.eas == B.eas || return false
     A.v == B.v || return false
     return true
@@ -46,15 +50,14 @@ function Base.isvalid(A::Wavefields)
     vzs, veas = size(A.v)
     ealen = length(A.eas)
     veas == ealen || return false
-    zlen = length(A.zs)
+    zlen = length(WAVEFIELD_HEIGHTS)
     vzs == zlen || return false
     return true
 end
 
+numheights(A::Wavefields) = size(A.v, 1)
 eigenangles(A::Wavefields) = A.eas
-heights(A::Wavefields) = A.zs
 numeigenangles(A::Wavefields) = length(A.eas)
-numheights(A::Wavefields) = length(A.zs)
 
 
 """
@@ -606,18 +609,16 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
     return nothing
 end
 
-# TODO rename this
 function calculate_wavefields!(wavefields, adjoint_wavefields,
                                frequency, waveguide, adjoint_waveguide)
 
-    zs = heights(wavefields)
-    @assert zs == heights(adjoint_wavefields)
+    # This function assumes Wavefields are calculated at WAVEFIELD_HEIGHTS
+    @assert size(wavefields, 1) == length(WAVEFIELD_HEIGHTS)
 
     @unpack bfield, species, ground = waveguide
     @assert ground == adjoint_waveguide.ground
     @assert species == adjoint_waveguide.species
 
-    # unpack
     adjoint_bfield = adjoint_waveguide.bfield
 
     modes = eigenangles(wavefields)
@@ -625,23 +626,11 @@ function calculate_wavefields!(wavefields, adjoint_wavefields,
     modes == adjoint_modes || @warn "Full mode conversion physics assumes adjoint
         wavefields are calculated for eigenangles of the original waveguide."
 
-    # Check to see if we only need a single loop
-    if length(modes) == length(adjoint_modes)
-        @inbounds for m in eachindex(modes)
-            fieldstrengths!(wavefields[m], zs, modes[m], frequency,
-                            bfield, species, ground)
-            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency,
-                            adjoint_bfield, species, ground)
-        end
-    else
-        @inbounds for m in eachindex(modes)
-            fieldstrengths!(wavefields[m], zs, modes[m], frequency,
-                            bfield, species, ground)
-        end
-        @inbounds for m in eachindex(adjoint_modes)
-            fieldstrengths!(adjoint_wavefields[m], zs, adjoint_modes[m], frequency,
-                            adjoint_bfield, species, ground)
-        end
+    for m in eachindex(modes)
+        fieldstrengths!(view(wavefields,:,m), WAVEFIELD_HEIGHTS, modes[m],
+                        frequency, bfield, species, ground)
+        fieldstrengths!(view(adjoint_wavefields,:,m), WAVEFIELD_HEIGHTS, adjoint_modes[m],
+                        frequency, adjoint_bfield, species, ground)
     end
 
     return nothing

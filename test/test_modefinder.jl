@@ -21,7 +21,7 @@ end
 function sharpboundaryreflection_deriv(scenario)
     @unpack tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(70e3, tx.frequency, bfield, species)
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
 
     for i = 1:4
         Rref(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M)[i])
@@ -153,9 +153,6 @@ function test_sharplybounded_vertical(scenario)
     @unpack ea, tx, bfield, species = scenario
 
     M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
-    W = LWMS.wmatrix(ea, T)
-
     initR = LWMS.sharpboundaryreflection(ea, M)
 
     return initR[1,2] ≈ initR[2,1]
