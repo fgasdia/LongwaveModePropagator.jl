@@ -36,7 +36,7 @@ function sharpboundaryreflection_deriv(scenario)
     return true
 end
 
-function sharpboundaryreflection_sheddy(ea, M, ::Dθ)
+function sharpboundaryreflection_sheddy(ea, M, ::LWMS.Dθ)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
     C2 = 2*C
 

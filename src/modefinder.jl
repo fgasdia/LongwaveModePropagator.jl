@@ -28,13 +28,6 @@ struct DZParams{F}
     Mfcn::F
 end
 
-@with_kw struct FresnelReflectionVariables{T<:Complex} @deftype T
-    Ng²
-    CNg²
-    sqrtNg²mS²
-    Rg::SDiagonal{2,T}
-end
-
 """
     isroot(z::Complex; atol=1e-2)
 
@@ -459,23 +452,6 @@ end
 # Ground reflection coefficient matrix
 ##########
 
-function _fresnelreflection(ea::EigenAngle, ground, frequency)
-    C, S² = ea.cosθ, ea.sin²θ
-    ω = frequency.ω
-
-    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
-
-    CNg² = C*Ng²
-    sqrtNg²mS² = sqrt(Ng² - S²)
-
-    Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
-    Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
-
-    Rg = SDiagonal(Rg11, Rg22)  # TODO: time this - slower than SMatrix?
-
-    return FresnelReflectionVariables(Ng², CNg², sqrtNg²mS², Rg)
-end
-
 """
     fresnelreflection(ea, ground, frequency)
 
@@ -489,18 +465,36 @@ ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
     Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
-    @unpack Rg = _fresnelreflection(ea, ground, frequency)
+    C, S² = ea.cosθ, ea.sin²θ
+    ω = frequency.ω
+
+    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
+
+    CNg² = C*Ng²
+    sqrtNg²mS² = sqrt(Ng² - S²)
+
+    Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
+    Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
+
+    Rg = SDiagonal(Rg11, Rg22)  # TODO: time this - slower than SMatrix?
 
     return Rg
 end
 
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
+    S2 = 2*S
     ω = frequency.ω
 
-    @unpack Rg, Ng², CNg², sqrtNg²mS² = _fresnelreflection(ea, ground, frequency)
+    Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
 
-    S2 = 2*S
+    CNg² = C*Ng²
+    sqrtNg²mS² = sqrt(Ng² - S²)
+
+    Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
+    Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
+
+    Rg = SDiagonal(Rg11, Rg22)  # TODO: time this - slower than SMatrix?
 
     dRg11 = (S2*Ng²*(1 - Ng²))/(sqrtNg²mS²*(CNg² + sqrtNg²mS²)^2)
     dRg22 = (S2*(C - sqrtNg²mS²))/(sqrtNg²mS²*(sqrtNg²mS² + C))
