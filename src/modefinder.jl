@@ -28,43 +28,6 @@ struct DZParams{F}
     Mfcn::F
 end
 
-# TODO: G as its own type contained within this?
-@with_kw struct SharpBoundaryVariables{T} @deftype T
-    G12
-    G32
-    G33
-    G11₁
-    G13₁
-    G31₁
-    Δ₁
-    Δ₁⁻¹
-    P₁
-    T₁
-    G11₂
-    G13₂
-    G31₂
-    Δ₂
-    Δ₂⁻¹
-    P₂
-    T₂
-    Δ
-    Δ⁻¹
-    q::MVector{4,T}
-    B::SVector{5,T}
-end
-
-function Base.show(io::IO, ::MIME"text/plain", s::SharpBoundaryVariables{T}) where {T}
-    println(io, "SharpBoundaryVariables{$T}: ")
-    for n in fieldnames(SharpBoundaryVariables)
-        if n != last(fieldnames(SharpBoundaryVariables))
-            println(io, " $n: ", getfield(s, n))
-        else
-            # To avoid double newlines (one is automatic), use `print` on last field
-            print(io, " $n: ", getfield(s, n))
-        end
-    end
-end
-
 @with_kw struct FresnelReflectionVariables{T<:Complex} @deftype T
     Ng²
     CNg²
@@ -113,14 +76,78 @@ end
 # Reflection coefficients
 ##########
 
-function _sharpboundaryreflection(ea::EigenAngle, M)
+"""
+    sharpboundaryreflection(ea, M)
+
+Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere
+referenced to the ground.
+
+The reflection coefficient matrix for the sharply bounded case is used as a starting solution
+for integration of the reflection coefficient matrix through the ionosphere.
+
+From the differential equations for fields in the ionosphere ``de/dz = -ikTe``, assuming
+a homogeneous ionosphere ``(T - q)e = 0``. This only has a non-trivial solution if
+``det(T - q) = 0``, which is a fourth degree equation in ``q``, the Booker quartic.
+
+From linear algebra theory, the four ``q``s are eigenvalues of ``T`` and the ``e``s are the
+associated eigencolumns, then ``Teᵢ = qᵢeᵢ``. If any ``eᵢ`` is multiplied by a constant, it
+remains an eigencolumn of ``T``.
+
+The reflection coefficient is the ratio of field components, thus we are free to choose any
+consistent scaling of the fields ``e``. This function uses the scaling in [^Budden1988]
+pg. 190 and the expression for the reflection coefficient in [^Budden1988] pg. 307.
+
+# References
+
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
+Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
+[^Budden1988]:
+"""
+function sharpboundaryreflection(ea::EigenAngle, M)
+    T = tmatrix(ea, M)
+    q, B = bookerquartic(ea, M)
+
+    sort!(q, by=upgoing)
+
+    C = ea.cosθ
+
+    # Compute fields using the ratios from [^Budden1988] pg 190
+    a1 = -(T[1,1] + T[4,4])
+    a2 = T[1,1]*T[4,4] - T[1,4]*T[4,1]
+    a3 = T[1,2]
+    a4 = T[1,4]*T[4,2] - T[1,2]*T[4,4]
+    a5 = T[4,2]
+    a6 = T[1,2]*T[4,1] - T[1,1]*T[4,2]
+
+    e = MMatrix{4,2,eltype(T),8}(undef)
+    @inbounds for i = 1:2
+        A = q[i]^2 + a1*q[i] + a2
+
+        e[1,i] = a3*q[i] + a4
+        e[2,i] = A
+        e[3,i] = q[i]*A
+        e[4,i] = a5*q[i] + a6
+    end
+
+    # Compute reflection matrix referenced to z=0 [^Budden1988] pg 307
+    u = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
+    d = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
+
+    R = u/d
+
+    return R
+end
+
+# TODO: Autodiff with Zygote?
+function sharpboundaryreflection(ea::EigenAngle, M, ::Dθ)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+    C2 = 2*C
 
     q, B = bookerquartic(ea, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being
     # those that lie close to the positive real axis and negative imaginary axis
-    q = sortquarticroots!(q)
+    sortquarticroots!(q)
 
     #==
     Γ = [0 -q 0;
@@ -156,6 +183,7 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     Δ₁⁻¹ = 1/Δ₁
     P₁ = (-G12G33 + G13₁*G32)*Δ₁⁻¹
     T₁ = q[1]*P₁ - S*(-G11₁*G32 + G12*G31₁)*Δ₁⁻¹
+    T₁C = T₁*C
 
     G11₂ = M11p1 - q[2]^2
     G13₂ = M[1,3] + q₂S
@@ -165,60 +193,10 @@ function _sharpboundaryreflection(ea::EigenAngle, M)
     Δ₂⁻¹ = 1/Δ₂
     P₂ = (-G12G33 + G13₂*G32)*Δ₂⁻¹
     T₂ = q[2]*P₂ - S*(-G11₂*G32 + G12*G31₂)*Δ₂⁻¹
+    T₂C = T₂*C
 
-    Δ = (T₁*C + P₁)*(C + q[2]) - (T₂*C + P₂)*(C + q[1])
+    Δ = (T₁C + P₁)*(C + q[2]) - (T₂C + P₂)*(C + q[1])
     Δ⁻¹ = 1/Δ
-
-    return SharpBoundaryVariables(G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
-                                  G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹, q, B)
-end
-
-"""
-    sharpboundaryreflection(ea, M)
-
-Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere.
-
-[^Sheddy1968a] introduces the matrix equation ``G E = 0`` in the coordinate system of Budden
-where the dispersion matrix ``G = I + M + L``. Nontrivial solutions to the equation require
-``det(G) = 0``, which may be written as a quartic in ``q = n cos(θ)``. Elements of the
-dispersion matrix are then used to calculate the reflection matrix `R`.
-
-The reflection coefficient matrix for the sharply bounded case is used as a starting solution
-for integration of the reflection coefficient matrix through the ionosphere.
-
-# References
-
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
-"""
-function sharpboundaryreflection(ea::EigenAngle, M)
-    C = ea.cosθ
-    C2 = 2*C
-
-    @unpack P₁, T₁, P₂, T₂, Δ⁻¹, q = _sharpboundaryreflection(ea, M)
-
-    T₁C = T₁*C
-    T₂C = T₂*C
-
-    R11 = ((T₁C - P₁)*(C + q[2]) - (T₂C - P₂)*(C + q[1]))*Δ⁻¹  # ∥R∥
-    R22 = ((T₁C + P₁)*(C - q[2]) - (T₂C + P₂)*(C - q[1]))*Δ⁻¹  # ⟂R⟂
-    R12 = -C2*(T₁*P₂ - T₂*P₁)*Δ⁻¹  # ⟂R∥
-    R21 = -C2*(q[1] - q[2])*Δ⁻¹  # ∥R⟂
-
-    return SMatrix{2,2}(R11, R21, R12, R22)
-end
-
-# TODO: Autodiff with Zygote?
-function sharpboundaryreflection(ea::EigenAngle, M, ::Dθ)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    @unpack G12, G32, G33, G11₁, G13₁, G31₁, Δ₁, Δ₁⁻¹, P₁, T₁,
-        G11₂, G13₂, G31₂, Δ₂, Δ₂⁻¹, P₂, T₂, Δ, Δ⁻¹, q, B = _sharpboundaryreflection(ea, M)
-
-    # Precompute some variables
-    C2 = 2*C
-
-    T₁C = T₁*C
-    T₂C = T₂*C
 
     M13pM31 = M[1,3] + M[3,1]
 

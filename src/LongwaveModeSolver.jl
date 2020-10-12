@@ -187,18 +187,18 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
             calculated with modified Hankel functions to overflow."
     end
 
-    zs = range(TOPHEIGHT, 0, length=513)
-    nrsgmnt = length(waveguide)
+
+    numsegments = length(waveguide)
 
     # Predetermine types
     Mtype = eltype(susceptibility(TOPHEIGHT, tx.frequency, waveguide[1]))
-    wftype = promote_type(Mtype, ComplexF64)
-    ztype = typeof(zs)
+    wftype = promote_type(Mtype, ComplexF64)  # ComplexF64 is type of EigenAngle
 
-    wavefields_vec = Vector{Wavefields{wftype,ztype}}(undef, nrsgmnt)
-    adjwavefields_vec = Vector{Wavefields{wftype,ztype}}(undef, nrsgmnt)
+    wavefields_vec = Vector{Wavefields{wftype}}(undef, numsegments)
+    adjwavefields_vec = Vector{Wavefields{wftype}}(undef, numsegments)
 
-    for nsgmnt in 1:nrsgmnt
+    # Calculate wavefields and adjoint wavefields for each segment of waveguide
+    for nsgmnt in 1:numsegments
         wvg = waveguide[nsgmnt]
 
         if interpolateM
@@ -218,8 +218,8 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
         adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
 
         # TODO< just empty and resize the Wavefields
-        wavefields = Wavefields{wftype}(modes, zs)
-        adjwavefields = Wavefields{wftype}(modes, zs)
+        wavefields = Wavefields{wftype}(modes)
+        adjwavefields = Wavefields{wftype}(modes)
 
         calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg)
 

@@ -281,7 +281,7 @@ end
 ##########
 
 """
-    tmatrix(ea, M)
+    tmatrix(ea::EigenAngle, M)
 
 Return the matrix components of `T` whose elements are used in the calculation
 of matrix `S` for the differential equations for the ionospheric reflection coefficient `R`.

@@ -19,7 +19,7 @@ function wmatrix_deriv(scenario)
 end
 
 function sharpboundaryreflection_deriv(scenario)
-    @unpack tx, bfield, species = scenario
+    @unpack ea, tx, bfield, species = scenario
 
     M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
 
@@ -34,6 +34,15 @@ function sharpboundaryreflection_deriv(scenario)
     end
 
     return true
+end
+
+function newderiv(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
+
+    gradient(z->norm((LWMS.tmatrix(EigenAngle(z), M)).data), ea.θ)
+    # gradient(z->LWMS.sharpboundaryreflection(EigenAngle(z), M))
 end
 
 function integratedreflection_deriv(scenario)
@@ -171,41 +180,9 @@ function test_sharplybounded(scenario)
         f .= W[2] + W[4]*R - R*W[1] - R*W[3]*R
     end
     initR0 = complex([1 0.1; 0.1 -1])
-    res = nlsolve((f,x)->iterativesharpR!(f,x,W), initR0)
+    res = nlsolve((f,R)->iterativesharpR!(f,R,W), initR0)
 
     return initR ≈ res.zero
-end
-
-function numericalsharpR(species)
-    @unpack ea, tx, bfield, species = scenario
-
-    M = LWMS.susceptibility(95e3, tx.frequency, bfield, species)
-    q, B = LWMS.bookerquartic(ea, M)
-
-    sort!(q, by=LWMS.upgoing)
-
-    S, C = ea.sinθ, ea.cosθ
-    S², C² = ea.sin²θ, ea.cos²θ
-    esum = zeros(ComplexF64,4)
-    for i in 1:2
-        Γ = [0 -q[i] 0;
-             q[i] 0 -S;
-             0 S 0]
-        G = Γ^2 + I + M
-        E = nullspace(G)
-        H = Γ*E  # Γℋ == -(I + M)*E
-
-        esum += [E[1]; E[2]; H[1]; H[2]]
-    end
-    A = [C 0 -C 0; 0 1 0 1; 0 -C 0 C; 1 0 1 0]
-    e = A\esum
-
-    R = [e[3]/e[1] e[4]/e[1];
-         e[3]/e[2] e[4]/e[2]]
-
-    initR = LWMS.sharpboundaryreflection(ea, M)
-
-    initR ≈ R
 end
 
 function verticalreflection(scenario)
