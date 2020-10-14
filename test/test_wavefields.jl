@@ -9,17 +9,12 @@ end
 function wavefields_test(scenario)
     @unpack tx, bfield, species, ground = scenario
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
     # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-5, true)
-
-    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+    origcoords = LWMS.defaultcoordinates(tx.frequency)
+    modes = LWMS.findmodes(modeequation, origcoords)
 
     wavefields = LWMS.Wavefields{ComplexF64}(modes)
 
@@ -112,17 +107,21 @@ Confirm reflection coefficients from wavefields match with dr/dz calculation.
 function drdzwavefield_equivalence_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
 
-    e = LWMS.integratewavefields(LWMS.WAVEFIELD_HEIGHTS, ea, tx.frequency, bfield, species)
+    zs = LWMS.WAVEFIELD_HEIGHTS
+
+    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, waveguide)
+    modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
+
+    @unpack tolerance, solver = LWMS.INTEGRATION_PARAMS
+
+    Mtop = LWMS.susceptibility(first(zs), tx.frequency, waveguide)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
-    dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (LWMS.TOPHEIGHT, LWMS.BOTTOMHEIGHT), dzparams)
-    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8, # lower tolerance doesn't help match
-                saveat=LWMS.WAVEFIELD_HEIGHTS, save_everystep=false)
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), modeequation)
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
+                saveat=zs, save_everystep=false)
 
     return all(isapprox.(wavefieldRs, sol.u, rtol=1e-2))
 end

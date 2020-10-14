@@ -10,6 +10,12 @@ at the ground height (0), so there is no advantage in using these modified equat
 compared to the physical equations.
 ==#
 
+struct ModifiedModeEquation{W<:HomogeneousWaveguide,F} <: ModeEquation
+    frequency::Frequency
+    waveguide::W
+    Mfcn::F
+end
+
 """
     R2X(ea::EigenAngle, R)
 

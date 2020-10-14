@@ -1,5 +1,3 @@
-err_func(a,b) = maximum(abs.(a-b))
-
 function wmatrix_deriv(scenario)
     @unpack tx, bfield, species = scenario
 
@@ -186,21 +184,40 @@ function integratedreflection_deriv(scenario)
     freq = tx.frequency
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, waveguide)
+    modeequation = LWMS.PhysicalModeEquation(freq, waveguide)
 
     @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
-    Rref(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn)[1])
-    dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-    R(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Dθ())[SVector(1,2),:][1])
-    dR(θ) = (ea = EigenAngle(θ); LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Dθ())[SVector(3,4),:][1])
+    params = LWMS.IntegrationParams(1e-8, LWMS.BS5())
+    Rref(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, params=params))
+    RdR(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, LWMS.Dθ(), params=params))
 
-    # Rref.(θs) !≈ R.(θs) because of difference in integration tolerance.
-    # For very large Rs, the difference can be significant, therefore we use rtol
-    Rs = R.(θs)
-    Rrefs = Rref.(θs)
+    Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
+    dRs = similar(Rs)
+    Rrefs = similar(Rs)
+    dRrefs = similar(Rs)
+    Threads.@threads for i in 1:length(θs)  # NOTE: this also effectively checks for thread safety
+        v = RdR(θs[i], modeequation)
+        Rs[i] = v[SVector(1,2),:]
+        dRs[i] = v[SVector(3,4),:]
+        Rrefs[i] = Rref(θs[i], modeequation)
+        dRrefs[i] = FiniteDiff.finite_difference_derivative(z->Rref(z, modeequation), θs[i],
+                                                            Val{:central})
+    end
 
-    return isapprox(Rs, Rrefs, rtol=1e-4)
+    for i = 1:4
+        R = [v[i] for v in Rs]
+        dR = [v[i] for v in dRs]
+        Rr = [v[i] for v in Rrefs]
+        dRr = [v[i] for v in dRrefs]
+
+        # Rref.(θs) !≈ R.(θs) because of difference in integration tolerance.
+        # For very large Rs, the difference can be significant, therefore we use rtol
+        isapprox(R, Rr, rtol=1e-4) || return false
+        isapprox(dR, dRr, rtol=1e-3) || return false
+    end
+
+    return true
 end
 
 function fresnelreflection_deriv(scenario)
@@ -208,10 +225,10 @@ function fresnelreflection_deriv(scenario)
     freq = tx.frequency
 
     for i = 1:4
-        Rgref(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq)[1])
+        Rgref(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq)[i])
         dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
-        Rg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[1][1])
-        dRg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[2][1])
+        Rg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[1][i])
+        dRg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[2][i])
 
         Rgref.(θs) ≈ Rg.(θs) || return false
         err_func(dRg.(θs), dRgref) < 1e-6 || return false
@@ -221,56 +238,24 @@ function fresnelreflection_deriv(scenario)
 end
 
 function modalequation_deriv(scenario)
-    @unpack tx, ground, bfield, species = scenario
-    freq = tx.frequency
-
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, waveguide)
-
-    function Fref(θ)
-        ea = EigenAngle(θ)
-        R = LWMS.integratedreflection(ea, freq, waveguide, Mfcn)
-        Rg = LWMS.fresnelreflection(ea, ground, freq)
-
-        return LWMS.modalequation(R, Rg)
-    end
-
-    function dF(θ)
-        ea = EigenAngle(θ)
-        RdR = LWMS.integratedreflection(ea, freq, waveguide, Mfcn, LWMS.Dθ())
-        Rg, dRg = LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())
-
-        R = RdR[SVector(1,2),:]
-        dR = RdR[SVector(3,4),:]
-
-        return LWMS.modalequationdθ(R, dR, Rg, dRg)
-    end
-
-    @info "    Integrating dR/dz for many eigenangles. This may take a minute."
-
-    Fθ = Fref.(θs)
-    dFref = FiniteDiff.finite_difference_derivative(Fref, θs, Val{:central})
-
-    dFθ = dF.(θs)
-
-    return isapprox(dFθ, dFref, rtol=1e-2)
-end
-
-function resonantmodalequation_deriv(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
     freq = tx.frequency
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.PhysicalModeEquation(ea, freq, waveguide)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, freq, waveguide)
-    modeequation = LWMS.PhysicalModeEquation(freq, waveguide, Mfcn)
+    @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
-    dFdθ, R, Rg = LWMS.solvemodalequation(ea, modeequation, LWMS.Dθ())
+    dFref = FiniteDiff.finite_difference_derivative(z->LWMS.solvemodalequation(z, modeequation),
+        θs, Val{:central})
 
-    Fref(θ) = (ea = EigenAngle(θ); LWMS.solvemodalequation(ea, modeequation))
-    dFref = FiniteDiff.finite_difference_derivative(Fref, ea.θ, Val{:central})
+    dFs = Vector{ComplexF64}(undef, length(θs))
+    Threads.@threads for i in eachindex(θs)
+        dFdθ, R, Rg = LWMS.solvemodalequation(θs[i], modeequation, LWMS.Dθ())
+        dFs[i] = dFdθ
+    end
 
-    return isapprox(dFdθ, dFref, rtol=1e-1)  # why so bad?
+    return isapprox(dFs, dFref, rtol=1e-3)
 end
 
 ########
@@ -325,9 +310,9 @@ function verticalreflection(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
 
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, waveguide)
-    R = LWMS.integratedreflection(ea, tx.frequency, waveguide, Mfcn)
+    R = LWMS.integratedreflection(modeequation)
 
     return R[1,2] ≈ R[2,1]
 end
@@ -343,28 +328,37 @@ function modalequation(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, waveguide)
+    modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
-    f = LWMS.solvemodalequation(ea, modeequation)
+    f = LWMS.solvemodalequation(modeequation)
 
     return LWMS.isroot(f)
+end
+
+function parallel_integration(scenario, eas)
+    @unpack ea, tx, ground, bfield, species = scenario
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
+
+    # n = 1000
+    # eas = EigenAngle.(complex.(π/2 .- rand(n), -rand(n)/10));
+    Threads.@threads for i in eachindex(eas)
+        modeequation = LWMS.setea(eas[i], modeequation)
+        R = LWMS.integratedreflection(modeequation)
+    end
 end
 
 function modefinder(scenario)
     @unpack tx, bfield, species, ground = scenario
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    origcoords = LWMS.defaultcoordinates(tx.frequency)
+    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    # grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-8, true)
 
-    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
-    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-6, true)
-
-    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+    modes = LWMS.findmodes(modeequation, origcoords)
 
     for m in modes
         f = LWMS.solvemodalequation(m, modeequation)
@@ -403,82 +397,6 @@ end
 #     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
 #     LWMS.solvemodalequation(EigenAngle(root), modeequation)
 # end
-
-
-
-
-
-
-
-
-
-# TEMP function for testing
-function manyint(eas)
-    ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
-    for i in eachindex(eas)
-        LWMS.integratedreflection(ea, tx.frequency, waveguide, Mfcn)
-    end
-end
-
-function manysolves(eas)
-    ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
-    # Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
-
-    # eas = EigenAngle.(rand(ComplexF64, 1000))
-
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
-    for i in eachindex(eas)
-        LWMS.solvemodalequation(eas[i], modeequation)
-    end
-end
-
-function findmodes()
-    ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-
-    # Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
-    Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
-
-    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
-    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-5, true)
-
-    f(θ) = LWMS.solvemodalequation(EigenAngle(θ), modeequation)
-    roots, poles, quads, diffs, tess, g2f = LWMS.grpf(f, origcoords, LWMS.PlotData(), grpfparams)
-
-    # Ensure roots are valid solutions to the modal equation
-    LWMS.filterroots!(roots, tx.frequency, waveguide)
-
-    # # Remove any redundant modes
-    # if tolerance is 1e-8, this rounds to 7 decimal places
-    sort!(roots, by=reim)
-    ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
-    unique!(z->round(z, digits=ndigits), roots)
-
-    # return EigenAngle.(roots)
-    return roots, est_num_nodes, length(quads)
-end
-
-
-function customsolves(eas, tx, waveguide)
-    @unpack bfield, species = waveguide
-    frequency = tx.frequency
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, species)
-
-    for ea in eas
-        R = LWMS.integratedreflection(ea, frequency, waveguide, Mfcn)
-        Rg = LWMS.fresnelreflection(ea, waveguide.ground, frequency)
-
-        f = LWMS.modalequation(R, Rg)
-    end
-end
 
 function test_triangulardomain()
     za = complex(60, -0.1)
@@ -532,9 +450,6 @@ end
             @test fresnelreflection_deriv(scn)
             @test integratedreflection_deriv(scn)
             @test modalequation_deriv(scn)
-        end
-        for scn in (resonant_scenario, )
-            @test resonantmodalequation_deriv(scn)
         end
     end
 end

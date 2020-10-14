@@ -71,9 +71,9 @@ include("Wavefields.jl")
 
 include("romberg.jl")
 
-include("magnetoionic.jl")
 include("modeconversion.jl")
 include("modefinder.jl")
+include("magnetoionic.jl")
 include("modesum.jl")
 
 function defaultcoordinates(frequency)
@@ -103,7 +103,6 @@ Return electric field `E`, and field `amplitude` and `phase` using parameters:
     - `defaultcoordinates` for GRPF region
     - `GRPFParams.tolerance = 1e-6`
     - `GRPFParams.multithreaded = true`
-    - `susceptibilityinterpolator`
     - `PhysicalModeEquation`
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
@@ -111,8 +110,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
-    Mfcn = susceptibilityinterpolator(tx.frequency, waveguide)
-    modeequation = PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
 
     E, amp, phase = bpm(waveguide, tx, rx, origcoords, grpfparams, modeequation)
 
@@ -181,7 +179,7 @@ function bpm(waveguide::SegmentedWaveguide, tx, rx)
 end
 
 function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
-    origcoords, grpfparams::GRPFParams, interpolateM::Bool)
+    origcoords, grpfparams::GRPFParams)
     if minimum(imag(origcoords)) < deg2rad(-31)
         @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
             calculated with modified Hankel functions to overflow."
@@ -201,12 +199,7 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
     for nsgmnt in 1:numsegments
         wvg = waveguide[nsgmnt]
 
-        if interpolateM
-            # TODO: check if functionwrapper is necessary
-            Mfcn = susceptibilityinterpolator(tx.frequency, wvg)
-        else
-            Mfcn = alt -> susceptibility(alt, tx.frequency, wvg)
-        end
+        Mfcn = alt -> susceptibility(alt, tx.frequency, wvg)
         modeequation = PhysicalModeEquation(tx.frequency, wvg, Mfcn)
 
         modes = findmodes(origcoords, grpfparams, modeequation)

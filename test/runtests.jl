@@ -38,7 +38,7 @@ const verticalB_scenario = TestScenario(
 )
 
 const resonant_scenario = TestScenario(
-    EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
+    EigenAngle(1.416125176504303 - 0.01634934012082594im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
@@ -85,6 +85,8 @@ const segmented_scenario = TestScenario(
 )
 
 const θs = [complex(r,i) for r = range(deg2rad(30), deg2rad(89), length=100) for i = range(deg2rad(-30), deg2rad(0), length=100)]
+err_func(a,b) = maximum(abs.(a-b))
+
 
 @testset "LongwaveModeSolver" begin
     include("test_EigenAngles.jl")

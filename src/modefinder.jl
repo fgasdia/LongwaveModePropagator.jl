@@ -10,23 +10,24 @@ radio wave through free space over curved earth.
 
 abstract type ModeEquation end
 
-struct PhysicalModeEquation{W<:HomogeneousWaveguide,F} <: ModeEquation
-    frequency::Frequency
-    waveguide::W
-    Mfcn::F
-end
-
-struct ModifiedModeEquation{W<:HomogeneousWaveguide,F} <: ModeEquation
-    frequency::Frequency
-    waveguide::W
-    Mfcn::F
-end
-
-struct DZParams{F}
+struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     ea::EigenAngle
     frequency::Frequency
-    Mfcn::F
+    waveguide::W
 end
+PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
+    PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
+setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.frequency, p.waveguide)
+
+struct IntegrationParams{T}
+    tolerance::Float64
+    solver::T
+end
+IntegrationParams() = IntegrationParams{BS5}(1e-8, BS5())
+
+const INTEGRATION_PARAMS = IntegrationParams()  # TODO: make this Ref to be user-updatable
+const GRPF_PARAMS = GRPFParams(100000, 1e-6, true)
+
 
 """
     isroot(z::Complex; atol=1e-2)
@@ -54,16 +55,29 @@ equation.
 The absolute tolerance `atol` is passed through to `isroot`.
 """
 function filterroots!(roots, frequency, waveguide; atol=1e-2)
-    Mfcn(alt) = susceptibility(alt, frequency, waveguide)
-    modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
+    modeequation = PhysicalModeEquation(EigenAngle(0.0), frequency, waveguide)
+    filterroots!(roots, modeequation, atol=atol)
+end
 
+"""
+    filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
+
+Use existing `modeequation` to validate `roots`.
+
+!!! note
+
+    `modeequation.ea` will be modified by this function.
+"""
+function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
     i = 1
     while i <= length(roots)
-        f = solvemodalequation(EigenAngle(roots[i]), modeequation)
+        modeequation = setea(EigenAngle(roots[i]), modeequation)
+        f = solvemodalequation(modeequation)
         isroot(f, atol=atol) ? (i += 1) : deleteat!(roots, i)
     end
     return nothing
 end
+
 
 ##########
 # Reflection coefficients
@@ -321,9 +335,9 @@ function dwmatrixdθ(ea::EigenAngle, M, T)
     C²inv = Cinv^2
 
     dC = -S
-    dCinv = S*C²inv  # BUG??  Overall, why only 1e-3 accuracy?
+    dCinv = S*C²inv
 
-    dT = tmatrix(ea, M, Dθ())
+    dT = tmatrix(ea, M, Dθ())  # many zeros
 
     dt12Cinv = dT[1,2]*Cinv + T[1,2]*dCinv
     dt14Cinv = dT[1,4]*Cinv + T[1,4]*dCinv
@@ -352,7 +366,7 @@ function dwmatrixdθ(ea::EigenAngle, M, T)
 end
 
 """
-    dRdz(R, params, z)
+    dRdz(R, modeequation, z)
 
 Return the differential of the reflection matrix `R` wrt height `z`.
 
@@ -363,14 +377,16 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, params, z)
-    @unpack ea, frequency, Mfcn = params
+function dRdz(R, modeequation, z)
+    @unpack ea, frequency, waveguide = modeequation
 
     k = frequency.k
 
-    M = Mfcn(z)
+    M = susceptibility(z, frequency, waveguide)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -378,12 +394,12 @@ function dRdz(R, params, z)
     return -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
 
-function dRdθdz(RdRdθ, params, z)
-    @unpack ea, frequency, Mfcn = params
+function dRdθdz(RdRdθ, modeequation, z)
+    @unpack ea, frequency, waveguide = modeequation
 
     k = frequency.k
 
-    M  = Mfcn(z)
+    M = susceptibility(z, frequency, waveguide)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
     dW11, dW21, dW12, dW22 = dwmatrixdθ(ea, M, T)
@@ -398,25 +414,30 @@ function dRdθdz(RdRdθ, params, z)
     return vcat(dz, dθdz)
 end
 
-# TODO: Function args first
-function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn::F) where {F}  # `F` forces dispatch on functions
+function integratedreflection(modeequation::PhysicalModeEquation;
+    params::IntegrationParams{T}=INTEGRATION_PARAMS) where T
 
-    Mtop = susceptibility(TOPHEIGHT, frequency, waveguide)
-    Rtop = sharpboundaryreflection(ea, Mtop)
+    @unpack tolerance, solver = params
 
-    dzparams = DZParams(ea, frequency, Mfcn)
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
+    Mtop = susceptibility(TOPHEIGHT, modeequation)
+    Rtop = sharpboundaryreflection(modeequation.ea, Mtop)
 
+    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), modeequation)
+
+    # timed with test_modefinder.jl parallel_integration()
     #==
-    | tolerance | method |
-    |-----------|--------|
-    | 1e-8      | Vern8  | slightly higher memory, much faster than Vern6, Vern7
-    | 1e-6      | Vern8  |
+    |  tol  |       method      | time, thrds ms | memory MB |           notes        |
+    |-------|-------------------|----------------|-----------|------------------------|
+    | 1e-8  | Vern8             |  755, 332      |   12.5    | threads dtmin warnings |
+    | 1e-6  | Vern8             |                |           |                        |
+    | 1e-8  | Tsit5             |  1199, 567     |    8      |                        |
+    | 1e-8  | AutoVern7(Rodas5) |  1011, 459     |    37     | threads dtmin warnings |
+    | 1e-8  | Vern6             |  972, 508      |    9      |                        |
+    | 1e-8  | BS5               |  892, 442      |    9      |                        |
     ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8,
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -428,18 +449,19 @@ end
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(ea::EigenAngle, frequency::Frequency,
-    waveguide::HomogeneousWaveguide, Mfcn::F, ::Dθ) where {F}
+function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ;
+    params::IntegrationParams{T}=INTEGRATION_PARAMS) where T
 
-    Mtop = susceptibility(TOPHEIGHT, frequency, waveguide)
-    RdRdθtop = sharpboundaryreflection(ea, Mtop, Dθ())
+    @unpack tolerance, solver = params
 
-    dzparams = DZParams(ea, frequency, Mfcn)
-    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), dzparams)
+    Mtop = susceptibility(TOPHEIGHT, modeequation)
+    RdRdθtop = sharpboundaryreflection(modeequation.ea, Mtop, Dθ())
+
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), modeequation)
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
-    sol = solve(prob, Vern8(), abstol=1e-8, reltol=1e-8,
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -476,10 +498,12 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
     Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
     Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
 
-    Rg = SDiagonal(Rg11, Rg22)  # TODO: time this - slower than SMatrix?
+    Rg = SDiagonal(Rg11, Rg22)
 
     return Rg
 end
+fresnelreflection(m::PhysicalModeEquation) =
+    fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
 
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
@@ -494,7 +518,7 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
     Rg11 = (CNg² - sqrtNg²mS²)/(CNg² + sqrtNg²mS²)
     Rg22 = (C - sqrtNg²mS²)/(C + sqrtNg²mS²)
 
-    Rg = SDiagonal(Rg11, Rg22)  # TODO: time this - slower than SMatrix?
+    Rg = SDiagonal(Rg11, Rg22)
 
     dRg11 = (S2*Ng²*(1 - Ng²))/(sqrtNg²mS²*(CNg² + sqrtNg²mS²)^2)
     dRg22 = (S2*(C - sqrtNg²mS²))/(sqrtNg²mS²*(sqrtNg²mS² + C))
@@ -503,6 +527,8 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
 
     return Rg, dRg
 end
+fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
+    fresnelreflection(m.ea, m.waveguide.ground, m.frequency, Dθ())
 
 ##########
 # Identify EigenAngles
@@ -540,46 +566,49 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(ea::EigenAngle, modeequation::PhysicalModeEquation)
-    @unpack frequency, waveguide, Mfcn = modeequation
-    R = integratedreflection(ea, frequency, waveguide, Mfcn)
-    Rg = fresnelreflection(ea, waveguide.ground, frequency)
+function solvemodalequation(modeequation::PhysicalModeEquation)
+    R = integratedreflection(modeequation)
+    Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
     return f
+end
+function solvemodalequation(θ, modeequation::PhysicalModeEquation)
+    # Convenience function for `grpf`
+    modeequation = setea(EigenAngle(θ), modeequation)
+    solvemodalequation(modeequation)
 end
 
 """
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequation(ea::EigenAngle, modeequation::PhysicalModeEquation, ::Dθ)
-    # Dθ always uses `susceptibility` as Mfcn
-    @unpack frequency, waveguide, Mfcn = modeequation
-
-    RdR = integratedreflection(ea, frequency, waveguide, Mfcn, Dθ())
+function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ)
+    RdR = integratedreflection(modeequation, Dθ())
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = fresnelreflection(ea, waveguide.ground, frequency, Dθ())
+    Rg, dRg = fresnelreflection(modeequation, Dθ())
 
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg
 end
+function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ)
+    # Convenience function for `grpf`
+    modeequation = setea(EigenAngle(θ), modeequation)
+    solvemodalequation(modeequation, Dθ())
+end
 
-function findmodes(origcoords, grpfparams::GRPFParams, modeequation::ModeEquation)
+function findmodes(modeequation::ModeEquation, origcoords; grpfparams::GRPFParams=GRPF_PARAMS)
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    @unpack frequency, waveguide = modeequation
-
-    f(θ) = solvemodalequation(EigenAngle(θ), modeequation)
-    roots, poles = grpf(f, origcoords, grpfparams)
+    roots, poles = grpf(θ->solvemodalequation(θ, modeequation), origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
-    filterroots!(roots, frequency, waveguide)
+    filterroots!(roots, modeequation)
 
     # Remove any redundant modes
     # if tolerance is 1e-8, this rounds to 7 decimal places

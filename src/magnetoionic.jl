@@ -92,18 +92,8 @@ function susceptibility(alt, frequency, bfield, species)
 end
 susceptibility(alt, f::Frequency, w::HomogeneousWaveguide) =
     susceptibility(alt, f, w.bfield, w.species)
-
-function susceptibilityinterpolator(frequency, bfield, species)
-    # length(z) scales linearly with this functions run time
-    # preallocating `Ms` saves <10% of time
-    zs = BOTTOMHEIGHT:TOPHEIGHT
-    Ms = [susceptibility(zs[i], frequency, bfield, species) for i in eachindex(zs)]
-    interpolator = CubicSplineInterpolation(zs, Ms)
-
-    return interpolator
-end
-susceptibilityinterpolator(f::Frequency, w::HomogeneousWaveguide) =
-    susceptibilityinterpolator(f, w.bfield, w.species)
+susceptibility(alt, me::ModeEquation) =
+    susceptibility(alt, me.frequency, me.waveguide)
 
 """
     bookerquartic(ea, M)
@@ -316,7 +306,7 @@ components ``Ez`` and ``Hz``, the equations can be written ``∂e/∂s = -i T e`
 a proxy for height `z`, and ``e = (Ex -Ey Hx Hy)``, as detailed by [^Clemmow1954]. This
 function calculates components of the matrix `T`.
 
-See also: [`wmatrix`](@ref), [`susceptibility`](@ref)
+See also: [`susceptibility`](@ref)
 
 # References
 
@@ -360,21 +350,27 @@ function tmatrix(ea::EigenAngle, M)
                    T14, T34, T44)
 end
 
+"""
+    tmatrix(ea::EigenAngle, M, ::Dθ)
+
+Return a dense matrix with the derivative of `T` with respect to `θ` at eigenangle `ea`.
+"""
 function tmatrix(ea::EigenAngle, M, ::Dθ)
     S, C = ea.sinθ, ea.cosθ
+    dC² = -2*S*C  # d/dθ (C²)
 
     den = inv(1 + M[3,3])
 
     dT11 = -C*M[3,1]*den
     dT12 = C*M[3,2]*den
     dT13 = 0
-    dT14 = -2*S*C*den
+    dT14 = dC²*den
     dT21 = 0
     dT22 = 0
     dT23 = 0
     dT24 = 0
     dT31 = 0
-    dT32 = -2*S*C
+    dT32 = dC²
     dT33 = 0
     dT34 = C*M[2,3]*den
     dT41 = 0
