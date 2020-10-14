@@ -34,7 +34,7 @@ function modeconversion(previous_wavefields::Wavefields{T},
             product[i] = transpose(g)*f
         end
 
-        N = romberg(zs, product)
+        N = romberg(WAVEFIELD_HEIGHTS, product)
         invN[m] = inv(N)
     end
 
@@ -44,15 +44,15 @@ function modeconversion(previous_wavefields::Wavefields{T},
     # are relatively large
 
     # `a` is total conversion
-    a = Matrix{T1}(undef, numadjmodes, numprevmodes)
+    a = Matrix{T}(undef, numadjmodes, numprevmodes)
     for k in eachindex(prevmodes)
         for m in eachindex(adjmodes)
-            for i in eachindex(zs)
+            for i in eachindex(WAVEFIELD_HEIGHTS)
                 @inbounds f = previous_wavefields[i,k][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
                 @inbounds g = SVector{4}(adjwavefields[i,m][6], -adjwavefields[i,m][5], -adjwavefields[i,m][3], adjwavefields[i,m][2])  # Hz, -Hy, -Ez, Ey
                 product[i] = transpose(g)*f
             end
-            I = romberg(zs, product)
+            I = romberg(WAVEFIELD_HEIGHTS, product)
             @inbounds a[m,k] = I*invN[m]
         end
     end

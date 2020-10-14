@@ -34,11 +34,12 @@ end
 
 Base.size(A::Wavefields) = size(A.v)
 Base.size(A::Wavefields, I...) = size(A.v, I...)
-Base.getindex(A::Wavefields, I) = A.v[I]
+Base.getindex(A::Wavefields, i) = A.v[i]
+Base.getindex(A::Wavefields, I...) = A.v[I...]
 Base.setindex!(A::Wavefields, x, i) = (A.v[i] = x)
 Base.similar(A::Wavefields{T}) where {T} = Wavefields{T}(A.eas)
 Base.copy(A::Wavefields{T}) where {T} = Wavefields{T}(copy(A.v), copy(A.eas))
-Base.view(A::Wavefields, I...) = view(A.v, I...) 
+Base.view(A::Wavefields, I...) = view(A.v, I...)
 
 function (==)(A::Wavefields, B::Wavefields)
     A.eas == B.eas || return false

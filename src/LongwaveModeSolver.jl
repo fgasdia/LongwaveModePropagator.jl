@@ -32,7 +32,7 @@ export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl
-export BasicInput, BatchInput
+export BasicInput, BatchInput, BasicOutput, BatchOutput
 
 # Samplers.jl
 export Receiver, GroundSampler
@@ -101,37 +101,35 @@ defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 Return electric field `E`, and field `amplitude` and `phase` using parameters:
 
     - `defaultcoordinates` for GRPF region
-    - `GRPFParams.tolerance = 1e-6`
-    - `GRPFParams.multithreaded = true`
     - `PhysicalModeEquation`
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
     origcoords = defaultcoordinates(tx.frequency.f)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
+    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    # grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
 
-    E, amp, phase = bpm(waveguide, tx, rx, origcoords, grpfparams, modeequation)
+    E, amp, phase = bpm(waveguide, tx, rx, origcoords, modeequation)
 
     return E, amp, phase
 end
 
 """
-    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}, origcoords, grpfparams,
+    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}, origcoords,
     modeequation) where {R<:Real}
 
 Specialized form for `AbstractSampler`s with a single distance which returns
 scalar `E`, `amp`, and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R},
-    origcoords, grpfparams::GRPFParams, modeequation::ModeEquation) where {R<:Real}
+    origcoords, modeequation::ModeEquation) where {R<:Real}
     if minimum(imag(origcoords)) < deg2rad(-31)
         @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
             calculated with modified Hankel functions to overflow."
     end
 
-    modes = findmodes(origcoords, grpfparams, modeequation)
+    modes = findmodes(modeequation, origcoords)
 
     E = Efield(modes, waveguide, tx, rx)
     amp = 10log10(abs2(E))  # == 20log10(abs(E))
@@ -141,13 +139,13 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
 end
 
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
-    origcoords, grpfparams::GRPFParams, modeequation::ModeEquation)
+    origcoords, modeequation::ModeEquation)
     if minimum(imag(origcoords)) < deg2rad(-31)
         @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
             calculated with modified Hankel functions to overflow."
     end
 
-    modes = findmodes(origcoords, grpfparams, modeequation)
+    modes = findmodes(modeequation, origcoords)
 
     E = Efield(modes, waveguide, tx, rx)
 
@@ -172,19 +170,17 @@ end
 
 function bpm(waveguide::SegmentedWaveguide, tx, rx)
     origcoords = defaultcoordinates(tx.frequency)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
+    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
+    # grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
-    E, amp, phase = bpm(waveguide, tx, rx, origcoords, grpfparams, true)
+    E, amp, phase = bpm(waveguide, tx, rx, origcoords)
 end
 
-function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
-    origcoords, grpfparams::GRPFParams)
+function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler, origcoords)
     if minimum(imag(origcoords)) < deg2rad(-31)
         @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
             calculated with modified Hankel functions to overflow."
     end
-
 
     numsegments = length(waveguide)
 
@@ -199,10 +195,9 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler,
     for nsgmnt in 1:numsegments
         wvg = waveguide[nsgmnt]
 
-        Mfcn = alt -> susceptibility(alt, tx.frequency, wvg)
-        modeequation = PhysicalModeEquation(tx.frequency, wvg, Mfcn)
+        modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(origcoords, grpfparams, modeequation)
+        modes = findmodes(modeequation, origcoords)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield

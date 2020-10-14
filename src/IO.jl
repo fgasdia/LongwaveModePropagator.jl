@@ -32,10 +32,12 @@ function jsonsafe!(v)
     end
 end
 
+abstract type Input end
+
 """
     BasicInput
 """
-mutable struct BasicInput
+mutable struct BasicInput <: Input
     name::String
     description::String
     datetime::DateTime
@@ -60,7 +62,7 @@ mutable struct BasicInput
 end
 StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
 
-mutable struct BatchInput{T}
+mutable struct BatchInput{T} <: Input
     name::String
     description::String
     datetime::DateTime
@@ -75,7 +77,9 @@ end
 BatchInput() = BatchInput{Any}()
 StructTypes.StructType(::Type{<:BatchInput}) = StructTypes.Mutable()
 
-mutable struct BasicOutput
+abstract type Output end
+
+mutable struct BasicOutput <: Output
     name::String
     description::String
     datetime::DateTime
@@ -88,14 +92,18 @@ mutable struct BasicOutput
 end
 StructTypes.StructType(::Type{BasicOutput}) = StructTypes.Mutable()
 
-mutable struct BatchOutput{T}
+mutable struct BatchOutput{T} <: Output
     name::String
     description::String
     datetime::DateTime
 
     outputs::Vector{T}
 
-    BatchOutput{T}() where {T} = new{T}()
+    function BatchOutput{T}() where {T}
+        s = new{T}()
+        s.outputs = T[]
+        return s
+    end
 end
 BatchOutput() = BatchOutput{Any}()
 StructTypes.StructType(::Type{<:BatchOutput}) = StructTypes.Mutable()
@@ -121,12 +129,20 @@ function iscomplete(s::BatchInput)
     return true
 end
 
+function iscomplete(s::BatchOutput)
+    isdefined(s, :outputs) || return false
+    for i in eachindex(s.outputs)
+        iscomplete(s.outputs[i]) || return false
+    end
+    return true
+end
+
 """
     validlengths(s)
 
 Check if field lengths match.
 """
-function validlengths(s)
+function validlengths(s::Input)
     numsegments = length(s.segment_ranges)
     checkfields = (:hprimes, :betas, :b_mags, :b_dips, :b_azs, :ground_sigmas, :ground_epsrs)
     for field in checkfields
@@ -145,23 +161,17 @@ end
 
 function parse(file)
     # More to less specific
-    inputtypes = (BasicInput, BatchInput{BasicInput}, BatchInput{Any})
+    types = (BasicInput, BatchInput{BasicInput}, BatchInput{Any},
+        BasicOutput, BatchOutput{BasicOutput}, BatchOutput{Any})
 
     matched = false
     let filecontents
-        # Try supported types and accept it if it's valid
-        for t in inputtypes
-            # To clarify the syntax here, `filecontents` is what is returned from inside
-            # the `do` block; the JSON contents or `nothing`
-            filecontents = open(file, "r") do f
-                # Once `f` is read, it can't be read again with another `t` so we open/close
-                s = JSON3.read(f, t)
-                if iscomplete(s) && validlengths(s)
-                    matched = true
-                    return s
-                end
+        for t in types
+            filecontents = parse(file, t)
+            if !isnothing(filecontents)
+                matched = true
+                break
             end
-            matched && break
         end
 
         if matched
@@ -170,6 +180,38 @@ function parse(file)
             error("\"$file\" could not be matched to a valid format.")
         end
     end
+end
+
+function parse(file, t::Type{<:Input})
+    matched = false
+
+    # To clarify the syntax here, `filecontents` is what is returned from inside
+    # the `do` block; the JSON contents or `nothing`
+    filecontents = open(file, "r") do f
+        s = JSON3.read(f, t)
+        if iscomplete(s) && validlengths(s)
+            matched = true
+            return s
+        end
+    end
+
+    matched ? filecontents : nothing
+end
+
+function parse(file, t::Type{<:Output})
+    matched = false
+
+    # To clarify the syntax here, `filecontents` is what is returned from inside
+    # the `do` block; the JSON contents or `nothing`
+    filecontents = open(file, "r") do f
+        s = JSON3.read(f, t)
+        if iscomplete(s)
+            matched = true
+            return s
+        end
+    end
+
+    matched ? filecontents : nothing
 end
 
 function buildrun(s::BasicInput)
@@ -208,7 +250,7 @@ function buildrun(s::BasicInput)
     output.amplitude = amp
     output.phase = phase
 
-    jsonsafe!(output.amp)
+    jsonsafe!(output.amplitude)
     jsonsafe!(output.phase)
 
     return output
@@ -216,12 +258,13 @@ end
 
 function buildrun(s::BatchInput{BasicInput})
     batch = BatchOutput{BasicOutput}()
+    @bp
     batch.name = s.name
     batch.description = s.description
     batch.datetime = s.datetime
 
     for i in eachindex(s.inputs)
-        output = buildandrun(s.inputs[i])
+        output = buildrun(s.inputs[i])
         push!(batch.outputs, output)
     end
 
@@ -249,12 +292,12 @@ function buildrunsave(outfile, s::BatchInput{BasicInput}; append=false)
             name == batch.outputs[o].name && continue
         end
 
-        output = buildandrun(s.inputs[i])
+        output = buildrun(s.inputs[i])
         push!(batch.outputs, output)
 
-        json_str = JSON3.write(outputs)
+        json_str = JSON3.write(batch)
 
-        open(outfile*"_bpm.json", "w") do f
+        open(outfile, "w") do f
             write(f, json_str)
         end
     end

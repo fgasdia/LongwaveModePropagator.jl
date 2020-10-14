@@ -218,7 +218,9 @@ end
 
     Eigenangle `ea` should be referenced to `CURVATURE_HEIGHT`.
 """
-function modeterms(ea, frequency, waveguide, tx::Emitter, rx::AbstractSampler)
+function modeterms(modeequation, tx::Emitter, rx::AbstractSampler)
+    @unpack ea, frequency, waveguide = modeequation
+
     zt = altitude(tx)
     zr = altitude(rx)
     rxfield = fieldcomponent(rx)
@@ -232,9 +234,6 @@ function modeterms(ea, frequency, waveguide, tx::Emitter, rx::AbstractSampler)
     t1 = Cγ
     t2 = Sγ*Sϕ
     t3 = Sγ*Cϕ
-
-    Mfcn(alt) = susceptibility(alt, frequency, waveguide)
-    modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
 
     dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
@@ -270,15 +269,14 @@ end
 Specialized `modeterms` for the common case of `GroundSampler` and
 `Transmitter{VerticalDipole}`.
 """
-function modeterms(ea, frequency, waveguide, tx::Transmitter{VerticalDipole},
+function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     rx::GroundSampler)
+
+    @unpack ea, frequency, waveguide = modeequation
 
     rxfield = fieldcomponent(rx)
 
-    Mfcn(alt) = susceptibility(alt, frequency, waveguide)
-    modeequation = PhysicalModeEquation(frequency, waveguide, Mfcn)
-
-    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
+    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ())
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
 
     λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
@@ -352,7 +350,8 @@ function Efield!(
     iszero(E) || fill!(E, 0)
 
     for ea in modes
-        xmtrterm, rcvrterm = modeterms(ea, frequency, waveguide, tx, rx)
+        modeequation = PhysicalModeEquation(ea, frequency, waveguide)
+        xmtrterm, rcvrterm = modeterms(modeequation, tx, rx)
 
         # Precalculate
         S₀ = referencetoground(ea.sinθ)
@@ -400,7 +399,8 @@ function Efield(
 
     E = zero(T)
     for ea in modes
-        xmtrterm, rcvrterm = modeterms(ea, frequency, waveguide, tx, rx)
+        modeequation = PhysicalModeEquation(ea, frequency, waveguide)
+        xmtrterm, rcvrterm = modeterms(modeequation, tx, rx)
 
         S₀ = referencetoground(ea.sinθ)
         expterm = -k*(S₀ - 1)
@@ -472,7 +472,8 @@ function Efield(
         for n = 1:current_eacount
             # `xmtrterm` includes excitation factor and transmitter height gain
             # `rcvrterm` is receiver height gain only
-            xmtrterm, rcvrterm, efc = modeterms(eas[n], frequency, wvg, tx, rx)
+            modeequation = PhysicalModeEquation(eas[n], frequency, wvg)
+            xmtrterm, rcvrterm, efc = modeterms(modeequation, tx, rx)
             if segmentidx == 1
                 # Transmitter exists only in the transmitter slab (obviously)
                 xmtrfields[n] = xmtrterm

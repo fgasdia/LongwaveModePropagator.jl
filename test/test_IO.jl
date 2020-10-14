@@ -127,6 +127,19 @@ function run_basic()
     return output
 end
 
+function run_batchbasic()
+    s = LWMS.parse("batchbasic.json")
+    output = LWMS.buildrun(s)
+    return output
+end
+
+function run_batchbasicsave()
+    s = LWMS.parse("batchbasic.json")
+    output = LWMS.buildrunsave("batchbasictest.json", s)
+    sres = LWMS.parse("batchbasictest.json")
+    return sres
+end
+
 function test_bpm()
     E, amp, phase = LWMS.bpm("basic.json")
 end
@@ -141,12 +154,15 @@ end
     @test LWMS.validlengths(read_basic())
     @test LWMS.iscomplete(read_corrupted_basic()) == false
     @test LWMS.parse("basic.json") isa BasicInput
+    @test LWMS.parse("basic.json", BasicInput) isa BasicInput
 
     @test LWMS.iscomplete(read_batchbasic())
     @test LWMS.validlengths(read_batchbasic())
     @test LWMS.parse("batchbasic.json") isa BatchInput{BasicInput}
 
     @test run_basic() isa BasicOutput
+    @test run_batchbasic() isa BatchOutput{BasicOutput}
+    @test run_batchbasicsave() isa BatchOutput{BasicOutput}
 
     @test_skip test_bpm()
 
