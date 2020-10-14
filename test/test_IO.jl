@@ -168,4 +168,5 @@ end
 
     isfile("basic.json") && rm("basic.json")
     isfile("batchbasic.json") && rm("batchbasic.json")
+    isfile("batchbasictest.json") && rm("batchbasictest.json")
 end
