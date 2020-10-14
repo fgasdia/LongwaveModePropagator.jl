@@ -244,7 +244,7 @@ function buildrun(s::BasicInput)
     output = BasicOutput()
     output.name = s.name
     output.description = s.description
-    output.datetime = s.datetime
+    output.datetime = Dates.now()
 
     output.output_ranges = s.output_ranges
     output.amplitude = amp
@@ -258,10 +258,9 @@ end
 
 function buildrun(s::BatchInput{BasicInput})
     batch = BatchOutput{BasicOutput}()
-    @bp
     batch.name = s.name
     batch.description = s.description
-    batch.datetime = s.datetime
+    batch.datetime = Dates.now()
 
     for i in eachindex(s.inputs)
         output = buildrun(s.inputs[i])
@@ -281,7 +280,7 @@ function buildrunsave(outfile, s::BatchInput{BasicInput}; append=false)
         batch = BatchOutput{BasicOutput}()
         batch.name = s.name
         batch.description = s.description
-        batch.datetime = s.datetime
+        batch.datetime = Dates.now()
     end
 
     for i in eachindex(s.inputs)
