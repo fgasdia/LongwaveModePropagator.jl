@@ -252,7 +252,7 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false)
 
     s = parse(file)
     if incrementalwrite
-        output = buildrunsave(outfile, s, append)
+        output = buildrunsave(outfile, s, append=append)
     else
         output = buildrun(s)
 
