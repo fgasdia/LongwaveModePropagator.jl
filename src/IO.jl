@@ -62,6 +62,34 @@ mutable struct BasicInput <: Input
 end
 StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
 
+mutable struct TableInput <: Input
+    name::String
+    description::String
+    datetime::DateTime
+
+    # All units SI
+    segment_ranges::Vector{Float64}
+    altitude::Vector{Float64}
+    density::Vector{Vector{Float64}}
+    collision_frequency::Vector{Vector{Float64}}
+    b_mags::Vector{Float64}
+    b_dips::Vector{Float64}
+    b_azs::Vector{Float64}
+    ground_sigmas::Vector{Float64}
+    ground_epsrs::Vector{Int}
+    frequency::Float64
+    output_ranges::Vector{Float64}
+
+    function TableInput()
+        s = new()
+        setfield!(s, :frequency, NaN)
+        setfield!(s, :density, [Vector{Float64}()])
+        setfield!(s, :collision_frequency, [Vector{Float64}()])
+        return s
+    end
+end
+StructTypes.StructType(::Type{TableInput}) = StructTypes.Mutable()
+
 mutable struct BatchInput{T} <: Input
     name::String
     description::String
@@ -142,12 +170,32 @@ end
 
 Check if field lengths match.
 """
-function validlengths(s::Input)
+function validlengths(s::BasicInput)
     numsegments = length(s.segment_ranges)
     checkfields = (:hprimes, :betas, :b_mags, :b_dips, :b_azs, :ground_sigmas, :ground_epsrs)
     for field in checkfields
         length(getfield(s, field)) == numsegments || return false
     end
+    return true
+end
+
+function validlengths(s::TableInput)
+    numsegments = length(s.segment_ranges)
+    checkfields = (:b_mags, :b_dips, :b_azs, :ground_sigmas, :ground_epsrs)
+    for field in checkfields
+        length(getfield(s, field)) == numsegments || return false
+    end
+
+    numaltitudes = length(s.altitude)
+    matrixfields = (:density, :collision_frequency)
+    for field in matrixfields
+        v = getfield(s, field)
+        length(v) == numsegments || return false
+        for i = 1:numsegments
+            length(v[i]) == numaltitudes || return false
+        end
+    end
+
     return true
 end
 
@@ -161,7 +209,7 @@ end
 
 function parse(file)
     # More to less specific
-    types = (BasicInput, BatchInput{BasicInput}, BatchInput{Any},
+    types = (BasicInput, TableInput, BatchInput{BasicInput}, BatchInput{Any},
         BasicOutput, BatchOutput{BasicOutput}, BatchOutput{Any})
 
     matched = false
@@ -232,6 +280,50 @@ function buildrun(s::BasicInput)
             bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
             species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i], cutoff_low=50e3, threshold=3e9),
                               electroncollisionfrequency)
+            ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
+            push!(waveguide, HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i]))
+        end
+        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        rx = GroundSampler(s.output_ranges, Fields.Ez)
+    end
+
+    E, amp, phase = bpm(waveguide, tx, rx)
+
+    output = BasicOutput()
+    output.name = s.name
+    output.description = s.description
+    output.datetime = Dates.now()
+
+    output.output_ranges = s.output_ranges
+    output.amplitude = amp
+    output.phase = phase
+
+    jsonsafe!(output.amplitude)
+    jsonsafe!(output.phase)
+
+    return output
+end
+
+function buildrun(s::TableInput)
+    if length(s.segment_ranges) == 1
+        # HomogeneousWaveguide
+        bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
+        density_itp = LinearInterpolation(s.altitude, only(s.density), extrapolation_bc=Line())
+        collision_itp = LinearInterpolation(s.altitude, only(s.collision_frequency), extrapolation_bc=Line())
+        species = Species(QE, ME, density_itp, collision_itp)
+        ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
+        waveguide = HomogeneousWaveguide(bfield, species, ground)
+
+        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        rx = GroundSampler(s.output_ranges, Fields.Ez)
+    else
+        # SegmentedWaveguide
+        waveguide = SegmentedWaveguide(HomogeneousWaveguide)
+        for i in eachindex(s.segment_ranges)
+            bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
+            density_itp = LinearInterpolation(s.altitude, s.density[i], extrapolation_bc=Line())
+            collision_itp = LinearInterpolation(s.altitude, s.collision_frequency[i], extrapolation_bc=Line())
+            species = Species(QE, ME, density_itp, collision_itp)
             ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
             push!(waveguide, HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i]))
         end

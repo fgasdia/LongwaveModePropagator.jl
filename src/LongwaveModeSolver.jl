@@ -32,7 +32,7 @@ export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl
-export BasicInput, BatchInput, BasicOutput, BatchOutput
+export BasicInput, TableInput, BatchInput, BasicOutput, BatchOutput
 
 # Samplers.jl
 export Receiver, GroundSampler
