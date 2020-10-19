@@ -252,6 +252,7 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false)
 
     s = parse(file)
     if incrementalwrite
+        s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for BatchInput files"))
         output = buildrunsave(outfile*"_bpm.json", s, append=append)
     else
         output = buildrun(s)
@@ -263,7 +264,7 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false)
         end
     end
 
-    return nothing
+    return output
 end
 
 end

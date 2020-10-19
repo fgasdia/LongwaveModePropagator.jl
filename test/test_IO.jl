@@ -206,8 +206,9 @@ function run_batchbasicsave()
     return sres
 end
 
-function test_bpm()
-    E, amp, phase = LWMS.bpm("basic.json")
+function basic_bpm()
+    output = LWMS.bpm("basic.json")
+    return output
 end
 
 @testset "IO.jl" begin
@@ -237,7 +238,7 @@ end
     @test run_batchbasic() isa BatchOutput{BasicOutput}
     @test run_batchbasicsave() isa BatchOutput{BasicOutput}
 
-    @test_skip test_bpm()
+    @test basic_bpm() isa BasicOutput
 
     isfile("basic.json") && rm("basic.json")
     isfile("table.json") && rm("table.json")
