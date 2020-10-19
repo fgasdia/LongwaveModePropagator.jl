@@ -244,4 +244,5 @@ end
     isfile("table.json") && rm("table.json")
     isfile("batchbasic.json") && rm("batchbasic.json")
     isfile("batchbasictest.json") && rm("batchbasictest.json")
+    isfile("basic_bpm.json") && rm("basic_bpm.json")
 end
