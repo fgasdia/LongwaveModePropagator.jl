@@ -382,7 +382,7 @@ function buildrunsave(outfile, s::BatchInput; append=false)
 
         # Check if this case has already been run (useful for append)
         for o in eachindex(batch.outputs)
-            name == batch.outputs[o].name && continue
+            name == batch.outputs[o].name && (next!(p); continue)
         end
 
         output = buildrun(s.inputs[i])
