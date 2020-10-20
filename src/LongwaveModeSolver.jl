@@ -249,18 +249,18 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false)
     basepath = dirname(file)
     filename, fileextension = splitext(basename(file))
 
-    outfile = joinpath(basepath, filename)
+    outfile = joinpath(basepath, filename)*"_bpm.json"
 
     s = parse(file)
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for BatchInput files"))
-        output = buildrunsave(outfile*"_bpm.json", s, append=append)
+        output = buildrunsave(outfile, s, append=append)
     else
         output = buildrun(s)
 
         json_str = JSON3.write(output)
 
-        open(outfile*"_bpm.json", "w") do f
+        open(outfile, "w") do f
             write(f, json_str)
         end
     end
