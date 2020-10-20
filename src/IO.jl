@@ -209,7 +209,8 @@ end
 
 function parse(file)
     # More to less specific
-    types = (BasicInput, TableInput, BatchInput{BasicInput}, BatchInput{Any},
+    types = (BasicInput, TableInput,
+        BatchInput{BasicInput}, BatchInput{TableInput}, BatchInput{Any},
         BasicOutput, BatchOutput{BasicOutput}, BatchOutput{Any})
 
     matched = false
@@ -348,7 +349,7 @@ function buildrun(s::TableInput)
     return output
 end
 
-function buildrun(s::BatchInput{BasicInput})
+function buildrun(s::BatchInput)
     batch = BatchOutput{BasicOutput}()
     batch.name = s.name
     batch.description = s.description
@@ -362,7 +363,7 @@ function buildrun(s::BatchInput{BasicInput})
     return batch
 end
 
-function buildrunsave(outfile, s::BatchInput{BasicInput}; append=false)
+function buildrunsave(outfile, s::BatchInput; append=false)
     if append
         batch = open(outfile, "r") do f
             s = JSON3.read(f, BatchOutput{BasicOutput})
@@ -375,6 +376,7 @@ function buildrunsave(outfile, s::BatchInput{BasicInput}; append=false)
         batch.datetime = Dates.now()
     end
 
+    p = Progress(length(s.inputs), 5)
     for i in eachindex(s.inputs)
         name = s.inputs[i].name
 
@@ -391,6 +393,8 @@ function buildrunsave(outfile, s::BatchInput{BasicInput}; append=false)
         open(outfile, "w") do f
             write(f, json_str)
         end
+
+        next!(p)
     end
 
     return batch
