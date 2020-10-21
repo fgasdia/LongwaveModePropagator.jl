@@ -56,6 +56,8 @@ const BOTTOMHEIGHT = zero(TOPHEIGHT)  # WARNING: if this isn't 0, many assumptio
 # Not great, but can be changed as `EARTHCURVATURE[]=false`
 # TODO: where does this need to be considered?
 const EARTHCURVATURE = Ref(true)
+get_earthcurvature() = EARTHCURVATURE[]
+set_earthcurvature(v::Bool) = EARTHCURVATURE[] = v
 
 struct Dθ end
 

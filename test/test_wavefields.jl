@@ -139,7 +139,7 @@ function homogeneous_iono_test(scenario)
     ionobottom = LWMS.CURVATURE_HEIGHT
     zs = 200e3:-500:ionobottom
 
-    LWMS.EARTHCURVATURE[] = false
+    set_earthcurvature(false)
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
 
@@ -165,7 +165,7 @@ function homogeneous_iono_test(scenario)
     T*e1 ≈ q[1]*e1 || return false
     T*e2 ≈ q[2]*e2 || return false
 
-    LWMS.EARTHCURVATURE[] = true
+    set_earthcurvature(true)
 
     return true
 end
