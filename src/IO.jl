@@ -366,8 +366,8 @@ end
 function buildrunsave(outfile, s::BatchInput; append=false)
     if append
         batch = open(outfile, "r") do f
-            s = JSON3.read(f, BatchOutput{BasicOutput})
-            return s
+            v = JSON3.read(f, BatchOutput{BasicOutput})
+            return v
         end
     else
         batch = BatchOutput{BasicOutput}()
