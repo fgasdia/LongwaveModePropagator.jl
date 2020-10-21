@@ -376,13 +376,22 @@ function buildrunsave(outfile, s::BatchInput; append=false)
         batch.datetime = Dates.now()
     end
 
+    skip = false
     p = Progress(length(s.inputs), 5)
     for i in eachindex(s.inputs)
         name = s.inputs[i].name
 
         # Check if this case has already been run (useful for append)
         for o in eachindex(batch.outputs)
-            name == batch.outputs[o].name && (next!(p); continue)
+            if name == batch.outputs[o].name
+                skip = true
+                break
+            end
+        end
+        if skip
+            skip = false
+            next!(p)
+            continue
         end
 
         output = buildrun(s.inputs[i])
