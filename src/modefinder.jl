@@ -25,6 +25,7 @@ struct IntegrationParams{T}
 end
 IntegrationParams() = IntegrationParams{BS5}(1e-8, BS5())
 
+const INTEGRATION_PARAMS = Ref{IntegationParams{T}}() where T
 const INTEGRATION_PARAMS = IntegrationParams()  # TODO: make this Ref to be user-updatable
 const GRPF_PARAMS = GRPFParams(100000, 1e-6, true)
 

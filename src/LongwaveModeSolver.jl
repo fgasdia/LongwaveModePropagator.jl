@@ -49,13 +49,11 @@ export TMatrix
 export HomogeneousWaveguide
 export eigenangles
 
-#
+# Module-wide constants
 const TOPHEIGHT = 110e3
 const BOTTOMHEIGHT = zero(TOPHEIGHT)  # WARNING: if this isn't 0, many assumptions break
 
-# Not great, but can be changed as `EARTHCURVATURE[]=false`
-# TODO: where does this need to be considered?
-const EARTHCURVATURE = Ref(true)
+const EARTHCURVATURE = Ref(true)  # TODO: where does this need to be considered?
 get_earthcurvature() = EARTHCURVATURE[]
 set_earthcurvature(v::Bool) = EARTHCURVATURE[] = v
 
