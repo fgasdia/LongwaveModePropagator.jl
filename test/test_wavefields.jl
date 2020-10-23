@@ -115,12 +115,12 @@ function drdzwavefield_equivalence_test(scenario)
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    @unpack tolerance, solver = LWMS.INTEGRATION_PARAMS
+    @unpack tolerance, solver = LWMS.get_integration_params()
 
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, waveguide)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
     prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), modeequation)
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
+    sol = solve(prob, solver(), abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
                 saveat=zs, save_everystep=false)
 
     return all(isapprox.(wavefieldRs, sol.u, rtol=1e-2))
@@ -139,7 +139,7 @@ function homogeneous_iono_test(scenario)
     ionobottom = LWMS.CURVATURE_HEIGHT
     zs = 200e3:-500:ionobottom
 
-    set_earthcurvature(false)
+    LWMS.set_earthcurvature(false)
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
 
@@ -165,7 +165,7 @@ function homogeneous_iono_test(scenario)
     T*e1 ≈ q[1]*e1 || return false
     T*e2 ≈ q[2]*e2 || return false
 
-    set_earthcurvature(true)
+    LWMS.set_earthcurvature(true)
 
     return true
 end

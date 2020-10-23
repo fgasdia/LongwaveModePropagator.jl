@@ -59,6 +59,13 @@ set_earthcurvature(v::Bool) = EARTHCURVATURE[] = v
 
 struct Dθ end
 
+# Initialize Refs to default. This is atuomatically executed after loading module.
+function __init__()
+    set_earthcurvature(true)
+    set_integration_params()
+    set_grpf_params()
+end
+
 #
 include("Antennas.jl")
 include("EigenAngles.jl")

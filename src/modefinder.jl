@@ -19,15 +19,20 @@ PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.frequency, p.waveguide)
 
-struct IntegrationParams{T}
+struct IntegrationParams
     tolerance::Float64
-    solver::T
+    solver::DataType
 end
-IntegrationParams() = IntegrationParams{BS5}(1e-8, BS5())
 
-const INTEGRATION_PARAMS = Ref{IntegationParams{T}}() where T
-const INTEGRATION_PARAMS = IntegrationParams()  # TODO: make this Ref to be user-updatable
-const GRPF_PARAMS = GRPFParams(100000, 1e-6, true)
+const INTEGRATION_PARAMS = Ref{IntegrationParams}()
+get_integration_params() = INTEGRATION_PARAMS[]
+set_integration_params() = INTEGRATION_PARAMS[] = IntegrationParams(1e-8, BS5)
+set_integration_params(p::IntegrationParams) = INTEGRATION_PARAMS[] = p
+
+const GRPF_PARAMS = Ref{GRPFParams}()
+get_grpf_params() = GRPF_PARAMS[]
+set_grpf_params() = GRPF_PARAMS[] = GRPFParams(100000, 1e-6, true)
+set_grpf_params(p::GRPFParams) = GRPF_PARAMS[] = p
 
 
 """
@@ -416,7 +421,7 @@ function dRdθdz(RdRdθ, modeequation, z)
 end
 
 function integratedreflection(modeequation::PhysicalModeEquation;
-    params::IntegrationParams{T}=INTEGRATION_PARAMS) where T
+    params::IntegrationParams=get_integration_params()) where T
 
     @unpack tolerance, solver = params
 
@@ -438,7 +443,7 @@ function integratedreflection(modeequation::PhysicalModeEquation;
     ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver(), abstol=tolerance, reltol=tolerance,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -451,7 +456,7 @@ end
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ;
-    params::IntegrationParams{T}=INTEGRATION_PARAMS) where T
+    params::IntegrationParams=get_integration_params()) where T
 
     @unpack tolerance, solver = params
 
@@ -462,7 +467,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ;
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver(), abstol=tolerance, reltol=tolerance,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -600,7 +605,7 @@ function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ)
     solvemodalequation(modeequation, Dθ())
 end
 
-function findmodes(modeequation::ModeEquation, origcoords; grpfparams::GRPFParams=GRPF_PARAMS)
+function findmodes(modeequation::ModeEquation, origcoords; grpfparams::GRPFParams=get_grpf_params())
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
