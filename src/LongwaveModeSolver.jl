@@ -22,8 +22,6 @@ using PolynomialRoots: roots!
 using RootsAndPoles
 using ModifiedHankelFunctionsOfOrderOneThird
 
-using Debugger  # TEMP
-
 # LongwaveModeSolver.jl
 export bpm
 
