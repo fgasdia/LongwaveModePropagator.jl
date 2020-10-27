@@ -26,12 +26,12 @@ end
 
 const INTEGRATION_PARAMS = Ref{IntegrationParams}()
 get_integration_params() = INTEGRATION_PARAMS[]
-set_integration_params() = INTEGRATION_PARAMS[] = IntegrationParams(1e-8, BS5)
+set_integration_params() = INTEGRATION_PARAMS[] = IntegrationParams(1e-7, BS5)
 set_integration_params(p::IntegrationParams) = INTEGRATION_PARAMS[] = p
 
 const GRPF_PARAMS = Ref{GRPFParams}()
 get_grpf_params() = GRPF_PARAMS[]
-set_grpf_params() = GRPF_PARAMS[] = GRPFParams(100000, 1e-6, true)
+set_grpf_params() = GRPF_PARAMS[] = GRPFParams(100000, 1e-5, true)
 set_grpf_params(p::GRPFParams) = GRPF_PARAMS[] = p
 
 
