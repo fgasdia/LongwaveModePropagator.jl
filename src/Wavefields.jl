@@ -6,30 +6,28 @@ within the ionosphere.
 const WAVEFIELD_HEIGHTS = range(TOPHEIGHT, 0, length=513)
 
 """
-    Wavefields{T}
+    Wavefields
 
 Struct containing wavefield components for each mode of `eas` and heights `zs`.
 
-The `Wavefields` are stored in the `v` field and accessed as a `Matrix` of `SVector{6,T}`
+The `Wavefields` are stored in the `v` field and accessed as a `Matrix` of `SVector{6,ComplexF64}`
 corresponding to `wavefields[height,mode]`.
-
-`T` is the type of the wavefields.
 """
-struct Wavefields{T}
-    v::Matrix{SVector{6,T}}  # v[height,mode]  ; type is derived from typeof T, which is from M
+struct Wavefields
+    v::Matrix{SVector{6,ComplexF64}}  # v[height,mode]  ; type is derived from typeof T, which is from M
     eas::Vector{EigenAngle}
 end
 
 """
-    Wavefields{T}(eas::Vector{EigenAngle})
+    Wavefields(eas::Vector{EigenAngle})
 
 A constructor for `Wavefields` which creates appropriately sized `undef` vectors
 given eigenangles `eas` and `WAVEFIELD_HEIGHTS`. Wavefield type `T` must be provided
 explicitly.
 """
-function Wavefields{T}(eas::Vector{EigenAngle}) where {T}
-    v = Matrix{SVector{6,T}}(undef, length(WAVEFIELD_HEIGHTS), length(eas))
-    Wavefields{T}(v, eas)
+function Wavefields(eas::Vector{EigenAngle})
+    v = Matrix{SVector{6,ComplexF64}}(undef, length(WAVEFIELD_HEIGHTS), length(eas))
+    Wavefields(v, eas)
 end
 
 Base.size(A::Wavefields) = size(A.v)
@@ -37,8 +35,8 @@ Base.size(A::Wavefields, I...) = size(A.v, I...)
 Base.getindex(A::Wavefields, i) = A.v[i]
 Base.getindex(A::Wavefields, I...) = A.v[I...]
 Base.setindex!(A::Wavefields, x, i) = (A.v[i] = x)
-Base.similar(A::Wavefields{T}) where {T} = Wavefields{T}(A.eas)
-Base.copy(A::Wavefields{T}) where {T} = Wavefields{T}(copy(A.v), copy(A.eas))
+Base.similar(A::Wavefields) = Wavefields(A.eas)
+Base.copy(A::Wavefields) = Wavefields(copy(A.v), copy(A.eas))
 Base.view(A::Wavefields, I...) = view(A.v, I...)
 
 function (==)(A::Wavefields, B::Wavefields)
@@ -62,25 +60,26 @@ numeigenangles(A::Wavefields) = length(A.eas)
 
 
 """
-    WavefieldIntegrationParams{T1,T2,F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency, bfield, species)
+    WavefieldIntegrationParams{F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency,
+                                    bfield, species)
 
 Parameters passed to Pitteway integration of wavefields.
 
-    `z::T1`
-    `ortho_scalar::Complex{T2}`
-    `e1_scalar::T2`
-    `e2_scalar::T2`
+    `z::Float64`
+    `ortho_scalar::Complex{Float64}`
+    `e1_scalar::Float64`
+    `e2_scalar::Float64`
     `ea::EigenAngle`
     `frequency::Frequency`
     `bfield::BField`
     `species::Species{F,G}`
 """
-struct WavefieldIntegrationParams{T1,T2,F,G}
-    z::T1
-    bottomz::T1
-    ortho_scalar::Complex{T2}
-    e1_scalar::T2
-    e2_scalar::T2
+struct WavefieldIntegrationParams{F,G}
+    z::Float64
+    bottomz::Float64
+    ortho_scalar::ComplexF64
+    e1_scalar::Float64
+    e2_scalar::Float64
     ea::EigenAngle
     frequency::Frequency
     bfield::BField
@@ -88,44 +87,35 @@ struct WavefieldIntegrationParams{T1,T2,F,G}
 end
 
 """
-    WavefieldIntegrationParams{T}(ea, frequency, bfield, species)
+    WavefieldIntegrationParams(ea, frequency, bfield, species)
 
-Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled
-integration. Requires the parameter `T`, which should be the wavefield type
-(usually `Complex{Float64}`).
+Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
 
 Automatically set values are:
 
     `z = TOPHEIGHT`
-    `ortho_scalar = zero(complex(T2))`
-    `e1_scalar = one(real(T2))`
-    `e2_scalar = one(real(T2))`
-
-`ortho_scalar` will always be complex and `e1_scalar` and `e2_scalar` will
-always be real, so it is sufficient for `Float64` to be provided as `T` even
-for complex wavefields.
+    `ortho_scalar = zero(ComplexF64)`
+    `e1_scalar = one(Float64)`
+    `e2_scalar = one(Float64)`
 """
-function WavefieldIntegrationParams{T}(ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species{F,G}) where {T,F,G}
-    return WavefieldIntegrationParams{typeof(TOPHEIGHT),real(T),F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(complex(T)), one(real(T)), one(real(T)), ea, frequency, bfield, species)
+function WavefieldIntegrationParams(ea::EigenAngle, frequency::Frequency, bfield::BField,
+                                    species::Species{F,G}) where {F,G}
+    return WavefieldIntegrationParams{F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(ComplexF64),
+        one(Float64), one(Float64), ea, frequency, bfield, species)
 end
 
 """
-    ScaleRecord{T1,T2}(z, e, ortho_scalar, e1_scalar, e2_scalar)
+    ScaleRecord(z, e, ortho_scalar, e1_scalar, e2_scalar)
 
-Struct used for saving wavefield scaling information during Pitteway integration
-of wavefields.
-
-!!! note
-
-    `T2` must be real, so `ScaleRecord` would have type, e.g.
-    `ScaleRecord{eltype(zs), real(eltype(e0))}`
+Struct used for saving wavefield scaling information during Pitteway integration of
+wavefields.
 """
-struct ScaleRecord{T1,T2<:Real}
-    z::T1
-    e::SMatrix{4,2,Complex{T2},8}
-    ortho_scalar::Complex{T2}
-    e1_scalar::T2
-    e2_scalar::T2
+struct ScaleRecord
+    z::Float64
+    e::SMatrix{4,2,Complex{Float64},8}
+    ortho_scalar::Complex{Float64}
+    e1_scalar::Float64
+    e2_scalar::Float64
 end
 
 """
@@ -138,6 +128,8 @@ Calculate the initial wavefields vector ``[Ex₁ Ex₂
 for the two upgoing wavefields where subscript `1` is the evanescent wave and
 `2` is the travelling wave.
 
+The wavefields are always of type `Complex{Float64}`.
+
 This function solves the equation ``Te = qe``, equivalently the eigenvector
 problem ``(T- qI)e = 0``. First, the Booker Quartic is solved for the roots `q`,
 and they are sorted so that the roots associated with the two upgoing waves are
@@ -145,7 +137,7 @@ selected, where eigenvalue ``q₁`` corresponds to the evanescent wave and ``q�
 the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
-function initialwavefields(T::TMatrix{T1}) where T1
+function initialwavefields(T::TMatrix)
     # TODO: rename to bookerwavefields?
 
     q, B = bookerquartic(T)
@@ -156,10 +148,7 @@ function initialwavefields(T::TMatrix{T1}) where T1
     T14T42 = T[1,4]*T[4,2]
     T12T41 = T[1,2]*T[4,1]
 
-    # Temporary MArray for filling in wavefields
-    # (04/2020) Somehow, this is slightly faster than hard coding the 1s and 2s
-    e = MArray{Tuple{4,2},T1,2,8}(undef)
-
+    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
     @inbounds for i = 1:2
         d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
         dinv = inv(d)
@@ -322,7 +311,6 @@ Assumes fields have been scaled by [`scalewavefields`](@ref) during integration.
 See also [`unscalewavefields`](@ref) for additional details.
 """
 function unscalewavefields!(e, saved_values::SavedValues)
-
     zs = saved_values.t
     records = saved_values.saveval
 
@@ -347,10 +335,6 @@ function unscalewavefields!(e, saved_values::SavedValues)
 
         z = zs[i]
 
-        # TODO: `zs[i]` and `records[i].e` dominate the entire funtcion runtime
-        # Due to iterating in reverse? Need to investigate. Possibly reverse the
-        # arrays first but would then need to reverse output
-
         # Only update ref_z when there is both:
         # 1) we have reached the height where a new ref_z should go into effect
         # 2) there is a new ref_z
@@ -363,7 +347,7 @@ function unscalewavefields!(e, saved_values::SavedValues)
             prod_e2 *= e2_scalar
         end
 
-        if i == lastindex(e)  # == [end]
+        if i == lastindex(e)
             # Bottom doesn't require correction
             e[i] = scaled_e
         elseif z > ref_z
@@ -383,23 +367,19 @@ end
 """
     unscalewavefields(saved_values::SavedValues)
 
-Return the unscaled integrated wavefields originally scaled by
-[`scalewavefields`](@ref).
+Return the unscaled integrated wavefields originally scaled by [`scalewavefields`](@ref).
 
-The fields are not "unscaled" so much as further scaled so that at all heights
-the fields are scaled similarly to the cumulative scaling that applied to the
-fields at the bottom.
+The fields are not "unscaled" so much as further scaled so that at all heights the fields
+are scaled similarly to the cumulative scaling that applied to the fields at the bottom.
 
-The bottom level does not get unscaled. We reference the higher levels to the
-bottom. The level above the bottom level needs to be additionally scaled by the
-amount that was applied to originally get from this level down to the bottom
-level. The next level up (2 above the bottom level) needs to be scaled by the
-amount applied to the next level and then the bottom level, i.e. we keep track
-of a cumulative correction on the way back up.
+The bottom level does not get unscaled. We reference the higher levels to the bottom. The
+level above the bottom level needs to be additionally scaled by the amount that was applied
+to originally get from this level down to the bottom level. The next level up (2 above the
+bottom level) needs to be scaled by the amount applied to the next level and then the bottom
+level, i.e. we keep track of a cumulative correction on the way back up.
 """
 function unscalewavefields(saved_values::SavedValues)
-    # Array of SArray{Tuple{4,2}, Complex{Float64}}
-    e = Vector{typeof(saved_values.saveval[1].e)}(undef, length(saved_values.saveval))
+    e = Vector{SArray{Tuple{4,2},Complex{Float64},2,8}}(undef, length(saved_values.saveval))
 
     unscalewavefields!(e, saved_values)
 
@@ -427,13 +407,12 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # This is independent of `saveat` and `save_everystep`
     cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
 
-    saved_values = SavedValues(eltype(zs), ScaleRecord{eltype(zs), real(eltype(e0))})
+    saved_values = SavedValues(Float64, ScaleRecord)
 
-    scb = SavingCallback(save_values, saved_values,
-                         save_everystep=false, saveat=zs,
+    scb = SavingCallback(save_values, saved_values, save_everystep=false, saveat=zs,
                          tdir=sign(last(zs)-first(zs)))
 
-    p = WavefieldIntegrationParams{eltype(e0)}(ea, frequency, bfield, species)
+    p = WavefieldIntegrationParams(ea, frequency, bfield, species)
 
     # (May 5, 2020) DifferentialEquations chooses Vern9(false) on daytime Wait
     # profile. But Vern6, 7, or 8 are likely more efficient since the stiff
@@ -450,9 +429,6 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
 
     return e
 end
-
-# TODO: automatically determine dz, ensure it ends at 0.0
-integratewavefields(ea, frequency, bfield, species) = integratewavefields(TOPHEIGHT:-250:BOTTOMHEIGHT, ea, frequency, bfield, species)
 
 """
     vacuumreflectioncoeffs(ea, e1, e2)
@@ -534,8 +510,7 @@ This process is used by LWPC ("wf_bndy.FOR") and is similar to the calculation o
 factor at the ground because it makes use of the mode condition.
 """
 function boundaryscalars(R, Rg, e1, e2, isotropic=false)
-    # This process is similar to excitation factor calculation, using the
-    # waveguide mode condition
+    # This is similar to excitation factor calculation, using the waveguide mode condition
 
     ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]
     ex2, ey2, hx2, hy2 = e2[1], -e2[2], e2[3], e2[4]

@@ -1,7 +1,7 @@
 function randomwavefields()
     modes = EigenAngle.(rand(ComplexF64, 10))
 
-    wavefields = LWMS.Wavefields{ComplexF64}(modes)
+    wavefields = LWMS.Wavefields(modes)
 
     return wavefields
 end
@@ -16,7 +16,7 @@ function wavefields_test(scenario)
     origcoords = LWMS.defaultcoordinates(tx.frequency)
     modes = LWMS.findmodes(modeequation, origcoords)
 
-    wavefields = LWMS.Wavefields{ComplexF64}(modes)
+    wavefields = LWMS.Wavefields(modes)
 
     return isvalid(wavefields)
 end

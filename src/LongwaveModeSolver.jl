@@ -193,12 +193,8 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler, or
 
     numsegments = length(waveguide)
 
-    # Predetermine types
-    Mtype = eltype(susceptibility(TOPHEIGHT, tx.frequency, waveguide[1]))
-    wftype = promote_type(Mtype, ComplexF64)  # ComplexF64 is type of EigenAngle
-
-    wavefields_vec = Vector{Wavefields{wftype}}(undef, numsegments)
-    adjwavefields_vec = Vector{Wavefields{wftype}}(undef, numsegments)
+    wavefields_vec = Vector{Wavefields}(undef, numsegments)
+    adjwavefields_vec = Vector{Wavefields}(undef, numsegments)
 
     # Calculate wavefields and adjoint wavefields for each segment of waveguide
     for nsgmnt in 1:numsegments
@@ -215,8 +211,8 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler, or
         adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
 
         # TODO< just empty and resize the Wavefields
-        wavefields = Wavefields{wftype}(modes)
-        adjwavefields = Wavefields{wftype}(modes)
+        wavefields = Wavefields(modes)
+        adjwavefields = Wavefields(modes)
 
         calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg)
 
