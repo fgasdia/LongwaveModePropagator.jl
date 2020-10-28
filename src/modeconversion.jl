@@ -1,59 +1,42 @@
 """
 this function takes just 1 mode conversion step
-
 """
-function modeconversion(previous_wavefields::Wavefields{T},
-                        wavefields::Wavefields{T}, adjwavefields::Wavefields{T}) where {T}
+function modeconversion(previous_wavefields::Wavefields,
+                        wavefields::Wavefields,
+                        adjoint_wavefields::Wavefields)
 
-    @assert numheights(previous_wavefields) == numheights(wavefields)
-
-    # TODO: Assuming `length(zs)` is always the same, we can reuse `product` b/t calls
-    product = Vector{T}(undef, numheights(wavefields))
+    product = Vector{ComplexF64}(undef, length(WAVEFIELD_HEIGHTS))
+    pproduct = similar(product)
 
     modes = eigenangles(wavefields)
-    adjmodes = eigenangles(adjwavefields)
+    adjmodes = eigenangles(adjoint_wavefields)
     prevmodes = eigenangles(previous_wavefields)
 
     modes == adjmodes || @warn "Full mode conversion physics assumes adjoint
         wavefields are calculated for eigenangles of the original waveguide."
 
-    nummodes = length(modes)
-    numadjmodes = length(adjmodes)
-    numprevmodes = length(prevmodes)
-
-    # Calculate _inverse_ normalization terms, 1/N
-    # the inverse is more efficient because we would otherwise repeatedly divide
-    # by N later.
-    # Ideally ``N = 1``, but doesn't because we can't integrate over all space and
-    # instead integrate from 0 to TOPHEIGHT
-    invN = Vector{T}(undef, nummodes)
-    for m in eachindex(modes)
-        for i in eachindex(WAVEFIELD_HEIGHTS)
-            @inbounds f = wavefields[i,m][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-            @inbounds g = SVector{4}(adjwavefields[i,m][6], -adjwavefields[i,m][5], -adjwavefields[i,m][3], adjwavefields[i,m][2])  # Hz, -Hy, -Ez, Ey
-            product[i] = transpose(g)*f
-        end
-
-        N = romberg(WAVEFIELD_HEIGHTS, product)
-        invN[m] = inv(N)
-    end
-
-    # TODO: because nummodes = numadjmodes, we don't need to have two sets of loops
-    # we can just have a scalar N, but will need to flip dimensions of `a` to
-    # write down column first. Also, we would then need two product vectors, which
-    # are relatively large
+    nmodes = length(modes)
+    nprevmodes = length(prevmodes)
 
     # `a` is total conversion
-    a = Matrix{T}(undef, numadjmodes, numprevmodes)
-    for k in eachindex(prevmodes)
-        for m in eachindex(adjmodes)
+    a = Matrix{ComplexF64}(undef, nprevmodes, nmodes)
+    for n in eachindex(modes)  # modes == adjmodes
+        for m in eachindex(prevmodes)
             for i in eachindex(WAVEFIELD_HEIGHTS)
-                @inbounds f = previous_wavefields[i,k][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-                @inbounds g = SVector{4}(adjwavefields[i,m][6], -adjwavefields[i,m][5], -adjwavefields[i,m][3], adjwavefields[i,m][2])  # Hz, -Hy, -Ez, Ey
-                product[i] = transpose(g)*f
+                @inbounds f = wavefields[i,n][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
+                @inbounds fp = previous_wavefields[i,m][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
+                @inbounds g = SVector{4}(adjoint_wavefields[i,n][6],
+                                         -adjoint_wavefields[i,n][5],
+                                         -adjoint_wavefields[i,n][3],
+                                         adjoint_wavefields[i,n][2])  # Hz, -Hy, -Ez, Ey
+
+                gtranspose = transpose(g)
+                product[i] = gtranspose*f
+                pproduct[i] = gtranspose*fp
             end
-            I = romberg(WAVEFIELD_HEIGHTS, product)
-            @inbounds a[m,k] = I*invN[m]
+            N = romberg(WAVEFIELD_HEIGHTS, product)  # normalization
+            I = romberg(WAVEFIELD_HEIGHTS, pproduct)
+            @inbounds a[m,n] = I/N
         end
     end
 

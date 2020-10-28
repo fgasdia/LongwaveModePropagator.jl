@@ -481,7 +481,7 @@ function Efield(
                 # Otherwise, mode conversion of transmitted fields
                 xmtrfields_sum = zero(ComplexF64)
                 for m = 1:previous_eacount
-                    xmtrfields_sum += previous_xmtrfields[m]*conversioncoeffs[n,m]  # TODO: swap conversioncoeffs n,m?
+                    xmtrfields_sum += previous_xmtrfields[m]*conversioncoeffs[m,n]
                 end
                 xmtrfields[n] = xmtrfields_sum
             end
