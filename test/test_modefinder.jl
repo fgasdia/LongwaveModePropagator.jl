@@ -214,8 +214,8 @@ function integratedreflection_deriv(scenario)
 
         # Rref.(θs) !≈ R.(θs) because of difference in integration tolerance.
         # For very large Rs, the difference can be significant, therefore we use rtol
-        isapprox(R, Rr, rtol=1e-4) || return false
-        isapprox(dR, dRr, rtol=1e-3) || return false
+        isapprox(R, Rr, rtol=1e-2) || return false
+        isapprox(dR, dRr, rtol=1e-2) || return false
     end
 
     return true
@@ -256,7 +256,7 @@ function modalequation_deriv(scenario)
         dFs[i] = dFdθ
     end
 
-    return isapprox(dFs, dFref, rtol=1e-3)
+    return isapprox(dFs, dFref, rtol=1e-2)
 end
 
 ########
