@@ -26,7 +26,7 @@ end
 
 const INTEGRATION_PARAMS = Ref{IntegrationParams}()
 get_integration_params() = INTEGRATION_PARAMS[]
-set_integration_params() = INTEGRATION_PARAMS[] = IntegrationParams(1e-7, BS5)
+set_integration_params() = INTEGRATION_PARAMS[] = IntegrationParams(1e-6, BS5)
 set_integration_params(p::IntegrationParams) = INTEGRATION_PARAMS[] = p
 
 const GRPF_PARAMS = Ref{GRPFParams}()
