@@ -188,10 +188,8 @@ function integratedreflection_deriv(scenario)
 
     @info "    Integrating dR/dz for many eigenangles. This may take a minute."
 
-    # params = LWMS.IntegrationParams(1e-8, LWMS.BS5)
-    params = LWMS.get_integration_params()
-    Rref(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, params=params))
-    RdR(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, LWMS.Dθ(), params=params))
+    Rref(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m))
+    RdR(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, LWMS.Dθ()))
 
     Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(Rs)

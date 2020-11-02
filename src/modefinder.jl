@@ -19,15 +19,11 @@ PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.frequency, p.waveguide)
 
-struct IntegrationParams
+struct IntegrationParams{T}
     tolerance::Float64
-    solver::DataType
+    solver::T
 end
-
-const INTEGRATION_PARAMS = Ref{IntegrationParams}()
-get_integration_params() = INTEGRATION_PARAMS[]
-set_integration_params() = INTEGRATION_PARAMS[] = IntegrationParams(1e-6, BS5)
-set_integration_params(p::IntegrationParams) = INTEGRATION_PARAMS[] = p
+const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-6, BS5())
 
 const GRPF_PARAMS = Ref{GRPFParams}()
 get_grpf_params() = GRPF_PARAMS[]
@@ -420,8 +416,8 @@ function dRdθdz(RdRdθ, modeequation, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(modeequation::PhysicalModeEquation;
-    params::IntegrationParams=get_integration_params()) where T
+function integratedreflection(modeequation::PhysicalModeEquation,
+    params::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where T
 
     @unpack tolerance, solver = params
 
@@ -443,7 +439,7 @@ function integratedreflection(modeequation::PhysicalModeEquation;
     ==#
 
     # NOTE: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, solver(), abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -455,8 +451,8 @@ end
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ;
-    params::IntegrationParams=get_integration_params()) where T
+function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
+    params::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where T
 
     @unpack tolerance, solver = params
 
@@ -467,7 +463,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ;
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
-    sol = solve(prob, solver(), abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -572,25 +568,30 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(modeequation::PhysicalModeEquation)
-    R = integratedreflection(modeequation)
+function solvemodalequation(modeequation::PhysicalModeEquation,
+    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+
+    R = integratedreflection(modeequation, integrationparams)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
     return f
 end
-function solvemodalequation(θ, modeequation::PhysicalModeEquation)
+function solvemodalequation(θ, modeequation::PhysicalModeEquation,
+    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation)
+    solvemodalequation(modeequation, integrationparams)
 end
 
 """
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ)
-    RdR = integratedreflection(modeequation, Dθ())
+function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
+    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+
+    RdR = integratedreflection(modeequation, Dθ(), integrationparams)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
@@ -599,19 +600,23 @@ function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ)
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg
 end
-function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ)
+function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ,
+    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, Dθ())
+    solvemodalequation(modeequation, Dθ(), integrationparams)
 end
 
-function findmodes(modeequation::ModeEquation, origcoords; grpfparams::GRPFParams=get_grpf_params())
+function findmodes(modeequation::ModeEquation, origcoords;
+    grpfparams::GRPFParams=get_grpf_params(),
+    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation), origcoords, grpfparams)
+    roots, poles = grpf(θ->solvemodalequation(θ, modeequation, integrationparams),
+                        origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
     filterroots!(roots, modeequation)

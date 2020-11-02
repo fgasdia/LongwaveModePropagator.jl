@@ -55,7 +55,7 @@ const EARTHCURVATURE = Ref(true)  # TODO: where does this need to be considered?
 get_earthcurvature() = EARTHCURVATURE[]
 set_earthcurvature(v::Bool) = EARTHCURVATURE[] = v
 
-export get_integration_params, set_integration_params, get_grpf_params, set_grpf_params
+export get_grpf_params, set_grpf_params
 export get_earthcurvature, set_earthcurvature
 
 struct Dθ end
@@ -63,7 +63,6 @@ struct Dθ end
 # Initialize Refs to default. This is atuomatically executed after loading module.
 function __init__()
     set_earthcurvature(true)
-    set_integration_params()
     set_grpf_params()
 end
 

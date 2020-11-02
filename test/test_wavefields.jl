@@ -115,12 +115,12 @@ function drdzwavefield_equivalence_test(scenario)
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    @unpack tolerance, solver = LWMS.get_integration_params()
+    @unpack tolerance, solver = LWMS.DEFAULT_INTEGRATIONPARAMS
 
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, waveguide)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
     prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), modeequation)
-    sol = solve(prob, solver(), abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
                 saveat=zs, save_everystep=false)
 
     return all(isapprox.(wavefieldRs, sol.u, rtol=1e-2))
