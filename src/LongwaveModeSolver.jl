@@ -87,57 +87,43 @@ include("modesum.jl")
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
-        Zb = deg2rad(complex(0.0, -10.0))
+        Zb = deg2rad(complex(30.0, -10.0))
         Ze = deg2rad(complex(89.9, 0.0))
         d = deg2rad(60)
-        Δr = deg2rad(0.5)
-        origcoords = eiwgdomain(Zb, Ze, d, Δr)
+        Δr = deg2rad(0.4)
+        coordgrid = eiwgdomain(Zb, Ze, d, Δr)
     else
         Zb = deg2rad(complex(0.0, -30.0))
         Ze = deg2rad(complex(89.9, 0.0))
         Δr = deg2rad(1.0)
-        origcoords = uppertriangularrectdomain(Zb, Ze, Δr)
+        coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
     end
 
-    return origcoords
+    return coordgrid
 end
 defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
-"""
-    bpm(waveguide::HomogeneousWaveguide, tx, rx)
-
-Return electric field `E`, and field `amplitude` and `phase` using parameters:
-
-    - `defaultcoordinates` for GRPF region
-    - `PhysicalModeEquation`
-"""
-function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler)
-    origcoords = defaultcoordinates(tx.frequency.f)
-    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    # grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
-
-    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-
-    E, amp, phase = bpm(waveguide, tx, rx, origcoords, modeequation)
-
-    return E, amp, phase
-end
 
 """
-    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}, origcoords,
-    modeequation) where {R<:Real}
+    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}; coordgrid=nothing) where {R<:Real}
 
 Specialized form for `AbstractSampler`s with a single distance which returns
 scalar `E`, `amp`, and `phase`.
 """
-function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R},
-    origcoords, modeequation::ModeEquation) where {R<:Real}
-    if minimum(imag(origcoords)) < deg2rad(-31)
-        @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
-            calculated with modified Hankel functions to overflow."
+function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R};
+    coordgrid=nothing) where {R<:Real}
+
+    if isnothing(coordgrid)
+        coordgrid = defaultcoordinates(tx.frequency)
+    else
+        if minimum(imag(coordgrid)) < deg2rad(-31)
+            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+                calculated with modified Hankel functions to overflow."
+        end
     end
 
-    modes = findmodes(modeequation, origcoords)
+    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
+    modes = findmodes(modeequation, coordgrid)
 
     E = Efield(modes, waveguide, tx, rx)
     amp = 10log10(abs2(E))  # == 20log10(abs(E))
@@ -146,14 +132,28 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
     return E, amp, phase
 end
 
-function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
-    origcoords, modeequation::ModeEquation)
-    if minimum(imag(origcoords)) < deg2rad(-31)
-        @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
-            calculated with modified Hankel functions to overflow."
+"""
+    bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing)
+
+Return electric field `E`, and field `amplitude` and `phase` using parameters:
+
+    - `defaultcoordinates` for GRPF region
+    - `PhysicalModeEquation`
+"""
+function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+    coordgrid=nothing)
+
+    if isnothing(coordgrid)
+        coordgrid = defaultcoordinates(tx.frequency)
+    else
+        if minimum(imag(coordgrid)) < deg2rad(-31)
+            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+                calculated with modified Hankel functions to overflow."
+        end
     end
 
-    modes = findmodes(modeequation, origcoords)
+    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
+    modes = findmodes(modeequation, coordgrid)
 
     E = Efield(modes, waveguide, tx, rx)
 
@@ -176,18 +176,17 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler,
     return E, amp, phase
 end
 
-function bpm(waveguide::SegmentedWaveguide, tx, rx)
-    origcoords = defaultcoordinates(tx.frequency)
-    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    # grpfparams = GRPFParams(est_num_nodes, 1e-6, true)
 
-    E, amp, phase = bpm(waveguide, tx, rx, origcoords)
-end
+function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
+    coordgrid=nothing)
 
-function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler, origcoords)
-    if minimum(imag(origcoords)) < deg2rad(-31)
-        @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
-            calculated with modified Hankel functions to overflow."
+    if isnothing(coordgrid)
+        coordgrid = defaultcoordinates(tx.frequency)
+    else
+        if minimum(imag(coordgrid)) < deg2rad(-31)
+            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+                calculated with modified Hankel functions to overflow."
+        end
     end
 
     numsegments = length(waveguide)
@@ -201,7 +200,7 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler, or
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(modeequation, origcoords)
+        modes = findmodes(modeequation, coordgrid)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -241,11 +240,13 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler, or
 end
 
 """
-    bpm(filename::AbstractString)
+    bpm(filename::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing)
 
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
-function bpm(file::AbstractString; incrementalwrite=false, append=false)
+function bpm(file::AbstractString;
+    incrementalwrite=false, append=false, coordgrid=nothing)
+
     ispath(file) || error("$file is not a valid file name")
 
     # Save output
@@ -257,9 +258,9 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false)
     s = parse(file)
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for BatchInput files"))
-        output = buildrunsave(outfile, s, append=append)
+        output = buildrunsave(outfile, s, append=append, coordgrid=coordgrid)
     else
-        output = buildrun(s)
+        output = buildrun(s, coordgrid=coordgrid)
 
         json_str = JSON3.write(output)
 

@@ -22,8 +22,9 @@ setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.freq
 struct IntegrationParams{T}
     tolerance::Float64
     solver::T
+    force_dtmin::Bool
 end
-const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-6, BS5())
+const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-6, BS5(), false)
 
 const GRPF_PARAMS = Ref{GRPFParams}()
 get_grpf_params() = GRPF_PARAMS[]
@@ -419,7 +420,7 @@ end
 function integratedreflection(modeequation::PhysicalModeEquation,
     params::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where T
 
-    @unpack tolerance, solver = params
+    @unpack tolerance, solver, force_dtmin = params
 
     Mtop = susceptibility(TOPHEIGHT, modeequation)
     Rtop = sharpboundaryreflection(modeequation.ea, Mtop)
@@ -440,6 +441,7 @@ function integratedreflection(modeequation::PhysicalModeEquation,
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+                force_dtmin=force_dtmin,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -454,7 +456,7 @@ end
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
     params::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where T
 
-    @unpack tolerance, solver = params
+    @unpack tolerance, solver, force_dtmin = params
 
     Mtop = susceptibility(TOPHEIGHT, modeequation)
     RdRdθtop = sharpboundaryreflection(modeequation.ea, Mtop, Dθ())
@@ -464,6 +466,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+                force_dtmin=force_dtmin,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -600,6 +603,7 @@ function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
     df = modalequationdθ(R, dR, Rg, dRg)
     return df, R, Rg
 end
+
 function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ,
     integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
     # Convenience function for `grpf`
@@ -633,7 +637,7 @@ end
 """
     triangulardomain(Za, Zb, Zc, Δr)
 
-Generate initial mesh node coordinates for a *grid-aligned right* triangle domain
+Generate initial mesh node coordinates for a grid-aligned right triangle domain
 ∈ {`Za`, `Zb`, `Zc`} with initial mesh step `Δr`.
 
 This function generates a mesh grid for particular right triangles where two
@@ -681,32 +685,21 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     X = rZb - rZa
     Y = abs(iZa - iZc)
 
-    n = ceil(Int, Y/Δr + 1)
-    dy = Y/(n-1)
-    half_dy = dy/2
+    n = ceil(Int, Y/Δr)
+    dy = Y/n
 
-    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4) + 1)
-    dx = X/(m-1)
+    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
+    dx = X/m
 
     # precalculate
-    mn = m*n
     slope = Y/X
 
     v = Vector{complex(typeof(dx))}()
-
-    on = false
-    for j = 0:m-1  # col
-        for i = 0:n-1  # row (we're traversing down column)
+    for j = 0:m  # col
+        for i = 0:n  # row (we're traversing down column)
 
             x = rZa + dx*j
             y = iZc + dy*i
-
-            if (i+1) == n
-                on = !on
-            end
-            if on
-                y -= half_dy
-            end
 
             if y >= (iZc + slope*(x - rZa))
                 push!(v, complex(x, y))
@@ -720,7 +713,7 @@ end
 """
     eiwgdomain(Zb, Ze, d, Δr)
 
-This generates a vector of complex coordinates as a rectangulardomain with Δr on the left
+Generate a vector of complex coordinates as a rectangulardomain with Δr on the left
 and a uppertriangularrectdomain with Δr/5 on the right. The transition occurs at `d` in real.
 """
 function eiwgdomain(Zb, Ze, d, Δr)
@@ -737,6 +730,38 @@ function eiwgdomain(Zb, Ze, d, Δr)
     return origcoords
 end
 
+function uppertriangularrectdomain(Zb::Complex, Ze::Complex, dx, dy)
+    rZb, iZb = reim(Zb)
+    rZe, iZe = reim(Ze)
+
+    # Determine `dx` and `dy`
+    X = rZe - rZb
+    Y = abs(iZe - iZb)
+
+    n = ceil(Int, Y/dy)
+    dy = Y/n
+
+    m = ceil(Int, X/sqrt(dx^2 - dy^2/4))
+    dx = X/m
+
+    slope = 1  # 45° angle
+
+    v = Vector{complex(typeof(X))}()
+    for j = 0:m  # col
+        x = rZb + dx*j
+
+        for i = 0:n  # row (we're traversing down column)
+            y = iZb + dy*i
+
+            if x <= (rZe - (iZe - y)/slope)
+                push!(v, complex(x, y))
+            end
+        end
+    end
+
+    return v
+end
+
 function uppertriangularrectdomain(Zb::Complex, Ze::Complex, Δr)
     rZb, iZb = reim(Zb)
     rZe, iZe = reim(Ze)
@@ -745,30 +770,20 @@ function uppertriangularrectdomain(Zb::Complex, Ze::Complex, Δr)
     X = rZe - rZb
     Y = abs(iZe - iZb)
 
-    n = trunc(Int, cld(Y, Δr) + 1)
-    dy = Y/(n-1)
-    half_dy = dy/2
+    n = ceil(Int, Y/Δr)
+    dy = Y/n
 
-    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4) + 1)
-    dx = X/(m-1)
+    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
+    dx = X/m
 
     slope = 1  # 45° angle
 
     v = Vector{complex(typeof(X))}()
-
-    on = false
-    for j = 0:m-1  # col
+    for j = 0:m  # col
         x = rZb + dx*j
 
-        for i = 0:n-1  # row (we're traversing down column)
+        for i = 0:n  # row (we're traversing down column)
             y = iZb + dy*i
-
-            if (i+1) == n
-                on = !on
-            end
-            if on
-                y -= half_dy
-            end
 
             if x <= (rZe - (iZe - y)/slope)
                 push!(v, complex(x, y))

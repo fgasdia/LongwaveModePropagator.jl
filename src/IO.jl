@@ -263,7 +263,7 @@ function parse(file, t::Type{<:Output})
     matched ? filecontents : nothing
 end
 
-function buildrun(s::BasicInput)
+function buildrun(s::BasicInput; coordgrid=nothing)
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
@@ -288,7 +288,7 @@ function buildrun(s::BasicInput)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx)
+    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid)
 
     output = BasicOutput()
     output.name = s.name
@@ -305,7 +305,7 @@ function buildrun(s::BasicInput)
     return output
 end
 
-function buildrun(s::TableInput)
+function buildrun(s::TableInput; coordgrid=nothing)
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
@@ -332,7 +332,7 @@ function buildrun(s::TableInput)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx)
+    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid)
 
     output = BasicOutput()
     output.name = s.name
@@ -349,21 +349,21 @@ function buildrun(s::TableInput)
     return output
 end
 
-function buildrun(s::BatchInput)
+function buildrun(s::BatchInput; coordgrid=nothing)
     batch = BatchOutput{BasicOutput}()
     batch.name = s.name
     batch.description = s.description
     batch.datetime = Dates.now()
 
     for i in eachindex(s.inputs)
-        output = buildrun(s.inputs[i])
+        output = buildrun(s.inputs[i], coordgrid=coordgrid)
         push!(batch.outputs, output)
     end
 
     return batch
 end
 
-function buildrunsave(outfile, s::BatchInput; append=false)
+function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing)
     if append
         batch = open(outfile, "r") do f
             v = JSON3.read(f, BatchOutput{BasicOutput})
@@ -394,7 +394,7 @@ function buildrunsave(outfile, s::BatchInput; append=false)
             continue
         end
 
-        output = buildrun(s.inputs[i])
+        output = buildrun(s.inputs[i], coordgrid=coordgrid)
         push!(batch.outputs, output)
 
         json_str = JSON3.write(batch)
