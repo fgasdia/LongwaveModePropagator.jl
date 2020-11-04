@@ -24,7 +24,7 @@ struct IntegrationParams{T}
     solver::T
     force_dtmin::Bool
 end
-const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-6, BS5(), false)
+const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-6, OwrenZen5(), false)
 
 const GRPF_PARAMS = Ref{GRPFParams}()
 get_grpf_params() = GRPF_PARAMS[]
@@ -791,16 +791,5 @@ function uppertriangularrectdomain(Zb::Complex, Ze::Complex, Δr)
         end
     end
 
-    return v
-end
-
-# TODO: Finish this function
-function targetdomain(modes::Vector{T}, delta::T, Δr) where {T<:Complex}
-    v = Vector{T}(undef)
-    for i in eachindex(modes)
-        zb = v[i] - delta
-        ze = v[i] + delta
-        append!(rectangulardomain(zb, ze, Δr))
-    end
     return v
 end

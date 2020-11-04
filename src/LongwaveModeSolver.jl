@@ -84,6 +84,7 @@ include("modefinder.jl")
 include("magnetoionic.jl")
 include("modesum.jl")
 
+
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
@@ -102,7 +103,6 @@ function defaultcoordinates(frequency)
     return coordgrid
 end
 defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
-
 
 """
     bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}; coordgrid=nothing) where {R<:Real}
