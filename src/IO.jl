@@ -364,7 +364,7 @@ function buildrun(s::BatchInput; coordgrid=nothing)
 end
 
 function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing)
-    if append
+    if append && isfile(outfile)
         batch = open(outfile, "r") do f
             v = JSON3.read(f, BatchOutput{BasicOutput})
             return v
