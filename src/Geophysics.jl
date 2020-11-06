@@ -193,7 +193,7 @@ end
     electroncollisionfrequency(z; cutoff_low=0)
 
 Return the electron-neutral collision frequency (s⁻¹) at altitude `z` (m) based
-on Wait's conductivity profile. When `z` is below `cutoff_low` (m), return 0.
+on Wait's conductivity profile. When `z` is below `cutoff_low` (m), return `1.816e11`.
 
 ``νₑ(z) = 1.816 × 10¹¹ \\exp(-0.15e-3 z)``
 
@@ -216,7 +216,7 @@ function electroncollisionfrequency(z; cutoff_low=0)
     if z > cutoff_low
         return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
     else
-        return zero(promote_type(Float64, typeof(z)))
+        return convert(promote_type(Float64, typeof(z)), 1.816e11)
     end
 end
 
@@ -224,7 +224,7 @@ end
     ioncollisionfrequency(z; cutoff_low=0)
 
 Return ion-neutral collision frequency (s⁻¹) at height `z` (m) from [^Morfitt1976].
-When `z` is below `cutoff_low` (m), return 0.
+When `z` is below `cutoff_low` (m), return `4.54e9`.
 
 ``νᵢ(z) = 4.54 × 10⁹ \\exp(-0.15e-3 z)``
 
@@ -244,6 +244,6 @@ function ioncollisionfrequency(z; cutoff_low=0)
     if z > cutoff_low
         return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
     else
-        return zero(promote_type(Float64, typeof(z)))
+        return convert(promote_type(Float64, typeof(z)), 4.54e9)
     end
 end
