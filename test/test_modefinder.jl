@@ -354,8 +354,6 @@ function modefinder(scenario)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
 
     origcoords = LWMS.defaultcoordinates(tx.frequency)
-    # est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    # grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-8, true)
 
     modes = LWMS.findmodes(modeequation, origcoords)
 

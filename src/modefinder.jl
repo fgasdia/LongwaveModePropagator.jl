@@ -19,6 +19,21 @@ PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.frequency, p.waveguide)
 
+"""
+    IntegrationParams{T}
+
+Parameters passed to `OrdinaryDiffEq.jl` during the integration of the ionosphere reflection
+coefficient matrix.
+
+Fields:
+
+    - tolerance::Float64
+    - solver::T
+    - force_dtmin::Bool
+
+By default, the private function `integratedreflection` called by `findmodes` uses
+`IntegrationParams(1e-6, OwrenZen5(), false)`.
+"""
 struct IntegrationParams{T}
     tolerance::Float64
     solver::T

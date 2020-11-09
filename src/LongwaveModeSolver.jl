@@ -71,7 +71,6 @@ include("Antennas.jl")
 include("EigenAngles.jl")
 include("Emitters.jl")
 include("Geophysics.jl")
-include("IO.jl")
 include("Samplers.jl")
 include("TMatrix.jl")
 include("Waveguides.jl")
@@ -84,11 +83,13 @@ include("modefinder.jl")
 include("magnetoionic.jl")
 include("modesum.jl")
 
+include("IO.jl")
+
 
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
-        Zb = deg2rad(complex(30.0, -10.0))
+        Zb = deg2rad(complex(30.0, -9.0))
         Ze = deg2rad(complex(89.9, 0.0))
         d = deg2rad(60)
         Δr = deg2rad(0.4)
@@ -111,7 +112,7 @@ Specialized form for `AbstractSampler`s with a single distance which returns
 scalar `E`, `amp`, and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R};
-    coordgrid=nothing) where {R<:Real}
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where {R<:Real}
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -123,7 +124,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
     end
 
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(modeequation, coordgrid)
+    modes = findmodes(modeequation, coordgrid, integrationparams=integrationparams)
 
     E = Efield(modes, waveguide, tx, rx)
     amp = 10log10(abs2(E))  # == 20log10(abs(E))
@@ -141,7 +142,7 @@ Return electric field `E`, and field `amplitude` and `phase` using parameters:
     - `PhysicalModeEquation`
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing)
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -153,7 +154,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     end
 
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(modeequation, coordgrid)
+    modes = findmodes(modeequation, coordgrid, integrationparams=integrationparams)
 
     E = Efield(modes, waveguide, tx, rx)
 
@@ -178,7 +179,7 @@ end
 
 
 function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing)
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -200,7 +201,7 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(modeequation, coordgrid)
+        modes = findmodes(modeequation, coordgrid, integrationparams=integrationparams)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -245,7 +246,8 @@ end
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
 function bpm(file::AbstractString;
-    incrementalwrite=false, append=false, coordgrid=nothing)
+    incrementalwrite=false, append=false,
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
 
     ispath(file) || error("$file is not a valid file name")
 
@@ -258,9 +260,10 @@ function bpm(file::AbstractString;
     s = parse(file)
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for BatchInput files"))
-        output = buildrunsave(outfile, s, append=append, coordgrid=coordgrid)
+        output = buildrunsave(outfile, s,
+                              append=append, coordgrid=coordgrid, integrationparams=integrationparams)
     else
-        output = buildrun(s, coordgrid=coordgrid)
+        output = buildrun(s, coordgrid=coordgrid, integrationparams=integrationparams)
 
         json_str = JSON3.write(output)
 

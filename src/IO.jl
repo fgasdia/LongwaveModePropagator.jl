@@ -263,7 +263,9 @@ function parse(file, t::Type{<:Output})
     matched ? filecontents : nothing
 end
 
-function buildrun(s::BasicInput; coordgrid=nothing)
+function buildrun(s::BasicInput;
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
@@ -288,7 +290,7 @@ function buildrun(s::BasicInput; coordgrid=nothing)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid)
+    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, integrationparams=integrationparams)
 
     output = BasicOutput()
     output.name = s.name
@@ -305,7 +307,9 @@ function buildrun(s::BasicInput; coordgrid=nothing)
     return output
 end
 
-function buildrun(s::TableInput; coordgrid=nothing)
+function buildrun(s::TableInput;
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
@@ -332,7 +336,7 @@ function buildrun(s::TableInput; coordgrid=nothing)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid)
+    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, integrationparams=integrationparams)
 
     output = BasicOutput()
     output.name = s.name
@@ -349,21 +353,25 @@ function buildrun(s::TableInput; coordgrid=nothing)
     return output
 end
 
-function buildrun(s::BatchInput; coordgrid=nothing)
+function buildrun(s::BatchInput;
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+
     batch = BatchOutput{BasicOutput}()
     batch.name = s.name
     batch.description = s.description
     batch.datetime = Dates.now()
 
     for i in eachindex(s.inputs)
-        output = buildrun(s.inputs[i], coordgrid=coordgrid)
+        output = buildrun(s.inputs[i], coordgrid=coordgrid, integrationparams=integrationparams)
         push!(batch.outputs, output)
     end
 
     return batch
 end
 
-function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing)
+function buildrunsave(outfile, s::BatchInput; append=false,
+    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+
     if append && isfile(outfile)
         batch = open(outfile, "r") do f
             v = JSON3.read(f, BatchOutput{BasicOutput})
@@ -394,7 +402,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing)
             continue
         end
 
-        output = buildrun(s.inputs[i], coordgrid=coordgrid)
+        output = buildrun(s.inputs[i], coordgrid=coordgrid, integrationparams=integrationparams)
         push!(batch.outputs, output)
 
         json_str = JSON3.write(batch)
