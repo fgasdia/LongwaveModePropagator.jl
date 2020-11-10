@@ -216,7 +216,7 @@ function electroncollisionfrequency(z; cutoff_low=0)
     if z > cutoff_low
         return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
     else
-        return convert(promote_type(Float64, typeof(z)), 1.816e11)
+        return zero(promote_type(Float64, typeof(z)))
     end
 end
 
@@ -244,6 +244,6 @@ function ioncollisionfrequency(z; cutoff_low=0)
     if z > cutoff_low
         return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
     else
-        return convert(promote_type(Float64, typeof(z)), 4.54e9)
+        return zero(promote_type(Float64, typeof(z)))
     end
 end

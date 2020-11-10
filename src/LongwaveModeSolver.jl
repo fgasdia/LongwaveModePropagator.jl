@@ -89,7 +89,7 @@ include("IO.jl")
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
-        Zb = deg2rad(complex(30.0, -9.0))
+        Zb = deg2rad(complex(30.0, -10.0))
         Ze = deg2rad(complex(89.9, 0.0))
         d = deg2rad(60)
         Δr = deg2rad(0.4)
