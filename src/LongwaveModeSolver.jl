@@ -16,6 +16,7 @@ using ProgressMeter
 using BetterExp  # TEMP faster exp() until merged into Base
 using JSON3, StructTypes
 using Interpolations
+using FiniteDiff
 
 using PolynomialRoots: roots!
 
@@ -59,6 +60,7 @@ export get_grpf_params, set_grpf_params
 export get_earthcurvature, set_earthcurvature
 
 struct Dθ end
+struct DC end
 
 # Initialize Refs to default. This is atuomatically executed after loading module.
 function __init__()
@@ -80,6 +82,7 @@ include("romberg.jl")
 
 include("modeconversion.jl")
 include("modefinder.jl")
+include("modefinderX.jl")
 include("magnetoionic.jl")
 include("modesum.jl")
 

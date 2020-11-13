@@ -175,7 +175,7 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
     remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
     pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function waitprofile(z, hp, β; cutoff_low=0, threshold=Inf)
+function waitprofile(z, hp, β; cutoff_low=0, threshold=1e12)
     if z > cutoff_low
         # Using form with single `exp` for speed
         Ne = 1.43e13*exp(-0.15hp - (β-0.15)*(hp - z*0.001))

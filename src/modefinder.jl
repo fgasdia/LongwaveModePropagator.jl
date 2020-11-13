@@ -456,7 +456,7 @@ function integratedreflection(modeequation::PhysicalModeEquation,
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin,
+                force_dtmin=force_dtmin, dt=1,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -481,7 +481,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin,
+                force_dtmin=force_dtmin, dt=1,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]

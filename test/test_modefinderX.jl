@@ -95,6 +95,47 @@ function test_modefinderX()
 end
 
 
+function integratedreflectionX_deriv(scenario)
+    @unpack tx, ground, bfield, species = scenario
+    freq = tx.frequency
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.ModifiedModeEquation(freq, waveguide)
+
+    Cs = [cos(θ) for θ in θs]
+
+    @info "    Integrating dX/dC for many eigenangles. This may take a minute."
+
+    Xref(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflectionX(m))
+    XdX(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflectionX(m, LWMS.DC()))
+
+    Xs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
+    dXs = similar(Xs)
+    Xrefs = similar(Xs)
+    dXrefs = similar(Xs)
+    Threads.@threads for i in 1:length(Cs)  # NOTE: this also effectively checks for thread safety
+        v = XdX(θs[i], modeequation)
+        Xs[i] = v[SVector(1,2),:]
+        dXs[i] = v[SVector(3,4),:]
+        Xrefs[i] = Xref(θs[i], modeequation)
+        dXrefs[i] = FiniteDiff.finite_difference_derivative(z->Xref(z, modeequation), θs[i],
+                                                            Val{:central})
+    end
+
+    for i = 1:4
+        R = [v[i] for v in Rs]
+        dR = [v[i] for v in dRs]
+        Rr = [v[i] for v in Rrefs]
+        dRr = [v[i] for v in dRrefs]
+
+        # Rref.(θs) !≈ R.(θs) because of difference in integration tolerance.
+        # For very large Rs, the difference can be significant, therefore we use rtol
+        isapprox(R, Rr, rtol=1e-2) || return false
+        isapprox(dR, dRr, rtol=1e-2) || return false
+    end
+
+    return true
+end
 
 
 
@@ -129,20 +170,93 @@ function test_modefinderX()
     unique!(z->round(z, digits=ndigits), roots)
 end
 
-function test_integratedX()
-    ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+function test_integratedX(scenario)
+    @unpack tx, ground, bfield, species = scenario
 
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
-    est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.ModifiedModeEquation(EigenAngle(deg2rad(85-0.5im)), tx.frequency, waveguide)
+    sol = LWMS.integratedreflectionX(modeequation)
 
-    @unpack bfield, species = waveguide
-    # Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, species)
-    susceptibilitymfcn = alt->LWMS.susceptibility(alt, tx.frequency, bfield, species)
+    return sol
+end
 
-    LWMS.integratedreflectionX(ea, tx.frequency, waveguide, susceptibilitymfcn)
+function test_freespace(scenario)
+    @unpack tx, ground, bfield, species = scenario
+
+    freq = tx.frequency
+    ea = EigenAngle(deg2rad(85-0.5im))
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.ModifiedModeEquation(EigenAngle(deg2rad(85-0.5im)), tx.frequency, waveguide)
+    Xb = LWMS.integratedreflectionX(modeequation)
+
+    # TODO: Do a test over different ea to see how much the altitude varies
+    # TODO: modefinder at different reference altitudes to determine sensitivity
+
+    alts = 30e3:90e3
+    Xs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(alts))
+    for i in eachindex(Xs)
+        X = LWMS.freespaceintegration(alts[i], Xb, ea, freq)
+        Xs[i] = X
+    end
+
+    return Xs
+end
+
+aX1 = [abs2(x[1]) for x in Xs]
+aX2 = [abs2(x[2]) for x in Xs]
+aX3 = [abs2(x[3]) for x in Xs]
+aX4 = [abs2(x[4]) for x in Xs]
+
+function tmp(scenario)
+    @unpack tx, ground, bfield, species = scenario
+    @unpack tolerance, solver, force_dtmin = LWMS.DEFAULT_INTEGRATIONPARAMS
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.ModifiedModeEquation(EigenAngle(deg2rad(85-0.5im)), tx.frequency, waveguide)
+
+    centerea = EigenAngle(deg2rad(70.0-4im))
+    modeequation = LWMS.setea(centerea, modeequation)
+
+    Xb = LWMS.integratedreflectionX(modeequation)
+
+    mindXsum = Inf
+    mindXaltitude = Inf
+
+    altitudes = 40e3:1e3:92e3
+
+    frequency = modeequation.frequency
+
+    θs = SVector(deg2rad(60.0-0.1im), deg2rad(60.0-10im),
+                 deg2rad(89.9-0.1im), deg2rad(89.9-10im))
+
+    for i in eachindex(altitudes)
+        f = θ -> LWMS.freespaceintegration(altitudes[i], Xb, EigenAngle(θ), frequency)
+        dXs = FiniteDiff.finite_difference_derivative(f, θs, Val{:central}, typeof(Xb))
+
+        dXsum = 0.0
+        for t in 1:4
+            dXsum += (abs2(dXs[t][1,1]) + abs2(dXs[t][2,1]) + abs2(dXs[t][1,2]) +
+                      abs2(dXs[t][2,2]))
+        end
+
+        if dXsum < mindXsum
+            mindXsum = dXsum
+            mindXaltitude = altitudes[i]
+        end
+    end
+    return mindXsum, mindXaltitude
+end
+
+function reflectionheight(scenario)
+    @unpack tx, ground, bfield, species = scenario
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.ModifiedModeEquation(EigenAngle(deg2rad(85-0.5im)), tx.frequency, waveguide)
+    #
+    # minXsum, minXaltitude = LWMS.reflectionheight(modeequation)
+
+    LWMS.reflectionheight(modeequation)
 end
 
 function tdx()

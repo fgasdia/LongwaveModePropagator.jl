@@ -383,3 +383,33 @@ function tmatrix(ea::EigenAngle, M, ::Dθ)
                         dT13, dT23, dT33, dT43,
                         dT14, dT24, dT34, dT44)
 end
+
+function tmatrix(ea::EigenAngle, M, ::DC)
+    θ, C = ea.θ, ea.cosθ
+    cotθ = cot(θ)
+
+    C2 = 2*C
+    den = inv(1 + M[3,3])
+
+    dT11 = cotθ*M31den
+    dT12 = -cotθ*M32den
+    dT13 = 0
+    dT14 = C2*den
+    dT21 = 0
+    dT22 = 0
+    dT23 = 0
+    dT24 = 0
+    dT31 = 0
+    dT32 = C2
+    dT33 = 0
+    dT34 = -cotθ*M23*den
+    dT41 = 0
+    dT42 = 0
+    dT43 = 0
+    dT44 = cotθ*M13*den
+
+    return SMatrix{4,4}(dT11, dT21, dT31, dT41,
+                        dT12, dT22, dT32, dT42,
+                        dT13, dT23, dT33, dT43,
+                        dT14, dT24, dT34, dT44)
+end
