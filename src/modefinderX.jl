@@ -414,7 +414,7 @@ function reflectionheight(modeequation::ModifiedModeEquation,
     eas = SVector(EigenAngle(deg2rad(70.0-0.1im)), EigenAngle(deg2rad(70.0-8im)),
                   EigenAngle(deg2rad(89.9-0.1im)), EigenAngle(deg2rad(89.9-8im)))
 
-    Xbs = MMatrix{length(eas),SMatrix{2,2,ComplexF64,4}}(undef)
+    Xbs = MVector{length(eas),SMatrix{2,2,ComplexF64,4}}(undef)
     for t in eachindex(eas)
         modeequation = setea(eas[t], modeequation)
         Xbs[t] = integratedreflectionX(modeequation)
