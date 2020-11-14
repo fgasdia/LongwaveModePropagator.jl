@@ -10,6 +10,7 @@ at the ground height (0), so there is no advantage in using these modified equat
 compared to the physical equations.
 ==#
 
+# TODO: include reference height field
 struct ModifiedModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     ea::EigenAngle
     frequency::Frequency
@@ -185,7 +186,7 @@ fresnelreflection(m::ModifiedModeEquation) =
     fresnelreflectionX(m.ea, m.waveguide.ground, m.frequency)
 
 function fresnelreflectionX(z, ea::EigenAngle, ground::Ground, frequency::Frequency)
-    n, d = fresnelreflection(ea, ground, frequency)
+    n, d = fresnelreflectionX(ea, ground, frequency)
 
     # If altitude `z` is ≈ 0, don't bother integrating upward
 
