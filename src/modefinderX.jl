@@ -435,5 +435,5 @@ function reflectionheight(modeequation::ModifiedModeEquation,
         end
     end
 
-    return minXsum, minXaltitude
+    return minXaltitude
 end
