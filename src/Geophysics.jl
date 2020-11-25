@@ -23,7 +23,9 @@ See also: [`get_earthradius`](@ref)
 """
 set_earthradius(v::Float64) = EARTHRADIUS[] = v
 
-export get_earthradius, set_earthradiusconst CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
+export get_earthradius, set_earthradiusconst
+
+const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
 
 ########
 
