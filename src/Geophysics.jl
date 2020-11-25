@@ -7,8 +7,23 @@ const Z0 = 376.730313668  # Z₀, vacuum impedance, Ω
 const QE = -1.602176634e-19  # qₑ, charge of an electron, C
 const ME = 9.1093837015e-31  # mₑ, mass of an electron, kg
 
-const EARTHRADIUS = 6369e3  # earth radius, m
-const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
+const EARTHRADIUS = Ref(6369e3)  # earth radius, m
+get_earthradius() = EARTHRADIUS[]
+
+"""
+    set_earthradius(v::Float64)
+
+Set the global `EARTHRADIUS` in meters used by `LongwaveModeSolver`.
+
+!!! warning
+
+    This function is not threadsafe!
+
+See also: [`get_earthradius`](@ref)
+"""
+set_earthradius(v::Float64) = EARTHRADIUS[] = v
+
+export get_earthradius, set_earthradiusconst CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
 
 ########
 
