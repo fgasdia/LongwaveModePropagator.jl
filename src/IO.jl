@@ -263,8 +263,7 @@ function parse(file, t::Type{<:Output})
     matched ? filecontents : nothing
 end
 
-function buildrun(s::BasicInput;
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+function buildrun(s::BasicInput; coordgrid=nothing, params=LWMSParams())
 
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
@@ -290,7 +289,7 @@ function buildrun(s::BasicInput;
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, integrationparams=integrationparams)
+    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -307,8 +306,7 @@ function buildrun(s::BasicInput;
     return output
 end
 
-function buildrun(s::TableInput;
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+function buildrun(s::TableInput; coordgrid=nothing, params=LWMSParams())
 
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
@@ -336,7 +334,7 @@ function buildrun(s::TableInput;
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, integrationparams=integrationparams)
+    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -353,8 +351,7 @@ function buildrun(s::TableInput;
     return output
 end
 
-function buildrun(s::BatchInput;
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+function buildrun(s::BatchInput; coordgrid=nothing, params=LWMSParams())
 
     batch = BatchOutput{BasicOutput}()
     batch.name = s.name
@@ -362,15 +359,15 @@ function buildrun(s::BatchInput;
     batch.datetime = Dates.now()
 
     for i in eachindex(s.inputs)
-        output = buildrun(s.inputs[i], coordgrid=coordgrid, integrationparams=integrationparams)
+        output = buildrun(s.inputs[i], coordgrid=coordgrid, params=params)
         push!(batch.outputs, output)
     end
 
     return batch
 end
 
-function buildrunsave(outfile, s::BatchInput; append=false,
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+function buildrunsave(outfile, s::BatchInput;
+    append=false, coordgrid=nothing, params=LWMSParams())
 
     if append && isfile(outfile)
         batch = open(outfile, "r") do f
@@ -402,7 +399,7 @@ function buildrunsave(outfile, s::BatchInput; append=false,
             continue
         end
 
-        output = buildrun(s.inputs[i], coordgrid=coordgrid, integrationparams=integrationparams)
+        output = buildrun(s.inputs[i], coordgrid=coordgrid, params=params)
         push!(batch.outputs, output)
 
         json_str = JSON3.write(batch)

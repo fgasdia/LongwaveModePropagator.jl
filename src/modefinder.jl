@@ -39,12 +39,6 @@ struct IntegrationParams{T}
     solver::T
     force_dtmin::Bool
 end
-const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-6, OwrenZen5(), false)
-
-const GRPF_PARAMS = Ref{GRPFParams}()
-get_grpf_params() = GRPF_PARAMS[]
-set_grpf_params() = GRPF_PARAMS[] = GRPFParams(100000, 1e-5, true)
-set_grpf_params(p::GRPFParams) = GRPF_PARAMS[] = p
 
 
 """
@@ -399,12 +393,12 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
 no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, modeequation, z)
+function dRdz(R, (modeequation, params), z)
     @unpack ea, frequency, waveguide = modeequation
 
     k = frequency.k
 
-    M = susceptibility(z, frequency, waveguide)
+    M = susceptibility(z, frequency, waveguide, params=params)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -412,12 +406,12 @@ function dRdz(R, modeequation, z)
     return -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
 
-function dRdθdz(RdRdθ, modeequation, z)
+function dRdθdz(RdRdθ, (modeequation, params), z)
     @unpack ea, frequency, waveguide = modeequation
 
     k = frequency.k
 
-    M = susceptibility(z, frequency, waveguide)
+    M = susceptibility(z, frequency, waveguide, params)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
     dW11, dW21, dW12, dW22 = dwmatrixdθ(ea, M, T)
@@ -433,14 +427,15 @@ function dRdθdz(RdRdθ, modeequation, z)
 end
 
 function integratedreflection(modeequation::PhysicalModeEquation,
-    params::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where T
+    params::LWMSParams{T}=LWMSParams()) where T
 
-    @unpack tolerance, solver, force_dtmin = params
+    @unpack topheight, integrationparams = params
+    @unpack tolerance, solver, force_dtmin = integrationparams
 
-    Mtop = susceptibility(TOPHEIGHT, modeequation)
+    Mtop = susceptibility(topheight, modeequation, params=params)
     Rtop = sharpboundaryreflection(modeequation.ea, Mtop)
 
-    prob = ODEProblem{false}(dRdz, Rtop, (TOPHEIGHT, BOTTOMHEIGHT), modeequation)
+    prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
 
     # timed with test_modefinder.jl parallel_integration()
     #==
@@ -469,14 +464,15 @@ end
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
-    params::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where T
+    params::LWMSParams{T}=LWMSParams()) where T
 
-    @unpack tolerance, solver, force_dtmin = params
+    @unpack topheight, integrationparams = params
+    @unpack tolerance, solver, force_dtmin = integrationparams
 
-    Mtop = susceptibility(TOPHEIGHT, modeequation)
+    Mtop = susceptibility(topheight, modeequation, params=params)
     RdRdθtop = sharpboundaryreflection(modeequation.ea, Mtop, Dθ())
 
-    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (TOPHEIGHT, BOTTOMHEIGHT), modeequation)
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
 
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
@@ -587,19 +583,19 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 function solvemodalequation(modeequation::PhysicalModeEquation,
-    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    params::LWMSParams=LWMSParams())
 
-    R = integratedreflection(modeequation, integrationparams)
+    R = integratedreflection(modeequation, params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
     return f
 end
 function solvemodalequation(θ, modeequation::PhysicalModeEquation,
-    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    params::LWMSParams=LWMSParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, integrationparams)
+    solvemodalequation(modeequation, params)
 end
 
 """
@@ -607,9 +603,9 @@ This returns R and Rg in addition to df because the only time this function is n
 need R and Rg (in excitationfactors).
 """
 function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
-    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    params::LWMSParams=LWMSParams())
 
-    RdR = integratedreflection(modeequation, Dθ(), integrationparams)
+    RdR = integratedreflection(modeequation, Dθ(), params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
@@ -620,21 +616,21 @@ function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
 end
 
 function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ,
-    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    params::LWMSParams=LWMSParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, Dθ(), integrationparams)
+    solvemodalequation(modeequation, Dθ(), params)
 end
 
-function findmodes(modeequation::ModeEquation, origcoords;
-    grpfparams::GRPFParams=get_grpf_params(),
-    integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+function findmodes(modeequation::ModeEquation, origcoords; params::LWMSParams=LWMSParams())
+
+    @unpack grpfparams = params
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation, integrationparams),
+    roots, poles = grpf(θ->solvemodalequation(θ, modeequation, params),
                         origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation

@@ -47,24 +47,9 @@ export TMatrix
 export HomogeneousWaveguide
 export eigenangles
 
-# Module-wide constants
-const TOPHEIGHT = 110e3
-const BOTTOMHEIGHT = zero(TOPHEIGHT)  # WARNING: if this isn't 0, many assumptions break
-
-const EARTHCURVATURE = Ref(true)  # TODO: where does this need to be considered?
-get_earthcurvature() = EARTHCURVATURE[]
-set_earthcurvature(v::Bool) = EARTHCURVATURE[] = v
-
-export get_grpf_params, set_grpf_params
-export get_earthcurvature, set_earthcurvature
+const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't 0, many assumptions break
 
 struct Dθ end
-
-# Initialize Refs to default. This is atuomatically executed after loading module.
-function __init__()
-    set_earthcurvature(true)
-    set_grpf_params()
-end
 
 #
 include("Antennas.jl")
@@ -84,6 +69,32 @@ include("magnetoionic.jl")
 include("modesum.jl")
 
 include("IO.jl")
+
+const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
+const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, RK4(), false)
+
+"""
+    LWMSParams{T}
+
+Parameters for the `LongwaveModeSolver` module with defaults.
+
+The struct is created with `Parameters.jl` `@with_kw` and supports that package's
+instantiation capabilities, e.g.
+
+```jldoctest
+p = LWMSParams()
+p2 = LWMSParams(earth_radius=6370e3)
+p3 = LWMSParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
+```
+"""
+@with_kw struct LWMSParams{T}
+    topheight::Float64 = 110e3
+    earthradius::Float64 = 6369e3  # m
+    earthcurvature::Bool = true
+    curvatureheight::Float64 = 50e3  # m
+    grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
+    integrationparams::IntegrationParams{T} = DEFAULT_INTEGRATIONPARAMS
+end
 
 
 function defaultcoordinates(frequency)
@@ -112,7 +123,7 @@ Specialized form for `AbstractSampler`s with a single distance which returns
 scalar `E`, `amp`, and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R};
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS) where {R<:Real}
+    coordgrid=nothing, params=LWMSParams()) where {R<:Real}
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -124,7 +135,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
     end
 
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(modeequation, coordgrid, integrationparams=integrationparams)
+    modes = findmodes(modeequation, coordgrid, params=params)
 
     E = Efield(modes, waveguide, tx, rx)
     amp = 10log10(abs2(E))  # == 20log10(abs(E))
@@ -142,7 +153,7 @@ Return electric field `E`, and field `amplitude` and `phase` using parameters:
     - `PhysicalModeEquation`
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    coordgrid=nothing, params=LWMSParams())
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -154,7 +165,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     end
 
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(modeequation, coordgrid, integrationparams=integrationparams)
+    modes = findmodes(modeequation, coordgrid, params=params)
 
     E = Efield(modes, waveguide, tx, rx)
 
@@ -179,7 +190,7 @@ end
 
 
 function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    coordgrid=nothing, params=LWMSParams())
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -201,7 +212,7 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(modeequation, coordgrid, integrationparams=integrationparams)
+        modes = findmodes(modeequation, coordgrid, params=params)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -247,7 +258,7 @@ Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
 function bpm(file::AbstractString;
     incrementalwrite=false, append=false,
-    coordgrid=nothing, integrationparams::IntegrationParams=DEFAULT_INTEGRATIONPARAMS)
+    coordgrid=nothing, params=LWMSParams())
 
     ispath(file) || error("$file is not a valid file name")
 
@@ -261,9 +272,9 @@ function bpm(file::AbstractString;
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for BatchInput files"))
         output = buildrunsave(outfile, s,
-                              append=append, coordgrid=coordgrid, integrationparams=integrationparams)
+                              append=append, coordgrid=coordgrid, params=params)
     else
-        output = buildrun(s, coordgrid=coordgrid, integrationparams=integrationparams)
+        output = buildrun(s, coordgrid=coordgrid, params=params)
 
         json_str = JSON3.write(output)
 
