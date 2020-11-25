@@ -163,7 +163,7 @@ end
 ########
 
 """
-    waitprofile(z, h′, β; cutoff_low=0, threshold=Inf)
+    waitprofile(z, h′, β; cutoff_low=0, threshold=1e12)
 
 Return the electron number density in m⁻³ at altitude `z` (m) using Wait's
 exponential profile with parameters `h′` (km) and `β` (km⁻¹).
@@ -173,7 +173,7 @@ exponential profile with parameters `h′` (km) and `β` (km⁻¹).
 Optional Arguments:
 
     - When `z` is below `cutoff_low`, return 0.
-    - When density is greater than `threshold`, return `threshold` (3e9 in FDTD)
+    - When density is greater than `threshold`, return `threshold`
 
 See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 
@@ -190,10 +190,10 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
     remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
     pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function waitprofile(z, hp, β; cutoff_low=0, threshold=Inf)
+function waitprofile(z, hp, β; cutoff_low=0, threshold=1e12)
     if z > cutoff_low
         # Using form with single `exp` for speed
-        Ne = 1.43e13*exp(-0.15hp - (β-0.15)*(hp - z*0.001))
+        Ne = 1.43e13*exp(-0.15*hp - (β - 0.15)*(hp - z/1000))
         if Ne > threshold
             return oftype(Ne, threshold)
         else
