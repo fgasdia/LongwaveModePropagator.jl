@@ -51,6 +51,55 @@ const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't 0, many assumptions break
 
 struct Dθ end
 
+"""
+    IntegrationParams{T}
+
+Parameters passed to `OrdinaryDiffEq.jl` during the integration of the ionosphere reflection
+coefficient matrix in `modefinder.jl`.
+
+Fields:
+
+    - tolerance::Float64
+    - solver::T
+    - force_dtmin::Bool
+
+By default, the private function `integratedreflection` called by `findmodes` uses
+`IntegrationParams(1e-6, OwrenZen5(), false)`.
+"""
+struct IntegrationParams{T}
+    tolerance::Float64
+    solver::T
+    force_dtmin::Bool
+end
+
+const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
+const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, RK4(), false)
+
+"""
+    LWMSParams{T,H<:AbstractRange{Float64}}
+
+Parameters for the `LongwaveModeSolver` module with defaults.
+
+The struct is created with `Parameters.jl` `@with_kw` and supports that package's
+instantiation capabilities, e.g.
+
+```jldoctest
+p = LWMSParams()
+p2 = LWMSParams(earth_radius=6370e3)
+p3 = LWMSParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
+```
+"""
+@with_kw struct LWMSParams{T,H<:AbstractRange{Float64}}
+    topheight::Float64 = 110e3
+    earthradius::Float64 = 6369e3  # m
+    earthcurvature::Bool = true
+    curvatureheight::Float64 = 50e3  # m
+    grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
+    integrationparams::IntegrationParams{T} = DEFAULT_INTEGRATIONPARAMS
+    wavefieldheights::H = range(topheight, 0, length=513)
+end
+export LWMSParams
+
 #
 include("Antennas.jl")
 include("EigenAngles.jl")
@@ -69,32 +118,6 @@ include("magnetoionic.jl")
 include("modesum.jl")
 
 include("IO.jl")
-
-const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
-const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, RK4(), false)
-
-"""
-    LWMSParams{T}
-
-Parameters for the `LongwaveModeSolver` module with defaults.
-
-The struct is created with `Parameters.jl` `@with_kw` and supports that package's
-instantiation capabilities, e.g.
-
-```jldoctest
-p = LWMSParams()
-p2 = LWMSParams(earth_radius=6370e3)
-p3 = LWMSParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
-```
-"""
-@with_kw struct LWMSParams{T}
-    topheight::Float64 = 110e3
-    earthradius::Float64 = 6369e3  # m
-    earthcurvature::Bool = true
-    curvatureheight::Float64 = 50e3  # m
-    grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
-    integrationparams::IntegrationParams{T} = DEFAULT_INTEGRATIONPARAMS
-end
 
 
 function defaultcoordinates(frequency)

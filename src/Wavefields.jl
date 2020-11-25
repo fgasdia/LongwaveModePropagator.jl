@@ -3,8 +3,6 @@ Functions related to calculating electromagnetic field components at any height
 within the ionosphere.
 ==#
 
-const WAVEFIELD_HEIGHTS = range(TOPHEIGHT, 0, length=513)
-
 """
     Wavefields
 
@@ -19,14 +17,13 @@ struct Wavefields
 end
 
 """
-    Wavefields(eas::Vector{EigenAngle})
+    Wavefields(eas::Vector{EigenAngle}; params=LWMSParams())
 
 A constructor for `Wavefields` which creates appropriately sized `undef` vectors
-given eigenangles `eas` and `WAVEFIELD_HEIGHTS`. Wavefield type `T` must be provided
-explicitly.
+given eigenangles `eas` and `wavefieldheights`.
 """
-function Wavefields(eas::Vector{EigenAngle})
-    v = Matrix{SVector{6,ComplexF64}}(undef, length(WAVEFIELD_HEIGHTS), length(eas))
+function Wavefields(eas::Vector{EigenAngle}; params=LWMSParams())
+    v = Matrix{SVector{6,ComplexF64}}(undef, length(params.wavefieldheights), length(eas))
     Wavefields(v, eas)
 end
 
@@ -45,11 +42,11 @@ function (==)(A::Wavefields, B::Wavefields)
     return true
 end
 
-function Base.isvalid(A::Wavefields)
+function Base.isvalid(A::Wavefields; params=LWMSParams())
     vzs, veas = size(A.v)
     ealen = length(A.eas)
     veas == ealen || return false
-    zlen = length(WAVEFIELD_HEIGHTS)
+    zlen = length(params.wavefieldheights)
     vzs == zlen || return false
     return true
 end
@@ -180,10 +177,10 @@ or be a `WavefieldIntegrationParams` struct. This function internally calls
 [`susceptibility`](@ref) and [`tmatrix`](@ref) and is typically used by
 [`integratewavefields`](@ref).
 """
-function dedz(e, p, z)
+function dedz(e, (p, params), z)
     @unpack ea, frequency, bfield, species = p
 
-    M = susceptibility(z, frequency, bfield, species)
+    M = susceptibility(z, frequency, bfield, species, params=params)
     T = tmatrix(ea, M)
 
     return dedz(e, frequency.k, T)
@@ -391,11 +388,12 @@ end
 
 zs should be going down (although this isn't strictly enforced by this function)
 """
-function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species)
+function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+    species::Species; params=LWMSParams())
     # TODO: version that updates output `e` in place
 
     # Initial conditions
-    Mtop = susceptibility(first(zs), frequency, bfield, species)
+    Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
     Ttop = tmatrix(ea, Mtop)
     e0 = initialwavefields(Ttop)
 
@@ -560,7 +558,7 @@ Calculate `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by full wave integration
 Scales wavefields for waveguide boundary conditions.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species, ground::Ground)
+    species::Species, ground::Ground; params=LWMSParams())
 
     @assert length(EH) == length(zs)
     zs[end] == 0 || @warn "Waveguide math assumes fields and reflection
@@ -576,7 +574,7 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
         # Scale to waveguide boundary conditions
         w = e[i][:,1]*b1 + e[i][:,2]*b2
 
-        M = susceptibility(zs[i], frequency, bfield, species)
+        M = susceptibility(zs[i], frequency, bfield, species, params=params)
         ez = -(w[4]*S + M[3,1]*w[1] - M[3,2]*w[2])/(1 + M[3,3])
         hz = -w[2]*S
         EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
@@ -586,10 +584,12 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
 end
 
 function calculate_wavefields!(wavefields, adjoint_wavefields,
-                               frequency, waveguide, adjoint_waveguide)
+                               frequency, waveguide, adjoint_waveguide; params=LWMSParams())
 
-    # This function assumes Wavefields are calculated at WAVEFIELD_HEIGHTS
-    @assert size(wavefields, 1) == length(WAVEFIELD_HEIGHTS)
+    @unpack wavefieldheights = params
+
+    # This function assumes Wavefields are calculated at params.wavefieldheights
+    @assert size(wavefields, 1) == length(wavefieldheights)
 
     @unpack bfield, species, ground = waveguide
     @assert ground == adjoint_waveguide.ground
@@ -603,9 +603,9 @@ function calculate_wavefields!(wavefields, adjoint_wavefields,
         wavefields are calculated for eigenangles of the original waveguide."
 
     for m in eachindex(modes)
-        fieldstrengths!(view(wavefields,:,m), WAVEFIELD_HEIGHTS, modes[m],
+        fieldstrengths!(view(wavefields,:,m), wavefieldheights, modes[m],
                         frequency, bfield, species, ground)
-        fieldstrengths!(view(adjoint_wavefields,:,m), WAVEFIELD_HEIGHTS, adjoint_modes[m],
+        fieldstrengths!(view(adjoint_wavefields,:,m), wavefieldheights, adjoint_modes[m],
                         frequency, adjoint_bfield, species, ground)
     end
 

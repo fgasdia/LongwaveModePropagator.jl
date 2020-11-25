@@ -1,5 +1,5 @@
 """
-    susceptibility(alt, frequency, bfield, species)
+    susceptibility(alt, frequency, bfield, species; params=LWMSParams())
 
 Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
 
@@ -18,11 +18,16 @@ susceptibility matrix calculated by this function.
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+no. 1171, pp. 516–537, Feb. 1955.
+
 [^Budden1988]: K. G. Budden
-[^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the ionosphere," Cambridge University Press, 1959.
+
+[^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
+ionosphere," Cambridge University Press, 1959.
 """
-function susceptibility(alt, frequency, bfield, species; params::LWMSParams=LWMSParams())
+function susceptibility(alt, frequency, bfield, species; params=LWMSParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
@@ -92,10 +97,10 @@ function susceptibility(alt, frequency, bfield, species; params::LWMSParams=LWMS
 
     return M
 end
-susceptibility(alt, f::Frequency, w::HomogeneousWaveguide; params::LWMSParams=LWMSParams()) =
-    susceptibility(alt, f, w.bfield, w.species)
-susceptibility(alt, me::ModeEquation; params::LWMSParams=LWMSParams()) =
-    susceptibility(alt, me.frequency, me.waveguide)
+susceptibility(alt, f::Frequency, w::HomogeneousWaveguide; params=LWMSParams()) =
+    susceptibility(alt, f, w.bfield, w.species, params=params)
+susceptibility(alt, me::ModeEquation; params=LWMSParams()) =
+    susceptibility(alt, me.frequency, me.waveguide, params=params)
 
 """
     bookerquartic(ea, M)
