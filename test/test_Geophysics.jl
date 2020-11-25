@@ -1,16 +1,13 @@
 function ne_waitprofile()
-    hps = 60.0:90.0
-    betas = 0.15:0.05:2
-    zs = 10e3:2e3:90e3
+    zs = 50e3:2e3:86e3
+    hbs = [(65, 0.2), (65, 0.25), (68, 0.25), (70, 0.25), (72, 0.3), (72, 0.35), (75, 0.35),
+           (78, 0.35), (78, 0.4), (82, 0.5), (82, 0.55), (85, 0.6), (85, 0.65), (88, 0.8)]
 
     N(z, h′, β) = 1.43e13*exp(-0.15*h′)*exp((β - 0.15)*(z/1000 - h′))
 
-    for h in hps, β in betas, z in zs
-        waitprofile(z, h, β) ≈ N(z, h, β) || return false
+    for hb in hbs, z in zs
+        waitprofile(z, hb[1], hb[2]) ≈ N(z, hb[1], hb[2]) || return false
     end
-
-    # Check if zero below cutoff height
-    waitprofile(30e3, 60, 0.35, cutoff_low=50e3) == 0 || return false
 
     return true
 end
@@ -50,16 +47,6 @@ function magnetic_directioncosines()
     return true
 end
 
-function bfieldbits()
-    bfield = BField(50e-6, π/2, 3π/2)
-    return isbits(bfield)
-end
-
-function groundbits()
-    ground = Ground(15, 0.001)
-    return isbits(ground)
-end
-
 function speciesbits()
     electrons = Species(QE, ME,
                         z -> waitprofile(z, 75, 0.32),
@@ -74,6 +61,12 @@ end
         @info "  Profiles..."
 
         @test ne_waitprofile()
+
+        # Check if zero below cutoff height
+        @test waitprofile(30e3, 60, 0.35, cutoff_low=40e3) == 0 || return false
+
+        # Check default threshold
+        @test waitprofile(110e3, 70, 0.5) == 1e12 || return false
     end
 
     @testset "Species" begin
@@ -87,12 +80,14 @@ end
 
         @test magnetic_dipaz()
         @test magnetic_directioncosines()
-        @test bfieldbits()
+        @test isbits(BField(50e-6, π/2, 3π/2))
+        @test BField(0, π/2, 3π/2).B == 1e-15
+        @test_logs (:warn, "B field magnitude of exactly 0 is not supported. Setting B = 1e-15.") BField(0, π/2, 3π/2);
     end
 
     @testset "Ground" begin
         @info "  Ground..."
 
-        @test groundbits()
+        @test isbits(Ground(15, 0.001))
     end
 end
