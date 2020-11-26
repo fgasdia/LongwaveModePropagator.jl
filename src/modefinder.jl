@@ -372,7 +372,8 @@ Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the i
 reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
 no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, (modeequation, params), z)
+function dRdz(R, p, z)
+    modeequation, params = p
     @unpack ea, frequency, waveguide = modeequation
 
     k = frequency.k
@@ -405,7 +406,7 @@ function dRdθdz(RdRdθ, (modeequation, params), z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(modeequation::PhysicalModeEquation,
+function integratedreflection(modeequation::PhysicalModeEquation;
     params::LWMSParams{T}=LWMSParams()) where T
 
     @unpack topheight, integrationparams = params
@@ -601,7 +602,7 @@ function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ,
     solvemodalequation(modeequation, Dθ(), params)
 end
 
-function findmodes(modeequation::ModeEquation, origcoords; params::LWMSParams=LWMSParams())
+function findmodes(modeequation::ModeEquation, origcoords; params=LWMSParams(), atol=1e-2)
 
     @unpack grpfparams = params
 
@@ -613,12 +614,12 @@ function findmodes(modeequation::ModeEquation, origcoords; params::LWMSParams=LW
                         origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
-    filterroots!(roots, modeequation)
+    filterroots!(roots, modeequation, atol=atol)
 
     # Remove any redundant modes
     # if tolerance is 1e-8, this rounds to 7 decimal places
-    sort!(roots, by=reim)
-    ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
+    sort!(roots, by=reim, rev=true)
+    ndigits = round(Int, abs(log10(grpfparams.tolerance)+2), RoundDown)
     unique!(z->round(z, digits=ndigits), roots)
 
     return EigenAngle.(roots)

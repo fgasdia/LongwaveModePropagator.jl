@@ -77,6 +77,9 @@ function test_bookerquarticT(scenario)
         LWMS.isroot(det(G), atol=1e-8) || return false
     end
 
+    # eigvals is >20 times slower than bookerquartic
+    sort(eigvals(Array(T)), by=LWMS.upgoing) ≈ sort(qT, by=LWMS.upgoing) || return false
+
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(q)
         booker = B[5]*q[i]^4 + B[4]*q[i]^3 + B[3]*q[i]^2 + B[2]*q[i] + B[1]

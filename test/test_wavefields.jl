@@ -1,62 +1,40 @@
 function randomwavefields()
-    modes = EigenAngle.(rand(ComplexF64, 10))
+    modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
 
-    wavefields = LWMS.Wavefields(modes)
+    wavefields = LWMS.Wavefields(LWMSParams().wavefieldheights, modes)
 
     return wavefields
 end
 
-function wavefields_test(scenario)
-    @unpack tx, bfield, species, ground = scenario
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
+function wavefieldfuncs_test()
+    modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
 
-    # Δr from 0.5->0.25 => time from 3.8->5.3 sec
-    # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    origcoords = LWMS.defaultcoordinates(tx.frequency)
-    modes = LWMS.findmodes(modeequation, origcoords)
+    @unpack wavefieldheights = LWMSParams()
 
-    wavefields = LWMS.Wavefields(modes)
+    wavefields = LWMS.Wavefields(wavefieldheights, modes)
 
-    return isvalid(wavefields)
+    LWMS.numheights(wavefields) == length(wavefieldheights) || return false
+    LWMS.nummodes(wavefields) == 10 || return false
+
+    return true
 end
 
-"""
-Check for equivalence of Booker quartic computed by M and T.
+function validwavefields_test()
+    wavefields = randomwavefields()
 
-Runtime is dominated by `roots!`, but the version with `T` is slightly faster.
-"""
-function booker_MTequivalence_test(scenario)
-    @unpack ea, bfield, tx, species = scenario
+    heights = LWMS.heights(wavefields)
+    eas = LWMS.eigenangles(wavefields)
 
-    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
+    isvalid(wavefields) || return false
 
-    qM, BM = LWMS.bookerquartic(ea, M)
-    qT, BT = LWMS.bookerquartic(T)
+    longerv = vcat(wavefields.v, rand(TEST_RNG, SVector{6,ComplexF64}, 1, length(eas)))
+    wavefields = LWMS.Wavefields(longerv, heights, eas)
+    !isvalid(wavefields) || return false
 
-    return sort(qM, by=real) ≈ sort(qT, by=real)
-end
-
-"""
-Confirm bookerquartic!(T) finds valid eigenvalues.
-"""
-function booker_Tvalidity_test(scenario)
-    @unpack ea, bfield, tx, species = scenario
-
-    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
-
-    qT, BT = LWMS.bookerquartic(T)
-
-    # eigvals is >20 times slower than bookerquartic
-    sort(eigvals(Array(T)), by=real) ≈ sort(qT, by=real) || return false
-
-    # Confirm Booker quartic is directly satisfied
-    for i in eachindex(qT)
-        booker = qT[i]^4 + BT[4]*qT[i]^3 + BT[3]*qT[i]^2 + BT[2]*qT[i] + BT[1]
-        LWMS.isroot(booker, atol=1e-7) || return false
-    end
+    wavefields = randomwavefields()
+    widerv = hcat(wavefields.v, rand(TEST_RNG, SVector{6,ComplexF64}, length(heights)))
+    wavefields = LWMS.Wavefields(widerv, heights, eas)
+    !isvalid(wavefields) || return false
 
     return true
 end
@@ -67,7 +45,8 @@ Confirm `initialwavefields(T)` satisfies field eigenvector equation ``Te = qe``
 function initialwavefields_test(scenario)
     @unpack ea, bfield, tx, species = scenario
 
-    M = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
+    topheight = first(LWMSParams().wavefieldheights)
+    M = LWMS.susceptibility(topheight, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
 
     # Verify initialwavefields produces a valid solution
@@ -88,14 +67,17 @@ top height.
 """
 function initialR_test(scenario)
     @unpack ea, bfield, tx, species = scenario
+    params = LWMSParams()
 
-    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, species)
+    topheight = first(params.wavefieldheights)
+    Mtop = LWMS.susceptibility(topheight, tx.frequency, bfield, species, params=params)
     Ttop = LWMS.tmatrix(ea, Mtop)
     etop = LWMS.initialwavefields(Ttop)
 
     wavefieldR = LWMS.vacuumreflectioncoeffs(ea, etop[:,1], etop[:,2])
 
-    LWMS.sharpboundaryreflection(ea, Mtop) ≈ wavefieldR || return false
+    Rref = LWMS.sharpboundaryreflection(ea, Mtop)
+    isapprox(Rref, wavefieldR, rtol=1e-6) || return false
 
     return true
 end
@@ -106,24 +88,26 @@ Confirm reflection coefficients from wavefields match with dr/dz calculation.
 """
 function drdzwavefield_equivalence_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
+    params = LWMSParams()
 
-    zs = LWMS.WAVEFIELD_HEIGHTS
+    zs = params.wavefieldheights
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
+
     wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    @unpack tolerance, solver = LWMS.DEFAULT_INTEGRATIONPARAMS
+    @unpack tolerance, solver = params.integrationparams
 
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, waveguide)
     Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), modeequation)
+    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
                 saveat=zs, save_everystep=false)
 
-    return all(isapprox.(wavefieldRs, sol.u, rtol=1e-2))
+    return all(isapprox.(wavefieldRs, sol.u, rtol=1e-3))
 end
 
 """
@@ -135,13 +119,12 @@ See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
 """
 function homogeneous_iono_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
+    params = LWMSParams(earthcurvature=false)
 
-    ionobottom = LWMS.CURVATURE_HEIGHT
+    ionobottom = params.curvatureheight
     zs = 200e3:-500:ionobottom
 
-    LWMS.set_earthcurvature(false)
-
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
+    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
 
     # Normalize fields so component 2 (Ey) = 1, as is used in Booker Quartic
     e1 = [s[:,1]/s[2,1] for s in e]
@@ -151,7 +134,7 @@ function homogeneous_iono_test(scenario)
     e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
 
     # Booker solution - single solution for entire homogeneous iono
-    M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, species)
+    M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, species, params=params)
     T = LWMS.tmatrix(ea, M)
     booker = LWMS.initialwavefields(T)
 
@@ -165,24 +148,58 @@ function homogeneous_iono_test(scenario)
     T*e1 ≈ q[1]*e1 || return false
     T*e2 ≈ q[2]*e2 || return false
 
-    LWMS.set_earthcurvature(true)
-
     return true
 end
 
 function resonance_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
+    params = LWMSParams()
 
-    ztop = LWMS.TOPHEIGHT
-    zs = ztop:-100:zero(LWMS.TOPHEIGHT)
+    ztop = params.topheight
+    zs = ztop:-100:0.0
 
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
+    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
     R = LWMS.vacuumreflectioncoeffs(ea, e[end])
     Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
 
     # Ensure we are close to mode resonance with R
     f = LWMS.modalequation(R, Rg)
+
     return LWMS.isroot(f)
+end
+
+function boundary_test(scenario)
+    # TODO: Create a vertical resonant scenario
+    # Check if boundaryscalars match for isotropic=false and isotropic=true when both
+    # actually are isotropic
+
+    @unpack ea, bfield, tx, ground, species = scenario
+    params = LWMSParams()
+
+    # waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    # modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
+    #
+    # origcoords = LWMS.defaultcoordinates(tx.frequency)
+    # modes = LWMS.findmodes(modeequation, origcoords, params=params)
+    # return modes
+    # ea = modes[1]
+
+    ztop = params.topheight
+    zs = ztop:-100:0.0
+
+    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    R = LWMS.vacuumreflectioncoeffs(ea, e[end])
+    Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+
+    a1, a2 = LWMS.boundaryscalars(R, Rg, e[end], false)
+    b1, b2 = LWMS.boundaryscalars(R, Rg, e[end], true)
+
+    # return a1, a2, b1, b2
+
+    a1 ≈ b1 || return false
+    a2 ≈ b2 || return false
+
+    return true
 end
 
 function fieldstrengths_test(scenario)
@@ -191,18 +208,17 @@ function fieldstrengths_test(scenario)
 
     modes = LWMS.eigenangles(wavefields)
 
-    LWMS.fieldstrengths!(view(wavefields,:,1), LWMS.WAVEFIELD_HEIGHTS, modes[1], tx.frequency,
-                        bfield, species, ground)
+    LWMS.fieldstrengths!(view(wavefields,:,1), LWMSParams().wavefieldheights, modes[1],
+                         tx.frequency, bfield, species, ground)
 end
 
 @testset "wavefields.jl" begin
     @info "Testing wavefields"
 
-    @test size(randomwavefields(),1) == length(LWMS.WAVEFIELD_HEIGHTS)
-    @test length(LWMS.eigenangles(randomwavefields())) == 10
+    @test wavefieldfuncs_test()
+    @test validwavefields_test()
 
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-        @test wavefields_test(scn)
         @test_nowarn fieldstrengths_test(scn)
     end
 
@@ -210,8 +226,6 @@ end
         @info "  Initial conditions..."
 
         for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-            @test booker_MTequivalence_test(scn)
-            @test booker_Tvalidity_test(scn)
             @test initialwavefields_test(scn)
             @test initialR_test(scn)
         end
@@ -229,11 +243,9 @@ end
         for scn in (homogeneousiono_scenario, )
             @test homogeneous_iono_test(scn)
         end
+
+        @test_broken boundary_test(isotropicB_resonant_scenario)
     end
 
-    # TODO: Check that reflection coeffs for N/S directions are equal
-    @test_skip wavefieldsR_north ≈ wavefieldsR_south
-
-    # TODO: test `fieldstrengths`
-    @test_skip LWMS.fieldstrengths()
+    # TODO: test `fieldstrengths`, but how?
 end
