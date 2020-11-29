@@ -175,9 +175,9 @@ version = "6.10.1"
 
 [[DiffEqNoiseProcess]]
 deps = ["DiffEqBase", "Distributions", "LinearAlgebra", "PoissonRandom", "Random", "Random123", "RandomNumbers", "RecipesBase", "RecursiveArrayTools", "Requires", "ResettableStacks", "StaticArrays", "Statistics"]
-git-tree-sha1 = "256e0e653185c6c44bcb883718979279180569e4"
+git-tree-sha1 = "c8f544e8719b72fd356064cdf243fe8a86847f1d"
 uuid = "77a26b50-5914-5dd7-bc55-306e6241c503"
-version = "5.4.2"
+version = "5.4.3"
 
 [[DiffEqPhysics]]
 deps = ["DiffEqBase", "DiffEqCallbacks", "ForwardDiff", "LinearAlgebra", "Printf", "Random", "RecipesBase", "RecursiveArrayTools", "Reexport", "StaticArrays"]
@@ -637,7 +637,7 @@ version = "1.0.5"
 
 [[RootsAndPoles]]
 deps = ["LinearAlgebra", "VoronoiDelaunay"]
-git-tree-sha1 = "5573e735bdbe7ff78f761f1345269b9191d6ef42"
+git-tree-sha1 = "9f959bf07dc5aad0188ba977f5208070c5a5dabf"
 repo-rev = "master"
 repo-url = "https://github.com/fgasdia/RootsAndPoles.jl"
 uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"

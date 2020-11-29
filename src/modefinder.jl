@@ -406,8 +406,8 @@ function dRdθdz(RdRdθ, (modeequation, params), z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(modeequation::PhysicalModeEquation;
-    params::LWMSParams{T}=LWMSParams()) where T
+function integratedreflection(modeequation::PhysicalModeEquation,
+    params=LWMSParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
@@ -444,7 +444,7 @@ end
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
-    params::LWMSParams{T}=LWMSParams()) where T
+    params=LWMSParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
@@ -563,7 +563,7 @@ function modalequationdθ(R, dR, Rg, dRg)
 end
 
 function solvemodalequation(modeequation::PhysicalModeEquation,
-    params::LWMSParams=LWMSParams())
+    params=LWMSParams())
 
     R = integratedreflection(modeequation, params)
     Rg = fresnelreflection(modeequation)
@@ -572,7 +572,7 @@ function solvemodalequation(modeequation::PhysicalModeEquation,
     return f
 end
 function solvemodalequation(θ, modeequation::PhysicalModeEquation,
-    params::LWMSParams=LWMSParams())
+    params=LWMSParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
     solvemodalequation(modeequation, params)
@@ -583,7 +583,7 @@ This returns R and Rg in addition to df because the only time this function is n
 need R and Rg (in excitationfactors).
 """
 function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
-    params::LWMSParams=LWMSParams())
+    params=LWMSParams())
 
     RdR = integratedreflection(modeequation, Dθ(), params)
     R = RdR[SVector(1,2),:]
@@ -596,7 +596,7 @@ function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
 end
 
 function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ,
-    params::LWMSParams=LWMSParams())
+    params=LWMSParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
     solvemodalequation(modeequation, Dθ(), params)

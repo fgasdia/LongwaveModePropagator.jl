@@ -138,25 +138,34 @@ function homogeneous_iono_test(scenario)
     T = LWMS.tmatrix(ea, M)
     booker = LWMS.initialwavefields(T)
 
-    all(e1 .≈ booker[:,1]) || return false
-    all(e2 .≈ booker[:,2]) || return false
+    isapprox(e1[:,end], booker[:,1], rtol=1e-6) || return false
+    isapprox(e2[:,end], booker[:,2], rtol=1e-6) || return false
 
     # This is basically the same test...
     q, B = LWMS.bookerquartic(T)
     LWMS.sortquarticroots!(q)
 
-    T*e1 ≈ q[1]*e1 || return false
-    T*e2 ≈ q[2]*e2 || return false
+    isapprox(T*e1[:,end], q[1]*e1[:,end], rtol=1e-6) || return false
+    isapprox(T*e2[:,end], q[2]*e2[:,end], rtol=1e-6) || return false
 
     return true
 end
 
 function resonance_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
-    params = LWMSParams()
+    params = LWMSParams()https://github.com/fgasdia/RootsAndPoles.jl
 
     ztop = params.topheight
     zs = ztop:-100:0.0
+
+
+    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
+
+    origcoords = LWMS.defaultcoordinates(tx.frequency)
+    modes = LWMS.findmodes(modeequation, origcoords, params=params)
+    return modes
+    ea = modes[1]
 
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
     R = LWMS.vacuumreflectioncoeffs(ea, e[end])
@@ -175,14 +184,6 @@ function boundary_test(scenario)
 
     @unpack ea, bfield, tx, ground, species = scenario
     params = LWMSParams()
-
-    # waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    # modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
-    #
-    # origcoords = LWMS.defaultcoordinates(tx.frequency)
-    # modes = LWMS.findmodes(modeequation, origcoords, params=params)
-    # return modes
-    # ea = modes[1]
 
     ztop = params.topheight
     zs = ztop:-100:0.0
@@ -238,7 +239,7 @@ end
             @test drdzwavefield_equivalence_test(scn)
         end
         for scn in (resonant_scenario, )
-            @test resonance_test(scn)
+            @test_broken resonance_test(scn)
         end
         for scn in (homogeneousiono_scenario, )
             @test homogeneous_iono_test(scn)

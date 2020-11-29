@@ -75,8 +75,8 @@ const homogeneousiono_scenario = TestScenario(
     EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
-            z->z >= 40e3 ? 2.65e6 : 0.0,
-            z->z >= 40e3 ? 1e8 : 0.0),
+            z->2.65e6,
+            z->1e8),
     Ground(15, 0.001),
     Transmitter(24e3),
     GroundSampler(2000e3, Fields.Ez)
