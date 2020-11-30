@@ -141,7 +141,7 @@ function sharpboundaryreflection(ea::EigenAngle, M, ::Dθ)
 
     T = tmatrix(ea, M)
     dT = tmatrix(ea, M, Dθ())
-    q, B = bookerquartic(ea, M)
+    q, B = bookerquartic(T)
     sort!(q, by=upgoing)
     dq = bookerquartic(ea, M, q, B, Dθ())
 
@@ -154,53 +154,39 @@ function sharpboundaryreflection(ea::EigenAngle, M, ::Dθ)
     a6 = T[1,2]*T[4,1] - T[1,1]*T[4,2]
 
     # Many `dT` components are 0
-    da1 = -dT[1,1] - dT[4,4]
-    da2 = T[1,1]*dT[4,4] - T[4,1]*dT[1,4] + T[4,4]*dT[1,1]
+    da1 = -(dT[1,1] + dT[4,4])
+    da2 = T[1,1]*dT[4,4] + T[4,4]*dT[1,1] - T[4,1]*dT[1,4]
     da3 = dT[1,2]
-    da4 = -T[1,2]*dT[4,4] + T[4,2]*dT[1,4] - T[4,4]*dT[1,2]
+    da4 = dT[1,4]*T[4,2] - T[1,2]*dT[4,4] - dT[1,2]*T[4,4]
     # da5 = 0
-    da6 = T[4,1]*dT[1,2] - T[4,2]*dT[1,1]
+    da6 = dT[1,2]*T[4,1] - dT[1,1]*T[4,2]
 
     e = MMatrix{4,2,eltype(T),8}(undef)
     de = MMatrix{4,2,eltype(T),8}(undef)
     @inbounds for i = 1:2
         A = q[i]^2 + a1*q[i] + a2
-        dA = a1*dq[i] + q[i]*da1 + 2*q[i]*dq[i] + da2
+        dA = 2*q[i]*dq[i] + a1*dq[i] + q[i]*da1 + da2
 
         e[1,i] = a3*q[i] + a4
         e[2,i] = A
         e[3,i] = q[i]*A
         e[4,i] = a5*q[i] + a6
 
-        de[1,i] = a3*dq[i] + q[i]*da3 + da4
+        de[1,i] = a3*dq[i] + da3*q[i] + da4
         de[2,i] = dA
-        de[3,i] = A*dq[i] + q[i]*dA
-        de[4,i] = a5*dq[i] + da6  # + q[i]*da5 = 0
+        de[3,i] = dq[i]*A + q[i]*dA
+        de[4,i] = a5*dq[i] + da6  # + da5*q[i] = 0
     end
 
     d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
-    dd = SMatrix{2,2}(-S*e[4,1]+C*de[4,1]-de[1,1], S*e[2,1]-C*de[2,1]+de[3,1],
-                      -S*e[4,2]+C*de[4,2]-de[1,2], S*e[2,2]-C*de[2,2]+de[3,2])
+    dd = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
+                      -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
     u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
-    du = SMatrix{2,2}(-S*e[4,1]+C*de[4,1]+de[1,1], S*e[2,1]-C*de[2,1]-de[3,1],
-                      -S*e[4,2]+C*de[4,2]+de[1,2], S*e[2,2]-C*de[2,2]-de[3,2])
+    du = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
+                      -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
 
     R = d/u
-
-    den = inv((u[1,1]*u[2,2] - u[1,2]*u[2,1])^2)
-    dR11 = (-d[1,1]*u[2,2] + d[1,2]*u[2,1])*(u[1,1]*du[2,2] - u[1,2]*du[2,1] -
-        u[2,1]*du[1,2] + u[2,2]*du[1,1]) + (u[1,1]*u[2,2] - u[1,2]*u[2,1])*(d[1,1]*du[2,2] -
-        d[1,2]*du[2,1] - u[2,1]*dd[1,2] + u[2,2]*dd[1,1])
-    dR21 = (-d[2,1]*u[2,2] + d[2,2]*u[2,1])*(u[1,1]*du[2,2] - u[1,2]*du[2,1] -
-        u[2,1]*du[1,2] + u[2,2]*du[1,1]) + (u[1,1]*u[2,2] - u[1,2]*u[2,1])*(d[2,1]*du[2,2] -
-        d[2,2]*du[2,1] - u[2,1]*dd[2,2] + u[2,2]*dd[2,1])
-    dR12 = (d[1,1]*u[1,2] - d[1,2]*u[1,1])*(u[1,1]*du[2,2] - u[1,2]*du[2,1] -
-        u[2,1]*du[1,2] + u[2,2]*du[1,1]) + (u[1,1]*u[2,2] - u[1,2]*u[2,1])*(-d[1,1]*du[1,2] +
-        d[1,2]*du[1,1] + u[1,1]*dd[1,2] - u[1,2]*dd[1,1])
-    dR22 = (d[2,1]*u[1,2] - d[2,2]*u[1,1])*(u[1,1]*du[2,2] - u[1,2]*du[2,1] -
-        u[2,1]*du[1,2] + u[2,2]*du[1,1]) + (u[1,1]*u[2,2] - u[1,2]*u[2,1])*(-d[2,1]*du[1,2] +
-        d[2,2]*du[1,1] + u[1,1]*dd[2,2] - u[1,2]*dd[2,1])
-    dR = SMatrix{2,2}(dR11*den, dR21*den, dR12*den, dR22*den)
+    dR = dd/u + d*(-u\du/u)
 
     #==
     [R11 R12;
