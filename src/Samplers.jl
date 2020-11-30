@@ -10,7 +10,7 @@ abstract type AbstractSampler{T} end
 function distancechecks(d, stype)
     !issorted(d) && error("$stype distance must be sorted")
     minimum(d) < 0 && error("$stype distance must be positive")
-    maximum(d) > (π*EARTHRADIUS - 500e3) && @warn "antipode focusing effects not modeled"
+    maximum(d) > (π*EARTHRADIUS[] - 500e3) && @warn "antipode focusing effects not modeled"
 
     return true
 end

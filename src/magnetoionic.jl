@@ -67,7 +67,7 @@ function susceptibility(alt, frequency, bfield, species)
     ixUYD = 1im*x*UYD
     yzY²D = y*z*Y²D
 
-    earthcurvature = 2/EARTHRADIUS*(CURVATURE_HEIGHT - alt)
+    earthcurvature = 2/EARTHRADIUS[]*(CURVATURE_HEIGHT - alt)
 
     # Elements of `M`
     M11 = U²D - x²*Y²D
