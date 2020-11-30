@@ -72,8 +72,10 @@ struct IntegrationParams{T}
     force_dtmin::Bool
 end
 
+export IntegrationParams
+
 const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
-const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, RK4(), false)
+const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, OwrenZen5(), false)
 
 """
     LWMSParams{T,H<:AbstractRange{Float64}}
