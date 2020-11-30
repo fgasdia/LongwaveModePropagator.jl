@@ -1,11 +1,11 @@
 """
 this function takes just 1 mode conversion step
 """
-function modeconversion(previous_wavefields::Wavefields,
-                        wavefields::Wavefields,
-                        adjoint_wavefields::Wavefields)
+function modeconversion(previous_wavefields::Wavefields{H},
+                        wavefields::Wavefields{H},
+                        adjoint_wavefields::Wavefields{H}) where H
 
-    product = Vector{ComplexF64}(undef, length(WAVEFIELD_HEIGHTS))
+    product = Vector{ComplexF64}(undef, numheights(wavefields))
     pproduct = similar(product)
 
     modes = eigenangles(wavefields)
@@ -34,8 +34,8 @@ function modeconversion(previous_wavefields::Wavefields,
                 product[i] = gtranspose*f
                 pproduct[i] = gtranspose*fp
             end
-            N = romberg(WAVEFIELD_HEIGHTS, product)  # normalization
-            I = romberg(WAVEFIELD_HEIGHTS, pproduct)
+            N = romberg(heights(wavefields), product)  # normalization
+            I = romberg(heights(wavefields), pproduct)
             @inbounds a[m,n] = I/N
         end
     end

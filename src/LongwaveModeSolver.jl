@@ -228,8 +228,9 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
 
     numsegments = length(waveguide)
 
-    wavefields_vec = Vector{Wavefields}(undef, numsegments)
-    adjwavefields_vec = Vector{Wavefields}(undef, numsegments)
+    heighttype = typeof(params.wavefieldheights)
+    wavefields_vec = Vector{Wavefields{heighttype}}(undef, numsegments)
+    adjwavefields_vec = Vector{Wavefields{heighttype}}(undef, numsegments)
 
     # Calculate wavefields and adjoint wavefields for each segment of waveguide
     for nsgmnt in 1:numsegments
@@ -245,11 +246,10 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
         adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
         adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
 
-        # TODO< just empty and resize the Wavefields
-        wavefields = Wavefields(modes)
-        adjwavefields = Wavefields(modes)
+        wavefields = Wavefields(modes, params.wavefieldheights)
+        adjwavefields = Wavefields(modes, params.wavefieldheights)
 
-        calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg)
+        calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg, params=params)
 
         wavefields_vec[nsgmnt] = wavefields
         adjwavefields_vec[nsgmnt] = adjwavefields

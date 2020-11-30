@@ -78,7 +78,7 @@ function test_bookerquarticT(scenario)
     end
 
     # eigvals is >20 times slower than bookerquartic
-    sort(eigvals(Array(T)), by=LWMS.upgoing) ≈ sort(qT, by=LWMS.upgoing) || return false
+    sort(eigvals(Array(T)), by=LWMS.upgoing) ≈ sort(q, by=LWMS.upgoing) || return false
 
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(q)

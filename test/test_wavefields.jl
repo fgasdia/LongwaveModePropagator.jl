@@ -158,14 +158,6 @@ function resonance_test(scenario)
     ztop = params.topheight
     zs = ztop:-100:0.0
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
-
-    origcoords = LWMS.defaultcoordinates(tx.frequency)
-    modes = LWMS.findmodes(modeequation, origcoords, params=params)
-    return modes
-    ea = modes[1]
-
     e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
     R = LWMS.vacuumreflectioncoeffs(ea, e[end])
     Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
@@ -238,14 +230,14 @@ end
             @test drdzwavefield_equivalence_test(scn)
         end
         for scn in (resonant_scenario, )
-            @test_broken resonance_test(scn)
+            @test resonance_test(scn)
         end
         for scn in (homogeneousiono_scenario, )
             @test homogeneous_iono_test(scn)
         end
 
-        @test_broken boundary_test(isotropicB_resonant_scenario)
+        @test_skip boundary_test(isotropicB_resonant_scenario)
     end
 
-    # TODO: test `fieldstrengths`, but how?
+    # TODO: test `fieldstreng9ths`, but how?
 end

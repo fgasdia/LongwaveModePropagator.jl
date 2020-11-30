@@ -140,7 +140,7 @@ selected, where eigenvalue ``q‚ÇÅ`` corresponds to the evanescent wave and ``q‚Ç
 the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
-function initialwavefields(T::TMatrix)
+function initialwavefields(T)
     # XXX: rename to bookerwavefields?
 
     q, B = bookerquartic(T)

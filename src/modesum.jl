@@ -419,15 +419,7 @@ function Efield(
     return E
 end
 
-function Efield(
-    waveguide,
-    wavefields_vec::Vector{Wavefields},
-    adjwavefields_vec::Vector{Wavefields},
-    tx,
-    rx;
-    params=LWMSParams()
-    )
-
+function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=LWMSParams())
     @unpack earthradius = params
 
     X = distance(rx, tx)
