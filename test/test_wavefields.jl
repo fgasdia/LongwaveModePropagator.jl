@@ -153,11 +153,10 @@ end
 
 function resonance_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
-    params = LWMSParams()https://github.com/fgasdia/RootsAndPoles.jl
+    params = LWMSParams()
 
     ztop = params.topheight
     zs = ztop:-100:0.0
-
 
     waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
