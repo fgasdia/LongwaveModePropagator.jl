@@ -562,7 +562,10 @@ function referencetoground(ea::EigenAngle; params=LWMSParams())
     @unpack earthradius, curvatureheight = params
     return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/earthradius*curvatureheight)))
 end
-referencetoground(x; params=LWMSParams()) = x/sqrt(1 - 2/earthradius*curvatureheight)
+function referencetoground(x; params=LWMSParams())
+    @unpack earthradius, curvatureheight = params
+    return x/sqrt(1 - 2/earthradius*curvatureheight)
+end
 
 """
     pow23(x)
