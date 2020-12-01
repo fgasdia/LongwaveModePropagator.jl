@@ -50,7 +50,7 @@ const isotropicB_resonant_scenario = TestScenario(
 )
 
 const resonant_scenario = TestScenario(
-    EigenAngle(1.4479480172352819 - 0.040164908854749264im),  # resonant
+    EigenAngle(1.4479464583701422 - 0.04016675937125528im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
             z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
@@ -96,7 +96,7 @@ const segmented_scenario = TestScenario(
     GroundSampler(2000e3, Fields.Ez)
 )
 
-const θs = [complex(r,i) for r = range(deg2rad(40), deg2rad(89), length=50) for i = range(deg2rad(-30), deg2rad(0), length=31)]
+const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i = range(deg2rad(-15), deg2rad(0), length=16)]
 err_func(a,b) = maximum(abs.(a-b))
 
 
@@ -106,8 +106,8 @@ err_func(a,b) = maximum(abs.(a-b))
     include("test_Waveguides.jl")
 
     include("test_magnetoionic.jl")
-    include("test_wavefields.jl")
     include("test_modefinder.jl")
+    include("test_wavefields.jl")
 
     include("test_IO.jl")
 end

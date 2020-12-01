@@ -294,7 +294,6 @@ function sortquarticroots!(v)
     return v
 end
 
-
 ##########
 # Reflection coefficient matrix for a vertically stratified ionosphere
 ##########
@@ -360,7 +359,7 @@ end
 """
     tmatrix(ea::EigenAngle, M, ::Dθ)
 
-Return a dense matrix with the derivative of `T` with respect to `θ` at eigenangle `ea`.
+Return a dense `SMatrix` with the derivative of `T` with respect to `θ` at eigenangle `ea`.
 """
 function tmatrix(ea::EigenAngle, M, ::Dθ)
     S, C = ea.sinθ, ea.cosθ

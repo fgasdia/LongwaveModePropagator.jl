@@ -6,7 +6,6 @@ Input:
     - In future, N(z,r,n) for n species
     - mass(n), charge(n) for n species
 
-    - Should I interpolate N(z)?
     - Should I limit to h'(r), β(r)?
     - Should I build in conductivity map and allow defining places? (this is really an extra utility)
 

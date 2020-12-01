@@ -15,7 +15,7 @@ using Parameters
 using ProgressMeter
 using BetterExp  # TEMP faster exp() until merged into Base
 using JSON3, StructTypes
-using Interpolations
+using Interpolations, NLsolve
 
 using PolynomialRoots: roots!
 

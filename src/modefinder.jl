@@ -74,10 +74,11 @@ end
 # Reflection coefficients
 ##########
 
+#==
 """
     sharpboundaryreflection(ea, M)
 
-Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere
+Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere""
 referenced to the ground.
 
 The reflection coefficient matrix for the sharply bounded case is used as a starting solution
@@ -105,7 +106,7 @@ function sharpboundaryreflection(ea::EigenAngle, M)
     T = tmatrix(ea, M)
     q, B = bookerquartic(T)
 
-    sort!(q, by=upgoing)
+    sortquarticroots!(q)
 
     C = ea.cosθ
 
@@ -133,67 +134,63 @@ function sharpboundaryreflection(ea::EigenAngle, M)
 
     R = d/u
 
+    # Off-diagonal terms of W are very small, leading to inaccuracies w/o iterating
+    # W = wmatrix(ea, T)
+    # if norm(W[2] + W[4]*R - R*W[1] - R*W[3]*R) > 0.1
+    #     res = nlsolve((f, R)->dR!(f,R,W), Array(R))  # TEMP MArray supported soon
+    #
+    #     if !any(isnan, res.zero)
+    #         R = oftype(R, res.zero)
+    #     end
+    # end
+
     return R
 end
+==#
 
-function sharpboundaryreflection(ea::EigenAngle, M, ::Dθ)
-    S, C = ea.sinθ, ea.cosθ
+"""
+    sharpR!(R, W)
 
+The right side of ``2i R′ = w₂₁ + w₂₂R - Rw₁₁ - Rw₁₂R``, which can be used to solve for
+reflection from the sharply bounded ionosphere where ``dR/dz = 0``.
+
+See [^Budden1988] sec. 18.10.
+
+[^Budden1988]:
+"""
+function sharpR!(f, R, W)
+    f .= W[2] + W[4]*R - R*W[1] - R*W[3]*R
+end
+
+function sharpR!(f, dR, R, dW, W)
+    f .= dW[2] + W[4]*dR + dW[4]*R - R*dW[1] - dR*W[1] - R*W[3]*dR - R*dW[3]*R - dR*W[3]*R
+end
+
+function sharpboundaryreflection(ea, M)
     T = tmatrix(ea, M)
-    dT = tmatrix(ea, M, Dθ())
-    q, B = bookerquartic(T)
-    sort!(q, by=upgoing)
-    dq = bookerquartic(ea, M, q, B, Dθ())
+    W = wmatrix(ea, T)
 
-    # Compute fields using the ratios from [^Budden1988] pg 190
-    a1 = -(T[1,1] + T[4,4])
-    a2 = T[1,1]*T[4,4] - T[1,4]*T[4,1]
-    a3 = T[1,2]
-    a4 = T[1,4]*T[4,2] - T[1,2]*T[4,4]
-    a5 = T[4,2]
-    a6 = T[1,2]*T[4,1] - T[1,1]*T[4,2]
+    # TODO: when supported by nlsolve, switch to SMatrix
+    initR = complex([0.9 0.1; 0.1 -0.9])
+    res = nlsolve((f,R)->sharpR!(f,R,W), initR)
 
-    # Many `dT` components are 0
-    da1 = -(dT[1,1] + dT[4,4])
-    da2 = T[1,1]*dT[4,4] + T[4,4]*dT[1,1] - T[4,1]*dT[1,4]
-    da3 = dT[1,2]
-    da4 = dT[1,4]*T[4,2] - T[1,2]*dT[4,4] - dT[1,2]*T[4,4]
-    # da5 = 0
-    da6 = dT[1,2]*T[4,1] - dT[1,1]*T[4,2]
+    return SMatrix{2,2}(res.zero)
+end
 
-    e = MMatrix{4,2,eltype(T),8}(undef)
-    de = MMatrix{4,2,eltype(T),8}(undef)
-    @inbounds for i = 1:2
-        A = q[i]^2 + a1*q[i] + a2
-        dA = 2*q[i]*dq[i] + a1*dq[i] + q[i]*da1 + da2
+function sharpboundaryreflection(ea, M, ::Dθ)
+    T = tmatrix(ea, M)
+    W = wmatrix(ea, T)
+    dW = wmatrix(ea, M, T, Dθ())
 
-        e[1,i] = a3*q[i] + a4
-        e[2,i] = A
-        e[3,i] = q[i]*A
-        e[4,i] = a5*q[i] + a6
+    initR = complex([0.9 0.1; 0.1 -0.9])
+    resR = nlsolve((f,R)->sharpR!(f,R,W), initR)
+    R = SMatrix{2,2}(resR.zero)
 
-        de[1,i] = a3*dq[i] + da3*q[i] + da4
-        de[2,i] = dA
-        de[3,i] = dq[i]*A + q[i]*dA
-        de[4,i] = a5*dq[i] + da6  # + da5*q[i] = 0
-    end
+    # TODO: when supported by nlsolve, switch to SMatrix
+    initdR = complex([2.0 1.0; 1.0 2.0])
+    resdR = nlsolve((f,dR)->sharpR!(f,dR,R,dW,W), initdR)
+    dR = SMatrix{2,2}(resdR.zero)
 
-    d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
-    dd = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
-                      -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
-    u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
-    du = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
-                      -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
-
-    R = d/u
-    dR = dd/u + d*(-u\du/u)
-
-    #==
-    [R11 R12;
-     R21 R22;
-     dR11 dR12;
-     dR21 dR22]
-    ==#
     return vcat(R, dR)
 end
 
@@ -300,13 +297,13 @@ function wmatrix(ea::EigenAngle, T)
 end
 
 """
-    dwmatrixdθ(ea, M, T)
+    wmatrix(ea, M, T, ::Dθ)
 
 Return the 4 submatrix elements of the derivative of the `W` matrix wrt θ.
 
 See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
 """
-function dwmatrixdθ(ea::EigenAngle, M, T)
+function wmatrix(ea::EigenAngle, M, T, ::Dθ)
     C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
     Cinv = ea.secθ
     C²inv = Cinv^2
@@ -372,7 +369,8 @@ function dRdz(R, p, z)
     return -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
 end
 
-function dRdθdz(RdRdθ, (modeequation, params), z)
+function dRdθdz(RdRdθ, p, z)
+    modeequation, params = p
     @unpack ea, frequency, waveguide = modeequation
 
     k = frequency.k
@@ -380,7 +378,7 @@ function dRdθdz(RdRdθ, (modeequation, params), z)
     M = susceptibility(z, frequency, waveguide, params=params)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
-    dW11, dW21, dW12, dW22 = dwmatrixdθ(ea, M, T)
+    dW11, dW21, dW12, dW22 = wmatrix(ea, M, T, Dθ())
 
     R = RdRdθ[SVector(1,2),:]
     dRdθ = RdRdθ[SVector(3,4),:]
@@ -392,8 +390,7 @@ function dRdθdz(RdRdθ, (modeequation, params), z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(modeequation::PhysicalModeEquation,
-    params=LWMSParams())
+function integratedreflection(modeequation::PhysicalModeEquation; params=LWMSParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
@@ -429,8 +426,7 @@ end
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
-    params=LWMSParams())
+function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
@@ -443,12 +439,12 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ,
     # NOTE: When save_on=false, don't try interpolating the solution!
     # Purposefully higher tolerance than non-derivative version
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin, dt=1,
+                force_dtmin=force_dtmin,
                 save_on=false, save_start=false, save_end=true)
 
-    R = sol[end]
+    RdR = sol[end]
 
-    return R
+    return RdR
 end
 
 
@@ -548,30 +544,25 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(modeequation::PhysicalModeEquation,
-    params=LWMSParams())
-
-    R = integratedreflection(modeequation, params)
+function solvemodalequation(modeequation::PhysicalModeEquation; params=LWMSParams())
+    R = integratedreflection(modeequation, params=params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
     return f
 end
-function solvemodalequation(θ, modeequation::PhysicalModeEquation,
-    params=LWMSParams())
+function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LWMSParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, params)
+    solvemodalequation(modeequation, params=params)
 end
 
 """
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
-    params=LWMSParams())
-
-    RdR = integratedreflection(modeequation, Dθ(), params)
+function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
+    RdR = integratedreflection(modeequation, Dθ(), params=params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
@@ -581,22 +572,20 @@ function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ,
     return df, R, Rg
 end
 
-function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ,
-    params=LWMSParams())
+function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, Dθ(), params)
+    solvemodalequation(modeequation, Dθ(), params=params)
 end
 
 function findmodes(modeequation::ModeEquation, origcoords; params=LWMSParams(), atol=1e-2)
-
     @unpack grpfparams = params
 
     # WARNING: If tolerance of mode finder is much less than the R integration
     # tolerance, it may possible multiple identical modes will be identified. Checks for
     # valid and redundant modes help ensure valid eigenangles are returned from this function.
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation, params),
+    roots, poles = grpf(θ->solvemodalequation(θ, modeequation, params=params),
                         origcoords, grpfparams)
 
     # Ensure roots are valid solutions to the modal equation
