@@ -69,9 +69,9 @@ version = "0.4.1"
 
 [[ChainRulesCore]]
 deps = ["LinearAlgebra", "MuladdMacro", "SparseArrays"]
-git-tree-sha1 = "6e0e251d98bd909a227e905e2700555e33796042"
+git-tree-sha1 = "793ea43b751e5c6cc6bbd82970af2952a5afb7d1"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "0.9.20"
+version = "0.9.21"
 
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -221,9 +221,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Distributions]]
 deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "StaticArrays", "Statistics", "StatsBase", "StatsFuns"]
-git-tree-sha1 = "6493eec6bfb1e578cff879b66844807e3625c83c"
+git-tree-sha1 = "0be6ad72740c9c77186b7c8d3591a67c906fc4e6"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.24.4"
+version = "0.24.5"
 
 [[DocStringExtensions]]
 deps = ["LibGit2", "Markdown", "Pkg", "Test"]
@@ -433,15 +433,15 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[ModelingToolkit]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqJump", "DiffRules", "Distributed", "DocStringExtensions", "IfElse", "LabelledArrays", "Latexify", "Libdl", "LightGraphs", "LinearAlgebra", "MacroTools", "NaNMath", "RecursiveArrayTools", "Requires", "RuntimeGeneratedFunctions", "SafeTestsets", "SparseArrays", "SpecialFunctions", "StaticArrays", "SymbolicUtils", "TreeViews", "UnPack", "Unitful"]
-git-tree-sha1 = "b9b5222bb87535c5c8bbb3324e7d417c9c14cde7"
+git-tree-sha1 = "a3bcdcee7660a146cea219bd96ae84334c279189"
 uuid = "961ee093-0014-501f-94e3-6117800e7a78"
-version = "4.0.7"
+version = "4.0.8"
 
 [[ModifiedHankelFunctionsOfOrderOneThird]]
 deps = ["BetterExp", "Documenter", "Markdown", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "d4c5d0d6ee09811fcabeab83748d5ed6820ba0cd"
+git-tree-sha1 = "e21c245ad4ac673769443fd760923fbfc3eb836f"
 uuid = "b1c65800-dbf0-11e8-0001-4d87e1e07e69"
-version = "1.0.3"
+version = "1.1.0"
 
 [[MuladdMacro]]
 git-tree-sha1 = "c6190f9a7fc5d9d5915ab29f2134421b12d24a68"
@@ -647,11 +647,9 @@ version = "1.0.6"
 
 [[RootsAndPoles]]
 deps = ["LinearAlgebra", "VoronoiDelaunay"]
-git-tree-sha1 = "9f959bf07dc5aad0188ba977f5208070c5a5dabf"
-repo-rev = "master"
-repo-url = "https://github.com/fgasdia/RootsAndPoles.jl"
+git-tree-sha1 = "f49e31595ff4fa435059d0f8da0b8c0ae22f6d6f"
 uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
-version = "1.2.0"
+version = "1.3.0"
 
 [[RuntimeGeneratedFunctions]]
 deps = ["ExprTools", "SHA", "Serialization"]
