@@ -141,8 +141,6 @@ the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
 function initialwavefields(T)
-    # XXX: rename to bookerwavefields?
-
     q, B = bookerquartic(T)
     sortquarticroots!(q)
 
@@ -603,9 +601,9 @@ function calculate_wavefields!(wavefields, adjoint_wavefields, frequency, wavegu
 
     for m in eachindex(modes)
         fieldstrengths!(view(wavefields,:,m), zs, modes[m], frequency, bfield, species,
-                        ground)
+                        ground, params=params)
         fieldstrengths!(view(adjoint_wavefields,:,m), zs, adjoint_modes[m], frequency,
-                        adjoint_bfield, species, ground)
+                        adjoint_bfield, species, ground, params=params)
     end
 
     return nothing

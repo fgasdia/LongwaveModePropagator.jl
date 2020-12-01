@@ -162,7 +162,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
     modes = findmodes(modeequation, coordgrid, params=params)
 
-    E = Efield(modes, waveguide, tx, rx)
+    E = Efield(modes, waveguide, tx, rx, params=params)
     amp = 10log10(abs2(E))  # == 20log10(abs(E))
     phase = angle(E)
 
@@ -192,7 +192,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
     modes = findmodes(modeequation, coordgrid, params=params)
 
-    E = Efield(modes, waveguide, tx, rx)
+    E = Efield(modes, waveguide, tx, rx, params=params)
 
     amp = Vector{Float64}(undef, length(E))
     phase = similar(amp)
@@ -255,7 +255,7 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
         adjwavefields_vec[nsgmnt] = adjwavefields
     end
 
-    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx)
+    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx, params=params)
 
     amp = Vector{Float64}(undef, length(E))
     phase = similar(amp)
@@ -281,9 +281,8 @@ end
 
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
-function bpm(file::AbstractString;
-    incrementalwrite=false, append=false,
-    coordgrid=nothing, params=LWMSParams())
+function bpm(file::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing,
+    params=LWMSParams())
 
     ispath(file) || error("$file is not a valid file name")
 
@@ -296,8 +295,7 @@ function bpm(file::AbstractString;
     s = parse(file)
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for BatchInput files"))
-        output = buildrunsave(outfile, s,
-                              append=append, coordgrid=coordgrid, params=params)
+        output = buildrunsave(outfile, s, append=append, coordgrid=coordgrid, params=params)
     else
         output = buildrun(s, coordgrid=coordgrid, params=params)
 

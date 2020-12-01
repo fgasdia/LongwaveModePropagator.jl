@@ -138,7 +138,8 @@ function heightgains(z, ea, frequency, efconstants::ExcitationFactor; params=LWM
 end
 
 """
-    excitationfactor(ea, dFdθ, R, Rg, field)
+    excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor, field::Fields.Field;
+        params=LWMSParams())
 
 Calculate the excitation factor for electric `field`.
 
@@ -170,7 +171,7 @@ Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
 San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
-    field::Fields.Field)
+    field::Fields.Field; params=LWMSParams())
 
     S, S², C² = ea.sinθ, ea.sin²θ, ea.cos²θ
     sqrtS = sqrt(S)
@@ -229,7 +230,6 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LWMSPa
 
     # Transmit antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
-    # TODO: Confirm alignment of coord system and magnetic field
     Sγ, Cγ = sincos(inclination(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
@@ -237,10 +237,10 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LWMSPa
     t2 = Sγ*Sϕ
     t3 = Sγ*Cϕ
 
-    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
+    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ(), params=params)
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground, params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield, params=params)
 
     # Transmitter term
     fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants, params=params)
@@ -279,10 +279,10 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     rxfield = fieldcomponent(rx)
 
-    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ())
+    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ(), params=params)
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground, params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield, params=params)
 
     # Transmitter term
     fz, fx, fy = heightgains(0.0, ea, frequency, efconstants, params=params)
