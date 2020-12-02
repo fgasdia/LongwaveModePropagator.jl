@@ -1,7 +1,7 @@
 # CODATA 2018 NIST SP 961
 const C0 = 299792458.0  # c, speed of light in vacuum, m/s
 const U0 = 1.25663706212e-6  # μ₀, vacuum permeability, H/m
-const E0 = 8.8541878128e12  # ϵ₀, vacuum permittivity, F/m
+const E0 = 8.8541878128e-12  # ϵ₀, vacuum permittivity, F/m
 const Z0 = 376.730313668  # Z₀, vacuum impedance, Ω
 
 const QE = -1.602176634e-19  # qₑ, charge of an electron, C
