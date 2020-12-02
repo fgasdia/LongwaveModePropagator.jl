@@ -9,7 +9,7 @@ function wmatrix_deriv(scenario)
             dWref = FiniteDiff.finite_difference_derivative(Wfcn, θs, Val{:central})
             dW(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M); LWMS.wmatrix(ea, M, T, LWMS.Dθ())[i][j])
 
-            err_func(dW.(θs), dWref) < 1e-5 || return false
+            err_func(dW.(θs), dWref) < 1e-3 || return false
         end
     end
 
@@ -191,84 +191,6 @@ function sharpboundary_sheddy_deriv(scenario)
     return true
 end
 
-function sharpboundaryreflection_wavefields(ea::EigenAngle, M, ::LWMS.Dθ)
-    S, C = ea.sinθ, ea.cosθ
-
-    T = LWMS.tmatrix(ea, M)
-    dT = LWMS.tmatrix(ea, M, LWMS.Dθ())
-    q, B = LWMS.bookerquartic(T)
-    LWMS.sortquarticroots!(q)
-    dq = LWMS.bookerquartic(ea, M, q, B, LWMS.Dθ())
-
-    # Compute fields using the ratios from [^Budden1988] pg 190
-    a1 = -(T[1,1] + T[4,4])
-    a2 = T[1,1]*T[4,4] - T[1,4]*T[4,1]
-    a3 = T[1,2]
-    a4 = T[1,4]*T[4,2] - T[1,2]*T[4,4]
-    a5 = T[4,2]
-    a6 = T[1,2]*T[4,1] - T[1,1]*T[4,2]
-
-    # Some `dT` components are 0
-    da1 = -(dT[1,1] + dT[4,4])
-    da2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1]
-    da3 = dT[1,2]
-    da4 = dT[1,4]*T[4,2] - T[1,2]*dT[4,4] - dT[1,2]*T[4,4]
-    # da5 = 0
-    da6 = dT[1,2]*T[4,1] - dT[1,1]*T[4,2]
-
-    e = MMatrix{4,2,eltype(T),8}(undef)
-    de = MMatrix{4,2,eltype(T),8}(undef)
-    @inbounds for i = 1:2
-        A = q[i]^2 + a1*q[i] + a2
-        dA = 2*q[i]*dq[i] + a1*dq[i] + q[i]*da1 + da2
-
-        e[1,i] = a3*q[i] + a4
-        e[2,i] = A
-        e[3,i] = q[i]*A
-        e[4,i] = a5*q[i] + a6
-
-        de[1,i] = a3*dq[i] + da3*q[i] + da4
-        de[2,i] = dA
-        de[3,i] = dq[i]*A + q[i]*dA
-        de[4,i] = a5*dq[i] + da6  # + da5*q[i] = 0
-    end
-
-    d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
-    dd = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
-                      -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
-    u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
-    du = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
-                      -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
-
-    R = d/u
-    dR = dd/u + d*(-u\du/u)  # BUG? dR[2,2] seems to be wrong...
-
-    #==
-    [R11 R12;
-     R21 R22;
-     dR11 dR12;
-     dR21 dR22]
-    ==#
-    return vcat(R, dR)
-end
-
-function sharpboundary_wavefields_deriv(scenario)
-    @unpack ea, tx, bfield, species = scenario
-
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
-
-    T = LWMS.tmatrix(ea, M)
-    W = LWMS.wmatrix(ea, T)
-
-    ref = sharpboundaryreflection_wavefields(ea, M, LWMS.Dθ())
-    test = LWMS.sharpboundaryreflection(ea, M, LWMS.Dθ())
-
-    # Off-diagonal terms of W are very small <1e-20 and off-diagonals of R are very sensitive
-    diag(ref[1:2,:]) ≈ diag(test[1:2,:]) || return false
-
-    return true
-end
-
 function integratedreflection_deriv(scenario)
     @unpack tx, ground, bfield, species = scenario
     freq = tx.frequency
@@ -388,7 +310,9 @@ function pecground()
     pec_ground = LWMS.Ground(1, 1e12)
     vertical_ea = LWMS.EigenAngle(π/2)
 
-    return abs.(LWMS.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))) ≈ I
+    Rg = LWMS.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
+
+    return isapprox(abs.(Rg), I, atol=1e-7)
 end
 
 function modalequation(scenario)
@@ -428,7 +352,7 @@ function modefinder(scenario)
         f = LWMS.solvemodalequation(m, modeequation, params=params)
         LWMS.isroot(f) || return false
     end
-    return modes
+    # return modes
     return true
 end
 
@@ -464,7 +388,6 @@ end
             @test wmatrix_deriv(scn)
             @test sharpboundaryreflection_deriv(scn)
             @test sharpboundary_sheddy_deriv(scn)  # sensitive off-diag
-            @test sharpboundary_wavefields_deriv(scn)
             @test fresnelreflection_deriv(scn)
             @test integratedreflection_deriv(scn) # again, a problem with off-diag
             @test modalequation_deriv(scn)

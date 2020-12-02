@@ -50,7 +50,7 @@ const isotropicB_resonant_scenario = TestScenario(
 )
 
 const resonant_scenario = TestScenario(
-    EigenAngle(1.4479464583701422 - 0.04016675937125528im),  # resonant
+    EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
             z->waitprofile(z, 75, 0.32, cutoff_low=40e3),

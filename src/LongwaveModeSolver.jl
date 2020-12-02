@@ -148,8 +148,8 @@ defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
     bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{<:Real}; coordgrid=nothing,
         params=LWMSParams())
 
-Specialized form for `AbstractSampler`s with a single distance which returns
-scalar `E`, `amp`, and `phase`.
+Specialized form for `AbstractSampler`s with a single distance which returns scalar `E`,
+`amp`, and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
     coordgrid=nothing, params=LWMSParams())
@@ -176,10 +176,7 @@ end
 """
     bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing, params=LWMSParams())
 
-Return electric field `E`, and field `amplitude` and `phase` using parameters:
-
-    - `defaultcoordinates` for GRPF region
-    - `PhysicalModeEquation`
+Return electric field `E`, and field `amplitude` and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LWMSParams())
@@ -216,7 +213,6 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
 
     return E, amp, phase
 end
-
 
 function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LWMSParams())

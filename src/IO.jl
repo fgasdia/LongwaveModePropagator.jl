@@ -365,8 +365,8 @@ function buildrun(s::BatchInput; coordgrid=nothing, params=LWMSParams())
     return batch
 end
 
-function buildrunsave(outfile, s::BatchInput;
-    append=false, coordgrid=nothing, params=LWMSParams())
+function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing,
+    params=LWMSParams())
 
     if append && isfile(outfile)
         batch = open(outfile, "r") do f
