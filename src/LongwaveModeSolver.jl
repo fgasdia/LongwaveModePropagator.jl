@@ -43,6 +43,9 @@ export inclination, azimuth, altitude, fieldcomponent
 # TMatrix.jl
 export TMatrix
 
+# modefinder.jl
+export findmodes
+
 # Waveguides.jl
 export HomogeneousWaveguide
 export eigenangles
@@ -142,13 +145,14 @@ end
 defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
 """
-    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{R}; coordgrid=nothing) where {R<:Real}
+    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{<:Real}; coordgrid=nothing,
+        params=LWMSParams())
 
 Specialized form for `AbstractSampler`s with a single distance which returns
 scalar `E`, `amp`, and `phase`.
 """
-function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R};
-    coordgrid=nothing, params=LWMSParams()) where {R<:Real}
+function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
+    coordgrid=nothing, params=LWMSParams())
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -170,7 +174,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{R
 end
 
 """
-    bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing)
+    bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing, params=LWMSParams())
 
 Return electric field `E`, and field `amplitude` and `phase` using parameters:
 

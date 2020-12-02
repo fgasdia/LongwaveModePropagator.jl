@@ -70,7 +70,7 @@ function excitationfactorconstants(ea, R, Rg, frequency, ground; params=LWMSPara
     F₃ = -h₂p0 + t1*h₂0
     F₄ = h₁p0 - t1*h₁0
 
-    # ey/hy; polarization ratio; Normalizes y component of H to unity at thr ground.
+    # ey/hy; polarization ratio; Normalizes y component of H to unity at the ground.
     # Sometimes called `f` in papers
     # f0fr = T₂/(T₃*T₄) = T₃/T₁
     # LWPC uses the following criteria for choosing
@@ -237,7 +237,7 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LWMSPa
     t2 = Sγ*Sϕ
     t3 = Sγ*Cϕ
 
-    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ(), params=params)
+    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ(), params=params)
     efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground, params=params)
 
     λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield, params=params)
@@ -309,13 +309,8 @@ end
 Calculate the complex electric field by summing `modes` in `waveguide` with
 transmitter `tx` and receiver `rx`.
 """
-function Efield(
-    modes::Vector{EigenAngle},
-    waveguide::HomogeneousWaveguide,
-    tx::Emitter,
-    rx::AbstractSampler;
-    params=LWMSParams()
-    )
+function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
+    rx::AbstractSampler; params=LWMSParams())
 
     X = distance(rx, tx)
     Xlength = length(X)
@@ -335,16 +330,9 @@ Calculate the complex electric field at a distance `x` from transmitter `tx`.
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
 """
-function Efield!(
-    E,
-    X::AbstractVector,
-    modes::AbstractVector,
-    waveguide::HomogeneousWaveguide,
-    tx::Emitter,
-    rx::AbstractSampler;
-    params=LWMSParams()
-    )
-    @assert length(E) == length(X) "`E` and `X` must be same length"
+function Efield!(E, X::AbstractVector, modes::AbstractVector, waveguide::HomogeneousWaveguide,
+    tx::Emitter, rx::AbstractSampler; params=LWMSParams())
+    length(E) == length(X) || throw(ArgumentError("`E` and `X` must be same length"))
 
     frequency = tx.frequency
     @unpack earthradius = params
@@ -389,13 +377,8 @@ end
 Return the single scalar electric field when `AbstractSampler` has a (single)
 `Real` distance.
 """
-function Efield(
-    modes::Vector{EigenAngle},
-    waveguide::HomogeneousWaveguide,
-    tx::Emitter,
-    rx::AbstractSampler{R};
-    params=LWMSParams()
-    ) where {R<:Real}
+function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
+    rx::AbstractSampler{<:Real}; params=LWMSParams())
 
     # Unpack
     frequency = tx.frequency
@@ -562,6 +545,12 @@ function referencetoground(ea::EigenAngle; params=LWMSParams())
     @unpack earthradius, curvatureheight = params
     return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/earthradius*curvatureheight)))
 end
+"""
+    referencetoground(x; params=LWMSParams())
+
+Reference `x = sin(ea)` eigenangle from `params.curvatureheight` to the ground and return
+`sin(ea)` at the ground.
+"""
 function referencetoground(x; params=LWMSParams())
     @unpack earthradius, curvatureheight = params
     return x/sqrt(1 - 2/earthradius*curvatureheight)
