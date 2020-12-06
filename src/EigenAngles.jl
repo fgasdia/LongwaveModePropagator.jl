@@ -9,7 +9,7 @@ Waveguide EigenAngle `θ` (rad), as well as:
   - `cos²θ`
   - `sin²θ`
 
- Real `θ` will be automatically converted to `complex`.
+Real `θ` will be automatically converted to `complex`.
 
 Technically this is an angle of incidence from the vertical, and not necessarily an
 _eigen_angle unless it is found to be associated with a propagated mode in the waveguide.

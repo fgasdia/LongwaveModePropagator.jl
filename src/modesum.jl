@@ -13,14 +13,13 @@ end
 ################
 
 """
-    excitationfactorconstants(ea, R, Rg, frequency, ground)
+    excitationfactorconstants(ea, R, Rg, frequency, ground; params=LWMSParams())
 
 Return an `ExcitationFactor` struct used in calculating height gains.
 
 !!! note
 
-    Eigenangle `ea` should be referenced to `CURVATURE_HEIGHT`. See, e.g.
-    [^Pappert1971], page 8.
+    Eigenangle `ea` should be referenced to `curvatureheight`. See, e.g. [^Pappert1971], page 8.
 
 Based on Morfitt 1980, Pappert Shockey 1971, and Pappert Shockey 1976 (this last one has H=0)
 
@@ -39,17 +38,19 @@ Based on Morfitt 1980, Pappert Shockey 1971, and Pappert Shockey 1976 (this last
     Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
     San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
-function excitationfactorconstants(ea, R, Rg, frequency, ground)
+function excitationfactorconstants(ea, R, Rg, frequency, ground; params=LWMSParams())
     S², C² = ea.sin²θ, ea.cos²θ
     k, ω = frequency.k, frequency.ω
+
+    @unpack earthradius, curvatureheight = params
 
     # This function could be further optimized by reducing repeated computations,
     # but <100 ns can be gained and this function is not in a hot loop.
     # Clarity outways efficiency here.
 
     # Precompute
-    α = 2/EARTHRADIUS
-    αH = α*CURVATURE_HEIGHT
+    α = 2/earthradius
+    αH = α*curvatureheight
     t0 = (α/k)^(2/3)/2
 
     q₀ = (k/α)^(2/3)*(C² - αH)
@@ -69,7 +70,7 @@ function excitationfactorconstants(ea, R, Rg, frequency, ground)
     F₃ = -h₂p0 + t1*h₂0
     F₄ = h₁p0 - t1*h₁0
 
-    # ey/hy; polarization ratio; Normalizes y component of H to unity at thr ground.
+    # ey/hy; polarization ratio; Normalizes y component of H to unity at the ground.
     # Sometimes called `f` in papers
     # f0fr = T₂/(T₃*T₄) = T₃/T₁
     # LWPC uses the following criteria for choosing
@@ -83,7 +84,7 @@ function excitationfactorconstants(ea, R, Rg, frequency, ground)
 end
 
 """
-    heightgains(z, ea, frequency, efconstants)
+    heightgains(z, ea, frequency, efconstants::ExcitationFactor; params=LWMSParams())
 
 Calculate heightgains at `z`.
 
@@ -102,16 +103,17 @@ See also: [`excitationfactor`](@ref), [`excitationfactorconstants`](@ref)
     Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
     San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
-function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
+function heightgains(z, ea, frequency, efconstants::ExcitationFactor; params=LWMSParams())
     C² = ea.cos²θ
     k = frequency.k
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
+    @unpack earthradius, curvatureheight = params
 
     # Precompute
-    α = 2/EARTHRADIUS
-    t1 = exp(z/EARTHRADIUS)  # assumes `d = 0`
+    α = 2/earthradius
+    t1 = exp(z/earthradius)  # assumes `d = 0`
 
-    qz = (k/α)^(2/3)*(C² - α*(CURVATURE_HEIGHT - z))
+    qz = (k/α)^(2/3)*(C² - α*(curvatureheight - z))
 
     h₁z, h₂z, h₁pz, h₂pz = modifiedhankel(qz)
 
@@ -127,7 +129,7 @@ function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
 
     # Height gain for Ex, also called g(z)
     # f₂ = 1/(im*k) df₁/dz
-    fx = -1im*t1/(EARTHRADIUS*k)*(F₁h₁z + F₂h₂z + EARTHRADIUS*(F₁*h₁pz + F₂*h₂pz))
+    fx = -1im*t1/(earthradius*k)*(F₁h₁z + F₂h₂z + earthradius*(F₁*h₁pz + F₂*h₂pz))
 
     # Height gain for Ey, also called f⟂(z)
     fy = (F₃*h₁z + F₄*h₂z)
@@ -136,7 +138,8 @@ function heightgains(z, ea, frequency, efconstants::ExcitationFactor)
 end
 
 """
-    excitationfactor(ea, dFdθ, R, Rg, field)
+    excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor, field::Fields.Field;
+        params=LWMSParams())
 
 Calculate the excitation factor for electric `field`.
 
@@ -145,8 +148,8 @@ These excitation factors are used in conjunction with the function
 
 !!! note
 
-    Eigen angle `ea` should be referenced to `CURVATURE_HEIGHT`. This function
-    internally references `ea` to ground where necessary.
+    Eigen angle `ea` should be referenced to `curvatureheight`. This function internally
+    references `ea` to ground where necessary.
 
 # References
 
@@ -168,12 +171,12 @@ Antennas of Arbitrary Elevation and Orientation.,” Naval Ocean Systems Center,
 San Diego, CA, NOSC/TR-891, Aug. 1983.
 """
 function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
-    field::Fields.Field)
+    field::Fields.Field; params=LWMSParams())
 
     S, S², C² = ea.sinθ, ea.sin²θ, ea.cos²θ
     sqrtS = sqrt(S)
 
-    S₀ = referencetoground(S)
+    S₀ = referencetoground(S, params=params)
 
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
 
@@ -185,7 +188,7 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
     D₁₂ = fz*fy
     D₂₂ = fy^2
 
-    # `S` is at `CURVATURE_HEIGHT`, specified in e.g. [^Morfitt1980]
+    # `S` is at `curvatureheight`, specified in e.g. [^Morfitt1980]
     T₁ = sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])/(dFdθ*Rg[1,1]*D₁₁)
     T₂ = sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])/(dFdθ*Rg[2,2]*D₂₂)
     T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]/(dFdθ*D₁₂)
@@ -212,13 +215,13 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor,
 end
 
 """
-    modeterms(ea, frequency, waveguide, tx, rx)
+    modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LWMSParams())
 
 !!! note
 
-    Eigenangle `ea` should be referenced to `CURVATURE_HEIGHT`.
+    Eigenangle `ea` should be referenced to `curvatureheight`.
 """
-function modeterms(modeequation, tx::Emitter, rx::AbstractSampler)
+function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LWMSParams())
     @unpack ea, frequency, waveguide = modeequation
 
     zt = altitude(tx)
@@ -227,7 +230,6 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler)
 
     # Transmit antenna orientation with respect to propagation direction
     # See Morfitt 1980 pg 22
-    # TODO: Confirm alignment of coord system and magnetic field
     Sγ, Cγ = sincos(inclination(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
@@ -235,20 +237,20 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler)
     t2 = Sγ*Sϕ
     t3 = Sγ*Cϕ
 
-    dFdθ, R, Rg = solvemodalequation(ea, modeequation, Dθ())
-    efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
+    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ(), params=params)
+    efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground, params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield, params=params)
 
     # Transmitter term
-    fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants)
+    fz_t, fx_t, fy_t = heightgains(zt, ea, frequency, efconstants, params=params)
     xmtrterm = λv*fz_t*t1 + λb*fy_t*t2 + λe*fx_t*t3
 
     # Receiver term
     if zr == zt
         fz_r, fx_r, fy_r = fz_t, fx_t, fy_t
     else
-        fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants)
+        fz_r, fx_r, fy_r = heightgains(zr, ea, frequency, efconstants, params=params)
     end
 
     # TODO: Handle multiple fields - maybe just always return all 3?
@@ -264,25 +266,26 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler)
 end
 
 """
-    modeterms()
+    modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
+        rx::GroundSampler; params=LWMSParams())
 
 Specialized `modeterms` for the common case of `GroundSampler` and
 `Transmitter{VerticalDipole}`.
 """
 function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
-    rx::GroundSampler)
+    rx::GroundSampler; params=LWMSParams())
 
     @unpack ea, frequency, waveguide = modeequation
 
     rxfield = fieldcomponent(rx)
 
-    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ())
-    efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground)
+    dFdθ, R, Rg = solvemodalequation(modeequation, Dθ(), params=params)
+    efconstants = excitationfactorconstants(ea, R, Rg, frequency, waveguide.ground, params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, Rg, efconstants, rxfield, params=params)
 
     # Transmitter term
-    fz, fx, fy = heightgains(0.0, ea, frequency, efconstants)
+    fz, fx, fy = heightgains(0.0, ea, frequency, efconstants, params=params)
     xmtrterm = λv*fz
 
     # Receiver term
@@ -306,24 +309,20 @@ end
 Calculate the complex electric field by summing `modes` in `waveguide` with
 transmitter `tx` and receiver `rx`.
 """
-function Efield(
-    modes::Vector{EigenAngle},
-    waveguide::HomogeneousWaveguide,
-    tx::Emitter,
-    rx::AbstractSampler
-    )
+function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
+    rx::AbstractSampler; params=LWMSParams())
 
     X = distance(rx, tx)
     Xlength = length(X)
 
     E = zeros(ComplexF64, Xlength)
-    Efield!(E, X, modes, waveguide, tx, rx)
+    Efield!(E, X, modes, waveguide, tx, rx, params=params)
 
     return E
 end
 
 """
-    Efield!(E, X, modes, waveguide, tx, rx)
+    Efield!(E, X, modes, waveguide, tx, rx; params=LWMSParams())
 
 Calculate the complex electric field at a distance `x` from transmitter `tx`.
 
@@ -331,17 +330,12 @@ Calculate the complex electric field at a distance `x` from transmitter `tx`.
 `modeparams`. Emitter `tx` specifies the transmitting antenna position, orientation, and
 radiated power, and `rx` specifies the field component of interest.
 """
-function Efield!(
-    E,
-    X::AbstractVector,
-    modes::AbstractVector,
-    waveguide::HomogeneousWaveguide,
-    tx::Emitter,
-    rx::AbstractSampler
-    )
-    @assert length(E) == length(X) "`E` and `X` must be same length"
+function Efield!(E, X::AbstractVector, modes::AbstractVector, waveguide::HomogeneousWaveguide,
+    tx::Emitter, rx::AbstractSampler; params=LWMSParams())
+    length(E) == length(X) || throw(ArgumentError("`E` and `X` must be same length"))
 
     frequency = tx.frequency
+    @unpack earthradius = params
 
     txpower = power(tx)
     k = frequency.k
@@ -351,10 +345,10 @@ function Efield!(
 
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
-        xmtrterm, rcvrterm = modeterms(modeequation, tx, rx)
+        xmtrterm, rcvrterm = modeterms(modeequation, tx, rx, params=params)
 
         # Precalculate
-        S₀ = referencetoground(ea.sinθ)
+        S₀ = referencetoground(ea.sinθ, params=params)
         expterm = -k*(S₀ - 1)
         xmtr_rcvr_term = xmtrterm*rcvrterm
 
@@ -371,7 +365,7 @@ function Efield!(
     # See, e.g. Pappert Hitney 1989 TWIRE paper
 
     @inbounds for i in eachindex(E)
-        E[i] *= Q/sqrt(abs(sin(X[i]/EARTHRADIUS)))
+        E[i] *= Q/sqrt(abs(sin(X[i]/earthradius)))
     end
 
     return nothing
@@ -383,12 +377,8 @@ end
 Return the single scalar electric field when `AbstractSampler` has a (single)
 `Real` distance.
 """
-function Efield(
-    modes::Vector{EigenAngle},
-    waveguide::HomogeneousWaveguide,
-    tx::Emitter,
-    rx::AbstractSampler{R}
-    ) where {R<:Real}
+function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
+    rx::AbstractSampler{<:Real}; params=LWMSParams())
 
     # Unpack
     frequency = tx.frequency
@@ -400,9 +390,9 @@ function Efield(
     E = zero(T)
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
-        xmtrterm, rcvrterm = modeterms(modeequation, tx, rx)
+        xmtrterm, rcvrterm = modeterms(modeequation, tx, rx, params=params)
 
-        S₀ = referencetoground(ea.sinθ)
+        S₀ = referencetoground(ea.sinθ, params=params)
         expterm = -k*(S₀ - 1)
         xmtr_rcvr_term = xmtrterm*rcvrterm
 
@@ -412,13 +402,8 @@ function Efield(
     return E
 end
 
-function Efield(
-    waveguide,
-    wavefields_vec::Vector{Wavefields},
-    adjwavefields_vec::Vector{Wavefields},
-    tx,
-    rx
-    )
+function Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=LWMSParams())
+    @unpack earthradius = params
 
     X = distance(rx, tx)
     maxX = maximum(X)
@@ -473,7 +458,7 @@ function Efield(
             # `xmtrterm` includes excitation factor and transmitter height gain
             # `rcvrterm` is receiver height gain only
             modeequation = PhysicalModeEquation(eas[n], frequency, wvg)
-            xmtrterm, rcvrterm, efc = modeterms(modeequation, tx, rx)
+            xmtrterm, rcvrterm, efc = modeterms(modeequation, tx, rx, params=params)
             if segmentidx == 1
                 # Transmitter exists only in the transmitter slab (obviously)
                 xmtrfields[n] = xmtrterm
@@ -492,11 +477,11 @@ function Efield(
         # Calculate E at each distance in the current waveguide segment
         while X[Xidx] < segment_end
             x = X[Xidx] - segment_start
-            factor = Q/sqrt(abs(sin(X[Xidx]/EARTHRADIUS)))
+            factor = Q/sqrt(abs(sin(X[Xidx]/earthradius)))
 
             totalfield = zero(ComplexF64)
             for n = 1:current_eacount
-                S₀ = referencetoground(eas[n].sinθ)
+                S₀ = referencetoground(eas[n].sinθ, params=params)
                 totalfield += rcvrfields[n]*cis(-k*x*(S₀ - 1))*factor
             end
 
@@ -513,7 +498,7 @@ function Efield(
 
             resize!(previous_xmtrfields, current_eacount)
             for n = 1:current_eacount
-                S₀ = referencetoground(eas[n].sinθ)
+                S₀ = referencetoground(eas[n].sinθ, params=params)
 
                 # Excitation factors at end of slab. LWPC uses `Hy`
                 xmtrfields[n] *= cis(-k*x*(S₀ - 1))
@@ -556,10 +541,20 @@ function unwrap!(x)
 end
 
 # see, e.g. PS71 pg 11
-function referencetoground(ea::EigenAngle)
-    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/EARTHRADIUS*CURVATURE_HEIGHT)))
+function referencetoground(ea::EigenAngle; params=LWMSParams())
+    @unpack earthradius, curvatureheight = params
+    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/earthradius*curvatureheight)))
 end
-referencetoground(x::Number) = x/sqrt(1 - 2/EARTHRADIUS*CURVATURE_HEIGHT)
+"""
+    referencetoground(x; params=LWMSParams())
+
+Reference `x = sin(ea)` eigenangle from `params.curvatureheight` to the ground and return
+`sin(ea)` at the ground.
+"""
+function referencetoground(x; params=LWMSParams())
+    @unpack earthradius, curvatureheight = params
+    return x/sqrt(1 - 2/earthradius*curvatureheight)
+end
 
 """
     pow23(x)

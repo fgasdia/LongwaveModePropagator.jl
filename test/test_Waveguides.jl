@@ -1,5 +1,5 @@
 function homogeneouswaveguidebits()
-    bfield = BField(50_000e-9, 0.0, 0.0, -1.0)
+    bfield = BField(50000e-9, 0.0, 0.0, -1.0)
     ground = Ground(15, 0.001)
 
     electrons = Species(QE, ME,

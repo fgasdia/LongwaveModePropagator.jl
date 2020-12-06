@@ -3,31 +3,29 @@ Functions related to calculating electromagnetic field components at any height
 within the ionosphere.
 ==#
 
-const WAVEFIELD_HEIGHTS = range(TOPHEIGHT, 0, length=513)
-
 """
-    Wavefields
+    Wavefields{H<:AbstractRange}
 
-Struct containing wavefield components for each mode of `eas` and heights `zs`.
+Struct containing wavefield components for each mode of `eas` at `heights`.
 
-The `Wavefields` are stored in the `v` field and accessed as a `Matrix` of `SVector{6,ComplexF64}`
-corresponding to `wavefields[height,mode]`.
+The six electromagnetic field components are stored in the `v` field of the struct and
+accessed as a `Matrix` of `SVector{6,ComplexF64}` corresponding to `[height,mode]`.
 """
-struct Wavefields
+struct Wavefields{H<:AbstractRange}
     v::Matrix{SVector{6,ComplexF64}}  # v[height,mode]  ; type is derived from typeof T, which is from M
+    heights::H
     eas::Vector{EigenAngle}
 end
 
 """
-    Wavefields(eas::Vector{EigenAngle})
+    Wavefields(eas::Vector{EigenAngle}, heights)
 
-A constructor for `Wavefields` which creates appropriately sized `undef` vectors
-given eigenangles `eas` and `WAVEFIELD_HEIGHTS`. Wavefield type `T` must be provided
-explicitly.
+A constructor for initializing `Wavefields` with an appropriately sized `undef` Matrix
+given eigenangles `eas` and `heights`.
 """
-function Wavefields(eas::Vector{EigenAngle})
-    v = Matrix{SVector{6,ComplexF64}}(undef, length(WAVEFIELD_HEIGHTS), length(eas))
-    Wavefields(v, eas)
+function Wavefields(heights, eas::Vector{EigenAngle})
+    v = Matrix{SVector{6,ComplexF64}}(undef, length(heights), length(eas))
+    Wavefields(v, heights, eas)
 end
 
 Base.size(A::Wavefields) = size(A.v)
@@ -35,46 +33,50 @@ Base.size(A::Wavefields, I...) = size(A.v, I...)
 Base.getindex(A::Wavefields, i) = A.v[i]
 Base.getindex(A::Wavefields, I...) = A.v[I...]
 Base.setindex!(A::Wavefields, x, i) = (A.v[i] = x)
-Base.similar(A::Wavefields) = Wavefields(A.eas)
-Base.copy(A::Wavefields) = Wavefields(copy(A.v), copy(A.eas))
+Base.similar(A::Wavefields) = Wavefields(A.heights, A.eas)
+Base.copy(A::Wavefields) = Wavefields(copy(A.v), copy(A.heights), copy(A.eas))
 Base.view(A::Wavefields, I...) = view(A.v, I...)
 
 function (==)(A::Wavefields, B::Wavefields)
+    A.heights == B.heights || return false
     A.eas == B.eas || return false
     A.v == B.v || return false
     return true
 end
 
+heights(A::Wavefields) = A.heights
+numheights(A::Wavefields) = length(A.heights)
+eigenangles(A::Wavefields) = A.eas
+nummodes(A::Wavefields) = length(A.eas)
+
 function Base.isvalid(A::Wavefields)
     vzs, veas = size(A.v)
-    ealen = length(A.eas)
-    veas == ealen || return false
-    zlen = length(WAVEFIELD_HEIGHTS)
+    zlen = numheights(A)
     vzs == zlen || return false
+    ealen = nummodes(A)
+    veas == ealen || return false
     return true
 end
 
-numheights(A::Wavefields) = size(A.v, 1)
-eigenangles(A::Wavefields) = A.eas
-numeigenangles(A::Wavefields) = length(A.eas)
-
 
 """
-    WavefieldIntegrationParams{F,G}(z, ortho_scalar, e1_scalar, e2_scalar, ea, frequency,
-                                    bfield, species)
+    WavefieldIntegrationParams{F,G,H}(z, bottomz, ortho_scalar, e1_scalar, e2_scalar, ea,
+        frequency, bfield, species, lwmsparams)
 
 Parameters passed to Pitteway integration of wavefields.
 
-    `z::Float64`
-    `ortho_scalar::Complex{Float64}`
-    `e1_scalar::Float64`
-    `e2_scalar::Float64`
-    `ea::EigenAngle`
-    `frequency::Frequency`
-    `bfield::BField`
-    `species::Species{F,G}`
+    - `z::Float64`
+    - `bottomz::Float64`
+    - `ortho_scalar::Complex{Float64}`
+    - `e1_scalar::Float64`
+    - `e2_scalar::Float64`
+    - `ea::EigenAngle`
+    - `frequency::Frequency`
+    - `bfield::BField`
+    - `species::Species{F,G}`
+    - `lwmsparams::LWMSParams{H}`
 """
-struct WavefieldIntegrationParams{F,G}
+struct WavefieldIntegrationParams{F,G,H}
     z::Float64
     bottomz::Float64
     ortho_scalar::ComplexF64
@@ -84,24 +86,25 @@ struct WavefieldIntegrationParams{F,G}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
+    lwmsparams::LWMSParams{H}
 end
 
 """
-    WavefieldIntegrationParams(ea, frequency, bfield, species)
+    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, lwmsparams)
 
 Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
 
 Automatically set values are:
 
-    `z = TOPHEIGHT`
-    `ortho_scalar = zero(ComplexF64)`
-    `e1_scalar = one(Float64)`
-    `e2_scalar = one(Float64)`
+    - `bottomz = BOTTOMHEIGHT`
+    - `ortho_scalar = zero(ComplexF64)`
+    - `e1_scalar = one(Float64)`
+    - `e2_scalar = one(Float64)`
 """
-function WavefieldIntegrationParams(ea::EigenAngle, frequency::Frequency, bfield::BField,
-                                    species::Species{F,G}) where {F,G}
-    return WavefieldIntegrationParams{F,G}(TOPHEIGHT, BOTTOMHEIGHT, zero(ComplexF64),
-        one(Float64), one(Float64), ea, frequency, bfield, species)
+function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
+    lwmsparams::LWMSParams{H}) where {F,G,H}
+    return WavefieldIntegrationParams{F,G,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
+        one(Float64), one(Float64), ea, frequency, bfield, species, lwmsparams)
 end
 
 """
@@ -119,7 +122,7 @@ struct ScaleRecord
 end
 
 """
-    initialwavefields(T::TMatrix)
+    bookerwavefields(T::TMatrix)
 
 Calculate the initial wavefields vector ``[Ex₁ Ex₂
                                            Ey₁ Ey₂
@@ -130,19 +133,27 @@ for the two upgoing wavefields where subscript `1` is the evanescent wave and
 
 The wavefields are always of type `Complex{Float64}`.
 
-This function solves the equation ``Te = qe``, equivalently the eigenvector
+This function solves the equation ``Te = qe`` equivalent to the eigenvector
 problem ``(T- qI)e = 0``. First, the Booker Quartic is solved for the roots `q`,
 and they are sorted so that the roots associated with the two upgoing waves are
 selected, where eigenvalue ``q₁`` corresponds to the evanescent wave and ``q₂``
 the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
-function initialwavefields(T::TMatrix)
-    # TODO: rename to bookerwavefields?
-
+function bookerwavefields(T::TMatrix)
     q, B = bookerquartic(T)
     sortquarticroots!(q)
+    return bookerwavefields(T, q)
+end
 
+function bookerwavefields(ea::EigenAngle, M)
+    q, B = bookerquartic(ea, M)
+    sortquarticroots!(q)
+    T = tmatrix(ea, M)
+    return bookerwavefields(T, q)
+end
+
+function bookerwavefields(T::TMatrix, q)
     # Precompute
     T14T41 = T[1,4]*T[4,1]
     T14T42 = T[1,4]*T[4,2]
@@ -151,16 +162,63 @@ function initialwavefields(T::TMatrix)
     e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
     @inbounds for i = 1:2
         d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
-        dinv = inv(d)
 
-        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)*dinv
+        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)/d
         e[2,i] = 1
         e[3,i] = q[i]
-        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))*dinv
+        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))/d
     end
 
     # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
     return SArray(e)
+end
+
+function bookerwavefields(T::TMatrix, dT, ::Dθ)
+    q, B = bookerquartic(T)
+    sortquarticroots!(q)
+    dq = bookerquartic(T, dT, q, B)
+    return bookerwavefields(T, dT, q, dq)
+end
+
+function bookerwavefields(ea::EigenAngle, M, ::Dθ)
+    q, B = bookerquartic(ea, M)
+    sortquarticroots!(q)
+    dq = bookerquartic(ea, M, q, B)
+    T = tmatrix(ea, M)
+    dT = tmatrix(ea, M, Dθ())
+
+    return bookerwavefields(T, dT, q, dq)
+end
+
+function bookerwavefields(T::TMatrix, dT, q, dq)
+    # Precompute
+    T14T41 = T[1,4]*T[4,1]
+    T14T42 = T[1,4]*T[4,2]
+    T12T41 = T[1,2]*T[4,1]
+
+    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
+    de = similar(e)
+    @inbounds for i = 1:2
+        d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
+        d2 = abs2(d)
+        dd = dT[1,4]*T[4,1] - T[1,1]*dT[4,4] - dT[1,1]*T[4,4] +
+            q[i]*(dT[1,1] + dT[4,4] - 2*dq[i]) + dq[i]*(T[1,1] + T[4,4])
+
+        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)/d
+        e[2,i] = 1
+        e[3,i] = q[i]
+        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))/d
+
+        de1num = (T[1,2]*(dT[4,4] - dq[i]) + dT[1,2]*(T[4,4] - q[i]) - dT[1,4]*T[4,2])
+        de[1,i] = (de1num*d - e[1,i]*d*dd)/d2
+        de[2,i] = 0
+        de[3,i] = dq[i]
+        de4num = -dT[1,2]*T[4,1] + T[4,2]*(dT[1,1] - dq[i])
+        de[4,i] = (de4num*d - e[4,i]*d*dd)/d2
+    end
+
+    # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
+    return SArray(e), SArray(de)
 end
 
 """
@@ -175,31 +233,31 @@ dedz(e, k, T::TMatrix) = -1im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
 
 Calculates derivative of field components vector `e` at height `z`.
 
-The parameters tuple `p` should contain (`Frequency`, `BField`, `Species`)
-or be a `WavefieldIntegrationParams` struct. This function internally calls
-[`susceptibility`](@ref) and [`tmatrix`](@ref) and is typically used by
-[`integratewavefields`](@ref).
+The parameters `p` should be a `WavefieldIntegrationParams`.
+
+This function internally calls [`susceptibility`](@ref) and [`tmatrix`](@ref) and is typically
+used by [`integratewavefields`](@ref).
 """
 function dedz(e, p, z)
-    @unpack ea, frequency, bfield, species = p
+    @unpack ea, frequency, bfield, species, lwmsparams = p
 
-    M = susceptibility(z, frequency, bfield, species)
+    M = susceptibility(z, frequency, bfield, species, params=lwmsparams)
     T = tmatrix(ea, M)
 
     return dedz(e, frequency.k, T)
 end
 
-
 """
-    scalingcondition(e, z, integrator)
+    scalingcondition(e, z, int)
 
-Return `true` if wavefields should be scaled, otherwise `false`.
+Return `true` if wavefields should be scaled, otherwise `false` for wavefields `e` at height
+`z` and integrator `int`.
 
 Specifically, if any component of `real(e)` or `imag(e)` are `>= 1`, return
-`true`. In addition, force scale `z == bottomz` to ensure initial upgoing wave
+`true`. In addition, force scale at `z == bottomz` to ensure initial upgoing wave
 is unit amplitude.
 """
-scalingcondition(e, z, integrator) = any(x -> (real(x) >= 1 || imag(x) >= 1), e) || z == integrator.p.bottomz
+scalingcondition(e, z, int) = any(x->(real(x) >= 1 || imag(x) >= 1), e) || z == int.p.bottomz
 
 """
     scale!(integrator)
@@ -210,7 +268,7 @@ function scale!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    @unpack bottomz, ea, frequency, bfield, species = integrator.p
+    @unpack bottomz, ea, frequency, bfield, species, lwmsparams = integrator.p
 
     #==
     NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
@@ -223,30 +281,16 @@ function scale!(integrator)
     next `tprev`, `t`).
     ==#
 
-    # NOTE: we must entirely reconstruct the entire struct from scratch
     integrator.p = WavefieldIntegrationParams(integrator.t,
                                               bottomz,
                                               new_orthos,
                                               new_e1s, new_e2s,
-                                              ea, frequency, bfield, species)
+                                              ea, frequency, bfield, species, lwmsparams)
 
     integrator.u = new_e
 
     return nothing
 end
-
-"""
-    save_values(u, t, integrator)
-
-Return a `ScaleRecord` from `u`, `t`, and `integrator`.
-
-Used by SavingCallback in [`integratewavefields`](@ref).
-"""
-save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
-                                            u,
-                                            integrator.p.ortho_scalar,
-                                            integrator.p.e1_scalar,
-                                            integrator.p.e2_scalar)
 
 """
     scalewavefields(e1, e2)
@@ -270,7 +314,7 @@ function scalewavefields(e1, e2)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
     e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), `imag(dot(e1,e1)) == 0`
-    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned XXX: necessary?
+    a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
     e2 -= a*e1
 
     # Normalize `e1` and `e2`
@@ -387,17 +431,34 @@ function unscalewavefields(saved_values::SavedValues)
 end
 
 """
-    output `e` at `zs`
+    save_values(u, t, integrator)
 
-zs should be going down (although this isn't strictly enforced by this function)
+Return a `ScaleRecord` from `u`, `t`, and `integrator`.
+
+Used by SavingCallback in [`integratewavefields`](@ref).
 """
-function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField, species::Species)
+save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
+                                            u,
+                                            integrator.p.ortho_scalar,
+                                            integrator.p.e1_scalar,
+                                            integrator.p.e2_scalar)
+
+"""
+    integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+        species::Species; params=LWMSParams())
+
+Return wavefields `e` at `zs` by downward integration over `zs`.
+"""
+function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+    species::Species; params=LWMSParams())
     # TODO: version that updates output `e` in place
 
+    issorted(zs, rev=true) || throw(ArgumentError("zs should go from top to bottom"))
+
     # Initial conditions
-    Mtop = susceptibility(first(zs), frequency, bfield, species)
+    Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
     Ttop = tmatrix(ea, Mtop)
-    e0 = initialwavefields(Ttop)
+    e0 = bookerwavefields(Ttop)
 
     # Works best if `e0` fields are normalized at top height
     # Don't want to orthogonalize `e0[:,2]` here because it won't be undone!
@@ -409,17 +470,12 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
 
     saved_values = SavedValues(Float64, ScaleRecord)
 
-    scb = SavingCallback(save_values, saved_values, save_everystep=false, saveat=zs,
-                         tdir=sign(last(zs)-first(zs)))
+    scb = SavingCallback(save_values, saved_values, save_everystep=false, saveat=zs, tdir=-1)
 
-    p = WavefieldIntegrationParams(ea, frequency, bfield, species)
+    p = WavefieldIntegrationParams(params.topheight, ea, frequency, bfield, species, params)
 
-    # (May 5, 2020) DifferentialEquations chooses Vern9(false) on daytime Wait
-    # profile. But Vern6, 7, or 8 are likely more efficient since the stiff
-    # Rodas5 algorithm was never called.
-
-    # WARNING: Without `lazy=false` (since we're using DiscreteCallback) don't
-    # use continuous solution output! Also, we're only saving at zs
+    # WARNING: Without `lazy=false` (necessary since we're using DiscreteCallback) don't
+    # use continuous solution output! Also, we're only saving at zs.
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
     sol = solve(prob, Vern9(lazy=false), callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
@@ -473,24 +529,7 @@ For additional details, see [^Budden1988], chapter 18, section 7.
 waves of low power in the ionosphere and magnetosphere, First paperback edition.
 New York: Cambridge University Press, 1988.
 """
-function vacuumreflectioncoeffs(ea::EigenAngle, e1, e2)
-    C = ea.cosθ
-    Cinv = ea.secθ
-
-    # TODO: Specialize this matrix math?
-    Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
-                          0, -1, 0, -1,
-                          0, -Cinv, 0, Cinv,
-                          1, 0, 1, 0)
-
-    f1 = Sv_inv*e1
-    f2 = Sv_inv*e2
-
-    U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
-    D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
-
-    return D/U
-end
+vacuumreflectioncoeffs(ea::EigenAngle, e1, e2) = bookerreflection(ea, hcat(e1, e2))
 
 """
     vacuumreflectioncoeffs(ea, e)
@@ -498,7 +537,7 @@ end
 Calculate `vacuumreflectioncoeffs` where `e` can be decomposed into `e[:,1]` and
 `e[:,2]`.
 """
-vacuumreflectioncoeffs(ea, e) = vacuumreflectioncoeffs(ea, e[:,1], e[:,2])
+vacuumreflectioncoeffs(ea, e) = bookerreflection(ea, e)
 
 """
     wavefieldboundary(R, Rg, e1, e2)
@@ -560,13 +599,13 @@ Calculate `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by full wave integration
 Scales wavefields for waveguide boundary conditions.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species, ground::Ground)
+    species::Species, ground::Ground; params=LWMSParams())
 
     @assert length(EH) == length(zs)
-    zs[end] == 0 || @warn "Waveguide math assumes fields and reflection
-        coefficients are calculated at the ground (`z = 0`)."
+    zs[end] == 0 || @warn "Waveguide math assumes fields and reflection coefficients are
+        calculated at the ground (`z = 0`)."
 
-    e = integratewavefields(zs, ea, frequency, bfield, species)
+    e = integratewavefields(zs, ea, frequency, bfield, species, params=params)
     R = vacuumreflectioncoeffs(ea, e[end])
     Rg = fresnelreflection(ea, ground, frequency)
     b1, b2 = boundaryscalars(R, Rg, e[end], isisotropic(bfield))
@@ -576,7 +615,7 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
         # Scale to waveguide boundary conditions
         w = e[i][:,1]*b1 + e[i][:,2]*b2
 
-        M = susceptibility(zs[i], frequency, bfield, species)
+        M = susceptibility(zs[i], frequency, bfield, species, params=params)
         ez = -(w[4]*S + M[3,1]*w[1] - M[3,2]*w[2])/(1 + M[3,3])
         hz = -w[2]*S
         EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
@@ -585,28 +624,27 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
     return nothing
 end
 
-function calculate_wavefields!(wavefields, adjoint_wavefields,
-                               frequency, waveguide, adjoint_waveguide)
-
-    # This function assumes Wavefields are calculated at WAVEFIELD_HEIGHTS
-    @assert size(wavefields, 1) == length(WAVEFIELD_HEIGHTS)
+function calculate_wavefields!(wavefields, adjoint_wavefields, frequency, waveguide,
+    adjoint_waveguide; params=LWMSParams())
 
     @unpack bfield, species, ground = waveguide
-    @assert ground == adjoint_waveguide.ground
-    @assert species == adjoint_waveguide.species
+
+    ground == adjoint_waveguide.ground || throw(ArgumentError("waveguide and adjoint_waveguide should have same Ground"))
+    species == adjoint_waveguide.species || throw(ArgumentError("waveguide and adjoint_waveguide should have same Species"))
 
     adjoint_bfield = adjoint_waveguide.bfield
 
+    zs = heights(wavefields)
     modes = eigenangles(wavefields)
     adjoint_modes = eigenangles(adjoint_wavefields)
     modes == adjoint_modes || @warn "Full mode conversion physics assumes adjoint
         wavefields are calculated for eigenangles of the original waveguide."
 
     for m in eachindex(modes)
-        fieldstrengths!(view(wavefields,:,m), WAVEFIELD_HEIGHTS, modes[m],
-                        frequency, bfield, species, ground)
-        fieldstrengths!(view(adjoint_wavefields,:,m), WAVEFIELD_HEIGHTS, adjoint_modes[m],
-                        frequency, adjoint_bfield, species, ground)
+        fieldstrengths!(view(wavefields,:,m), zs, modes[m], frequency, bfield, species,
+                        ground, params=params)
+        fieldstrengths!(view(adjoint_wavefields,:,m), zs, adjoint_modes[m], frequency,
+                        adjoint_bfield, species, ground, params=params)
     end
 
     return nothing

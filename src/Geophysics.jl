@@ -1,31 +1,11 @@
 # CODATA 2018 NIST SP 961
 const C0 = 299792458.0  # c, speed of light in vacuum, m/s
 const U0 = 1.25663706212e-6  # μ₀, vacuum permeability, H/m
-const E0 = 1/(U0*C0^2)  # ϵ₀, vacuum permittivity, F/m
+const E0 = 8.8541878128e-12  # ϵ₀, vacuum permittivity, F/m
 const Z0 = 376.730313668  # Z₀, vacuum impedance, Ω
 
 const QE = -1.602176634e-19  # qₑ, charge of an electron, C
 const ME = 9.1093837015e-31  # mₑ, mass of an electron, kg
-
-const EARTHRADIUS = Ref(6369e3)  # earth radius, m
-get_earthradius() = EARTHRADIUS[]
-
-"""
-    set_earthradius(v::Float64)
-
-Set the global `EARTHRADIUS` in meters used by `LongwaveModeSolver`.
-
-!!! warning
-
-    This function is not threadsafe!
-
-See also: [`get_earthradius`](@ref)
-"""
-set_earthradius(v::Float64) = EARTHRADIUS[] = v
-
-export get_earthradius, set_earthradiusconst
-
-const CURVATURE_HEIGHT = 50e3  # reference height for Earth curvature, m lwpm.for defines as 50 km
 
 ########
 
@@ -58,7 +38,10 @@ struct BField
     dcn::Float64
 
     function BField(B, dcl, dcm, dcn)
-        iszero(B) && error("B field magnitude of exactly 0 is not supported. Try setting B = 1e-15.")
+        if iszero(B)
+            @warn "B field magnitude of exactly 0 is not supported. Setting B = 1e-15."
+            B = 1e-15
+        end
         new(B, dcl, dcm, dcn)
     end
 end
@@ -79,7 +62,7 @@ function BField(B, dip, azimuth)
     # Look at the Booker quartic roots for dip angles -1,+1. They are way
     # outside the normal. The roots aren't accurately found, although I'm not
     # sure where the issue is.
-    abs(rad2deg(dip)) <= 1 && @warn "magnetic dip angles between ±1° have known numerical issues."
+    abs(dip) <= deg2rad(1) && @warn "magnetic dip angles between ±1° have known numerical issues."
     abs(dip) > π && @warn "magnetic dip angle should be in radians"
     abs(azimuth) > 2π && @warn "magnetic azimuth angle should be in radians"
 
@@ -103,7 +86,7 @@ Return the azimuth angle (rad) from a `BField` vector `b`.
 azimuth(b::BField) = atan(b.dcm,b.dcl)
 
 function isisotropic(b::BField)
-    b.B == 0 && return true
+    b.B <= 1e-12 && return true
 
     tolerance = deg2rad(0.15)
 
@@ -207,10 +190,10 @@ function waitprofile(z, hp, β; cutoff_low=0, threshold=1e12)
 end
 
 """
-    electroncollisionfrequency(z; cutoff_low=0)
+    electroncollisionfrequency(z)
 
-Return the electron-neutral collision frequency (s⁻¹) at altitude `z` (m) based
-on Wait's conductivity profile. When `z` is below `cutoff_low` (m), return `1.816e11`.
+Return the electron-neutral collision frequency (s⁻¹) at altitude `z` (m) based on Wait's
+conductivity profile.
 
 ``νₑ(z) = 1.816 × 10¹¹ \\exp(-0.15e-3 z)``
 
@@ -229,19 +212,14 @@ pp. 173–184, Feb. 1993, doi: 10.1016/0021-9169(93)90122-F.
 remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
 pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function electroncollisionfrequency(z; cutoff_low=0)
-    if z > cutoff_low
-        return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
-    else
-        return zero(promote_type(Float64, typeof(z)))
-    end
+function electroncollisionfrequency(z)
+    return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
 end
 
 """
-    ioncollisionfrequency(z; cutoff_low=0)
+    ioncollisionfrequency(z)
 
 Return ion-neutral collision frequency (s⁻¹) at height `z` (m) from [^Morfitt1976].
-When `z` is below `cutoff_low` (m), return `4.54e9`.
 
 ``νᵢ(z) = 4.54 × 10⁹ \\exp(-0.15e-3 z)``
 
@@ -257,10 +235,6 @@ Oct. 1976.
 remote sensing using VLF radio atmospherics,” Radio Science, vol. 33, no. 6,
 pp. 1781–1792, Nov. 1998, doi: 10.1029/98RS02381.
 """
-function ioncollisionfrequency(z; cutoff_low=0)
-    if z > cutoff_low
-        return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
-    else
-        return zero(promote_type(Float64, typeof(z)))
-    end
+function ioncollisionfrequency(z)
+    return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
 end

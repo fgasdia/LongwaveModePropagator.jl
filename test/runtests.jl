@@ -1,5 +1,4 @@
-using Test
-using Dates
+using Test, Dates, Random
 using LinearAlgebra, Statistics
 using StaticArrays
 using Parameters
@@ -13,6 +12,8 @@ const LWMS = LongwaveModeSolver
 
 const QE = LWMS.QE
 const ME = LWMS.ME
+
+const TEST_RNG = MersenneTwister(1234)
 
 # To profile in Juno
 # @profiler (for i = 1:1000; LWMS.fcn(); end)
@@ -30,19 +31,30 @@ const verticalB_scenario = TestScenario(
     EigenAngle(1.5 - 0.1im),
     BField(50e-6, π/2, 0),
     Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-            z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
+            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+            electroncollisionfrequency),
+    Ground(15, 0.001),
+    Transmitter(24e3),
+    GroundSampler(2000e3, Fields.Ez)
+)
+
+const isotropicB_resonant_scenario = TestScenario(
+    EigenAngle(1.453098822238508 - 0.042008075239068944im),  # resonant
+    BField(50e-6, 0, π/2),
+    Species(QE, ME,
+            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+            electroncollisionfrequency),
     Ground(15, 0.001),
     Transmitter(24e3),
     GroundSampler(2000e3, Fields.Ez)
 )
 
 const resonant_scenario = TestScenario(
-    EigenAngle(1.416125176504303 - 0.01634934012082594im),  # resonant
+    EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-            z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
+            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+            electroncollisionfrequency),
     Ground(15, 0.001),
     Transmitter(24e3),
     GroundSampler(2000e3, Fields.Ez)
@@ -52,8 +64,8 @@ const nonresonant_scenario = TestScenario(
     EigenAngle(1.5 - 0.1im),
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-            z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
+            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+            electroncollisionfrequency),
     Ground(15, 0.001),
     Transmitter(24e3),
     GroundSampler(2000e3, Fields.Ez)
@@ -63,8 +75,8 @@ const homogeneousiono_scenario = TestScenario(
     EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
     BField(50e-6, deg2rad(68), deg2rad(111)),
     Species(QE, ME,
-            z->z >= LWMS.CURVATURE_HEIGHT ? 2.65e6 : 0.0,
-            z->z >= LWMS.CURVATURE_HEIGHT ? 1e8 : 0.0),
+            z->2.65e6,
+            z->1e8),
     Ground(15, 0.001),
     Transmitter(24e3),
     GroundSampler(2000e3, Fields.Ez)
@@ -74,17 +86,17 @@ const segmented_scenario = TestScenario(
     EigenAngle(1.5 - 0.1),
     [BField(50e-6, deg2rad(68), deg2rad(111)), BField(50e-6, deg2rad(68), deg2rad(111))],
     [Species(QE, ME,
-             z->waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT)),
+             z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+             electroncollisionfrequency),
      Species(QE, ME,
-             z->waitprofile(z, 77, 0.35, cutoff_low=LWMS.CURVATURE_HEIGHT),
-             z->electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))],
+             z->waitprofile(z, 77, 0.35, cutoff_low=40e3),
+             electroncollisionfrequency)],
     [Ground(15, 0.001), Ground(15, 0.001)],
     Transmitter(24e3),
     GroundSampler(2000e3, Fields.Ez)
 )
 
-const θs = [complex(r,i) for r = range(deg2rad(30), deg2rad(89), length=100) for i = range(deg2rad(-30), deg2rad(0), length=100)]
+const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i = range(deg2rad(-15), deg2rad(0), length=16)]
 err_func(a,b) = maximum(abs.(a-b))
 
 
@@ -94,8 +106,8 @@ err_func(a,b) = maximum(abs.(a-b))
     include("test_Waveguides.jl")
 
     include("test_magnetoionic.jl")
-    include("test_wavefields.jl")
     include("test_modefinder.jl")
+    include("test_wavefields.jl")
 
     include("test_IO.jl")
 end

@@ -1,5 +1,5 @@
 """
-    susceptibility(alt, frequency, bfield, species)
+    susceptibility(alt, frequency, bfield, species; params=LWMSParams())
 
 Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
 
@@ -18,11 +18,18 @@ susceptibility matrix calculated by this function.
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+no. 1171, pp. 516–537, Feb. 1955.
+
 [^Budden1988]: K. G. Budden
-[^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the ionosphere," Cambridge University Press, 1959.
+
+[^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
+ionosphere," Cambridge University Press, 1959.
 """
-function susceptibility(alt, frequency, bfield, species)
+function susceptibility(alt, frequency, bfield, species; params=LWMSParams())
+    @unpack earthradius, earthcurvature, curvatureheight = params
+
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     x², y², z² = x^2, y^2, z^2
     ω = frequency.ω
@@ -67,7 +74,7 @@ function susceptibility(alt, frequency, bfield, species)
     ixUYD = 1im*x*UYD
     yzY²D = y*z*Y²D
 
-    earthcurvature = 2/EARTHRADIUS[]*(CURVATURE_HEIGHT - alt)
+    curvaturecorrection = 2/earthradius*(curvatureheight - alt)
 
     # Elements of `M`
     M11 = U²D - x²*Y²D
@@ -80,20 +87,20 @@ function susceptibility(alt, frequency, bfield, species)
     M23 = -ixUYD - yzY²D
     M33 = U²D - z²*Y²D
 
-    if EARTHCURVATURE[]
-        M11 -= earthcurvature
-        M22 -= earthcurvature
-        M33 -= earthcurvature
+    if earthcurvature
+        M11 -= curvaturecorrection
+        M22 -= curvaturecorrection
+        M33 -= curvaturecorrection
     end
 
     M = SMatrix{3,3}(M11, M21, M31, M12, M22, M32, M13, M23, M33)
 
     return M
 end
-susceptibility(alt, f::Frequency, w::HomogeneousWaveguide) =
-    susceptibility(alt, f, w.bfield, w.species)
-susceptibility(alt, me::ModeEquation) =
-    susceptibility(alt, me.frequency, me.waveguide)
+susceptibility(alt, f::Frequency, w::HomogeneousWaveguide; params=LWMSParams()) =
+    susceptibility(alt, f, w.bfield, w.species, params=params)
+susceptibility(alt, me::ModeEquation; params=LWMSParams()) =
+    susceptibility(alt, me.frequency, me.waveguide, params=params)
 
 """
     bookerquartic(ea, M)
@@ -173,7 +180,26 @@ function bookerquartic(T::TMatrix{V}) where V
     return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
-function bookerquartic(ea::EigenAngle, M, q, B, ::Dθ)
+function bookerquartic(T::TMatrix{V}, dT, q, B) where V
+    dB3 = -(dT[1,1] + dT[4,4])
+    dB2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1] - dT[3,2]
+    dB1 = -(-T[3,2]*(dT[1,1] + dT[4,4]) - dT[3,2]*(T[1,1] + T[4,4]) + dT[1,2]*T[3,1] +
+        dT[3,4]*T[4,2])
+    dB0 = -T[1,1]*(T[3,2]*dT[4,4] + dT[3,2]*T[4,4] - dT[3,4]*T[4,2]) -
+        dT[1,1]*(T[3,2]*T[4,4] - T[3,4]*T[4,2]) +
+        T[1,2]*(T[3,1]*dT[4,4] - dT[3,4]*T[4,1]) + dT[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
+        T[1,4]*(-dT[3,2]*T[4,1]) - dT[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
+
+    dq = similar(q)
+    @inbounds for i in eachindex(dq)
+        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
+                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
+    end
+
+    return SVector(dq)
+end
+
+function bookerquartic(ea::EigenAngle, M, q, B)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     dS = C
@@ -187,7 +213,7 @@ function bookerquartic(ea::EigenAngle, M, q, B, ::Dθ)
             M[1,3]*M[3,1] - M[1,2]*M[2,1])
 
     dq = similar(q)
-    for i in eachindex(dq)
+    @inbounds for i in eachindex(dq)
         dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
                 (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
     end
@@ -287,7 +313,6 @@ function sortquarticroots!(v)
     return v
 end
 
-
 ##########
 # Reflection coefficient matrix for a vertically stratified ionosphere
 ##########
@@ -353,7 +378,7 @@ end
 """
     tmatrix(ea::EigenAngle, M, ::Dθ)
 
-Return a dense matrix with the derivative of `T` with respect to `θ` at eigenangle `ea`.
+Return a dense `SMatrix` with the derivative of `T` with respect to `θ` at eigenangle `ea`.
 """
 function tmatrix(ea::EigenAngle, M, ::Dθ)
     S, C = ea.sinθ, ea.cosθ
