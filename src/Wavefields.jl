@@ -122,7 +122,7 @@ struct ScaleRecord
 end
 
 """
-    initialwavefields(T::TMatrix)
+    bookerwavefields(T::TMatrix)
 
 Calculate the initial wavefields vector ``[Ex₁ Ex₂
                                            Ey₁ Ey₂
@@ -140,10 +140,20 @@ selected, where eigenvalue ``q₁`` corresponds to the evanescent wave and ``q�
 the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
-function initialwavefields(T)
+function bookerwavefields(T::TMatrix)
     q, B = bookerquartic(T)
     sortquarticroots!(q)
+    return bookerwavefields(T, q)
+end
 
+function bookerwavefields(ea::EigenAngle, M)
+    q, B = bookerquartic(ea, M)
+    sortquarticroots!(q)
+    T = tmatrix(ea, M)
+    return bookerwavefields(T, q)
+end
+
+function bookerwavefields(T::TMatrix, q)
     # Precompute
     T14T41 = T[1,4]*T[4,1]
     T14T42 = T[1,4]*T[4,2]
@@ -161,6 +171,54 @@ function initialwavefields(T)
 
     # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
     return SArray(e)
+end
+
+function bookerwavefields(T::TMatrix, dT, ::Dθ)
+    q, B = bookerquartic(T)
+    sortquarticroots!(q)
+    dq = bookerquartic(T, dT, q, B)
+    return bookerwavefields(T, dT, q, dq)
+end
+
+function bookerwavefields(ea::EigenAngle, M, ::Dθ)
+    q, B = bookerquartic(ea, M)
+    sortquarticroots!(q)
+    dq = bookerquartic(ea, M, q, B)
+    T = tmatrix(ea, M)
+    dT = tmatrix(ea, M, Dθ())
+
+    return bookerwavefields(T, dT, q, dq)
+end
+
+function bookerwavefields(T::TMatrix, dT, q, dq)
+    # Precompute
+    T14T41 = T[1,4]*T[4,1]
+    T14T42 = T[1,4]*T[4,2]
+    T12T41 = T[1,2]*T[4,1]
+
+    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
+    de = similar(e)
+    @inbounds for i = 1:2
+        d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
+        d2 = abs2(d)
+        dd = dT[1,4]*T[4,1] - T[1,1]*dT[4,4] - dT[1,1]*T[4,4] +
+            q[i]*(dT[1,1] + dT[4,4] - 2*dq[i]) + dq[i]*(T[1,1] + T[4,4])
+
+        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)/d
+        e[2,i] = 1
+        e[3,i] = q[i]
+        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))/d
+
+        de1num = (T[1,2]*(dT[4,4] - dq[i]) + dT[1,2]*(T[4,4] - q[i]) - dT[1,4]*T[4,2])
+        de[1,i] = (de1num*d - e[1,i]*d*dd)/d2
+        de[2,i] = 0
+        de[3,i] = dq[i]
+        de4num = -dT[1,2]*T[4,1] + T[4,2]*(dT[1,1] - dq[i])
+        de[4,i] = (de4num*d - e[4,i]*d*dd)/d2
+    end
+
+    # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
+    return SArray(e), SArray(de)
 end
 
 """
@@ -400,7 +458,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # Initial conditions
     Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
     Ttop = tmatrix(ea, Mtop)
-    e0 = initialwavefields(Ttop)
+    e0 = bookerwavefields(Ttop)
 
     # Works best if `e0` fields are normalized at top height
     # Don't want to orthogonalize `e0[:,2]` here because it won't be undone!
@@ -471,24 +529,7 @@ For additional details, see [^Budden1988], chapter 18, section 7.
 waves of low power in the ionosphere and magnetosphere, First paperback edition.
 New York: Cambridge University Press, 1988.
 """
-function vacuumreflectioncoeffs(ea::EigenAngle, e1, e2)
-    C = ea.cosθ
-    Cinv = ea.secθ
-
-    # TODO: Specialize this matrix math
-    Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
-                          0, -1, 0, -1,
-                          0, -Cinv, 0, Cinv,
-                          1, 0, 1, 0)
-
-    f1 = Sv_inv*e1
-    f2 = Sv_inv*e2
-
-    U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
-    D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
-
-    return D/U
-end
+vacuumreflectioncoeffs(ea::EigenAngle, e1, e2) = bookerreflection(ea, hcat(e1, e2))
 
 """
     vacuumreflectioncoeffs(ea, e)
@@ -496,7 +537,7 @@ end
 Calculate `vacuumreflectioncoeffs` where `e` can be decomposed into `e[:,1]` and
 `e[:,2]`.
 """
-vacuumreflectioncoeffs(ea, e) = vacuumreflectioncoeffs(ea, e[:,1], e[:,2])
+vacuumreflectioncoeffs(ea, e) = bookerreflection(ea, e)
 
 """
     wavefieldboundary(R, Rg, e1, e2)

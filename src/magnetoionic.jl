@@ -180,7 +180,26 @@ function bookerquartic(T::TMatrix{V}) where V
     return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
-function bookerquartic(ea::EigenAngle, M, q, B, ::Dθ)
+function bookerquartic(T::TMatrix{V}, dT, q, B) where V
+    dB3 = -(dT[1,1] + dT[4,4])
+    dB2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1] - dT[3,2]
+    dB1 = -(-T[3,2]*(dT[1,1] + dT[4,4]) - dT[3,2]*(T[1,1] + T[4,4]) + dT[1,2]*T[3,1] +
+        dT[3,4]*T[4,2])
+    dB0 = -T[1,1]*(T[3,2]*dT[4,4] + dT[3,2]*T[4,4] - dT[3,4]*T[4,2]) -
+        dT[1,1]*(T[3,2]*T[4,4] - T[3,4]*T[4,2]) +
+        T[1,2]*(T[3,1]*dT[4,4] - dT[3,4]*T[4,1]) + dT[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
+        T[1,4]*(-dT[3,2]*T[4,1]) - dT[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
+
+    dq = similar(q)
+    @inbounds for i in eachindex(dq)
+        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
+                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
+    end
+
+    return SVector(dq)
+end
+
+function bookerquartic(ea::EigenAngle, M, q, B)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
     dS = C
@@ -194,7 +213,7 @@ function bookerquartic(ea::EigenAngle, M, q, B, ::Dθ)
             M[1,3]*M[3,1] - M[1,2]*M[2,1])
 
     dq = similar(q)
-    for i in eachindex(dq)
+    @inbounds for i in eachindex(dq)
         dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
                 (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
     end
