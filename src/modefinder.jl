@@ -75,7 +75,7 @@ end
 ##########
 
 """
-    sharpboundaryreflection(ea, M)
+    bookerreflection(ea, M)
 
 Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere""
 referenced to the ground.
@@ -101,31 +101,13 @@ pg. 190 and the expression for the reflection coefficient in [^Budden1988] pg. 3
 Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 [^Budden1988]:
 """
-function bookerreflection(ea::EigenAngle, M)
-    T = tmatrix(ea, M)
-    q, B = bookerquartic(T)
+function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
+    e = bookerwavefields(ea, M)
+    return bookerreflection(ea, e)
+end
 
-    sortquarticroots!(q)
-
+function bookerreflection(ea::EigenAngle, e)
     C = ea.cosθ
-
-    # Compute fields using the ratios from [^Budden1988] pg 190
-    a1 = -(T[1,1] + T[4,4])
-    a2 = T[1,1]*T[4,4] - T[1,4]*T[4,1]
-    a3 = T[1,2]
-    a4 = T[1,4]*T[4,2] - T[1,2]*T[4,4]
-    a5 = T[4,2]
-    a6 = T[1,2]*T[4,1] - T[1,1]*T[4,2]
-
-    e = MMatrix{4,2,eltype(T),8}(undef)
-    @inbounds for i = 1:2
-        A = q[i]^2 + a1*q[i] + a2
-
-        e[1,i] = a3*q[i] + a4
-        e[2,i] = A
-        e[3,i] = q[i]*A
-        e[4,i] = a5*q[i] + a6
-    end
 
     # Compute reflection matrix referenced to z=0 [^Budden1988] pg 307
     d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
@@ -136,111 +118,29 @@ function bookerreflection(ea::EigenAngle, M)
     return R
 end
 
+"""
+    bookerreflection(ea::EigenAngle, M, ::Dθ)
+
+Calculate the ionosphere reflection coefficient matrix ``R`` for a sharply bounded
+ionosphere as well as ``dR/dθ`` returned as tuple `R, dR`.
+"""
 function bookerreflection(ea::EigenAngle, M, ::Dθ)
     S, C = ea.sinθ, ea.cosθ
 
-    T = tmatrix(ea, M)
-    dT = tmatrix(ea, M, Dθ())
-    q, B = bookerquartic(T)
-    sortquarticroots!(q)
-    dq = bookerquartic(ea, M, q, B, Dθ())
-
-    # Compute fields using the ratios from [^Budden1988] pg 190
-    a1 = -(T[1,1] + T[4,4])
-    a2 = T[1,1]*T[4,4] - T[1,4]*T[4,1]
-    a3 = T[1,2]
-    a4 = T[1,4]*T[4,2] - T[1,2]*T[4,4]
-    a5 = T[4,2]
-    a6 = T[1,2]*T[4,1] - T[1,1]*T[4,2]
-
-    # Some `dT` components are 0
-    da1 = -(dT[1,1] + dT[4,4])
-    da2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1]
-    da3 = dT[1,2]
-    da4 = dT[1,4]*T[4,2] - T[1,2]*dT[4,4] - dT[1,2]*T[4,4]
-    # da5 = 0
-    da6 = dT[1,2]*T[4,1] - dT[1,1]*T[4,2]
-
-    e = MMatrix{4,2,eltype(T),8}(undef)
-    de = MMatrix{4,2,eltype(T),8}(undef)
-    @inbounds for i = 1:2
-        A = q[i]^2 + a1*q[i] + a2
-        dA = 2*q[i]*dq[i] + a1*dq[i] + q[i]*da1 + da2
-
-        e[1,i] = a3*q[i] + a4
-        e[2,i] = A
-        e[3,i] = q[i]*A
-        e[4,i] = a5*q[i] + a6
-
-        de[1,i] = a3*dq[i] + da3*q[i] + da4
-        de[2,i] = dA
-        de[3,i] = dq[i]*A + q[i]*dA
-        de[4,i] = a5*dq[i] + da6  # + da5*q[i] = 0
-    end
+    e, de = bookerwavefields(ea, M, Dθ())
 
     d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
     dd = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
                       -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
+
     u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
     du = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
                       -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
 
     R = d/u
-    dR = dd/u + d*(-u\du/u)  # BUG? dR[2,2] seems to be inconsistent
+    dR = dd/u + d*(-u\du/u)
 
-    #==
-    [R11 R12;
-     R21 R22;
-     dR11 dR12;
-     dR21 dR22]
-    ==#
     return R, dR
-end
-
-"""
-    sharpR!(R, W)
-
-The right side of ``2i R′ = w₂₁ + w₂₂R - Rw₁₁ - Rw₁₂R``, which can be used to solve for
-reflection from the sharply bounded ionosphere where ``dR/dz = 0``.
-
-See [^Budden1988] sec. 18.10.
-
-[^Budden1988]:
-"""
-function sharpR!(f, R, W)
-    f .= W[2] + W[4]*R - R*W[1] - R*W[3]*R
-end
-
-function sharpR!(f, dR, R, dW, W)
-    f .= dW[2] + W[4]*dR + dW[4]*R - R*dW[1] - dR*W[1] - R*W[3]*dR - R*dW[3]*R - dR*W[3]*R
-end
-
-function sharpboundaryreflection(ea, M)
-    T = tmatrix(ea, M)
-    W = wmatrix(ea, T)
-
-    # TODO: when supported by nlsolve, switch to SMatrix
-    initR = Array(bookerreflection(ea, M))
-    res = nlsolve((f,R)->sharpR!(f,R,W), initR)
-
-    return SMatrix{2,2}(res.zero)
-end
-
-function sharpboundaryreflection(ea, M, ::Dθ)
-    T = tmatrix(ea, M)
-    W = wmatrix(ea, T)
-    dW = wmatrix(ea, M, T, Dθ())
-
-    initR, initdR = bookerreflection(ea, M, Dθ())
-
-    resR = nlsolve((f,R)->sharpR!(f,R,W), Array(initR))
-    R = SMatrix{2,2}(resR.zero)
-
-    # TODO: when supported by nlsolve, switch to SMatrix
-    resdR = nlsolve((f,dR)->sharpR!(f,dR,R,dW,W), Array(initdR))
-    dR = SMatrix{2,2}(resdR.zero)
-
-    return vcat(R, dR)
 end
 
 """
@@ -445,7 +345,7 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LWMSPar
     @unpack tolerance, solver, force_dtmin = integrationparams
 
     Mtop = susceptibility(topheight, modeequation, params=params)
-    Rtop = sharpboundaryreflection(modeequation.ea, Mtop)
+    Rtop = bookerreflection(modeequation.ea, Mtop)
 
     prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
 
@@ -481,7 +381,8 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
     @unpack tolerance, solver, force_dtmin = integrationparams
 
     Mtop = susceptibility(topheight, modeequation, params=params)
-    RdRdθtop = sharpboundaryreflection(modeequation.ea, Mtop, Dθ())
+    Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
+    RdRdθtop = vcat(Rtop, dRdθtop)
 
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
 

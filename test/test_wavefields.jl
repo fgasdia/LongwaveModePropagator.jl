@@ -40,17 +40,17 @@ function validwavefields_test()
 end
 
 """
-Confirm `initialwavefields(T)` satisfies field eigenvector equation ``Te = qe``
+Confirm `bookerwavefields(T)` satisfies field eigenvector equation ``Te = qe``
 """
-function initialwavefields_test(scenario)
+function bookerwavefields_test(scenario)
     @unpack ea, bfield, tx, species = scenario
 
     topheight = first(LWMSParams().wavefieldheights)
     M = LWMS.susceptibility(topheight, tx.frequency, bfield, species)
     T = LWMS.tmatrix(ea, M)
 
-    # Verify initialwavefields produces a valid solution
-    e = LWMS.initialwavefields(T)
+    # Verify bookerwavefields produces a valid solution
+    e = LWMS.bookerwavefields(T)
     q, B = LWMS.bookerquartic(T)
     LWMS.sortquarticroots!(q)
 
@@ -58,11 +58,43 @@ function initialwavefields_test(scenario)
         T*e[:,i] ≈ q[i]*e[:,i] || return false
     end
 
+    e2 = LWMS.bookerwavefields(ea, M)
+    e ≈ e2 || return false
+
+    return true
+end
+
+function bookerwavefieldsderiv(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+
+    for i = 1:4
+        eref(θ) = (ea = EigenAngle(θ); LWMS.bookerwavefields(ea, M)[i])
+        deref = FiniteDiff.finite_difference_derivative(eref, θs, Val{:central})
+        e(θ) = (ea = EigenAngle(θ); LWMS.bookerwavefields(ea, M, LWMS.Dθ())[1][i])
+        de(θ) = (ea = EigenAngle(θ); LWMS.bookerwavefields(ea, M, LWMS.Dθ())[2][i])
+
+        eref.(θs) ≈ e.(θs) || return false
+        isapprox(deref, de.(θs), atol=1e-3) || return false
+    end
+
+    de1 = Vector{SMatrix{4,2,ComplexF64,8}}(undef, length(θs))
+    de2 = similar(de1)
+    for i in eachindex(θs)
+        ea = EigenAngle(θs[i])
+        T = LWMS.tmatrix(ea, M)
+        dT = LWMS.tmatrix(ea, M, LWMS.Dθ())
+        de1[i] = LWMS.bookerwavefields(ea, M, LWMS.Dθ())[2]
+        de2[i] = LWMS.bookerwavefields(T, dT, LWMS.Dθ())[2]
+    end
+    de1 ≈ de2 || return false
+
     return true
 end
 
 """
-Confirm `vacuumreflectioncoeffs` agrees with `sharpboundaryreflection` at the
+Confirm `vacuumreflectioncoeffs` agrees with `bookerreflection` at the
 top height.
 """
 function initialR_test(scenario)
@@ -72,12 +104,29 @@ function initialR_test(scenario)
     topheight = first(params.wavefieldheights)
     Mtop = LWMS.susceptibility(topheight, tx.frequency, bfield, species, params=params)
     Ttop = LWMS.tmatrix(ea, Mtop)
-    etop = LWMS.initialwavefields(Ttop)
+    etop = LWMS.bookerwavefields(Ttop)
 
-    wavefieldR = LWMS.vacuumreflectioncoeffs(ea, etop[:,1], etop[:,2])
+    e1, e2 = etop[:,1], etop[:,2]
 
-    Rref = LWMS.sharpboundaryreflection(ea, Mtop)
-    isapprox(Rref, wavefieldR, rtol=1e-6) || return false
+    wavefieldR = LWMS.vacuumreflectioncoeffs(ea, e1, e2)
+
+    Cinv = ea.secθ
+    Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
+                          0, -1, 0, -1,
+                          0, -Cinv, 0, Cinv,
+                          1, 0, 1, 0)
+
+    f1 = Sv_inv*e1
+    f2 = Sv_inv*e2
+
+    U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
+    D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
+
+    Rref = D/U
+    Rref ≈ wavefieldR || return false
+
+    Rref = LWMS.bookerreflection(ea, Mtop)
+    Rref ≈ wavefieldR || return false
 
     return true
 end
@@ -102,7 +151,7 @@ function drdzwavefield_equivalence_test(scenario)
     @unpack tolerance, solver = params.integrationparams
 
     Mtop = LWMS.susceptibility(first(zs), tx.frequency, waveguide)
-    Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
+    Rtop = LWMS.bookerreflection(ea, Mtop)
     prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
                 saveat=zs, save_everystep=false)
@@ -136,7 +185,7 @@ function homogeneous_iono_test(scenario)
     # Booker solution - single solution for entire homogeneous iono
     M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, species, params=params)
     T = LWMS.tmatrix(ea, M)
-    booker = LWMS.initialwavefields(T)
+    booker = LWMS.bookerwavefields(T)
 
     isapprox(e1[:,end], booker[:,1], rtol=1e-6) || return false
     isapprox(e2[:,end], booker[:,2], rtol=1e-6) || return false
@@ -218,7 +267,7 @@ end
         @info "  Initial conditions..."
 
         for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-            @test initialwavefields_test(scn)
+            @test bookerwavefields_test(scn)
             @test initialR_test(scn)
         end
     end

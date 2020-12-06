@@ -16,23 +16,71 @@ function wmatrix_deriv(scenario)
     return true
 end
 
+function bookerreflection_test(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+
+    e = LWMS.bookerwavefields(ea, M)
+    # return LWMS.bookerreflection(ea, M)
+    return LWMS.vacuumreflectioncoeffs(ea, e)
+end
+
 function sharpboundaryreflection_deriv(scenario)
     @unpack ea, tx, bfield, species = scenario
 
     M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
 
-    for i = (1,4)  # TODO: off-diagonal terms are very sensitive, hard to test
-        Rref(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M)[i])
+    for i = 1:4
+        Rref(θ) = (ea = EigenAngle(θ); LWMS.bookerreflection(ea, M)[i])
         dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-        R(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Dθ())[SVector(1,2),:][i])
-        dR(θ) = (ea = EigenAngle(θ); LWMS.sharpboundaryreflection(ea, M, LWMS.Dθ())[SVector(3,4),:][i])
+        R(θ) = (ea = EigenAngle(θ); LWMS.bookerreflection(ea, M, LWMS.Dθ())[1][i])
+        dR(θ) = (ea = EigenAngle(θ); LWMS.bookerreflection(ea, M, LWMS.Dθ())[2][i])
 
         Rref.(θs) ≈ R.(θs) || return false
-
-        # last θs has a mismatch
-        isapprox(dRref[1:end-1], dR.(θs)[1:end-1], rtol=1e-6) || return false
+        isapprox(dRref, dR.(θs), rtol=1e-4) || return false
     end
 
+    return true
+end
+
+function sharpR!(f, R, W)
+    #==
+    The right side of ``2i R′ = w₂₁ + w₂₂R - Rw₁₁ - Rw₁₂R``, which can be used to solve for
+    reflection from the sharply bounded ionosphere where ``dR/dz = 0``.
+    ==#
+    # See [^Budden1988] sec. 18.10.
+    f .= W[2] + W[4]*R - R*W[1] - R*W[3]*R
+end
+
+function sharpR!(f, dR, R, dW, W)
+    # ``dR/dz/dθ`` which can be used to solve for ``dR/dθ`` from a sharply bounded ionosphere.
+    f .= dW[2] + W[4]*dR + dW[4]*R - R*dW[1] - dR*W[1] - R*W[3]*dR - R*dW[3]*R - dR*W[3]*R
+end
+
+function iterativesharpboundary(scenario)
+    @unpack ea, tx, bfield, species = scenario
+
+    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+
+    for i in eachindex(θs)
+        ea = EigenAngle(θs[i])
+        T = LWMS.tmatrix(ea, M)
+        W = LWMS.wmatrix(ea, T)
+        dW = LWMS.wmatrix(ea, M, T, LWMS.Dθ())
+
+        initR = LWMS.bookerreflection(ea, M)
+        res = nlsolve((f,R)->sharpR!(f,R,W), Array(initR))
+        R = res.zero
+
+        initdR = newbookerreflection(ea, M, LWMS.Dθ())[2]
+        resdR = nlsolve((f,dR)->sharpR!(f,dR,R,dW,W), Array(initdR))
+        dR = SMatrix{2,2}(resdR.zero)
+
+        for n in 1:4
+            isapprox(initdR[n], dR[n], atol=1e-4) || return false
+        end
+    end
     return true
 end
 
@@ -164,13 +212,7 @@ function sharpboundaryreflection_sheddy(ea, M, ::LWMS.Dθ)
             C*(dP₁ - dT₁*q[2] + dT₂*q[1] - T₁*dq_2 + T₂*dq_1 - dP₂) +
             dP₂*q[1] + P₂*dq_1 - dP₁*q[2] - P₁*dq_2)
 
-    #==
-    [R11 R12;
-     R21 R22;
-     dR11 dR12;
-     dR21 dR22]
-    ==#
-    return SMatrix{4,2}(R11, R21, dR11, dR21, R12, R22, dR12, dR22)
+    return SMatrix{2,2}(R11, R21, R12, R22), SMatrix{2,2}(dR11, dR21, dR12, dR22)
 end
 
 function sharpboundary_sheddy_deriv(scenario)
@@ -182,11 +224,10 @@ function sharpboundary_sheddy_deriv(scenario)
     W = LWMS.wmatrix(ea, T)
 
     ref = sharpboundaryreflection_sheddy(ea, M, LWMS.Dθ())
-    test = LWMS.sharpboundaryreflection(ea, M, LWMS.Dθ())
+    test = LWMS.bookerreflection(ea, M, LWMS.Dθ())
 
-    # Off-diagonal terms of W are very small <1e-20 and off-diagonals of R are very sensitive
-    diag(ref[1:2,:]) ≈ diag(test[1:2,:]) || return false
-    isapprox(diag(ref[3:4,:]), diag(test[3:4,:]), rtol=1e-6) || return false
+    isapprox(ref[1], test[1], rtol=1e-4) || return false
+    isapprox(ref[2], test[2], rtol=1e-4) || return false
 
     return true
 end
@@ -222,8 +263,8 @@ function integratedreflection_deriv(scenario)
         Rr = [v[i] for v in Rrefs[1:end-1]]
         dRr = [v[i] for v in dRrefs[1:end-1]]
 
-        isapprox(R, Rr, rtol=1e-4) || return false
-        isapprox(dR, dRr, rtol=1e-3, atol=1e-3) || return false
+        isapprox(R, Rr, rtol=1e-5) || return false
+        isapprox(dR, dRr, rtol=1e-3) || return false
     end
 
     return true
@@ -290,7 +331,7 @@ function test_sharplybounded_vertical(scenario)
     @unpack ea, tx, bfield, species = scenario
 
     M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
-    initR = LWMS.sharpboundaryreflection(ea, M)
+    initR = LWMS.bookerreflection(ea, M)
 
     return initR[1,2] ≈ initR[2,1]
 end
@@ -324,18 +365,6 @@ function modalequation(scenario)
     f = LWMS.solvemodalequation(modeequation)
 
     return LWMS.isroot(f)
-end
-
-function parallel_integration(scenario, eas)
-    @unpack ea, tx, ground, bfield, species = scenario
-
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
-
-    Threads.@threads for i in eachindex(eas)
-        modeequation = LWMS.setea(eas[i], modeequation)
-        R = LWMS.integratedreflection(modeequation)
-    end
 end
 
 function modefinder(scenario)
@@ -373,6 +402,7 @@ end
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         @test test_wmatrix(scn)
         @test modefinder(scn)
+        @test iterativesharpboundary(scn)
     end
     for scn in (resonant_scenario, )
         @test modalequation(scn)
