@@ -117,221 +117,6 @@ susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
     susceptibility(altitude, frequency, w.bfield, w.species, params=params)
 
-"""
-    bookerquartic(ea, M)
-
-Compute roots `q` and the coefficients `B` of the Booker quartic for `EigenAngle` `ea` and
-susceptibility tensor `M`.
-
-This function uses `PolynomialRoots.jl` to find the roots.
-
-See also: [`dbookerquartic`](@ref)
-
-# References
-
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
-    Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
-"""
-function bookerquartic(ea::EigenAngle, M)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    # Precompute
-    M11p1 = 1 + M[1,1]
-    M33p1 = 1 + M[3,3]
-
-    C²pM22 = C² + M[2,2]
-    C²pM33 = C² + M[3,3]
-
-    M13pM31 = M[1,3] + M[3,1]
-
-    M12M23 = M[1,2]*M[2,3]
-    M13M31 = M[1,3]*M[3,1]
-    M21M32 = M[2,1]*M[3,2]
-    M23M32 = M[2,3]*M[3,2]
-
-    # Booker quartic coefficients
-    B4 = M33p1
-    B3 = S*M13pM31
-    B2 = -C²pM33*M11p1 + M13M31 -
-         M33p1*C²pM22 + M23M32
-    B1 = S*(M12M23 + M21M32 -
-         C²pM22*M13pM31)
-    B0 = M11p1*C²pM22*C²pM33 +
-         M12M23*M[3,1] + M[1,3]*M21M32 -
-         M13M31*C²pM22 -
-         M11p1*M23M32 -
-         M[1,2]*M[2,1]*C²pM33
-
-    booker_quartic_coeffs = MVector{5}(B0, B1, B2, B3, B4)
-    booker_quartic_roots = MVector{4,eltype(booker_quartic_coeffs)}(0, 0, 0, 0)
-
-    # `roots!` dominates this functions runtime
-    roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
-
-    return booker_quartic_roots, SVector(booker_quartic_coeffs)
-end
-
-"""
-    bookerquartic(T::TMatrix)
-
-Solves the depressed quartic in terms of `T`. This technique is used in LWPC's
-wavefield subroutines, e.g. "wf_init.for".
-
-This function is ~2× as fast as [`bookerquartic(ea, M)`](@ref).
-"""
-function bookerquartic(T::TMatrix{V}) where V
-    # This is the depressed form of the quartic
-    b3 = -(T[1,1] + T[4,4])
-    b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]
-    b1 = -(-T[3,2]*(T[1,1] + T[4,4]) + T[1,2]*T[3,1] + T[3,4]*T[4,2])
-    b0 = -T[1,1]*(T[3,2]*T[4,4] - T[3,4]*T[4,2]) +
-        T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
-        T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
-
-    booker_quartic_coeffs = MVector{5,V}(b0, b1, b2, b3, 1)
-    booker_quartic_roots = MVector{4,V}(0, 0, 0, 0)
-
-    roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
-
-    return booker_quartic_roots, SVector(booker_quartic_coeffs)
-end
-
-function bookerquartic(T::TMatrix{V}, dT, q, B) where V
-    dB3 = -(dT[1,1] + dT[4,4])
-    dB2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1] - dT[3,2]
-    dB1 = -(-T[3,2]*(dT[1,1] + dT[4,4]) - dT[3,2]*(T[1,1] + T[4,4]) + dT[1,2]*T[3,1] +
-        dT[3,4]*T[4,2])
-    dB0 = -T[1,1]*(T[3,2]*dT[4,4] + dT[3,2]*T[4,4] - dT[3,4]*T[4,2]) -
-        dT[1,1]*(T[3,2]*T[4,4] - T[3,4]*T[4,2]) +
-        T[1,2]*(T[3,1]*dT[4,4] - dT[3,4]*T[4,1]) + dT[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
-        T[1,4]*(-dT[3,2]*T[4,1]) - dT[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
-
-    dq = similar(q)
-    @inbounds for i in eachindex(dq)
-        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
-                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
-    end
-
-    return SVector(dq)
-end
-
-function bookerquartic(ea::EigenAngle, M, q, B)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
-
-    dS = C
-    dC = -S
-    dC² = -2*S*C
-
-    dB3 = dS*(M[1,3] + M[3,1])
-    dB2 = -dC²*(2 + M[1,1] + M[3,3])
-    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
-    dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
-            M[1,3]*M[3,1] - M[1,2]*M[2,1])
-
-    dq = similar(q)
-    @inbounds for i in eachindex(dq)
-        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
-                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
-    end
-
-    return SVector(dq)
-end
-
-"""
-    upgoing(v)
-
-Calculate the absolute angle of `v` in radians from 315°×π/180 on the
-complex plane. Smaller values indicate upgoing waves.
-"""
-function upgoing(v::Complex)
-    # -π/4 is 315°
-    a = -π/4 - angle(v)
-
-    # angle() is +/-π
-    # `a` can never be > 3π/4, but there is a region on the plane where `a` can be < -π
-    a < -π && (a += 2π)
-    return abs(a)
-end
-
-function upgoing(v::Real)
-    return oftype(v, π/4)
-end
-
-"""
-    sortquarticroots!(v)
-
-          Im
-      3 . |
-          |
-          |
-  . 4     |
- ------------------Re
-          |      . 2
-          |
-          |
-          | . 1
-
-General locations of the four roots of the Booker quartic on the complex plane
-corresponding to the:
-
-    1) upgoing evanescent wave
-    2) upgoing travelling wave
-    3) downgoing evanescent wave
-    4) downgoing travelling wave
-
-From Pitteway 1967 fig 5. Sheddy 1968 also mentions that the two upgoing waves
-correspond to the two solutions that lie close to the positive real axis and the
-negative imaginary axis, although in [`sharpboundaryreflection`](@ref) the order
-of the two upgoing waves doesn't matter---swapping q₁ and q₂ will result in the
-same reflection coefficient matrix.
-
-!!! note
-
-    It looks like we could just `sort!(q, by=real)`, but the quadrants of each
-root are not fixed and the positions in the Argand diagram are just approximate.
-"""
-function sortquarticroots!(v)
-    length(v) != 4 && @warn "length of `v` is not 4"
-
-    # Calculate and sort by distance from 315°
-    # The two closest are upgoing and the two others are downgoing
-    # This is faster than `sort!(v, by=upgoing)`
-    dist = MVector{4,real(eltype(v))}(undef)
-    @inbounds for i in eachindex(v)
-        dist[i] = upgoing(v[i])
-    end
-
-    i = 4
-    @inbounds while i > 1
-        if dist[i] < dist[i-1]
-            dist[i], dist[i-1] = dist[i-1], dist[i]
-            v[i], v[i-1] = v[i-1], v[i]
-            i = 4  # Need to restart at the end
-        else
-            i -= 1
-        end
-    end
-
-    # Now arrange the roots so that they correspond to:
-    # 1) upgoing evanescent, 2) upgoing travelling
-    # 3) downgoing evanescent, and 4) downgoing travelling
-    if imag(v[1]) > imag(v[2])
-        v[2], v[1] = v[1], v[2]
-    end
-    if imag(v[3]) < imag(v[4])
-        v[4], v[3] = v[3], v[4]
-    end
-
-    # NOTE: Nagano et al 1975 says that of v1 and v2, the one with the largest
-    # absolute value corresponds to e1 and the other to e2, although this method
-    # does not guarantee that. In fact, I find that this criteria is often not met.
-
-    return v
-end
-
-##########
-# Reflection coefficient matrix for a vertically stratified ionosphere
-##########
 
 """
     tmatrix(ea::EigenAngle, M)
@@ -423,4 +208,227 @@ function tmatrix(ea::EigenAngle, M, ::Dθ)
                         dT12, dT22, dT32, dT42,
                         dT13, dT23, dT33, dT43,
                         dT14, dT24, dT34, dT44)
+end
+
+"""
+    bookerquartic(ea, M)
+
+Compute roots `q` and the coefficients `B` of the Booker quartic for `EigenAngle` `ea` and
+susceptibility tensor `M`.
+
+This function uses `PolynomialRoots.jl` to find the roots.
+
+See also: [`dbookerquartic`](@ref)
+
+# References
+
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
+    Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
+"""
+function bookerquartic(ea::EigenAngle, M)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    # Precompute
+    M11p1 = 1 + M[1,1]
+    M33p1 = 1 + M[3,3]
+
+    C²pM22 = C² + M[2,2]
+    C²pM33 = C² + M[3,3]
+
+    M13pM31 = M[1,3] + M[3,1]
+
+    M12M23 = M[1,2]*M[2,3]
+    M13M31 = M[1,3]*M[3,1]
+    M21M32 = M[2,1]*M[3,2]
+    M23M32 = M[2,3]*M[3,2]
+
+    # Booker quartic coefficients
+    B4 = M33p1
+    B3 = S*M13pM31
+    B2 = -C²pM33*M11p1 + M13M31 - M33p1*C²pM22 + M23M32
+    B1 = S*(M12M23 + M21M32 - C²pM22*M13pM31)
+    B0 = M11p1*C²pM22*C²pM33 +
+         M12M23*M[3,1] + M[1,3]*M21M32 -
+         M13M31*C²pM22 - M11p1*M23M32 -
+         M[1,2]*M[2,1]*C²pM33
+
+    booker_quartic_coeffs = MVector{5}(B0, B1, B2, B3, B4)
+    booker_quartic_roots = MVector{4,eltype(booker_quartic_coeffs)}(0, 0, 0, 0)
+
+    # `roots!` dominates this functions runtime
+    roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
+
+    return booker_quartic_roots, SVector(booker_quartic_coeffs)
+end
+
+"""
+    bookerquartic(T::TMatrix)
+
+Solve the Booker quartic in depressed form in terms of `T`.
+"""
+function bookerquartic(T::TMatrix)
+    # This technique is used in LWPC's wavefield subroutines, e.g. "wf_init.for".
+
+    # Precompute
+    T34T42 = T[3,4]*T[4,2]
+
+    # This is the depressed form of the quartic
+    b3 = -T[1,1] - T[4,4]
+    b2 = T[1,1]*T[4,4] - T[1,4]*T[4,1] - T[3,2]
+    b1 = T[3,2]*(T[1,1] + T[4,4]) - T[1,2]*T[3,1] - T34T42
+    b0 = -T[1,1]*(T[3,2]*T[4,4] - T34T42) +
+        T[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
+        T[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
+
+    booker_quartic_coeffs = MVector{5}(b0, b1, b2, b3, 1)
+    booker_quartic_roots = MVector{4,eltype(booker_quartic_coeffs)}(0, 0, 0, 0)
+
+    roots!(booker_quartic_roots, booker_quartic_coeffs, NaN, 4, false)
+
+    return booker_quartic_roots, SVector(booker_quartic_coeffs)
+end
+
+"""
+    dbookerquartic(ea::EigenAngle, M, q, B)
+
+Compute derivative `dq` of the Booker quartic roots with respect to ``θ``.
+
+See also: [`bookerquartic`](@ref)
+"""
+function dbookerquartic(ea::EigenAngle, M, q, B)
+    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+
+    dS = C
+    dC = -S
+    dC² = -2*S*C
+
+    dB3 = dS*(M[1,3] + M[3,1])
+    dB2 = -dC²*(2 + M[1,1] + M[3,3])
+    dB1 = dS/S*B[2] - S*dC²*(M[1,3] + M[3,1])
+    dB0 = dC²*(2*C²*(1 + M[1,1]) + M[3,3] + M[2,2] + M[1,1]*(M[3,3] + M[2,2]) -
+            M[1,3]*M[3,1] - M[1,2]*M[2,1])
+
+    dq = similar(q)
+    @inbounds for i in eachindex(dq)
+        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
+                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
+    end
+
+    return SVector(dq)
+end
+
+"""
+    dbookerquartic(T::TMatrix, dT, q, B)
+"""
+function dbookerquartic(T::TMatrix, dT, q, B)
+    dB3 = -dT[1,1] - dT[4,4]
+    dB2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1] - dT[3,2]
+    dB1 = -(-T[3,2]*(dT[1,1] + dT[4,4]) - dT[3,2]*(T[1,1] + T[4,4]) + dT[1,2]*T[3,1] +
+        dT[3,4]*T[4,2])
+    dB0 = -T[1,1]*(T[3,2]*dT[4,4] + dT[3,2]*T[4,4] - dT[3,4]*T[4,2]) -
+        dT[1,1]*(T[3,2]*T[4,4] - T[3,4]*T[4,2]) +
+        T[1,2]*(T[3,1]*dT[4,4] - dT[3,4]*T[4,1]) + dT[1,2]*(T[3,1]*T[4,4] - T[3,4]*T[4,1]) -
+        T[1,4]*(-dT[3,2]*T[4,1]) - dT[1,4]*(T[3,1]*T[4,2] - T[3,2]*T[4,1])
+
+    dq = similar(q)
+    @inbounds for i in eachindex(dq)
+        dq[i] = -(((dB3*q[i] + dB2)*q[i] + dB1)*q[i] + dB0) /
+                (((4*B[5]*q[i] + 3*B[4])*q[i] + 2*B[3])*q[i] + B[2])
+    end
+
+    return SVector(dq)
+end
+
+"""
+    upgoing(v)
+
+Calculate the absolute angle of `v` in radians from 315°×π/180 on the complex plane. Smaller
+values indicate upgoing waves.
+"""
+function upgoing(v::Complex)
+    # -π/4 is 315°
+    a = -π/4 - angle(v)
+
+    # angle() is +/-π
+    # `a` can never be > 3π/4, but there is a region on the plane where `a` can be < -π
+    a < -π && (a += 2π)
+    return abs(a)
+end
+
+upgoing(v::Real) = oftype(v, π/4)
+
+"""
+    sortquarticroots!(q)
+
+Sort array of quartic roots `q` in place such that the first two correspond to upgoing waves and the
+latter two correspond to downgoing waves.
+
+General locations of the four roots of the Booker quartic on the complex plane
+corresponding to the:
+
+    1) upgoing evanescent wave
+    2) upgoing travelling wave
+    3) downgoing evanescent wave
+    4) downgoing travelling wave
+
+```
+          Im
+      3 . |
+          |
+          |
+  . 4     |
+ ------------------Re
+          |      . 2
+          |
+          |
+          | . 1
+```
+
+Based on [^Pitteway1965] fig. 5.
+
+[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+    coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
+    Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
+    doi: 10.1098/rsta.1965.0004.
+"""
+function sortquarticroots!(q)
+    # It looks like we could just `sort!(q, by=real)`, but the quadrants of each root are
+    # not fixed and the positions in the Argand diagram are just approximate.
+
+    length(q) != 4 && @warn "length of `q` is not 4"
+
+    # Calculate and sort by distance from 315°
+    # The two closest are upgoing and the two others are downgoing
+    # This is faster than `sort!(q, by=upgoing)`
+    dist = MVector{4,real(eltype(q))}(undef)
+    @inbounds for i in eachindex(q)
+        dist[i] = upgoing(q[i])
+    end
+
+    i = 4
+    @inbounds while i > 1
+        if dist[i] < dist[i-1]
+            dist[i], dist[i-1] = dist[i-1], dist[i]
+            q[i], q[i-1] = q[i-1], q[i]
+            i = 4  # Need to restart at the end
+        else
+            i -= 1
+        end
+    end
+
+    # Now arrange the roots so that they correspond to:
+    # 1) upgoing evanescent, 2) upgoing travelling
+    # 3) downgoing evanescent, and 4) downgoing travelling
+    if imag(q[1]) > imag(q[2])
+        q[2], q[1] = q[1], q[2]
+    end
+    if imag(q[3]) < imag(q[4])
+        q[4], q[3] = q[3], q[4]
+    end
+
+    # NOTE: Nagano et al 1975 says that of q1 and q2, the one with the largest
+    # absolute value corresponds to e1 and the other to e2, although this method
+    # does not guarantee that. In fact, I find that this criteria is often not met.
+
+    return q
 end

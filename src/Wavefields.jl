@@ -176,14 +176,14 @@ end
 function bookerwavefields(T::TMatrix, dT, ::Dθ)
     q, B = bookerquartic(T)
     sortquarticroots!(q)
-    dq = bookerquartic(T, dT, q, B)
+    dq = dbookerquartic(T, dT, q, B)
     return bookerwavefields(T, dT, q, dq)
 end
 
 function bookerwavefields(ea::EigenAngle, M, ::Dθ)
     q, B = bookerquartic(ea, M)
     sortquarticroots!(q)
-    dq = bookerquartic(ea, M, q, B)
+    dq = dbookerquartic(ea, M, q, B)
     T = tmatrix(ea, M)
     dT = tmatrix(ea, M, Dθ())
 

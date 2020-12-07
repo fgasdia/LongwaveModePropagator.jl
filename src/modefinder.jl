@@ -102,6 +102,9 @@ Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, 
 [^Budden1988]:
 """
 function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
+    # XXX: check this! the order of the two upgoing waves doesn't matter---swapping q₁ and q₂ will result in the
+    # same reflection coefficient matrix.
+
     e = bookerwavefields(ea, M)
     return bookerreflection(ea, e)
 end
