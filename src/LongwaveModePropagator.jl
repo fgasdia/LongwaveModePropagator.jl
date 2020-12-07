@@ -40,9 +40,6 @@ export Receiver, GroundSampler
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
 export inclination, azimuth, altitude, fieldcomponent
 
-# TMatrix.jl
-export TMatrix
-
 # modefinder.jl
 export findmodes
 

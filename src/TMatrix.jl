@@ -1,17 +1,26 @@
 """
-    TMatrix <: SMatrix{4, 4, T, 16}
+    TMatrix <: SMatrix{4, 4, T}
 
-A custom `SMatrix` subtype that represents the `T` matrix from Clemmow and Heading
-that is semi-sparse. The form of the matrix is:
+A custom `SMatrix` subtype that represents the `T` matrix from [^Clemmow1954] that is
+semi-sparse. The form of the matrix is:
 
 ```
-┌ 11 12  0 14 ┐
-| 0  0   1  0 |
-| 31 32  0 34 |
-└ 41 42  0 44 ┘
+┌                ┐
+| T₁₁ T₁₂ 0  T₁₄ |
+| 0   0   1  0   |
+| T₃₁ T₃₂ 0  T₃₄ |
+| T₄₁ T₄₂ 0  T₄₄ |
+└                ┘
 ```
 
-Implements custom (efficient) matrix-vector multiplication.
+`TMatrix` implements efficient matrix-vector multiplication and other math based on its
+special form.
+
+# References
+
+[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
+    governing radio propagation in the ionosphere,” Mathematical Proceedings of the
+    Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """
 struct TMatrix{T} <: StaticMatrix{4, 4, T}
     data::SVector{9,T}

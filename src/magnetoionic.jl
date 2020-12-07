@@ -118,19 +118,17 @@ susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams())
     susceptibility(altitude, frequency, w.bfield, w.species, params=params)
 
 
-"""
+@doc raw"""
     tmatrix(ea::EigenAngle, M)
 
-Return the matrix components of `T` whose elements are used in the calculation
-of matrix `S` for the differential equations for the ionospheric reflection coefficient `R`.
+Compute the matrix `T` as a `TMatrix` for the differential equations of a wave propagating
+at angle `ea` in an ionosphere with susceptibility `M`.
 
-Following Budden's formalism [^Budden1955a] the differential equations for calculating the
-reflection coefficient for a radio wave obliquely incident on a horizontally stratified
-ionosphere are derived from Maxwell's equations in conjunction with the constitutive relations
-for the ionosphere, represented by the matrix `M`. After eliminating the vertically directed
-components ``Ez`` and ``Hz``, the equations can be written ``∂e/∂s = -i T e`` where ``s`` is
-a proxy for height `z`, and ``e = (Ex -Ey Hx Hy)``, as detailed by [^Clemmow1954]. This
-function calculates components of the matrix `T`.
+Clemmow and Heading derived the `T` matrix from Maxwell's equations for an electromagnetic
+wave in the anisotropic, collisional cold plasma of the ionosphere in a coordinate frame
+where ``z`` is upward, propagation is directed obliquely in the ``x``-``z`` plane and
+invariance is assumed in ``y``. For the four characteristic wave components
+``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``, the differential equations are ``de/dz = -ikTe``.
 
 See also: [`susceptibility`](@ref)
 
@@ -179,7 +177,7 @@ end
 """
     tmatrix(ea::EigenAngle, M, ::Dθ)
 
-Return a dense `SMatrix` with the derivative of `T` with respect to `θ` at eigenangle `ea`.
+Compute a dense `SMatrix` with the derivative of `T` with respect to `θ`.
 """
 function tmatrix(ea::EigenAngle, M, ::Dθ)
     S, C = ea.sinθ, ea.cosθ
@@ -340,14 +338,14 @@ function dbookerquartic(T::TMatrix, dT, q, B)
 end
 
 """
-    upgoing(v)
+    upgoing(q)
 
-Calculate the absolute angle of `v` in radians from 315°×π/180 on the complex plane. Smaller
+Calculate the absolute angle of `q` in radians from 315°×π/180 on the complex plane. Smaller
 values indicate upgoing waves.
 """
-function upgoing(v::Complex)
+function upgoing(q::Complex)
     # -π/4 is 315°
-    a = -π/4 - angle(v)
+    a = -π/4 - angle(q)
 
     # angle() is +/-π
     # `a` can never be > 3π/4, but there is a region on the plane where `a` can be < -π
@@ -355,16 +353,16 @@ function upgoing(v::Complex)
     return abs(a)
 end
 
-upgoing(v::Real) = oftype(v, π/4)
+upgoing(q::Real) = oftype(q, π/4)
 
 """
     sortquarticroots!(q)
 
-Sort array of quartic roots `q` in place such that the first two correspond to upgoing waves and the
-latter two correspond to downgoing waves.
+Sort array of quartic roots `q` in place such that the first two correspond to upgoing waves
+and the latter two correspond to downgoing waves.
 
-General locations of the four roots of the Booker quartic on the complex plane
-corresponding to the:
+General locations of the four roots of the Booker quartic on the complex plane corresponding
+to the:
 
     1) upgoing evanescent wave
     2) upgoing travelling wave
@@ -395,7 +393,7 @@ function sortquarticroots!(q)
     # It looks like we could just `sort!(q, by=real)`, but the quadrants of each root are
     # not fixed and the positions in the Argand diagram are just approximate.
 
-    length(q) != 4 && @warn "length of `q` is not 4"
+    length(q) == 4 || @warn "length of `q` is not 4"
 
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
