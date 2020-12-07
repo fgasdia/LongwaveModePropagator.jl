@@ -5,7 +5,7 @@ function homogeneouswaveguidebits()
     electrons = Species(QE, ME,
                         h -> waitprofile(h, 75, 0.32), electroncollisionfrequency)
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
     return isbits(waveguide)
 end
 

@@ -7,16 +7,16 @@ using RootsAndPoles, VoronoiDelaunay
 using JSON3, StructTypes
 using Interpolations, NLsolve, FiniteDiff
 
-using LongwaveModeSolver
-const LWMS = LongwaveModeSolver
+using LongwaveModePropagator
+const LMP = LongwaveModePropagator
 
-const QE = LWMS.QE
-const ME = LWMS.ME
+const QE = LMP.QE
+const ME = LMP.ME
 
 const TEST_RNG = MersenneTwister(1234)
 
 # To profile in Juno
-# @profiler (for i = 1:1000; LWMS.fcn(); end)
+# @profiler (for i = 1:1000; LMP.fcn(); end)
 
 struct TestScenario{T1,T2,T3,T4,T5,T6}
     ea::T1
@@ -100,7 +100,7 @@ const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for
 err_func(a,b) = maximum(abs.(a-b))
 
 
-@testset "LongwaveModeSolver" begin
+@testset "LongwaveModePropagator" begin
     include("test_EigenAngles.jl")
     include("test_Geophysics.jl")
     include("test_Waveguides.jl")

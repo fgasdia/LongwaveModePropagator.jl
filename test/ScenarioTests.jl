@@ -1,7 +1,7 @@
 using Dates
 using Proj4
 
-using LongwaveModeSolver
+using LongwaveModeSPropagator
 
 function main()
     program_start_time = Dates.now()

@@ -6,8 +6,8 @@ function scenario()
     bfield = BField(50e-6, π/2, 0)
 
     electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32, cutoff_low=LWMS.CURVATURE_HEIGHT),
-                        z -> electroncollisionfrequency(z, cutoff_low=LWMS.CURVATURE_HEIGHT))
+                        z -> waitprofile(z, 75, 0.32, cutoff_low=LMP.CURVATURE_HEIGHT),
+                        z -> electroncollisionfrequency(z, cutoff_low=LMP.CURVATURE_HEIGHT))
 
     return ea, tx, ground, bfield, electrons
 end
@@ -20,8 +20,8 @@ function dXdzW(X, dzparams, z)
     C = ea.cosθ
 
     M = Mfcn(z)
-    T = LWMS.tmatrix(ea, M)
-    W11, W21, W12, W22 = LWMS.wmatrix(ea, T)
+    T = LMP.tmatrix(ea, M)
+    W11, W21, W12, W22 = LMP.wmatrix(ea, T)
 
     a = (W21 - W22 + W11 - W12)/C
     b = W22 + W12
@@ -33,16 +33,16 @@ end
 
 function test_dX()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(alt) = LMP.susceptibility(alt, tx.frequency, bfield, electrons)
 
-    Mtop = LWMS.susceptibility(LWMS.TOPHEIGHT, tx.frequency, bfield, electrons)
-    Rtop = LWMS.sharpboundaryreflection(ea, Mtop)
-    Xtop = LWMS.R2X(ea, Rtop)
+    Mtop = LMP.susceptibility(LMP.TOPHEIGHT, tx.frequency, bfield, electrons)
+    Rtop = LMP.sharpboundaryreflection(ea, Mtop)
+    Xtop = LMP.R2X(ea, Rtop)
 
-    dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
-    X = LWMS.dXdz(Xtop, dzparams, LWMS.TOPHEIGHT-500)
-    Xref = dXdzW(Xtop, dzparams, LWMS.TOPHEIGHT-500)
+    dzparams = LMP.DZParams(ea, tx.frequency, Mfcn)
+    X = LMP.dXdz(Xtop, dzparams, LMP.TOPHEIGHT-500)
+    Xref = dXdzW(Xtop, dzparams, LMP.TOPHEIGHT-500)
 
     return X ≈ Xref
 end
@@ -50,46 +50,46 @@ end
 function test_R2XX2R()
     ea = EigenAngle(deg2rad(85.0-1.0im))
     R = rand(SMatrix{2,2,ComplexF64})
-    X = LWMS.R2X(ea, R)
-    Rtest = LWMS.X2R(ea, X)
+    X = LMP.R2X(ea, R)
+    Rtest = LMP.X2R(ea, X)
 
     return Rtest ≈ R
 end
 
 function test_modalequationX()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
-    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+    Mfcn(alt) = LMP.susceptibility(alt, tx.frequency, bfield, electrons)
+    modeequation = LMP.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
 
     # known solution
     ea = EigenAngle(1.4152764714690873 - 0.01755942938376613im)
 
-    f = LWMS.solvemodalequation(ea, modeequation)
+    f = LMP.solvemodalequation(ea, modeequation)
 
-    return LWMS.isroot(f)
+    return LMP.isroot(f)
 end
 
 function test_modefinderX()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
 
-    Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, bfield, electrons)
-    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+    Mfcn(alt) = LMP.susceptibility(alt, tx.frequency, bfield, electrons)
+    modeequation = LMP.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
 
     # Δr from 0.5->0.25 => time from 3.8->5.3 sec
     # tolerance from 1e-8->1e-7 => time from 5.3->4.6 sec
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    origcoords = LMP.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-5, true)
+    grpfparams = LMP.GRPFParams(est_num_nodes, 1e-5, true)
 
-    modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+    modes = LMP.findmodes(origcoords, grpfparams, modeequation)
 
-    physicalmodeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    physicalmodeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
     for m in modes
-        f = LWMS.solvemodalequation(m, physicalmodeequation)
-        LWMS.isroot(f) || return false
+        f = LMP.solvemodalequation(m, physicalmodeequation)
+        LMP.isroot(f) || return false
     end
     return true
 end
@@ -105,17 +105,17 @@ end
 
 function test_modefinderX()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(z) = LMP.susceptibility(z, tx.frequency, bfield, electrons)
 
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    origcoords = LMP.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
     @unpack bfield, species = waveguide
-    Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, electrons)
+    Mfcn = LMP.susceptibilityinterpolator(tx.frequency, bfield, electrons)
 
-    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+    modeequation = LMP.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
     f(θ) = solvemodalequation(EigenAngle(θ), modeequation)
     roots, poles = grpf(f, origcoords, grpfparams)
 
@@ -131,43 +131,43 @@ end
 
 function test_integratedX()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(z) = LMP.susceptibility(z, tx.frequency, bfield, electrons)
 
-    origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    origcoords = LMP.defaultcoordinates(tx.frequency.f)
     est_num_nodes = ceil(Int, length(origcoords)*1.5)
     grpfparams = GRPFParams(est_num_nodes, 1e-8, true)
 
     @unpack bfield, species = waveguide
-    # Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, bfield, species)
-    susceptibilitymfcn = alt->LWMS.susceptibility(alt, tx.frequency, bfield, species)
+    # Mfcn = LMP.susceptibilityinterpolator(tx.frequency, bfield, species)
+    susceptibilitymfcn = alt->LMP.susceptibility(alt, tx.frequency, bfield, species)
 
-    LWMS.integratedreflectionX(ea, tx.frequency, waveguide, susceptibilitymfcn)
+    LMP.integratedreflectionX(ea, tx.frequency, waveguide, susceptibilitymfcn)
 end
 
 function tdx()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(z) = LMP.susceptibility(z, tx.frequency, bfield, electrons)
 
-    dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
+    dzparams = LMP.DZParams(ea, tx.frequency, Mfcn)
 
     Xtop = rand(SMatrix{2,2,ComplexF64})
     # Xtop = @SMatrix [2.0+1.0im 2.1+1.1im
                      # 19+0.2im 13.0+0.5im]
-    X = LWMS.dXdz(Xtop, dzparams, 80e3)
-    # R = LWMS.dRdz(Xtop, dzparams, 80e3)
+    X = LMP.dXdz(Xtop, dzparams, 80e3)
+    # R = LMP.dRdz(Xtop, dzparams, 80e3)
 end
 
 function tsx()
     ea, tx, ground, bfield, electrons = scenario()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, electrons, ground)
-    Mfcn(z) = LWMS.susceptibility(z, tx.frequency, bfield, electrons)
+    waveguide = LMP.HomogeneousWaveguide(bfield, electrons, ground)
+    Mfcn(z) = LMP.susceptibility(z, tx.frequency, bfield, electrons)
 
-    # dzparams = LWMS.DZParams(ea, tx.frequency, Mfcn)
+    # dzparams = LMP.DZParams(ea, tx.frequency, Mfcn)
 
-    modeequation = LWMS.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
-    LWMS.solvemodalequation(ea, modeequation)
+    modeequation = LMP.ModifiedModeEquation(tx.frequency, waveguide, Mfcn)
+    LMP.solvemodalequation(ea, modeequation)
 end
 
 

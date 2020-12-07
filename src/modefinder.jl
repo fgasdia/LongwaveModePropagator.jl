@@ -339,7 +339,7 @@ function dRdθdz(RdRdθ, p, z)
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(modeequation::PhysicalModeEquation; params=LWMSParams())
+function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
@@ -375,7 +375,7 @@ end
 # integrated is different and therefore the size of sol[end] is different too
 # The derivative terms are intertwined with the non-derivative terms so we can't do only
 # the derivative terms
-function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
+function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
@@ -494,14 +494,14 @@ function modalequationdθ(R, dR, Rg, dRg)
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(modeequation::PhysicalModeEquation; params=LWMSParams())
+function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
     R = integratedreflection(modeequation, params=params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
     return f
 end
-function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LWMSParams())
+function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
     solvemodalequation(modeequation, params=params)
@@ -511,7 +511,7 @@ end
 This returns R and Rg in addition to df because the only time this function is needed, we also
 need R and Rg (in excitationfactors).
 """
-function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
+function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     RdR = integratedreflection(modeequation, Dθ(), params=params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
@@ -522,13 +522,13 @@ function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ; params=LW
     return df, R, Rg
 end
 
-function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
+function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
     solvemodalequation(modeequation, Dθ(), params=params)
 end
 
-function findmodes(modeequation::ModeEquation, origcoords; params=LWMSParams(), atol=1e-2)
+function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams(), atol=1e-2)
     @unpack grpfparams = params
 
     # WARNING: If tolerance of mode finder is much less than the R integration

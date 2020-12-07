@@ -61,7 +61,7 @@ end
 
 """
     WavefieldIntegrationParams{F,G,H}(z, bottomz, ortho_scalar, e1_scalar, e2_scalar, ea,
-        frequency, bfield, species, lwmsparams)
+        frequency, bfield, species, LMPparams)
 
 Parameters passed to Pitteway integration of wavefields.
 
@@ -74,7 +74,7 @@ Parameters passed to Pitteway integration of wavefields.
     - `frequency::Frequency`
     - `bfield::BField`
     - `species::Species{F,G}`
-    - `lwmsparams::LWMSParams{H}`
+    - `LMPparams::LMPParams{H}`
 """
 struct WavefieldIntegrationParams{F,G,H}
     z::Float64
@@ -86,11 +86,11 @@ struct WavefieldIntegrationParams{F,G,H}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
-    lwmsparams::LWMSParams{H}
+    LMPparams::LMPParams{H}
 end
 
 """
-    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, lwmsparams)
+    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, LMPparams)
 
 Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
 
@@ -102,9 +102,9 @@ Automatically set values are:
     - `e2_scalar = one(Float64)`
 """
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    lwmsparams::LWMSParams{H}) where {F,G,H}
+    LMPparams::LMPParams{H}) where {F,G,H}
     return WavefieldIntegrationParams{F,G,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
-        one(Float64), one(Float64), ea, frequency, bfield, species, lwmsparams)
+        one(Float64), one(Float64), ea, frequency, bfield, species, LMPparams)
 end
 
 """
@@ -239,9 +239,9 @@ This function internally calls [`susceptibility`](@ref) and [`tmatrix`](@ref) an
 used by [`integratewavefields`](@ref).
 """
 function dedz(e, p, z)
-    @unpack ea, frequency, bfield, species, lwmsparams = p
+    @unpack ea, frequency, bfield, species, LMPparams = p
 
-    M = susceptibility(z, frequency, bfield, species, params=lwmsparams)
+    M = susceptibility(z, frequency, bfield, species, params=LMPparams)
     T = tmatrix(ea, M)
 
     return dedz(e, frequency.k, T)
@@ -268,7 +268,7 @@ function scale!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    @unpack bottomz, ea, frequency, bfield, species, lwmsparams = integrator.p
+    @unpack bottomz, ea, frequency, bfield, species, LMPparams = integrator.p
 
     #==
     NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
@@ -285,7 +285,7 @@ function scale!(integrator)
                                               bottomz,
                                               new_orthos,
                                               new_e1s, new_e2s,
-                                              ea, frequency, bfield, species, lwmsparams)
+                                              ea, frequency, bfield, species, LMPparams)
 
     integrator.u = new_e
 
@@ -445,12 +445,12 @@ save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
 
 """
     integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-        species::Species; params=LWMSParams())
+        species::Species; params=LMPParams())
 
 Return wavefields `e` at `zs` by downward integration over `zs`.
 """
 function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species; params=LWMSParams())
+    species::Species; params=LMPParams())
     # TODO: version that updates output `e` in place
 
     issorted(zs, rev=true) || throw(ArgumentError("zs should go from top to bottom"))
@@ -599,7 +599,7 @@ Calculate `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by full wave integration
 Scales wavefields for waveguide boundary conditions.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species, ground::Ground; params=LWMSParams())
+    species::Species, ground::Ground; params=LMPParams())
 
     @assert length(EH) == length(zs)
     zs[end] == 0 || @warn "Waveguide math assumes fields and reflection coefficients are
@@ -625,7 +625,7 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
 end
 
 function calculate_wavefields!(wavefields, adjoint_wavefields, frequency, waveguide,
-    adjoint_waveguide; params=LWMSParams())
+    adjoint_waveguide; params=LMPParams())
 
     @unpack bfield, species, ground = waveguide
 

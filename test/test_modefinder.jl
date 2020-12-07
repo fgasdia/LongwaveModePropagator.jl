@@ -1,13 +1,13 @@
 function wmatrix_deriv(scenario)
     @unpack tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(70e3, tx.frequency, bfield, species)
+    M = LMP.susceptibility(70e3, tx.frequency, bfield, species)
 
     for i = 1:4
         for j = 1:4
-            Wfcn(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M); LWMS.wmatrix(ea, T)[i][j])
+            Wfcn(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M); LMP.wmatrix(ea, T)[i][j])
             dWref = FiniteDiff.finite_difference_derivative(Wfcn, θs, Val{:central})
-            dW(θ) = (ea = EigenAngle(θ); T = LWMS.tmatrix(ea, M); LWMS.wmatrix(ea, M, T, LWMS.Dθ())[i][j])
+            dW(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M); LMP.wmatrix(ea, M, T, LMP.Dθ())[i][j])
 
             err_func(dW.(θs), dWref) < 1e-3 || return false
         end
@@ -19,23 +19,23 @@ end
 function bookerreflection_test(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
 
-    e = LWMS.bookerwavefields(ea, M)
-    # return LWMS.bookerreflection(ea, M)
-    return LWMS.vacuumreflectioncoeffs(ea, e)
+    e = LMP.bookerwavefields(ea, M)
+    # return LMP.bookerreflection(ea, M)
+    return LMP.vacuumreflectioncoeffs(ea, e)
 end
 
 function sharpboundaryreflection_deriv(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
 
     for i = 1:4
-        Rref(θ) = (ea = EigenAngle(θ); LWMS.bookerreflection(ea, M)[i])
+        Rref(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M)[i])
         dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-        R(θ) = (ea = EigenAngle(θ); LWMS.bookerreflection(ea, M, LWMS.Dθ())[1][i])
-        dR(θ) = (ea = EigenAngle(θ); LWMS.bookerreflection(ea, M, LWMS.Dθ())[2][i])
+        R(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[1][i])
+        dR(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[2][i])
 
         Rref.(θs) ≈ R.(θs) || return false
         isapprox(dRref, dR.(θs), rtol=1e-4) || return false
@@ -61,19 +61,19 @@ end
 function iterativesharpboundary(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
 
     for i in eachindex(θs)
         ea = EigenAngle(θs[i])
-        T = LWMS.tmatrix(ea, M)
-        W = LWMS.wmatrix(ea, T)
-        dW = LWMS.wmatrix(ea, M, T, LWMS.Dθ())
+        T = LMP.tmatrix(ea, M)
+        W = LMP.wmatrix(ea, T)
+        dW = LMP.wmatrix(ea, M, T, LMP.Dθ())
 
-        initR = LWMS.bookerreflection(ea, M)
+        initR = LMP.bookerreflection(ea, M)
         res = nlsolve((f,R)->sharpR!(f,R,W), Array(initR))
         R = res.zero
 
-        initdR = newbookerreflection(ea, M, LWMS.Dθ())[2]
+        initdR = newbookerreflection(ea, M, LMP.Dθ())[2]
         resdR = nlsolve((f,dR)->sharpR!(f,dR,R,dW,W), Array(initdR))
         dR = SMatrix{2,2}(resdR.zero)
 
@@ -84,15 +84,15 @@ function iterativesharpboundary(scenario)
     return true
 end
 
-function sharpboundaryreflection_sheddy(ea, M, ::LWMS.Dθ)
+function sharpboundaryreflection_sheddy(ea, M, ::LMP.Dθ)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
     C2 = 2*C
 
-    q, B = LWMS.bookerquartic(ea, M)
+    q, B = LMP.bookerquartic(ea, M)
 
     # We choose the 2 roots corresponding to upward travelling waves as being
     # those that lie close to the positive real axis and negative imaginary axis
-    LWMS.sortquarticroots!(q)
+    LMP.sortquarticroots!(q)
 
     #==
     Γ = [0 -q 0;
@@ -218,13 +218,13 @@ end
 function sharpboundary_sheddy_deriv(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
 
-    T = LWMS.tmatrix(ea, M)
-    W = LWMS.wmatrix(ea, T)
+    T = LMP.tmatrix(ea, M)
+    W = LMP.wmatrix(ea, T)
 
-    ref = sharpboundaryreflection_sheddy(ea, M, LWMS.Dθ())
-    test = LWMS.bookerreflection(ea, M, LWMS.Dθ())
+    ref = sharpboundaryreflection_sheddy(ea, M, LMP.Dθ())
+    test = LMP.bookerreflection(ea, M, LMP.Dθ())
 
     isapprox(ref[1], test[1], rtol=1e-4) || return false
     isapprox(ref[2], test[2], rtol=1e-4) || return false
@@ -236,13 +236,13 @@ function integratedreflection_deriv(scenario)
     @unpack tx, ground, bfield, species = scenario
     freq = tx.frequency
 
-    # params = LWMSParams(integrationparams=IntegrationParams(1e-7, LWMS.RK4(), false))
-    params = LWMSParams()
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(freq, waveguide)
+    # params = LMPParams(integrationparams=IntegrationParams(1e-7, LMP.RK4(), false))
+    params = LMPParams()
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(freq, waveguide)
 
-    Rref(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, params=params))
-    RdR(θ,m) = (m = LWMS.setea(EigenAngle(θ), m); LWMS.integratedreflection(m, LWMS.Dθ(), params=params))
+    Rref(θ,m) = (m = LMP.setea(EigenAngle(θ), m); LMP.integratedreflection(m, params=params))
+    RdR(θ,m) = (m = LMP.setea(EigenAngle(θ), m); LMP.integratedreflection(m, LMP.Dθ(), params=params))
 
     Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(Rs)
@@ -275,10 +275,10 @@ function fresnelreflection_deriv(scenario)
     freq = tx.frequency
 
     for i = 1:4
-        Rgref(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq)[i])
+        Rgref(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq)[i])
         dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
-        Rg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[1][i])
-        dRg(θ) = (ea = EigenAngle(θ); LWMS.fresnelreflection(ea, ground, freq, LWMS.Dθ())[2][i])
+        Rg(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())[1][i])
+        dRg(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())[2][i])
 
         Rgref.(θs) ≈ Rg.(θs) || return false
         err_func(dRg.(θs), dRgref) < 1e-6 || return false
@@ -291,15 +291,15 @@ function modalequation_deriv(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
     freq = tx.frequency
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(ea, freq, waveguide)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(ea, freq, waveguide)
 
-    dFref = FiniteDiff.finite_difference_derivative(z->LWMS.solvemodalequation(z, modeequation),
+    dFref = FiniteDiff.finite_difference_derivative(z->LMP.solvemodalequation(z, modeequation),
         θs, Val{:central})
 
     dFs = Vector{ComplexF64}(undef, length(θs))
     Threads.@threads for i in eachindex(θs)
-        dFdθ, R, Rg = LWMS.solvemodalequation(θs[i], modeequation, LWMS.Dθ())
+        dFdθ, R, Rg = LMP.solvemodalequation(θs[i], modeequation, LMP.Dθ())
         dFs[i] = dFdθ
     end
 
@@ -320,9 +320,9 @@ function test_wmatrix(scenario)
          0 -C 0 C;
          1 0 1 0]
 
-    M = LWMS.susceptibility(80e3, tx.frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
-    W = LWMS.wmatrix(ea, T)
+    M = LMP.susceptibility(80e3, tx.frequency, bfield, species)
+    T = LMP.tmatrix(ea, M)
+    W = LMP.wmatrix(ea, T)
 
     return [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
 end
@@ -330,8 +330,8 @@ end
 function test_sharplybounded_vertical(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
-    initR = LWMS.bookerreflection(ea, M)
+    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
+    initR = LMP.bookerreflection(ea, M)
 
     return initR[1,2] ≈ initR[2,1]
 end
@@ -339,19 +339,19 @@ end
 function verticalreflection(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
-    R = LWMS.integratedreflection(modeequation)
+    R = LMP.integratedreflection(modeequation)
 
     return R[1,2] ≈ R[2,1]
 end
 
 function pecground()
-    pec_ground = LWMS.Ground(1, 1e12)
-    vertical_ea = LWMS.EigenAngle(π/2)
+    pec_ground = LMP.Ground(1, 1e12)
+    vertical_ea = LMP.EigenAngle(π/2)
 
-    Rg = LWMS.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
+    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
 
     return isapprox(abs.(Rg), I, atol=1e-7)
 end
@@ -359,27 +359,27 @@ end
 function modalequation(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    f = LWMS.solvemodalequation(modeequation)
+    f = LMP.solvemodalequation(modeequation)
 
-    return LWMS.isroot(f)
+    return LMP.isroot(f)
 end
 
 function modefinder(scenario)
     @unpack tx, bfield, species, ground = scenario
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
-    origcoords = LWMS.defaultcoordinates(tx.frequency)
+    origcoords = LMP.defaultcoordinates(tx.frequency)
 
-    params = LWMSParams(grpfparams=LWMS.GRPFParams(100000, 1e-6, true))
-    modes = LWMS.findmodes(modeequation, origcoords, params=params)
+    params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
+    modes = LMP.findmodes(modeequation, origcoords, params=params)
 
     for m in modes
-        f = LWMS.solvemodalequation(m, modeequation, params=params)
-        LWMS.isroot(f) || return false
+        f = LMP.solvemodalequation(m, modeequation, params=params)
+        LMP.isroot(f) || return false
     end
     # return modes
     return true
@@ -387,10 +387,10 @@ end
 
 function evalroot(root, scenario)
     @unpack tx, bfield, species, ground = scenario
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
 
-    modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide)
-    LWMS.solvemodalequation(EigenAngle(root), modeequation)
+    modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
+    LMP.solvemodalequation(EigenAngle(root), modeequation)
 end
 
 

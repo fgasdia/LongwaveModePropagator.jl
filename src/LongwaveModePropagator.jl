@@ -1,7 +1,7 @@
 """
 Main program/scratch file
 """
-module LongwaveModeSolver
+module LongwaveModePropagator
 
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
@@ -22,7 +22,7 @@ using PolynomialRoots: roots!
 using RootsAndPoles
 using ModifiedHankelFunctionsOfOrderOneThird
 
-# LongwaveModeSolver.jl
+# LongwaveModePropagator.jl
 export bpm
 
 # Geophysics.jl
@@ -81,20 +81,20 @@ const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
 const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, OwrenZen5(), false)
 
 """
-    LWMSParams{T,H<:AbstractRange{Float64}}
+    LMPParams{T,H<:AbstractRange{Float64}}
 
-Parameters for the `LongwaveModeSolver` module with defaults.
+Parameters for the `LongwaveModePropagator` module with defaults.
 
 The struct is created with `Parameters.jl` `@with_kw` and supports that package's
 instantiation capabilities, e.g.
 
 ```jldoctest
-p = LWMSParams()
-p2 = LWMSParams(earth_radius=6370e3)
-p3 = LWMSParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
+p = LMPParams()
+p2 = LMPParams(earth_radius=6370e3)
+p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
 ```
 """
-@with_kw struct LWMSParams{T,H<:AbstractRange{Float64}}
+@with_kw struct LMPParams{T,H<:AbstractRange{Float64}}
     topheight::Float64 = 110e3
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
@@ -103,7 +103,7 @@ p3 = LWMSParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     integrationparams::IntegrationParams{T} = DEFAULT_INTEGRATIONPARAMS
     wavefieldheights::H = range(topheight, 0, length=513)
 end
-export LWMSParams
+export LMPParams
 
 #
 include("Antennas.jl")
@@ -146,13 +146,13 @@ defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
 """
     bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{<:Real}; coordgrid=nothing,
-        params=LWMSParams())
+        params=LMPParams())
 
 Specialized form for `AbstractSampler`s with a single distance which returns scalar `E`,
 `amp`, and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
-    coordgrid=nothing, params=LWMSParams())
+    coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -174,12 +174,12 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<
 end
 
 """
-    bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing, params=LWMSParams())
+    bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing, params=LMPParams())
 
 Return electric field `E`, and field `amplitude` and `phase`.
 """
 function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing, params=LWMSParams())
+    coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -215,7 +215,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
 end
 
 function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing, params=LWMSParams())
+    coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
         coordgrid = defaultcoordinates(tx.frequency)
@@ -282,7 +282,7 @@ end
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
 function bpm(file::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing,
-    params=LWMSParams())
+    params=LMPParams())
 
     ispath(file) || error("$file is not a valid file name")
 

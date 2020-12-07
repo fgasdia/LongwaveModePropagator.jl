@@ -1,7 +1,7 @@
 function randomwavefields()
     modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
 
-    wavefields = LWMS.Wavefields(LWMSParams().wavefieldheights, modes)
+    wavefields = LMP.Wavefields(LMPParams().wavefieldheights, modes)
 
     return wavefields
 end
@@ -9,12 +9,12 @@ end
 function wavefieldfuncs_test()
     modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
 
-    @unpack wavefieldheights = LWMSParams()
+    @unpack wavefieldheights = LMPParams()
 
-    wavefields = LWMS.Wavefields(wavefieldheights, modes)
+    wavefields = LMP.Wavefields(wavefieldheights, modes)
 
-    LWMS.numheights(wavefields) == length(wavefieldheights) || return false
-    LWMS.nummodes(wavefields) == 10 || return false
+    LMP.numheights(wavefields) == length(wavefieldheights) || return false
+    LMP.nummodes(wavefields) == 10 || return false
 
     return true
 end
@@ -22,18 +22,18 @@ end
 function validwavefields_test()
     wavefields = randomwavefields()
 
-    heights = LWMS.heights(wavefields)
-    eas = LWMS.eigenangles(wavefields)
+    heights = LMP.heights(wavefields)
+    eas = LMP.eigenangles(wavefields)
 
     isvalid(wavefields) || return false
 
     longerv = vcat(wavefields.v, rand(TEST_RNG, SVector{6,ComplexF64}, 1, length(eas)))
-    wavefields = LWMS.Wavefields(longerv, heights, eas)
+    wavefields = LMP.Wavefields(longerv, heights, eas)
     !isvalid(wavefields) || return false
 
     wavefields = randomwavefields()
     widerv = hcat(wavefields.v, rand(TEST_RNG, SVector{6,ComplexF64}, length(heights)))
-    wavefields = LWMS.Wavefields(widerv, heights, eas)
+    wavefields = LMP.Wavefields(widerv, heights, eas)
     !isvalid(wavefields) || return false
 
     return true
@@ -45,20 +45,20 @@ Confirm `bookerwavefields(T)` satisfies field eigenvector equation ``Te = qe``
 function bookerwavefields_test(scenario)
     @unpack ea, bfield, tx, species = scenario
 
-    topheight = first(LWMSParams().wavefieldheights)
-    M = LWMS.susceptibility(topheight, tx.frequency, bfield, species)
-    T = LWMS.tmatrix(ea, M)
+    topheight = first(LMPParams().wavefieldheights)
+    M = LMP.susceptibility(topheight, tx.frequency, bfield, species)
+    T = LMP.tmatrix(ea, M)
 
     # Verify bookerwavefields produces a valid solution
-    e = LWMS.bookerwavefields(T)
-    q, B = LWMS.bookerquartic(T)
-    LWMS.sortquarticroots!(q)
+    e = LMP.bookerwavefields(T)
+    q, B = LMP.bookerquartic(T)
+    LMP.sortquarticroots!(q)
 
     for i = 1:2
         T*e[:,i] ≈ q[i]*e[:,i] || return false
     end
 
-    e2 = LWMS.bookerwavefields(ea, M)
+    e2 = LMP.bookerwavefields(ea, M)
     e ≈ e2 || return false
 
     return true
@@ -67,13 +67,13 @@ end
 function bookerwavefieldsderiv(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    M = LWMS.susceptibility(110e3, tx.frequency, bfield, species)
+    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
 
     for i = 1:4
-        eref(θ) = (ea = EigenAngle(θ); LWMS.bookerwavefields(ea, M)[i])
+        eref(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M)[i])
         deref = FiniteDiff.finite_difference_derivative(eref, θs, Val{:central})
-        e(θ) = (ea = EigenAngle(θ); LWMS.bookerwavefields(ea, M, LWMS.Dθ())[1][i])
-        de(θ) = (ea = EigenAngle(θ); LWMS.bookerwavefields(ea, M, LWMS.Dθ())[2][i])
+        e(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[1][i])
+        de(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[2][i])
 
         eref.(θs) ≈ e.(θs) || return false
         isapprox(deref, de.(θs), atol=1e-3) || return false
@@ -83,10 +83,10 @@ function bookerwavefieldsderiv(scenario)
     de2 = similar(de1)
     for i in eachindex(θs)
         ea = EigenAngle(θs[i])
-        T = LWMS.tmatrix(ea, M)
-        dT = LWMS.tmatrix(ea, M, LWMS.Dθ())
-        de1[i] = LWMS.bookerwavefields(ea, M, LWMS.Dθ())[2]
-        de2[i] = LWMS.bookerwavefields(T, dT, LWMS.Dθ())[2]
+        T = LMP.tmatrix(ea, M)
+        dT = LMP.tmatrix(ea, M, LMP.Dθ())
+        de1[i] = LMP.bookerwavefields(ea, M, LMP.Dθ())[2]
+        de2[i] = LMP.bookerwavefields(T, dT, LMP.Dθ())[2]
     end
     de1 ≈ de2 || return false
 
@@ -99,16 +99,16 @@ top height.
 """
 function initialR_test(scenario)
     @unpack ea, bfield, tx, species = scenario
-    params = LWMSParams()
+    params = LMPParams()
 
     topheight = first(params.wavefieldheights)
-    Mtop = LWMS.susceptibility(topheight, tx.frequency, bfield, species, params=params)
-    Ttop = LWMS.tmatrix(ea, Mtop)
-    etop = LWMS.bookerwavefields(Ttop)
+    Mtop = LMP.susceptibility(topheight, tx.frequency, bfield, species, params=params)
+    Ttop = LMP.tmatrix(ea, Mtop)
+    etop = LMP.bookerwavefields(Ttop)
 
     e1, e2 = etop[:,1], etop[:,2]
 
-    wavefieldR = LWMS.vacuumreflectioncoeffs(ea, e1, e2)
+    wavefieldR = LMP.vacuumreflectioncoeffs(ea, e1, e2)
 
     Cinv = ea.secθ
     Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
@@ -125,7 +125,7 @@ function initialR_test(scenario)
     Rref = D/U
     Rref ≈ wavefieldR || return false
 
-    Rref = LWMS.bookerreflection(ea, Mtop)
+    Rref = LMP.bookerreflection(ea, Mtop)
     Rref ≈ wavefieldR || return false
 
     return true
@@ -137,22 +137,22 @@ Confirm reflection coefficients from wavefields match with dr/dz calculation.
 """
 function drdzwavefield_equivalence_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
-    params = LWMSParams()
+    params = LMPParams()
 
     zs = params.wavefieldheights
 
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species)
 
-    wavefieldRs = [LWMS.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
+    wavefieldRs = [LMP.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
 
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LWMS.PhysicalModeEquation(ea, tx.frequency, waveguide)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
     @unpack tolerance, solver = params.integrationparams
 
-    Mtop = LWMS.susceptibility(first(zs), tx.frequency, waveguide)
-    Rtop = LWMS.bookerreflection(ea, Mtop)
-    prob = ODEProblem{false}(LWMS.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
+    Mtop = LMP.susceptibility(first(zs), tx.frequency, waveguide)
+    Rtop = LMP.bookerreflection(ea, Mtop)
+    prob = ODEProblem{false}(LMP.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
                 saveat=zs, save_everystep=false)
 
@@ -168,12 +168,12 @@ See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
 """
 function homogeneous_iono_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
-    params = LWMSParams(earthcurvature=false)
+    params = LMPParams(earthcurvature=false)
 
     ionobottom = params.curvatureheight
     zs = 200e3:-500:ionobottom
 
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
 
     # Normalize fields so component 2 (Ey) = 1, as is used in Booker Quartic
     e1 = [s[:,1]/s[2,1] for s in e]
@@ -183,16 +183,16 @@ function homogeneous_iono_test(scenario)
     e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
 
     # Booker solution - single solution for entire homogeneous iono
-    M = LWMS.susceptibility(ionobottom, tx.frequency, bfield, species, params=params)
-    T = LWMS.tmatrix(ea, M)
-    booker = LWMS.bookerwavefields(T)
+    M = LMP.susceptibility(ionobottom, tx.frequency, bfield, species, params=params)
+    T = LMP.tmatrix(ea, M)
+    booker = LMP.bookerwavefields(T)
 
     isapprox(e1[:,end], booker[:,1], rtol=1e-6) || return false
     isapprox(e2[:,end], booker[:,2], rtol=1e-6) || return false
 
     # This is basically the same test...
-    q, B = LWMS.bookerquartic(T)
-    LWMS.sortquarticroots!(q)
+    q, B = LMP.bookerquartic(T)
+    LMP.sortquarticroots!(q)
 
     isapprox(T*e1[:,end], q[1]*e1[:,end], rtol=1e-6) || return false
     isapprox(T*e2[:,end], q[2]*e2[:,end], rtol=1e-6) || return false
@@ -202,19 +202,19 @@ end
 
 function resonance_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
-    params = LWMSParams()
+    params = LMPParams()
 
     ztop = params.topheight
     zs = ztop:-100:0.0
 
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
-    R = LWMS.vacuumreflectioncoeffs(ea, e[end])
-    Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    R = LMP.vacuumreflectioncoeffs(ea, e[end])
+    Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
 
     # Ensure we are close to mode resonance with R
-    f = LWMS.modalequation(R, Rg)
+    f = LMP.modalequation(R, Rg)
 
-    return LWMS.isroot(f)
+    return LMP.isroot(f)
 end
 
 function boundary_test(scenario)
@@ -223,17 +223,17 @@ function boundary_test(scenario)
     # actually are isotropic
 
     @unpack ea, bfield, tx, ground, species = scenario
-    params = LWMSParams()
+    params = LMPParams()
 
     ztop = params.topheight
     zs = ztop:-100:0.0
 
-    e = LWMS.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
-    R = LWMS.vacuumreflectioncoeffs(ea, e[end])
-    Rg = LWMS.fresnelreflection(ea, ground, tx.frequency)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    R = LMP.vacuumreflectioncoeffs(ea, e[end])
+    Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
 
-    a1, a2 = LWMS.boundaryscalars(R, Rg, e[end], false)
-    b1, b2 = LWMS.boundaryscalars(R, Rg, e[end], true)
+    a1, a2 = LMP.boundaryscalars(R, Rg, e[end], false)
+    b1, b2 = LMP.boundaryscalars(R, Rg, e[end], true)
 
     # return a1, a2, b1, b2
 
@@ -247,9 +247,9 @@ function fieldstrengths_test(scenario)
     @unpack ea, bfield, tx, ground, species = scenario
     wavefields = randomwavefields()
 
-    modes = LWMS.eigenangles(wavefields)
+    modes = LMP.eigenangles(wavefields)
 
-    LWMS.fieldstrengths!(view(wavefields,:,1), LWMSParams().wavefieldheights, modes[1],
+    LMP.fieldstrengths!(view(wavefields,:,1), LMPParams().wavefieldheights, modes[1],
                          tx.frequency, bfield, species, ground)
 end
 

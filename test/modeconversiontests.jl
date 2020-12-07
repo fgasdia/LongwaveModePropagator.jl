@@ -12,7 +12,7 @@ using DataFrames
 using RootsAndPoles
 
 using LongwaveModeSolver
-const LWMS = LongwaveModeSolver
+const LMP = LongwaveModeSolver
 
 
 function homoscenario(threshold)
@@ -25,7 +25,7 @@ function homoscenario(threshold)
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
     rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
-    E, phase, amp = LWMS.bpm(waveguide, tx, rx)
+    E, phase, amp = LMP.bpm(waveguide, tx, rx)
 
     return E, phase, amp
 end
@@ -41,14 +41,14 @@ function homoscenario2(threshold)
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
     rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
-    E, phase, amp = LWMS.bpm(waveguide, tx, rx)
+    E, phase, amp = LMP.bpm(waveguide, tx, rx)
 
     return E, phase, amp
 end
 
 
 function mc_scenario(threshold)
-    waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
+    waveguide = LMP.SegmentedWaveguide(HomogeneousWaveguide)
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(QE, ME,
@@ -66,13 +66,13 @@ function mc_scenario(threshold)
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
     rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
-    E, phase, amp = LWMS.bpm(waveguide, tx, rx)
+    E, phase, amp = LMP.bpm(waveguide, tx, rx)
 
     return E, phase, amp
 end
 
 function mc_scenario_3(threshold)
-    waveguide = LWMS.SegmentedWaveguide(HomogeneousWaveguide)
+    waveguide = LMP.SegmentedWaveguide(HomogeneousWaveguide)
 
     push!(waveguide, HomogeneousWaveguide(BField(50e-6, deg2rad(90), deg2rad(0)),
                                           Species(QE, ME,
@@ -96,7 +96,7 @@ function mc_scenario_3(threshold)
     tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
     rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 
-    E, phase, amp = LWMS.bpm(waveguide, tx, rx)
+    E, phase, amp = LMP.bpm(waveguide, tx, rx)
 
     return E, phase, amp
 end
@@ -114,7 +114,7 @@ basepath = "/home/forrest/research/LAIR/ModeSolver/lwpc_comparisons/"
 
 tx = Transmitter{VerticalDipole}("", 0, 0, 0, VerticalDipole(), Frequency(24e3), 100e3)
 rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
-X = LWMS.distance(rx,tx);
+X = LMP.distance(rx,tx);
 
 
 # Homogeneous scenario

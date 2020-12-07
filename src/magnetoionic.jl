@@ -1,5 +1,5 @@
 """
-    susceptibility(alt, frequency, bfield, species; params=LWMSParams())
+    susceptibility(alt, frequency, bfield, species; params=LMPParams())
 
 Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
 
@@ -27,7 +27,7 @@ no. 1171, pp. 516–537, Feb. 1955.
 [^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
 ionosphere," Cambridge University Press, 1959.
 """
-function susceptibility(alt, frequency, bfield, species; params=LWMSParams())
+function susceptibility(alt, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
@@ -74,8 +74,6 @@ function susceptibility(alt, frequency, bfield, species; params=LWMSParams())
     ixUYD = 1im*x*UYD
     yzY²D = y*z*Y²D
 
-    curvaturecorrection = 2/earthradius*(curvatureheight - alt)
-
     # Elements of `M`
     M11 = U²D - x²*Y²D
     M21 = izUYD - xyY²D
@@ -88,6 +86,8 @@ function susceptibility(alt, frequency, bfield, species; params=LWMSParams())
     M33 = U²D - z²*Y²D
 
     if earthcurvature
+        curvaturecorrection = 2/earthradius*(curvatureheight - alt)
+        
         M11 -= curvaturecorrection
         M22 -= curvaturecorrection
         M33 -= curvaturecorrection
@@ -97,9 +97,9 @@ function susceptibility(alt, frequency, bfield, species; params=LWMSParams())
 
     return M
 end
-susceptibility(alt, f::Frequency, w::HomogeneousWaveguide; params=LWMSParams()) =
+susceptibility(alt, f::Frequency, w::HomogeneousWaveguide; params=LMPParams()) =
     susceptibility(alt, f, w.bfield, w.species, params=params)
-susceptibility(alt, me::ModeEquation; params=LWMSParams()) =
+susceptibility(alt, me::ModeEquation; params=LMPParams()) =
     susceptibility(alt, me.frequency, me.waveguide, params=params)
 
 """

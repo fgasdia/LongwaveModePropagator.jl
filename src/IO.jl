@@ -262,7 +262,7 @@ function parse(file, t::Type{<:Output})
     matched ? filecontents : nothing
 end
 
-function buildrun(s::BasicInput; coordgrid=nothing, params=LWMSParams())
+function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
 
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
@@ -305,7 +305,7 @@ function buildrun(s::BasicInput; coordgrid=nothing, params=LWMSParams())
     return output
 end
 
-function buildrun(s::TableInput; coordgrid=nothing, params=LWMSParams())
+function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
 
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
@@ -350,7 +350,7 @@ function buildrun(s::TableInput; coordgrid=nothing, params=LWMSParams())
     return output
 end
 
-function buildrun(s::BatchInput; coordgrid=nothing, params=LWMSParams())
+function buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
 
     batch = BatchOutput{BasicOutput}()
     batch.name = s.name
@@ -366,7 +366,7 @@ function buildrun(s::BatchInput; coordgrid=nothing, params=LWMSParams())
 end
 
 function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing,
-    params=LWMSParams())
+    params=LMPParams())
 
     if append && isfile(outfile)
         batch = open(outfile, "r") do f

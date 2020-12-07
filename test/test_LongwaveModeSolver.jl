@@ -1,6 +1,6 @@
 function bpm_test(scenario)
     @unpack tx, rx, bfield, species, ground = scenario
-    waveguide = LWMS.HomogeneousWaveguide(bfield, species, ground)
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
 
     E, phase, amp = bpm(waveguide, tx, rx)
 
@@ -8,7 +8,7 @@ function bpm_test(scenario)
     lwpcfile = "homogeneous_day_lwpc.json"  # TODO adapt to scenario
     if isfile(lwpcfile)
         lwpcres = open(lwpcfile,"r") do f
-            v = JSON3.read(f, LWMS.BasicOutput)
+            v = JSON3.read(f, LMP.BasicOutput)
             return v
         end
     else
@@ -16,22 +16,22 @@ function bpm_test(scenario)
         return false
     end
 
-    # origcoords = LWMS.defaultcoordinates(tx.frequency.f)
+    # origcoords = LMP.defaultcoordinates(tx.frequency.f)
     # est_num_nodes = ceil(Int, length(origcoords)*1.5)
-    # grpfparams = LWMS.GRPFParams(est_num_nodes, 1e-6, true)
+    # grpfparams = LMP.GRPFParams(est_num_nodes, 1e-6, true)
     #
-    # Mfcn = LWMS.susceptibilityinterpolator(tx.frequency, waveguide)
-    # modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    # Mfcn = LMP.susceptibilityinterpolator(tx.frequency, waveguide)
+    # modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
     #
-    # modes = LWMS.findmodes(origcoords, grpfparams, modeequation)
+    # modes = LMP.findmodes(origcoords, grpfparams, modeequation)
     #
     # ea = modes[1]
     #
-    # Mfcn(alt) = LWMS.susceptibility(alt, tx.frequency, waveguide)
-    # modeequation = LWMS.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
+    # Mfcn(alt) = LMP.susceptibility(alt, tx.frequency, waveguide)
+    # modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide, Mfcn)
     #
-    # dFdθ, R, Rg = LWMS.solvemodalequation(ea, modeequation, LWMS.Dθ())
-    # # efconstants = LWMS.excitationfactorconstants(ea, R, Rg, tx.frequency, waveguide.ground)
+    # dFdθ, R, Rg = LMP.solvemodalequation(ea, modeequation, LMP.Dθ())
+    # # efconstants = LMP.excitationfactorconstants(ea, R, Rg, tx.frequency, waveguide.ground)
     # #
     # # Sγ, Cγ = sincos(π/2 - inclination(tx))  # γ is measured from vertical
     # # Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
@@ -52,9 +52,9 @@ end
 function test_segmented(scenario)
     @unpack tx, rx, bfield, species, ground = scenario
 
-    waveguide = LWMS.SegmentedWaveguide(LWMS.HomogeneousWaveguide)
+    waveguide = LMP.SegmentedWaveguide(LMP.HomogeneousWaveguide)
     for i in eachindex(bfield)
-        wvg = LWMS.HomogeneousWaveguide(bfield[i], species[i], ground[i])
+        wvg = LMP.HomogeneousWaveguide(bfield[i], species[i], ground[i])
         push!(waveguide, wvg)
     end
 
