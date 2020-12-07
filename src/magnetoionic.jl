@@ -1,47 +1,56 @@
-"""
-    susceptibility(alt, frequency, bfield, species; params=LMPParams())
+@doc raw"""
+    susceptibility(altitude, frequency, bfield, species; params=LMPParams())
 
-Computation of susceptibility matrix `M` as defined by [^Budden1955a] method 2.
+Compute the ionosphere susceptibility tensor `M` as a `SMatrix{3,3}` using
+`species.numberdensity` and `species.collisionfrequency` at `altitude`.
 
-Includes first order correction for earth curvature by means of a fictitious refractive index.
+If `params.earthcurvature == true`, `M` includes a first order correction for earth
+curvature by means of a fictitious refractive index [^Pappert1967].
 
-Budden's formalism [^Budden1955a] assumes that the ionosphere is horizontally stratified and contains
-electrons whose motion is influenced by the earth's magnetic field and is damped by collisions.
-A plane wave of specified polarization is incident at some (generally oblique) angle from
-below and we wish to find the amplitude, phase, and polarization of the reflected wave.
+The susceptibility matrix is calculated from the constitutive relations presented in
+[^Ratcliffe1959]. This includes the effect of earth's magnetic field vector and collisional
+damping on electron motion.
 
-The differential equations for calculating the reflection coefficient are derived from
-Maxwell's equations together with the constitutive relations for the ionosphere. The
-constitutive relations for the ionosphere may be written ``P = ϵ₀ M ⋅ E`` where ``P`` is the
-electric polarization vector, ``E`` is the electric field vector, and ``M`` is a 3×3
-susceptibility matrix calculated by this function.
+The tensor is:
+```math
+M = -\frac{X}{U(U²-Y²)}
+        \begin{pmatrix}
+            U² - x²Y²    & -izUY - xyY² & iyUY - xzY² \\
+            izUY - xyY²  & U² - y²Y²    & -ixUY - yzY² \\
+            -iyUY - xzY² & ixUY - yzY²  & U² - z²Y²
+        \end{pmatrix}
+```
+where ``X = ωₚ²/ω²``, ``Y = |ωₕ/ω|``, ``Z = ν/ω``, and ``U = 1 - iZ``. The earth curvature
+correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where ``H`` is
+`params.curvatureheight`.
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
-reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
-no. 1171, pp. 516–537, Feb. 1955.
-
-[^Budden1988]: K. G. Budden
+[^Pappert1967]: R. A. Pappert, E. E. Gossard, and I. J. Rothmuller, “A numerical
+    investigation of classical approximations used in VLF propagation,” Radio Science,
+    vol. 2, no. 4, pp. 387–400, Apr. 1967, doi: 10.1002/rds196724387.
 
 [^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
-ionosphere," Cambridge University Press, 1959.
+    ionosphere," Cambridge University Press, 1959.
 """
-function susceptibility(alt, frequency, bfield, species; params=LMPParams())
+function susceptibility(altitude, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     x², y², z² = x^2, y^2, z^2
     ω = frequency.ω
 
-    # Constitutive relations (see Budden1955a, pg. 517 or Budden1988 pg. 39)
-    e, m, N, nu = species.charge, species.mass, species.numberdensity, species.collisionfrequency
+    e, m = species.charge, species.mass
+    N, nu = species.numberdensity, species.collisionfrequency
+
     invω = inv(ω)
     invmω = invω/m  # == inv(m*ω)
 
-    X = N(alt)*e^2*invω*invmω/E0  # ωₚ²/ω² plasma frequency / ω
-    Y = e*B*invmω  # ωₕ/ω  gyrofrequency / ω; Ratcliffe1959 pg. 182 specifies that sign of `e` is included here
-    Z = nu(alt)*invω  # collision frequency / ω
+    # Constitutive relations
+    # (see Budden1955a, pg. 517, Budden1988 pg. 39, or [^Ratcliffe1959])
+    X = N(altitude)*e^2*invω*invmω/E0
+    Y = e*B*invmω  # [^Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
+    Z = nu(altitude)*invω
     U = 1 - 1im*Z
 
     # TODO: Support multiple species, e.g.
@@ -86,8 +95,8 @@ function susceptibility(alt, frequency, bfield, species; params=LMPParams())
     M33 = U²D - z²*Y²D
 
     if earthcurvature
-        curvaturecorrection = 2/earthradius*(curvatureheight - alt)
-        
+        curvaturecorrection = 2/earthradius*(curvatureheight - altitude)
+
         M11 -= curvaturecorrection
         M22 -= curvaturecorrection
         M33 -= curvaturecorrection
@@ -97,24 +106,31 @@ function susceptibility(alt, frequency, bfield, species; params=LMPParams())
 
     return M
 end
-susceptibility(alt, f::Frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibility(alt, f, w.bfield, w.species, params=params)
-susceptibility(alt, me::ModeEquation; params=LMPParams()) =
-    susceptibility(alt, me.frequency, me.waveguide, params=params)
+"""
+    susceptibility(altitude, me::ModeEquation; params=LMPParams())
+"""
+susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
+    susceptibility(altitude, me.frequency, me.waveguide, params=params)
+"""
+    susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams())
+"""
+susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
+    susceptibility(altitude, frequency, w.bfield, w.species, params=params)
 
 """
     bookerquartic(ea, M)
 
-Return roots `q` and the coefficients `B` of the Booker quartic.
+Compute roots `q` and the coefficients `B` of the Booker quartic for `EigenAngle` `ea` and
+susceptibility tensor `M`.
 
-The Booker quartic is used in the solution of `R` for a sharply bounded ionosphere. This
-function uses the `PolynomialRoots` package to find the roots.
+This function uses `PolynomialRoots.jl` to find the roots.
 
-See also: [`sharplybounded_R`](@ref)
+See also: [`dbookerquartic`](@ref)
 
 # References
 
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
+[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
+    Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
 function bookerquartic(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
