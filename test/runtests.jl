@@ -15,85 +15,74 @@ const ME = LMP.ME
 
 const TEST_RNG = MersenneTwister(1234)
 
-# To profile in Juno
-# @profiler (for i = 1:1000; LMP.fcn(); end)
 
-struct TestScenario{T1,T2,T3,T4,T5,T6}
-    ea::T1
-    bfield::T2
-    species::T3
-    ground::T4
-    tx::T5
-    rx::T6
-end
-
-const verticalB_scenario = TestScenario(
-    EigenAngle(1.5 - 0.1im),
-    BField(50e-6, π/2, 0),
-    Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
-            electroncollisionfrequency),
-    Ground(15, 0.001),
-    Transmitter(24e3),
-    GroundSampler(2000e3, Fields.Ez)
+const verticalB_scenario = @with_kw (
+    ea=EigenAngle(1.5 - 0.1im),
+    bfield=BField(50e-6, π/2, 0),
+    species=Species(QE, ME,
+                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    electroncollisionfrequency),
+    ground=Ground(15, 0.001),
+    # Transmitter(24e3),
+    # GroundSampler(2000e3, Fields.Ez)
 )
 
-const isotropicB_resonant_scenario = TestScenario(
-    EigenAngle(1.453098822238508 - 0.042008075239068944im),  # resonant
-    BField(50e-6, 0, π/2),
-    Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
-            electroncollisionfrequency),
-    Ground(15, 0.001),
-    Transmitter(24e3),
-    GroundSampler(2000e3, Fields.Ez)
+const isotropicB_resonant_scenario = @with_kw (
+    ea=EigenAngle(1.453098822238508 - 0.042008075239068944im),  # resonant
+    bfield=BField(50e-6, 0, π/2),
+    species=Species(QE, ME,
+                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    electroncollisionfrequency),
+    ground=Ground(15, 0.001),
+    # Transmitter(24e3),
+    # GroundSampler(2000e3, Fields.Ez)
 )
 
-const resonant_scenario = TestScenario(
-    EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
-    BField(50e-6, deg2rad(68), deg2rad(111)),
-    Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
-            electroncollisionfrequency),
-    Ground(15, 0.001),
-    Transmitter(24e3),
-    GroundSampler(2000e3, Fields.Ez)
+const resonant_scenario = @with_kw (
+    ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
+    bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
+    species=Species(QE, ME,
+                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    electroncollisionfrequency),
+    ground=Ground(15, 0.001),
+    # Transmitter(24e3),
+    # GroundSampler(2000e3, Fields.Ez)
 )
 
-const nonresonant_scenario = TestScenario(
-    EigenAngle(1.5 - 0.1im),
-    BField(50e-6, deg2rad(68), deg2rad(111)),
-    Species(QE, ME,
-            z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
-            electroncollisionfrequency),
-    Ground(15, 0.001),
-    Transmitter(24e3),
-    GroundSampler(2000e3, Fields.Ez)
+const nonresonant_scenario = @with_kw (
+    ea=EigenAngle(1.5 - 0.1im),
+    bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
+    species=Species(QE, ME,
+                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    electroncollisionfrequency),
+    ground=Ground(15, 0.001),
+    # Transmitter(24e3),
+    # GroundSampler(2000e3, Fields.Ez)
 )
 
-const homogeneousiono_scenario = TestScenario(
-    EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
-    BField(50e-6, deg2rad(68), deg2rad(111)),
-    Species(QE, ME,
-            z->2.65e6,
-            z->1e8),
-    Ground(15, 0.001),
-    Transmitter(24e3),
-    GroundSampler(2000e3, Fields.Ez)
+const homogeneousiono_scenario = @with_kw (
+    ea=EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
+    bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
+    species=Species(QE, ME,
+                    z->2.65e6,
+                    z->1e8),
+    ground=Ground(15, 0.001),
+    # Transmitter(24e3),
+    # GroundSampler(2000e3, Fields.Ez)
 )
 
-const segmented_scenario = TestScenario(
-    EigenAngle(1.5 - 0.1),
-    [BField(50e-6, deg2rad(68), deg2rad(111)), BField(50e-6, deg2rad(68), deg2rad(111))],
-    [Species(QE, ME,
-             z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
-             electroncollisionfrequency),
-     Species(QE, ME,
-             z->waitprofile(z, 77, 0.35, cutoff_low=40e3),
-             electroncollisionfrequency)],
-    [Ground(15, 0.001), Ground(15, 0.001)],
-    Transmitter(24e3),
-    GroundSampler(2000e3, Fields.Ez)
+const segmented_scenario = @with_kw (
+    ea=EigenAngle(1.5 - 0.1),
+    bfield=[BField(50e-6, deg2rad(68), deg2rad(111)), BField(50e-6, deg2rad(68), deg2rad(111))],
+    species=[Species(QE, ME,
+                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                     electroncollisionfrequency),
+             Species(QE, ME,
+                     z->waitprofile(z, 77, 0.35, cutoff_low=40e3),
+                     electroncollisionfrequency)],
+    ground=[Ground(15, 0.001), Ground(15, 0.001)],
+    # Transmitter(24e3),
+    # GroundSampler(2000e3, Fields.Ez)
 )
 
 const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i = range(deg2rad(-15), deg2rad(0), length=16)]
