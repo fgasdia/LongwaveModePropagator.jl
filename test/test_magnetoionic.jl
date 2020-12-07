@@ -1,12 +1,12 @@
 function test_susceptibility(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario
+    @unpack ea, tx, bfield, species, ground = scenario()
 
     M1 = LMP.susceptibility(70e3, tx.frequency, bfield, species)
     M2 = LMP.susceptibility(70e3, tx.frequency, bfield, species, params=LMPParams())
     M3 = LMP.susceptibility(70e3, tx.frequency, bfield, species,
                              params=LMPParams(earthradius=6350e3))
-    M1 == M2 || return false
-    !(M2 ≈ M3) || return false
+    @test M1 == M2
+    @test !(M2 ≈ M3)
 
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
@@ -21,15 +21,11 @@ function test_susceptibility(scenario)
     M9 = LMP.susceptibility(70e3, modeequation,
                              params=LMPParams(earthradius=6350e3))
 
-    M4 == M5 || return false
-    M4 == M1 || return false
-    M6 == M3 || return false
+    @test M4 == M5 == M1
+    @test M6 == M3
 
-    M7 == M8 || return false
-    M7 == M1 || return false
-    M9 == M3 || return false
-
-    return true
+    @test M7 == M8 == M1
+    @test M9 == M3
 end
 
 function test_bookerquarticM(scenario)
@@ -148,7 +144,7 @@ end
     @info "Testing magnetoionic"
 
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-        @test tmatrix_deriv(scn)
+        test_susceptibility(scn)
 
         @test test_bookerquarticM(scn)
         @test test_bookerquarticT(scn)

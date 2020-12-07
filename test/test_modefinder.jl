@@ -73,7 +73,7 @@ function iterativesharpboundary(scenario)
         res = nlsolve((f,R)->sharpR!(f,R,W), Array(initR))
         R = res.zero
 
-        initdR = newbookerreflection(ea, M, LMP.Dθ())[2]
+        initdR = LMP.bookerreflection(ea, M, LMP.Dθ())[2]
         resdR = nlsolve((f,dR)->sharpR!(f,dR,R,dW,W), Array(initdR))
         dR = SMatrix{2,2}(resdR.zero)
 

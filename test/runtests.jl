@@ -3,7 +3,7 @@ using LinearAlgebra, Statistics
 using StaticArrays
 using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
-using RootsAndPoles, VoronoiDelaunay
+# using RootsAndPoles, VoronoiDelaunay
 using JSON3, StructTypes
 using Interpolations, NLsolve, FiniteDiff
 
@@ -23,7 +23,7 @@ const verticalB_scenario = @with_kw (
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
-    # Transmitter(24e3),
+    tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
 
@@ -34,7 +34,7 @@ const isotropicB_resonant_scenario = @with_kw (
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
-    # Transmitter(24e3),
+    tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
 
@@ -45,7 +45,7 @@ const resonant_scenario = @with_kw (
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
-    # Transmitter(24e3),
+    tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
 
@@ -56,7 +56,7 @@ const nonresonant_scenario = @with_kw (
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
-    # Transmitter(24e3),
+    tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
 
@@ -67,7 +67,7 @@ const homogeneousiono_scenario = @with_kw (
                     z->2.65e6,
                     z->1e8),
     ground=Ground(15, 0.001),
-    # Transmitter(24e3),
+    tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
 
@@ -81,7 +81,7 @@ const segmented_scenario = @with_kw (
                      z->waitprofile(z, 77, 0.35, cutoff_low=40e3),
                      electroncollisionfrequency)],
     ground=[Ground(15, 0.001), Ground(15, 0.001)],
-    # Transmitter(24e3),
+    tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
 
