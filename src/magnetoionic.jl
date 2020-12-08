@@ -1,3 +1,9 @@
+#==
+Functions related to calculating physical parameters of the ionospheric plasma
+(susceptibility) and the differential equations of electromagnetic waves propagating through
+the plasma (T matrix and bookerquartic).
+==#
+
 @doc raw"""
     susceptibility(altitude, frequency, bfield, species; params=LMPParams())
 

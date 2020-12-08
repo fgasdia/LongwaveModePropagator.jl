@@ -1,24 +1,67 @@
 #==
-Functions related to identifying resonant modes ("eigenangles") within the
-earth-ionosphere waveguide.
+Functions related to identifying resonant modes (eigenangles) within the earth-ionosphere
+waveguide.
 
-These functions use Budden's model, which represents the ground and ionosphere
-as sharply reflecting boundaries. The middle of the waveguide is filled with a
-fictitious medium with a refractive index that mimicks the propagation of the
-radio wave through free space over curved earth.
+These functions use Budden's model, which represents the ground and ionosphere as sharply
+reflecting boundaries. The middle of the waveguide is filled with a fictitious medium with a
+refractive index that mimicks the propagation of the radio wave through free space over
+curved earth.
 ==#
 
 abstract type ModeEquation end
 
+@doc raw"""
+    PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
+
+Parameters for solving the physical mode equation ``\det(Rg*R - I)``.
+
+Fields:
+
+    - ea::EigenAngle
+    - frequency::Frequency
+    - waveguide::W
+
+Functions can dispatch on this type of `ModeEquation`, although the `ModifiedModeEquation`
+of [^Morfitt1976] is not currently supported.
+
+# References
+
+[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
+    for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
+    Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976. Accessed:
+    Dec. 13, 2017. [Online]. Available: http://www.dtic.mil/docs/citations/ADA032573.
+"""
 struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     ea::EigenAngle
     frequency::Frequency
     waveguide::W
 end
+"""
+    PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide)
+
+Create a `PhysicalModeEquation` struct with `ea = complex(0.0)`.
+
+See also: [`setea`](@ref)
+"""
 PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
-setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.frequency, p.waveguide)
 
+"""
+    setea(ea, p)
+
+Return `p` with new `ea`.
+"""
+setea(ea::EigenAngle, p::PhysicalModeEquation) =
+    PhysicalModeEquation(ea, p.frequency, p.waveguide)
+setea(θ, p::PhysicalModeEquation) =
+    PhysicalModeEquation(EigenAngle(θ), p.frequency, p.waveguide)
+
+"""
+    isroot(x::Real; atol=1e-2)
+
+Return `true` if the value of `x` is approximately equal to 0.
+"""
+isroot(x::Real; atol=1e-2) = isapprox(x, 0, atol=atol)
 
 """
     isroot(z::Complex; atol=1e-2)
@@ -31,33 +74,21 @@ function isroot(z::Complex; atol=1e-2)
 end
 
 """
-    isroot(x::Real; atol=1e-2)
-
-Return `true` if the value of `x` is approximately equal to 0.
-"""
-isroot(x::Real; atol=1e-2) = isapprox(z, 0, atol=atol)
-
-"""
     filterroots!(roots, frequency, waveguide; atol=1e-2)
 
-Remove elements from `roots` if they are not valid roots (determined by `isroot`) to the modal
-equation.
+Remove elements from `roots` if they are not valid roots of the physical modal equation.
 
-The absolute tolerance `atol` is passed through to `isroot`.
+See also: [`isroot`](@ref)
 """
 function filterroots!(roots, frequency, waveguide; atol=1e-2)
-    modeequation = PhysicalModeEquation(EigenAngle(0.0), frequency, waveguide)
-    filterroots!(roots, modeequation, atol=atol)
+    modeequation = PhysicalModeEquation(frequency, waveguide)
+    return filterroots!(roots, modeequation, atol=atol)
 end
 
 """
-    filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
+    filterroots!(roots, modeequation; atol=1e-2)
 
-Use existing `modeequation` to validate `roots`.
-
-!!! note
-
-    `modeequation.ea` will be modified by this function.
+Use `modeequation` to validate and filter `roots`.
 """
 function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
     i = 1
@@ -66,53 +97,56 @@ function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
         f = solvemodalequation(modeequation)
         isroot(f, atol=atol) ? (i += 1) : deleteat!(roots, i)
     end
-    return nothing
+    return roots
 end
-
 
 ##########
 # Reflection coefficients
 ##########
 
-"""
-    bookerreflection(ea, M)
+@doc raw"""
+The reflection coefficient matrix is calculated from a ratio of the downgoing to upgoing
+plane waves in the free space beneath the ionosphere [^Budden1988] pg. 307. These are
+obtained from the two upgoing characteristic waves found from the Booker quartic. Each make
+up a column of `e`.
 
-Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere""
-referenced to the ground.
+```math
+R =
+    \begin{pmatrix}
+        Ce₁[4] - e₁[1] &  Ce₂[4] - e₂[1] \\
+       -Ce₁[2] + e₁[3] & -Ce₂[2] + e₂[3]
+    \end{pmatrix}
+    \begin{pmatrix}
+        Ce₁[4] + e₁[1] &  Ce₂[4] + e₂[1] \\
+       -Ce₁[2] - e₁[3] & -Ce₂[2] - e₂[3]
+    \end{pmatrix}^{-1}
+```
 
-The reflection coefficient matrix for the sharply bounded case is used as a starting solution
-for integration of the reflection coefficient matrix through the ionosphere.
+The reflection coefficient matrix for the sharply bounded case is commonly used as a
+starting solution for integration of the reflection coefficient matrix through the
+ionosphere.
 
-From the differential equations for fields in the ionosphere ``de/dz = -ikTe``, assuming
-a homogeneous ionosphere ``(T - q)e = 0``. This only has a non-trivial solution if
-``det(T - q) = 0``, which is a fourth degree equation in ``q``, the Booker quartic.
-
-From linear algebra theory, the four ``q``s are eigenvalues of ``T`` and the ``e``s are the
-associated eigencolumns, then ``Teᵢ = qᵢeᵢ``. If any ``eᵢ`` is multiplied by a constant, it
-remains an eigencolumn of ``T``.
-
-The reflection coefficient is the ratio of field components, thus we are free to choose any
-consistent scaling of the fields ``e``. This function uses the scaling in [^Budden1988]
-pg. 190 and the expression for the reflection coefficient in [^Budden1988] pg. 307.
+See also: [`bookerwavefields`](@ref)
 
 # References
 
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
-Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
-[^Budden1988]:
+[^Budden1988]: K. G. Budden, “The propagation of radio waves,”
+    Cambridge University Press, 1988.
 """
-function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
-    # XXX: check this! the order of the two upgoing waves doesn't matter---swapping q₁ and q₂ will result in the
-    # same reflection coefficient matrix.
+function bookerreflection end
 
-    e = bookerwavefields(ea, M)
-    return bookerreflection(ea, e)
-end
+"""
+    bookerreflection(ea, e)
 
+Compute ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere with
+wavefield matrix `e`.
+"""
 function bookerreflection(ea::EigenAngle, e)
     C = ea.cosθ
 
-    # Compute reflection matrix referenced to z=0 [^Budden1988] pg 307
+    # The order of the two upgoing waves doesn't matter. Swapping the first and second
+    # columns of `e` will result in the same reflection coefficient matrix.
+
     d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
     u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
 
