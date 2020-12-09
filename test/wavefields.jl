@@ -39,59 +39,6 @@ function validwavefields_test()
     return true
 end
 
-"""
-Confirm `bookerwavefields(T)` satisfies field eigenvector equation ``Te = qe``
-"""
-function bookerwavefields_test(scenario)
-    @unpack ea, bfield, tx, species = scenario
-
-    topheight = first(LMPParams().wavefieldheights)
-    M = LMP.susceptibility(topheight, tx.frequency, bfield, species)
-    T = LMP.tmatrix(ea, M)
-
-    # Verify bookerwavefields produces a valid solution
-    e = LMP.bookerwavefields(T)
-    q, B = LMP.bookerquartic(T)
-    LMP.sortquarticroots!(q)
-
-    for i = 1:2
-        T*e[:,i] ≈ q[i]*e[:,i] || return false
-    end
-
-    e2 = LMP.bookerwavefields(ea, M)
-    e ≈ e2 || return false
-
-    return true
-end
-
-function bookerwavefieldsderiv(scenario)
-    @unpack ea, tx, bfield, species = scenario
-
-    M = LMP.susceptibility(110e3, tx.frequency, bfield, species)
-
-    for i = 1:4
-        eref(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M)[i])
-        deref = FiniteDiff.finite_difference_derivative(eref, θs, Val{:central})
-        e(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[1][i])
-        de(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[2][i])
-
-        eref.(θs) ≈ e.(θs) || return false
-        isapprox(deref, de.(θs), atol=1e-3) || return false
-    end
-
-    de1 = Vector{SMatrix{4,2,ComplexF64,8}}(undef, length(θs))
-    de2 = similar(de1)
-    for i in eachindex(θs)
-        ea = EigenAngle(θs[i])
-        T = LMP.tmatrix(ea, M)
-        dT = LMP.tmatrix(ea, M, LMP.Dθ())
-        de1[i] = LMP.bookerwavefields(ea, M, LMP.Dθ())[2]
-        de2[i] = LMP.bookerwavefields(T, dT, LMP.Dθ())[2]
-    end
-    de1 ≈ de2 || return false
-
-    return true
-end
 
 """
 Confirm `vacuumreflectioncoeffs` agrees with `bookerreflection` at the

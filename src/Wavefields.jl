@@ -1,6 +1,9 @@
 #==
-Functions related to calculating electromagnetic field components at any height
-within the ionosphere.
+Functions related to calculating electromagnetic field components at any height within the
+ionosphere.
+
+This includes calculating wavefields vector from the Booker quartic and Pitteway
+integration of wavefields.
 ==#
 
 """
@@ -9,7 +12,7 @@ within the ionosphere.
 Struct containing wavefield components for each mode of `eas` at `heights`.
 
 The six electromagnetic field components are stored in the `v` field of the struct and
-accessed as a `Matrix` of `SVector{6,ComplexF64}` corresponding to `[height,mode]`.
+accessed as a `Matrix` of `SVector{6,ComplexF64}` corresponding to `[height, mode]`.
 """
 struct Wavefields{H<:AbstractRange}
     v::Matrix{SVector{6,ComplexF64}}  # v[height,mode]  ; type is derived from typeof T, which is from M
@@ -18,7 +21,7 @@ struct Wavefields{H<:AbstractRange}
 end
 
 """
-    Wavefields(eas::Vector{EigenAngle}, heights)
+    Wavefields(heights, eas::Vector{EigenAngle})
 
 A constructor for initializing `Wavefields` with an appropriately sized `undef` Matrix
 given eigenangles `eas` and `heights`.
@@ -57,7 +60,6 @@ function Base.isvalid(A::Wavefields)
     veas == ealen || return false
     return true
 end
-
 
 """
     WavefieldIntegrationParams{F,G,H}(z, bottomz, ortho_scalar, e1_scalar, e2_scalar, ea,
@@ -119,106 +121,6 @@ struct ScaleRecord
     ortho_scalar::Complex{Float64}
     e1_scalar::Float64
     e2_scalar::Float64
-end
-
-"""
-    bookerwavefields(T::TMatrix)
-
-Calculate the initial wavefields vector ``[Ex₁ Ex₂
-                                           Ey₁ Ey₂
-                                           Hx₁ Hx₂
-                                           Hy₁ Hy₂]``
-for the two upgoing wavefields where subscript `1` is the evanescent wave and
-`2` is the travelling wave.
-
-The wavefields are always of type `Complex{Float64}`.
-
-This function solves the equation ``Te = qe`` equivalent to the eigenvector
-problem ``(T- qI)e = 0``. First, the Booker Quartic is solved for the roots `q`,
-and they are sorted so that the roots associated with the two upgoing waves are
-selected, where eigenvalue ``q₁`` corresponds to the evanescent wave and ``q₂``
-the travelling wave. Then `e` is solved as the eigenvectors for the two `q`s. An
-analytical solution is used where `e[2,:] = 1`.
-"""
-function bookerwavefields(T::TMatrix)
-    q, B = bookerquartic(T)
-    sortquarticroots!(q)
-    return bookerwavefields(T, q)
-end
-
-function bookerwavefields(ea::EigenAngle, M)
-    q, B = bookerquartic(ea, M)
-    sortquarticroots!(q)
-    T = tmatrix(ea, M)
-    return bookerwavefields(T, q)
-end
-
-function bookerwavefields(T::TMatrix, q)
-    # Precompute
-    T14T41 = T[1,4]*T[4,1]
-    T14T42 = T[1,4]*T[4,2]
-    T12T41 = T[1,2]*T[4,1]
-
-    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
-    @inbounds for i = 1:2
-        d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
-
-        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)/d
-        e[2,i] = 1
-        e[3,i] = q[i]
-        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))/d
-    end
-
-    # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
-    return SArray(e)
-end
-
-function bookerwavefields(T::TMatrix, dT, ::Dθ)
-    q, B = bookerquartic(T)
-    sortquarticroots!(q)
-    dq = dbookerquartic(T, dT, q, B)
-    return bookerwavefields(T, dT, q, dq)
-end
-
-function bookerwavefields(ea::EigenAngle, M, ::Dθ)
-    q, B = bookerquartic(ea, M)
-    sortquarticroots!(q)
-    dq = dbookerquartic(ea, M, q, B)
-    T = tmatrix(ea, M)
-    dT = tmatrix(ea, M, Dθ())
-
-    return bookerwavefields(T, dT, q, dq)
-end
-
-function bookerwavefields(T::TMatrix, dT, q, dq)
-    # Precompute
-    T14T41 = T[1,4]*T[4,1]
-    T14T42 = T[1,4]*T[4,2]
-    T12T41 = T[1,2]*T[4,1]
-
-    e = MArray{Tuple{4,2},ComplexF64,2,8}(undef)
-    de = similar(e)
-    @inbounds for i = 1:2
-        d = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
-        d2 = abs2(d)
-        dd = dT[1,4]*T[4,1] - T[1,1]*dT[4,4] - dT[1,1]*T[4,4] +
-            q[i]*(dT[1,1] + dT[4,4] - 2*dq[i]) + dq[i]*(T[1,1] + T[4,4])
-
-        e[1,i] = (T[1,2]*(T[4,4] - q[i]) - T14T42)/d
-        e[2,i] = 1
-        e[3,i] = q[i]
-        e[4,i] = (-T12T41 + T[4,2]*(T[1,1] - q[i]))/d
-
-        de1num = (T[1,2]*(dT[4,4] - dq[i]) + dT[1,2]*(T[4,4] - q[i]) - dT[1,4]*T[4,2])
-        de[1,i] = (de1num*d - e[1,i]*d*dd)/d2
-        de[2,i] = 0
-        de[3,i] = dq[i]
-        de4num = -dT[1,2]*T[4,1] + T[4,2]*(dT[1,1] - dq[i])
-        de[4,i] = (de4num*d - e[4,i]*d*dd)/d2
-    end
-
-    # By returning as SArray instead of MArray, the MArray doesn't get hit by GC
-    return SArray(e), SArray(de)
 end
 
 """

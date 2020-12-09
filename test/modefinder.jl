@@ -48,102 +48,6 @@ function test_roots(scenario)
     @test LMP.filterroots!(roots2, me) == roots[2:end]
 end
 
-function sharpR!(f, R, W)
-    #==
-    The right side of ``2i R′ = w₂₁ + w₂₂R - Rw₁₁ - Rw₁₂R``, which can be used to solve for
-    reflection from the sharply bounded ionosphere where ``dR/dz = 0``.
-    ==#
-    # See [^Budden1988] sec. 18.10.
-    f .= W[2] + W[4]*R - R*W[1] - R*W[3]*R
-end
-
-function sharpR!(f, dR, R, dW, W)
-    # ``dR/dz/dθ`` which can be used to solve for ``dR/dθ`` from a sharply bounded ionosphere.
-    f .= dW[2] + W[4]*dR + dW[4]*R - R*dW[1] - dR*W[1] - R*W[3]*dR - R*dW[3]*R - dR*W[3]*R
-end
-
-function test_bookerreflection(scenario)
-    @unpack ea, tx, bfield, species = scenario()
-
-    M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
-
-    e = LMP.bookerwavefields(ea, M)
-    @test LMP.bookerreflection(ea, e) == LMP.bookerreflection(ea, M)
-
-    #==
-    Iterative solution for sharp boundary reflection matrix
-    ==#
-    initRs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
-    Rs = similar(initRs)
-    for i in eachindex(θs)
-        ea = EigenAngle(θs[i])
-        T = LMP.tmatrix(ea, M)
-        W = LMP.wmatrix(ea, T)
-
-        initR = LMP.bookerreflection(ea, M)
-        res = nlsolve((f,R)->sharpR!(f,R,W), Array(initR))
-        R = SMatrix{2,2}(res.zero)
-
-        initRs[i] = initR
-        Rs[i] = R
-    end
-
-    for n in 1:4
-        @test err_func(getindex.(initRs, n), getindex.(Rs, n)) < 1e-8
-    end
-end
-
-function test_bookerreflection_vertical(scenario)
-    @unpack ea, tx, bfield, species = scenario()
-
-    M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
-    R = LMP.bookerreflection(ea, M)
-
-    @test R[1,2] ≈ R[2,1]
-end
-
-function test_dbookerreflection(scenario)
-    @unpack ea, tx, bfield, species = scenario()
-
-    M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
-
-    # Iterative solution
-    initdRs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
-    dRs = similar(initdRs)
-    for i in eachindex(θs)
-        ea = EigenAngle(θs[i])
-        T = LMP.tmatrix(ea, M)
-        W = LMP.wmatrix(ea, T)
-        dW = LMP.wmatrix(ea, M, T, LMP.Dθ())
-
-        R = LMP.bookerreflection(ea, M)
-
-        initdR = LMP.bookerreflection(ea, M, LMP.Dθ())[2]
-        resdR = nlsolve((f,dR)->sharpR!(f,dR,R,dW,W), Array(initdR))
-        dR = SMatrix{2,2}(resdR.zero)
-
-        initdRs[i] = initdR
-        dRs[i] = dR
-    end
-
-    for n in 1:4
-        @test err_func(getindex.(initdRs, n), getindex.(dRs, n)) < 1e-6  # TODO BUG I suspect a bug because iterative matches perfectly
-    end
-
-    #==
-    Finit difference derivative
-    ==#
-    for i = 1:4
-        Rref(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M)[i])
-        dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-        R(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[1][i])
-        dR(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[2][i])
-
-        @test Rref.(θs) ≈ R.(θs)
-        @test err_func(dRref, dR.(θs)) < 1e-6
-    end
-end
-
 function wmatrix_deriv(scenario)
     @unpack tx, bfield, species = scenario
 
@@ -325,9 +229,6 @@ end
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         test_physicalmodeequation(scn)  # just test with one scenario?
 
-        test_bookerreflection(scn)
-        test_dbookerreflection(scn)
-
         @test test_wmatrix(scn)
         @test modefinder(scn)
         @test iterativesharpboundary(scn)
@@ -338,8 +239,6 @@ end
         @test modalequation(scn)
     end
     for scn in (verticalB_scenario, )
-        test_bookerreflection_vertical(scn)
-
         @test verticalreflection(scn)
     end
 

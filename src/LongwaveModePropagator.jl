@@ -45,7 +45,6 @@ export findmodes
 
 # Waveguides.jl
 export HomogeneousWaveguide
-export eigenangles
 
 const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't 0, many assumptions break
 
@@ -114,9 +113,10 @@ include("Wavefields.jl")
 
 include("romberg.jl")
 
+include("bookerquartic.jl")
+include("magnetoionic.jl")
 include("modeconversion.jl")
 include("modefinder.jl")
-include("magnetoionic.jl")
 include("modesum.jl")
 
 include("IO.jl")

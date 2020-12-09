@@ -8,8 +8,40 @@ using SymPy
 
 @vars T11 T12 T14 T31 T32 T34 T41 T42 T44 q E1 E4
 
-# additional equation : T31*e1+T32-q^2+T34*e4
-solve([(T11-q)*E1+T12+T14*E4, T41*E1+T42+(T44-q)*E4], (E1, E4))
+# DETERMINANT
+TmqI = [T11-q T12 0  T14;
+        0     -q  1  0;
+        T31   T32 -q T34;
+        T41   T42 0  T44-q]
+
+SymPy.collect(det(TmqI), q)
+SymPy.collect(det(TmqI), q, evaluate=false)  # as a dict
+
+
+# Solve for wavefields
+
+eq1 = (T11-q)*E1 + T12 + T14*E4
+eq3 = T31*E1 + T32 - q^2 + T34*E4
+eq4 = T41*E1 + T42 + (T44-q)*E4
+
+# try solving with 1 and 3
+sol13 = solve([eq1, eq3], (E1, E4))
+
+# 1 and 4
+sol14 = solve([eq1, eq4], (E1, E4))
+
+# 3 and 4
+sol34 = solve([eq3, eq4], (E1, E4))
+
+sE1 = sol13[E1]
+sE4 = sol13[E4]
+
+sE1 = sol14[E1]
+sE4 = sol14[E4]
+
+sE1 = sol34[E1]
+sE4 = sol34[E4]
+
 
 #==
 Dict{Any,Any} with 2 entries:
@@ -20,7 +52,8 @@ Dict{Any,Any} with 2 entries:
 # Complete system w/o assuming e(2)=1, e(3)=q
 @vars T11 T12 T14 T31 T32 T34 T41 T42 T44 q E1 E2 E3 E4
 
-S = solve([(T11-q)*E1+T12*E2+T14*E4, -q*E1+E3, T31*E1+T32*E2-q*E3+T34*E4, T41*E1+T42*E2+(T44-q)*E4], (E1, E2, E3, E4))
+E1 = 1
+S = solve([(T11-q)*E1+T12*E2+T14*E4, -q*E2+E3, T31*E1+T32*E2-q*E3+T34*E4, T41*E1+T42*E2+(T44-q)*E4], (E1, E2, E3, E4))
 # OK, it doesn't give us a useful answer, only E[:] = 0
 
 
