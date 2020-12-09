@@ -1,4 +1,4 @@
-function tmatrix_deriv(scenario)
+function test_tmatrix_deriv(scenario)
     @unpack ea, tx, bfield, species = scenario()
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
@@ -7,9 +7,9 @@ function tmatrix_deriv(scenario)
         for j = 1:4
             Tfcn(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M)[i,j])
             dTref = FiniteDiff.finite_difference_derivative(Tfcn, θs, Val{:central})
-            dT(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M, LMP.Dθ())[i,j])
+            dT(θ) = (ea = EigenAngle(θ); T = LMP.dtmatrix(ea, M)[i,j])
 
-            @test err_func(dT.(θs), dTref) < 1e-6
+            @test err_func(dT.(θs), dTref) < 1e-7
         end
     end
 end
@@ -18,6 +18,6 @@ end
     @info "Testing TMatrix"
 
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-        tmatrix_deriv(scn)
+        test_tmatrix_deriv(scn)
     end
 end

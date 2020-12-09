@@ -301,11 +301,11 @@ function tmatrix(ea::EigenAngle, M)
 end
 
 """
-    tmatrix(ea::EigenAngle, M, ::Dθ)
+    dtmatrix(ea::EigenAngle, M)
 
 Compute a dense `SMatrix` with the derivative of `T` with respect to `θ`.
 """
-function tmatrix(ea::EigenAngle, M, ::Dθ)
+function dtmatrix(ea::EigenAngle, M)
     S, C = ea.sinθ, ea.cosθ
     dC² = -2*S*C  # d/dθ (C²)
 

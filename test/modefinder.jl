@@ -18,6 +18,7 @@ function test_roots(scenario)
     x = 0.005
     z = complex(x, -x)
 
+    # isroot Real and Complex
     @test LMP.isroot(x)
     @test LMP.isroot(x, atol=1e-6) == false
     @test LMP.isroot(z)
@@ -28,18 +29,22 @@ function test_roots(scenario)
     @test LMP.isroot(z2) == false
     @test LMP.isroot(z3) == false
 
+    # filterroots! setup
     @unpack ea, tx, bfield, species, ground = scenario()
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     me = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
+    # nothing filtered
     roots = copy(TEST_ROOTS)
     @test LMP.filterroots!(roots, me) == roots
     @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
 
+    # filter bad root
     push!(roots, complex(1.5, -0.5))
     @test LMP.filterroots!(roots, me) == TEST_ROOTS
     @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_ROOTS
 
+    # filter (or not) with different tolerance
     roots2 = copy(roots)
     roots2[1] += 0.001
     f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
@@ -48,22 +53,37 @@ function test_roots(scenario)
     @test LMP.filterroots!(roots2, me) == roots[2:end]
 end
 
-function wmatrix_deriv(scenario)
-    @unpack tx, bfield, species = scenario
+function test_wmatrix(scenario)
+    @unpack ea, tx, bfield, species = scenario()
 
-    M = LMP.susceptibility(70e3, tx.frequency, bfield, species)
+    C = ea.cosθ
+    L = @SMatrix [C 0 -C 0;
+                  0 -1 0 -1;
+                  0 -C 0 C;
+                  1 0 1 0]
+
+    M = LMP.susceptibility(80e3, tx.frequency, bfield, species)
+    T = LMP.tmatrix(ea, M)
+    W = LMP.wmatrix(ea, T)
+
+    @test [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
+end
+
+function test_wmatrix_deriv(scenario)
+    @unpack tx, bfield, species = scenario()
+
+    M = LMP.susceptibility(80e3, tx.frequency, bfield, species)
 
     for i = 1:4
         for j = 1:4
             Wfcn(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M); LMP.wmatrix(ea, T)[i][j])
             dWref = FiniteDiff.finite_difference_derivative(Wfcn, θs, Val{:central})
-            dW(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M); LMP.wmatrix(ea, M, T, LMP.Dθ())[i][j])
+            dW(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M);
+                     dT = LMP.dtmatrix(ea, M); LMP.dwmatrix(ea, T, dT)[i][j])
 
-            err_func(dW.(θs), dWref) < 1e-3 || return false
+            @test err_func(dW.(θs), dWref) < 1e-3
         end
     end
-
-    return true
 end
 
 function integratedreflection_deriv(scenario)
@@ -104,8 +124,22 @@ function integratedreflection_deriv(scenario)
     return true
 end
 
-function fresnelreflection_deriv(scenario)
-    @unpack tx, ground = scenario
+function test_fresnelreflection(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario()
+
+    # PEC ground
+    pec_ground = LMP.Ground(1, 1e12)
+    vertical_ea = LMP.EigenAngle(π/2)
+    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
+    @test isapprox(abs.(Rg), I, atol=1e-7)
+
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+    @test LMP.fresnelreflection(ea, ground, tx.frequency) == LMP.fresnelreflection(me)
+end
+
+function test_fresnelreflection_deriv(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario()
     freq = tx.frequency
 
     for i = 1:4
@@ -114,11 +148,15 @@ function fresnelreflection_deriv(scenario)
         Rg(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())[1][i])
         dRg(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())[2][i])
 
-        Rgref.(θs) ≈ Rg.(θs) || return false
-        err_func(dRg.(θs), dRgref) < 1e-6 || return false
+        @test Rgref.(θs) ≈ Rg.(θs)
+        @test err_func(dRg.(θs), dRgref) < 1e-6
     end
 
-    return true
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+    Rg1 = LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())
+    Rg2 = LMP.fresnelreflection(me, LMP.Dθ())
+    @test Rg1 == Rg2
 end
 
 function modalequation_deriv(scenario)
@@ -140,29 +178,6 @@ function modalequation_deriv(scenario)
     return isapprox(dFs, dFref, rtol=1e-4)
 end
 
-########
-# Non-derivative
-########
-
-function test_wmatrix(scenario)
-    # Check that "analytical" solution for W matches numerical
-    @unpack ea, tx, bfield, species = scenario
-
-    C = ea.cosθ
-    L = [C 0 -C 0;
-         0 -1 0 -1;
-         0 -C 0 C;
-         1 0 1 0]
-
-    M = LMP.susceptibility(80e3, tx.frequency, bfield, species)
-    T = LMP.tmatrix(ea, M)
-    W = LMP.wmatrix(ea, T)
-
-    return [W[1] W[3]; W[2] W[4]] ≈ 2*(L\T)*L
-end
-
-
-
 function verticalreflection(scenario)
     @unpack ea, tx, ground, bfield, species = scenario
 
@@ -172,15 +187,6 @@ function verticalreflection(scenario)
     R = LMP.integratedreflection(modeequation)
 
     return R[1,2] ≈ R[2,1]
-end
-
-function pecground()
-    pec_ground = LMP.Ground(1, 1e12)
-    vertical_ea = LMP.EigenAngle(π/2)
-
-    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
-
-    return isapprox(abs.(Rg), I, atol=1e-7)
 end
 
 function modalequation(scenario)
@@ -224,14 +230,19 @@ end
 @testset "modefinder.jl" begin
     @info "Testing modefinder"
 
-    @test pecground()
-
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         test_physicalmodeequation(scn)  # just test with one scenario?
 
-        @test test_wmatrix(scn)
+        test_wmatrix(scn)
+        test_wmatrix_deriv(scn)
+
+        test_fresnelreflection(scn)
+        test_fresnelreflection_deriv(scn)
+
         @test modefinder(scn)
         @test iterativesharpboundary(scn)
+        @test integratedreflection_deriv(scn) # again, a problem with off-diag
+        @test modalequation_deriv(scn)
     end
     for scn in (resonant_scenario, )
         test_roots(scn)
@@ -240,12 +251,5 @@ end
     end
     for scn in (verticalB_scenario, )
         @test verticalreflection(scn)
-    end
-
-    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-        @test wmatrix_deriv(scn)
-        @test fresnelreflection_deriv(scn)
-        @test integratedreflection_deriv(scn) # again, a problem with off-diag
-        @test modalequation_deriv(scn)
     end
 end

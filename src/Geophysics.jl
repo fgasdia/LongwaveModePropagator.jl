@@ -132,6 +132,19 @@ struct Ground
     σ::Float64
 end
 
+"Default ground conductivity indices from LWPC."
+const GROUND = Dict(
+    1=>Ground(5, 1e-5),
+    2=>Ground(5, 3e-5),
+    3=>Ground(10, 1e-4),
+    4=>Ground(10, 3e-4),
+    5=>Ground(15, 1e-3),
+    6=>Ground(15, 3e-3),
+    7=>Ground(15, 1e-2),
+    8=>Ground(15, 3e-2),
+    9=>Ground(15, 1e-1),
+    10=>Ground(81, 4.0))
+
 ########
 
 """

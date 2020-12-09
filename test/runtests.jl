@@ -74,7 +74,7 @@ const nonresonant_scenario = @with_kw (
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
-    ground=Ground(15, 0.001),
+    ground=Ground(10, 0.0003),
     tx=Transmitter(24e3),
     # GroundSampler(2000e3, Fields.Ez)
 )
@@ -114,6 +114,7 @@ err_func(a,b) = maximum(abs.(a-b))
     include("test_Waveguides.jl")
 
     include("magnetoionic.jl")
+    include("TMatrix.jl")
     include("bookerquartic.jl")
     include("test_modefinder.jl")
     include("test_wavefields.jl")

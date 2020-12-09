@@ -36,6 +36,7 @@ struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     frequency::Frequency
     waveguide::W
 end
+
 """
     PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide)
 
@@ -107,32 +108,32 @@ end
 """
     wmatrix(ea::EigenAngle, T)
 
-Compute submatrix elements of `W` for solving the differential equation of reflection matrix
-`R` wrt `z`.
-
-``W`` is also known as ``S`` in many texts.
+Compute the four submatrix elements of `W` used in the equation ``dR/dz`` returned as a
+tuple `W₁₁`, `W₂₁`, `W₁₂`, `W₂₂`.
 
 Following Budden's [^Budden1955a] formalism for the reflection matrix of a plane wave
 obliquely incident on the ionosphere, the wave below the ionosphere can be resolved into
 upgoing and downgoing waves of elliptical polarization, each of whose components are
 themselves resolved into a component with the electric field in the plane of propagation and
 a component perpendicular to the plane of propagation. The total field can be written in
-matrix form as ``e = L q`` where ``L`` is a 4×4 matrix that simply selects and specifies the
-incident angle of the components and ``q`` is a column matrix of the complex amplitudes of
-the component waves. By inversion, ``q = L⁻¹ e`` and its derivative wrt height `z` is
-``q′ = -i L⁻¹ T L q = -½ i S q``. Then ``S = 2 L⁻¹ T L``, which is calculated by this
-function, describes the change in amplitude of the upgoing and downgoing component waves.
+matrix form as ``e = Lf`` where ``L`` is a 4×4 matrix that simply selects and specifies the
+incident angle of the components and ``f`` is a column matrix of the complex amplitudes of
+the component waves. By inversion, ``f = L⁻¹e`` and its derivative with respect to height
+``z`` is ``f′ = -iL⁻¹TLf = -½iWf``. Then ``W = 2L⁻¹TL`` describes the change in amplitude of
+the upgoing and downgoing component waves.
 
-See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
+``W`` is also known as ``S`` in many texts.
+
+See also: [`tmatrix`](@ref)
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
-[^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955.
 """
 function wmatrix(ea::EigenAngle, T)
-    C = ea.cosθ
-    Cinv = ea.secθ
+    C, Cinv = ea.cosθ, ea.secθ
 
     # Precompute
     T12Cinv = T[1,2]*Cinv
@@ -142,25 +143,19 @@ function wmatrix(ea::EigenAngle, T)
     CT41 = C*T[4,1]
 
     #==
-    Sheddy 1968 has at least 1 "typo": S11b should be written T14/C+CT41
-    Budden 1988 has at least 1 typo: -T11 - T14 + CT41 + T44 for element [1,1] of [2,1]
-
-    The analytical solution below was checked using SymPy.
-    There is also a test against 2*inv(L)*T*L:
-
     T = SMatrix{4,4}(T11, 0, T31, T41,
                      T12, 0, T32, T42,
-                     0, 1, 0, 0,
+                     0,   1,   0,   0,
                      T14, 0, T34, T44)
-    L = SMatrix{4,4}(C, 0, 0, 1,
+    L = SMatrix{4,4}(C,  0,  0, 1,
                      0, -1, -C, 0,
-                     -C, 0, 0, 1,
-                     0, -1, C, 0)
+                    -C,  0,  0, 1,
+                     0, -1,  C, 0)
     # 2*inv(L) = Linv2
-    L2inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
-                        0, -1, 0, -1,
-                        0, -Cinv, 0, Cinv,
-                        1, 0, 1, 0)
+    L2inv = SMatrix{4,4}(Cinv,  0, -Cinv,    0,
+                         0,    -1,     0,   -1,
+                         0, -Cinv,     0, Cinv,
+                         1,     0,     1,    0)
     W = Linv2*T*L
 
     # W = 2*(L\T)*L
@@ -207,21 +202,16 @@ function wmatrix(ea::EigenAngle, T)
 end
 
 """
-    wmatrix(ea, M, T, ::Dθ)
+    dwmatrix(ea::EigenAngle, T, dT)
 
-Return the 4 submatrix elements of the derivative of the `W` matrix wrt θ.
-
-See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
+Compute the four submatrix elements of ``dW/dθ``.
 """
-function wmatrix(ea::EigenAngle, M, T, ::Dθ)
-    C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
-    Cinv = ea.secθ
+function dwmatrix(ea::EigenAngle, T, dT)
+    C, S, C², Cinv = ea.cosθ, ea.sinθ, ea.cos²θ, ea.secθ
     C²inv = Cinv^2
 
     dC = -S
     dCinv = S*C²inv
-
-    dT = tmatrix(ea, M, Dθ())  # many zeros
 
     dt12Cinv = dT[1,2]*Cinv + T[1,2]*dCinv
     dt14Cinv = dT[1,4]*Cinv + T[1,4]*dCinv
@@ -250,7 +240,7 @@ function wmatrix(ea::EigenAngle, M, T, ::Dθ)
 end
 
 """
-    dRdz(R, modeequation, z)
+    dRdz(R, p, z)
 
 Return the differential of the reflection matrix `R` wrt height `z`.
 
@@ -364,17 +354,14 @@ end
 ##########
 
 """
-    fresnelreflection(ea, ground, frequency)
+    fresnelreflection
 
-Return the Fresnel reflection coefficient matrix for the ground free-space interface at the
-ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
-
-# References
-
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
-    for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
-    Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
+Compute the Fresnel reflection coefficient matrix for the ground-freespace interface at the
+ground.
 """
+function fresnelreflection end
+
+"`fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)`"
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
@@ -391,9 +378,17 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
 
     return Rg
 end
+
+"`fresnelreflection(m::PhysicalModeEquation)`"
 fresnelreflection(m::PhysicalModeEquation) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
 
+"""
+    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+
+Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
+with respect to ``θ`` returned as the tuple `Rg, dRg`.
+"""
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
     S2 = 2*S
@@ -416,6 +411,8 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
 
     return Rg, dRg
 end
+
+"`fresnelreflection(m::PhysicalModeEquation, ::Dθ)`"
 fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency, Dθ())
 
