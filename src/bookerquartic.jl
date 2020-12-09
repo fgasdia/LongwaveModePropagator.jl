@@ -7,20 +7,15 @@ related to calculating wavefields and vacuum reflection coefficients from the qu
 ==#
 
 """
-    bookerquartic(ea, M)
+    bookerquartic
 
-Compute roots `q` and the coefficients `B` of the Booker quartic for `EigenAngle` `ea` and
-susceptibility tensor `M`.
-
-This function uses `PolynomialRoots.jl` to find the roots.
+Compute roots `q` and the coefficients `B` of the Booker quartic.
 
 See also: [`dbookerquartic`](@ref)
-
-# References
-
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
-    Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
 """
+function bookerquartic end
+
+"`bookerquartic(ea::EigenAngle, M)`"
 function bookerquartic(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
@@ -57,11 +52,7 @@ function bookerquartic(ea::EigenAngle, M)
     return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
-"""
-    bookerquartic(T::TMatrix)
-
-Solve the Booker quartic in depressed form in terms of `T`.
-"""
+"`bookerquartic(T::TMatrix)`"
 function bookerquartic(T::TMatrix)
     # Precompute
     T34T42 = T[3,4]*T[4,2]
@@ -246,7 +237,7 @@ e =
 
 This function solves the eigenvalue problem ``Te = qe``. First, the Booker quartic is solved
 for the roots `q`. Then they are sorted so that the roots associated with the two upgoing
-waves are selected. `e` is solved as the eigenvectors for the two `q`s. An
+waves can be selected. `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
 function bookerwavefields end
@@ -310,6 +301,7 @@ function bookerwavefields(ea::EigenAngle, M, ::Dθ)
     return bookerwavefields(T, dT, q, dq)
 end
 
+"`bookerwavefields(T::TMatrix, dT, q, dq)`"
 function bookerwavefields(T::TMatrix, dT, q, dq)
     # Precompute
     T14T41 = T[1,4]*T[4,1]
@@ -344,8 +336,9 @@ function bookerwavefields(T::TMatrix, dT, q, dq)
     return SArray(e), SArray(de)
 end
 
-
 @doc raw"""
+    bookerreflection
+
 The reflection coefficient matrix is calculated from a ratio of the downgoing to upgoing
 plane waves in the free space beneath the ionosphere [^Budden1988] pg. 307. These are
 obtained from the two upgoing characteristic waves found from the Booker quartic. Each make
@@ -376,12 +369,7 @@ See also: [`bookerwavefields`](@ref)
 """
 function bookerreflection end
 
-"""
-    bookerreflection(ea, e)
-
-Compute ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere with
-wavefield matrix `e`.
-"""
+"`bookerreflection(ea::EigenAngle, e)`"
 function bookerreflection(ea::EigenAngle, e)
     C = ea.cosθ
 
@@ -396,15 +384,7 @@ function bookerreflection(ea::EigenAngle, e)
     return R
 end
 
-"""
-    bookerreflection(ea, M::SMatrix{3,3})
-
-Compute the reflection coefficient matrix for a sharply bounded ionosphere with
-susceptibility tensor `M`.
-
-This function simply calls `bookerwavefields` and uses them to compute the reflection
-coefficient matrix.
-"""
+"`bookerreflection(ea::EigenAngle, M::SMatrix{3,3})`"
 function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
     e = bookerwavefields(ea, M)
     return bookerreflection(ea, e)
@@ -421,23 +401,13 @@ function bookerreflection(ea::EigenAngle, M, ::Dθ)
 
     e, de = bookerwavefields(ea, M, Dθ())
 
-    # D = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
-    # dD = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
-    #                   -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
-    #
-    # U = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
-    # dU = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
-    #                   -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
+    D = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
+    dD = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
+                      -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
 
-    # set Ey = -1, e[3]
-
-    D = SMatrix{2,2}(C*e[4,1]-e[1,1], C+e[3,1], C*e[4,2]-e[1,2], C+e[3,2])
-    dD = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], -S + de[3,1],
-                      -S*e[4,2] + C*de[4,2] - de[1,2], -S + de[3,2])
-
-    U = SMatrix{2,2}(C*e[4,1]+e[1,1], C-e[3,1], C*e[4,2]+e[1,2], C*e[2,2]-e[3,2])
-    dU = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], -S - de[3,1],
-                      -S*e[4,2] + C*de[4,2] + de[1,2], -S - de[3,2])
+    U = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
+    dU = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
+                      -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
 
     R = D/U
     dR = dD/U + D*(-U\dU/U)

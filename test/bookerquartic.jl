@@ -1,4 +1,3 @@
-
 function test_bookerquarticM(scenario)
     @unpack ea, tx, bfield, species = scenario()
 
@@ -150,6 +149,14 @@ function test_bookerwavefields_deriv(scenario)
     @test de1 ≈ de2
 end
 
+function test_bookerreflection_vertical(scenario)
+    @unpack ea, tx, bfield, species = scenario()
+
+    M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
+    R = LMP.bookerreflection(ea, M)
+
+    @test R[1,2] ≈ R[2,1]
+end
 
 function sharpR!(f, R, W)
     #==
@@ -194,15 +201,6 @@ function test_bookerreflection(scenario)
     end
 end
 
-function test_bookerreflection_vertical(scenario)
-    @unpack ea, tx, bfield, species = scenario()
-
-    M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
-    R = LMP.bookerreflection(ea, M)
-
-    @test R[1,2] ≈ R[2,1]
-end
-
 function test_dbookerreflection(scenario)
     @unpack ea, tx, bfield, species = scenario()
 
@@ -228,22 +226,19 @@ function test_dbookerreflection(scenario)
     end
 
     for n in 1:4
-        @test err_func(getindex.(initdRs, n), getindex.(dRs, n)) < 1e-6  # TODO BUG I suspect a bug in de
+        @test err_func(getindex.(initdRs, n), getindex.(dRs, n)) < 1e-4
     end
 
-    # TEMP commented
-    #==
-    Finite difference derivative
-    ==#
-    # for i = 1:4
-    #     Rref(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M)[i])
-    #     dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-    #     R(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[1][i])
-    #     dR(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[2][i])
-    #
-    #     @test Rref.(θs) ≈ R.(θs)
-    #     @test err_func(dRref, dR.(θs)) < 1e-6
-    # end
+    # Finite difference derivative
+    for i = 1:4
+        Rref(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M)[i])
+        dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
+        R(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[1][i])
+        dR(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[2][i])
+
+        @test Rref.(θs) ≈ R.(θs)
+        @test err_func(dRref, dR.(θs)) < 1e-4
+    end
 end
 
 @testset "bookerquartic.jl" begin
