@@ -39,18 +39,6 @@ git-tree-sha1 = "bd7db5cdb38fe787892fc7af2e006dac34e62ddd"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "0.9.23"
 
-[[ColorTypes]]
-deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "4bffea7ed1a9f0f3d1a131bbcd4b925548d75288"
-uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.10.9"
-
-[[Colors]]
-deps = ["ColorTypes", "FixedPointNumbers", "InteractiveUtils", "Reexport"]
-git-tree-sha1 = "008d6bc68dea6beb6303fdc37188cb557391ebf2"
-uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.12.4"
-
 [[CommonSubexpressions]]
 deps = ["MacroTools", "Test"]
 git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
@@ -155,12 +143,6 @@ git-tree-sha1 = "7f7216e0eb46c20ee8ddab5c8f9a262ed72587b6"
 uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
 version = "2.7.2"
 
-[[FixedPointNumbers]]
-deps = ["Statistics"]
-git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
-uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
-version = "0.8.4"
-
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
 git-tree-sha1 = "8de2519a83c6c1c2442c2f481dd9a8364855daf4"
@@ -181,11 +163,6 @@ deps = ["LinearAlgebra"]
 git-tree-sha1 = "62909c3eda8a25b5673a367d1ad2392ebb265211"
 uuid = "01680d73-4ee2-5a08-a1aa-533608c188bb"
 version = "0.3.0"
-
-[[GeometricalPredicates]]
-git-tree-sha1 = "04776c0dc233eafa617b1a52ca58db2338b08836"
-uuid = "fd0ad045-b25c-564e-8f9c-8ef5c5f21267"
-version = "0.4.0"
 
 [[Hwloc]]
 deps = ["Hwloc_jll"]
@@ -411,12 +388,6 @@ git-tree-sha1 = "8f743e4f4368d1d753f3806bf635899dad6b4847"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 version = "1.0.7"
 
-[[RootsAndPoles]]
-deps = ["LinearAlgebra", "VoronoiDelaunay"]
-git-tree-sha1 = "f49e31595ff4fa435059d0f8da0b8c0ae22f6d6f"
-uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
-version = "1.3.0"
-
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
@@ -529,12 +500,6 @@ deps = ["LightGraphs"]
 git-tree-sha1 = "b9b450c99a3ca1cc1c6836f560d8d887bcbe356e"
 uuid = "19fa3120-7c27-5ec5-8db8-b0b0aa330d6f"
 version = "0.1.2"
-
-[[VoronoiDelaunay]]
-deps = ["Colors", "GeometricalPredicates", "Random"]
-git-tree-sha1 = "da5560a4c7c767476e85e2dbf4d8c8ca112e542b"
-uuid = "72f80fcb-8c52-57d9-aff0-40c1a3526986"
-version = "0.4.0"
 
 [[WoodburyMatrices]]
 deps = ["LinearAlgebra", "SparseArrays"]

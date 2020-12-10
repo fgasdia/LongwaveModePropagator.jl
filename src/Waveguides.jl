@@ -50,11 +50,4 @@ Base.getindex(w::SegmentedWaveguide, i::Int) = w.v[i]
 Base.setindex(w::SegmentedWaveguide, x, i::Int) = (w.v[i] = x)
 Base.push!(w::SegmentedWaveguide, x) = push!(w.v, x)
 
-"""
-    SegmentedWaveguide(w<:Waveguide)
-
-Generate a `SegmentedWaveguide` with an empty `Vector` of type `w`.
-"""
-SegmentedWaveguide(::Type{T}) where T<:Waveguide = SegmentedWaveguide(Vector{T}())
-
 # TODO: WKBWaveguide (that's why we can't call SegmentedWaveguide -> InhomogeneousWaveguide)

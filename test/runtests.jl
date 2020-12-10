@@ -3,7 +3,6 @@ using LinearAlgebra, Statistics
 using StaticArrays
 using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
-# using RootsAndPoles, VoronoiDelaunay
 using JSON3, StructTypes
 using Interpolations, NLsolve, FiniteDiff
 
@@ -109,9 +108,9 @@ err_func(a,b) = maximum(abs.(a-b))
 
 
 @testset "LongwaveModePropagator" begin
-    include("test_EigenAngles.jl")
-    include("test_Geophysics.jl")
-    include("test_Waveguides.jl")
+    include("EigenAngles.jl")
+    include("Geophysics.jl")
+    include("Waveguides.jl")
 
     include("magnetoionic.jl")
     include("TMatrix.jl")
