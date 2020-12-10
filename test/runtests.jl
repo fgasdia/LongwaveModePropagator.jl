@@ -116,8 +116,8 @@ err_func(a,b) = maximum(abs.(a-b))
     include("magnetoionic.jl")
     include("TMatrix.jl")
     include("bookerquartic.jl")
-    include("test_modefinder.jl")
-    include("test_wavefields.jl")
+    include("modefinder.jl")
+    include("wavefields.jl")
 
     include("test_IO.jl")
 end

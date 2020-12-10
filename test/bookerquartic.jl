@@ -199,6 +199,24 @@ function test_bookerreflection(scenario)
     for n in 1:4
         @test err_func(getindex.(initRs, n), getindex.(Rs, n)) < 1e-8
     end
+
+    # Matrix solution
+    e = LMP.bookerwavefields(ea, M)
+    wavefieldR = LMP.bookerreflection(ea, e)
+
+    Cinv = ea.secθ
+    Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
+                          0, -1, 0, -1,
+                          0, -Cinv, 0, Cinv,
+                          1, 0, 1, 0)
+
+    f1 = Sv_inv*e1
+    f2 = Sv_inv*e2
+
+    U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
+    D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
+
+    @test D/U ≈ wavefieldR
 end
 
 function test_dbookerreflection(scenario)

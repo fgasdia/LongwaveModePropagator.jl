@@ -3,118 +3,73 @@ function randomwavefields()
 
     wavefields = LMP.Wavefields(LMPParams().wavefieldheights, modes)
 
-    return wavefields
+    return modes, wavefields
 end
 
-function wavefieldfuncs_test()
-    modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
-
+function test_Wavefields()
+    modes, wavefields = randomwavefields()
     @unpack wavefieldheights = LMPParams()
 
     wavefields = LMP.Wavefields(wavefieldheights, modes)
 
-    LMP.numheights(wavefields) == length(wavefieldheights) || return false
-    LMP.nummodes(wavefields) == 10 || return false
+    @test LMP.numheights(wavefields) == length(wavefieldheights)
+    @test LMP.nummodes(wavefields) == 10
 
-    return true
-end
+    @test size(wavefields) == (length(wavefieldheights), 10)
+    @test view(wavefields, 1:5) == view(wavefields.v, 1:5)
 
-function validwavefields_test()
-    wavefields = randomwavefields()
+    newwavefields = similar(wavefields)
+    @test size(newwavefields) == size(wavefields)
+    @test LMP.heights(newwavefields) == LMP.heights(wavefields)
+    @test LMP.eigenangles(newwavefields) == LMP.eigenangles(wavefields)
 
+    newwavefields[1] = wavefields[1]*2
+    @test newwavefields[1] == wavefields[1]*2
+
+    # copy and ==
+    cpwavefields = copy(wavefields)
+    @test cpwavefields == wavefields
+    @test cpwavefields.v == wavefields.v
+    @test cpwavefields.heights == wavefields.heights
+    @test cpwavefields.eas == wavefields.eas
+
+    # isvalid
     heights = LMP.heights(wavefields)
     eas = LMP.eigenangles(wavefields)
 
-    isvalid(wavefields) || return false
-
+    @test isvalid(wavefields)
     longerv = vcat(wavefields.v, rand(TEST_RNG, SVector{6,ComplexF64}, 1, length(eas)))
-    wavefields = LMP.Wavefields(longerv, heights, eas)
-    !isvalid(wavefields) || return false
+    badwavefields = LMP.Wavefields(longerv, heights, eas)
+    @test !isvalid(badwavefields)
 
-    wavefields = randomwavefields()
     widerv = hcat(wavefields.v, rand(TEST_RNG, SVector{6,ComplexF64}, length(heights)))
-    wavefields = LMP.Wavefields(widerv, heights, eas)
-    !isvalid(wavefields) || return false
-
-    return true
+    badwavefields = LMP.Wavefields(widerv, heights, eas)
+    @test !isvalid(badwavefields)
 end
 
+function test_WavefieldIntegrationParams(scenario)
+    @unpack ea, tx, bfield, species = scenario()
 
-"""
-Confirm `vacuumreflectioncoeffs` agrees with `bookerreflection` at the
-top height.
-"""
-function initialR_test(scenario)
-    @unpack ea, bfield, tx, species = scenario
     params = LMPParams()
+    topheight = params.topheight
 
-    topheight = first(params.wavefieldheights)
-    Mtop = LMP.susceptibility(topheight, tx.frequency, bfield, species, params=params)
-    Ttop = LMP.tmatrix(ea, Mtop)
-    etop = LMP.bookerwavefields(Ttop)
+    w1 = LMP.WavefieldIntegrationParams(topheight, LMP.BOTTOMHEIGHT, 0.0+0.0im, 1.0, 1.0, ea,
+        tx.frequency, bfield, species, params)
+    w2 = LMP.WavefieldIntegrationParams(topheight, ea, tx.frequency, bfield, species, params)
 
-    e1, e2 = etop[:,1], etop[:,2]
-
-    wavefieldR = LMP.vacuumreflectioncoeffs(ea, e1, e2)
-
-    Cinv = ea.secθ
-    Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
-                          0, -1, 0, -1,
-                          0, -Cinv, 0, Cinv,
-                          1, 0, 1, 0)
-
-    f1 = Sv_inv*e1
-    f2 = Sv_inv*e2
-
-    U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
-    D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
-
-    Rref = D/U
-    Rref ≈ wavefieldR || return false
-
-    Rref = LMP.bookerreflection(ea, Mtop)
-    Rref ≈ wavefieldR || return false
-
-    return true
+    @test w1 == w2
 end
 
+function test_integratewavefields_homogeneous(scenario)
+    #==
+    Check wavefields in homogeneous ionosphere are valid solutions to wave equation.
 
-"""
-Confirm reflection coefficients from wavefields match with dr/dz calculation.
-"""
-function drdzwavefield_equivalence_test(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario
-    params = LMPParams()
+    Compares to Booker quartic solution.
 
-    zs = params.wavefieldheights
+    See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
+    ==#
 
-    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species)
-
-    wavefieldRs = [LMP.vacuumreflectioncoeffs(ea, s[:,1], s[:,2]) for s in e]
-
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
-
-    @unpack tolerance, solver = params.integrationparams
-
-    Mtop = LMP.susceptibility(first(zs), tx.frequency, waveguide)
-    Rtop = LMP.bookerreflection(ea, Mtop)
-    prob = ODEProblem{false}(LMP.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance, # lower tolerance doesn't help match
-                saveat=zs, save_everystep=false)
-
-    return all(isapprox.(wavefieldRs, sol.u, rtol=1e-3))
-end
-
-"""
-Check wavefields in homogeneous ionosphere are valid solutions to wave equation.
-
-Compares to Booker quartic solution.
-
-See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
-"""
-function homogeneous_iono_test(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario
+    @unpack ea, bfield, tx, ground, species = scenario()
     params = LMPParams(earthcurvature=false)
 
     ionobottom = params.curvatureheight
@@ -131,52 +86,67 @@ function homogeneous_iono_test(scenario)
 
     # Booker solution - single solution for entire homogeneous iono
     M = LMP.susceptibility(ionobottom, tx.frequency, bfield, species, params=params)
-    T = LMP.tmatrix(ea, M)
-    booker = LMP.bookerwavefields(T)
+    booker = LMP.bookerwavefields(ea, M)
 
-    isapprox(e1[:,end], booker[:,1], rtol=1e-6) || return false
-    isapprox(e2[:,end], booker[:,2], rtol=1e-6) || return false
-
-    # This is basically the same test...
-    q, B = LMP.bookerquartic(T)
-    LMP.sortquarticroots!(q)
-
-    isapprox(T*e1[:,end], q[1]*e1[:,end], rtol=1e-6) || return false
-    isapprox(T*e2[:,end], q[2]*e2[:,end], rtol=1e-6) || return false
-
-    return true
+    @test isapprox(e1[:,end], booker[:,1], atol=1e-6)
+    @test isapprox(e2[:,end], booker[:,2], atol=1e-6)
 end
 
-function resonance_test(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario
+function test_wavefieldreflection(scenario)
+    #==
+    Confirm reflection coefficients from wavefields match with dr/dz calculation.
+    ==#
+
+    @unpack ea, bfield, tx, ground, species = scenario()
+    params = LMPParams()
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+
+    zs = params.wavefieldheights
+
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species)
+    wavefieldRs = [LMP.bookerreflection(ea, s) for s in e]
+
+    @unpack tolerance, solver = params.integrationparams
+
+    Mtop = LMP.susceptibility(first(zs), tx.frequency, waveguide)
+    Rtop = LMP.bookerreflection(ea, Mtop)
+    prob = ODEProblem{false}(LMP.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
+    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+                saveat=zs, save_everystep=false)
+
+    @test isapprox(wavefieldRs, sol.u, rtol=1e-3)
+end
+
+function test_wavefieldreflection_resonant(scenario)
+    @unpack ea, bfield, tx, ground, species = scenario()
     params = LMPParams()
 
     ztop = params.topheight
     zs = ztop:-100:0.0
 
     e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
-    R = LMP.vacuumreflectioncoeffs(ea, e[end])
+    R = LMP.bookerreflection(ea, e[end])
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
 
     # Ensure we are close to mode resonance with R
     f = LMP.modalequation(R, Rg)
 
-    return LMP.isroot(f)
+    @test LMP.isroot(f)
 end
 
-function boundary_test(scenario)
-    # TODO: Create a vertical resonant scenario
+function test_boundaryscalars(scenario)
     # Check if boundaryscalars match for isotropic=false and isotropic=true when both
     # actually are isotropic
 
-    @unpack ea, bfield, tx, ground, species = scenario
+    @unpack ea, bfield, tx, ground, species = scenario()
     params = LMPParams()
 
     ztop = params.topheight
     zs = ztop:-100:0.0
 
     e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
-    R = LMP.vacuumreflectioncoeffs(ea, e[end])
+    R = LMP.bookerreflection(ea, e[end])
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
 
     a1, a2 = LMP.boundaryscalars(R, Rg, e[end], false)
@@ -184,15 +154,13 @@ function boundary_test(scenario)
 
     # return a1, a2, b1, b2
 
-    a1 ≈ b1 || return false
-    a2 ≈ b2 || return false
-
-    return true
+    @test a1 ≈ b1
+    @test a2 ≈ b2
 end
 
-function fieldstrengths_test(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario
-    wavefields = randomwavefields()
+function test_fieldstrengths(scenario)
+    @unpack ea, bfield, tx, ground, species = scenario()
+    modes, wavefields = randomwavefields()
 
     modes = LMP.eigenangles(wavefields)
 
@@ -203,37 +171,24 @@ end
 @testset "wavefields.jl" begin
     @info "Testing wavefields"
 
-    @test wavefieldfuncs_test()
-    @test validwavefields_test()
+    test_Wavefields()
 
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-        @test_nowarn fieldstrengths_test(scn)
-    end
-
-    @testset "Initial conditions" begin
-        @info "  Initial conditions..."
-
-        for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-            @test bookerwavefields_test(scn)
-            @test initialR_test(scn)
-        end
+        test_WavefieldIntegrationParams(scn)
+        @test_nowarn test_fieldstrengths(scn)
     end
 
     @testset "Integration" begin
-        @info "  Wavefield integration..."
-
         for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
-            @test drdzwavefield_equivalence_test(scn)
+            test_wavefieldreflection(scn)
         end
         for scn in (resonant_scenario, )
-            @test resonance_test(scn)
+            test_wavefieldreflection_resonant(scn)
         end
         for scn in (homogeneousiono_scenario, )
-            @test homogeneous_iono_test(scn)
+            test_integratewavefields_homogeneous(scn)
         end
 
-        @test_skip boundary_test(isotropicB_resonant_scenario)
+        @test_skip test_boundaryscalars(isotropicB_resonant_scenario)
     end
-
-    # TODO: test `fieldstrengths`, but how?
 end

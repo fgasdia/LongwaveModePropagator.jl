@@ -89,7 +89,7 @@ struct WavefieldIntegrationParams{F,G,H}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
-    LMPparams::LMPParams{H}
+    LMPParams::LMPParams{H}
 end
 
 """
@@ -107,7 +107,7 @@ Automatically set values are:
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
     LMPParams::LMPParams{H}) where {F,G,H}
     return WavefieldIntegrationParams{F,G,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
-        one(Float64), one(Float64), ea, frequency, bfield, species, LMPparams)
+        one(Float64), one(Float64), ea, frequency, bfield, species, LMPParams)
 end
 
 """
@@ -175,7 +175,7 @@ function scale!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    @unpack bottomz, ea, frequency, bfield, species, LMPparams = integrator.p
+    @unpack bottomz, ea, frequency, bfield, species, LMPParams = integrator.p
 
     #==
     NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore, integrator.t`
@@ -191,7 +191,7 @@ function scale!(integrator)
                                               bottomz,
                                               new_orthos,
                                               new_e1s, new_e2s,
-                                              ea, frequency, bfield, species, LMPparams)
+                                              ea, frequency, bfield, species, LMPParams)
 
     integrator.u = new_e
 

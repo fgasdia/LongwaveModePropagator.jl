@@ -38,12 +38,6 @@ git-tree-sha1 = "dd3448f3d5b2664db7eceeec5f744535ce6e759b"
 uuid = "7cffe744-45fd-4178-b173-cf893948b8b7"
 version = "0.1.0"
 
-[[BinaryProvider]]
-deps = ["Libdl", "Logging", "SHA"]
-git-tree-sha1 = "ecdec412a9abc8db54c0efc5548c64dfce072058"
-uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
-version = "0.5.10"
-
 [[ChainRulesCore]]
 deps = ["LinearAlgebra", "MuladdMacro", "SparseArrays"]
 git-tree-sha1 = "bd7db5cdb38fe787892fc7af2e006dac34e62ddd"
@@ -205,10 +199,16 @@ uuid = "fd0ad045-b25c-564e-8f9c-8ef5c5f21267"
 version = "0.4.0"
 
 [[Hwloc]]
-deps = ["BinaryProvider", "Libdl"]
-git-tree-sha1 = "bb23d264d76b82d1da80733cbb01bad8a11ae489"
+deps = ["Hwloc_jll"]
+git-tree-sha1 = "2f32147444692235ad4ccc5e03e2d8e9a6b5d247"
 uuid = "0e44f5e4-bd66-52a0-8798-143a42290a1d"
-version = "1.0.3"
+version = "1.1.0"
+
+[[Hwloc_jll]]
+deps = ["Libdl", "Pkg"]
+git-tree-sha1 = "d9de29482e0a9efb0639328e208d02e01554fa9b"
+uuid = "e33a78d0-f292-5ffc-b300-72abe9b543c8"
+version = "2.2.0+0"
 
 [[IOCapture]]
 deps = ["Logging"]
@@ -298,9 +298,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LoopVectorization]]
 deps = ["ArrayInterface", "DocStringExtensions", "IfElse", "LinearAlgebra", "OffsetArrays", "SLEEFPirates", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "23cc13b36db72640d4e1f35ba37ecb481324ab88"
+git-tree-sha1 = "3418ad4b5b31942901b5a5010d31f218a8fd8b8d"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.9.4"
+version = "0.9.5"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -560,9 +560,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[VectorizationBase]]
 deps = ["ArrayInterface", "Hwloc", "IfElse", "Libdl", "LinearAlgebra"]
-git-tree-sha1 = "2e0749ae6f7d773891876e77f1bbfbf49711e416"
+git-tree-sha1 = "c55fdded34d7a34c13286a02e1b94bcbb0a02857"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.13.8"
+version = "0.13.9"
 
 [[VertexSafeGraphs]]
 deps = ["LightGraphs"]
