@@ -369,7 +369,11 @@ See also: [`bookerwavefields`](@ref)
 """
 function bookerreflection end
 
-"`bookerreflection(ea::EigenAngle, e)`"
+"""
+    bookerreflection(ea::EigenAngle, e)
+
+For two column wavefield matrix `e`.
+"""
 function bookerreflection(ea::EigenAngle, e)
     C = ea.cosθ
 

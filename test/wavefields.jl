@@ -235,5 +235,5 @@ end
         @test_skip boundary_test(isotropicB_resonant_scenario)
     end
 
-    # TODO: test `fieldstreng9ths`, but how?
+    # TODO: test `fieldstrengths`, but how?
 end

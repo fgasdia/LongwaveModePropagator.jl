@@ -28,7 +28,7 @@ given eigenangles `eas` and `heights`.
 """
 function Wavefields(heights, eas::Vector{EigenAngle})
     v = Matrix{SVector{6,ComplexF64}}(undef, length(heights), length(eas))
-    Wavefields(v, heights, eas)
+    return Wavefields(v, heights, eas)
 end
 
 Base.size(A::Wavefields) = size(A.v)
@@ -62,21 +62,22 @@ function Base.isvalid(A::Wavefields)
 end
 
 """
-    WavefieldIntegrationParams{F,G,H}(z, bottomz, ortho_scalar, e1_scalar, e2_scalar, ea,
-        frequency, bfield, species, LMPparams)
+    WavefieldIntegrationParams{F,G,H}
 
 Parameters passed to Pitteway integration of wavefields.
 
-    - `z::Float64`
-    - `bottomz::Float64`
-    - `ortho_scalar::Complex{Float64}`
-    - `e1_scalar::Float64`
-    - `e2_scalar::Float64`
-    - `ea::EigenAngle`
-    - `frequency::Frequency`
-    - `bfield::BField`
-    - `species::Species{F,G}`
-    - `LMPparams::LMPParams{H}`
+# Fields
+
+- `z::Float64`: height in meters.
+- `bottomz::Float64`: bottom height of integration in meters.
+- `ortho_scalar::Complex{Float64}`: scalar for Gram-Schmidt orthogonalization.
+- `e1_scalar::Float64`: scalar for wavefield vector 1.
+- `e2_scalar::Float64`: scalar for wavefield vector 2.
+- `ea::EigenAngle`: wavefield eigenangle.
+- `frequency::Frequency`: electromagentic wave frequency in Hz.
+- `bfield::BField`: Earth's magnetic field in Tesla.
+- `species::Species{F,G}`: species in the ionosphere.
+- `LMPParams::LMPParams{H}`: module-wide parameters.
 """
 struct WavefieldIntegrationParams{F,G,H}
     z::Float64
@@ -92,28 +93,36 @@ struct WavefieldIntegrationParams{F,G,H}
 end
 
 """
-    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, LMPparams)
+    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, LMPParams)
 
 Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
 
 Automatically set values are:
 
-    - `bottomz = BOTTOMHEIGHT`
-    - `ortho_scalar = zero(ComplexF64)`
-    - `e1_scalar = one(Float64)`
-    - `e2_scalar = one(Float64)`
+- `bottomz = BOTTOMHEIGHT`
+- `ortho_scalar = zero(ComplexF64)`
+- `e1_scalar = one(Float64)`
+- `e2_scalar = one(Float64)`
 """
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    LMPparams::LMPParams{H}) where {F,G,H}
+    LMPParams::LMPParams{H}) where {F,G,H}
     return WavefieldIntegrationParams{F,G,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
         one(Float64), one(Float64), ea, frequency, bfield, species, LMPparams)
 end
 
 """
-    ScaleRecord(z, e, ortho_scalar, e1_scalar, e2_scalar)
+    ScaleRecord
 
-Struct used for saving wavefield scaling information during Pitteway integration of
-wavefields.
+Struct for saving wavefield scaling information used in a callback during Pitteway
+integration of wavefields.
+
+# Fields
+
+- `z::Float64`: current height in meters.
+- `e::SMatrix{4,2,Complex{Float64},8}`: wavefield matrix.
+- `ortho_scalar::Complex{Float64}`: scalar for Gram-Schmidt orthogonalization.
+- `e1_scalar::Float64`: scalar for wavefield vector 1.
+- `e2_scalar::Float64`: scalar for wavefield vector 2.
 """
 struct ScaleRecord
     z::Float64
@@ -126,24 +135,21 @@ end
 """
     dedz(e, k, T::Tmatrix)
 
-Calculates derivative of field components vector ``de/dz = -i k T e``.
+Compute ``de/dz = -ikTe``.
 """
 dedz(e, k, T::TMatrix) = -1im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
 
 """
     dedz(e, p, z)
 
-Calculates derivative of field components vector `e` at height `z`.
+Compute derivative of field components vector `e` at height `z`.
 
-The parameters `p` should be a `WavefieldIntegrationParams`.
-
-This function internally calls [`susceptibility`](@ref) and [`tmatrix`](@ref) and is typically
-used by [`integratewavefields`](@ref).
+The parameter `p` should be a `WavefieldIntegrationParams`.
 """
 function dedz(e, p, z)
-    @unpack ea, frequency, bfield, species, LMPparams = p
+    @unpack ea, frequency, bfield, species, LMPParams = p
 
-    M = susceptibility(z, frequency, bfield, species, params=LMPparams)
+    M = susceptibility(z, frequency, bfield, species, params=LMPParams)
     T = tmatrix(ea, M)
 
     return dedz(e, frequency.k, T)
@@ -155,11 +161,10 @@ end
 Return `true` if wavefields should be scaled, otherwise `false` for wavefields `e` at height
 `z` and integrator `int`.
 
-Specifically, if any component of `real(e)` or `imag(e)` are `>= 1`, return
-`true`. In addition, force scale at `z == bottomz` to ensure initial upgoing wave
-is unit amplitude.
+Wavefields should be scaled if any component of `real(e)` or `imag(e)` are `>= 1`. In
+addition, force scaling at `z <= bottomz` to ensure initial upgoing wave is unit amplitude.
 """
-scalingcondition(e, z, int) = any(x->(real(x) >= 1 || imag(x) >= 1), e) || z == int.p.bottomz
+scalingcondition(e, z, int) = any(x->(real(x) >= 1 || imag(x) >= 1), e) || z <= int.p.bottomz
 
 """
     scale!(integrator)
@@ -173,14 +178,13 @@ function scale!(integrator)
     @unpack bottomz, ea, frequency, bfield, species, LMPparams = integrator.p
 
     #==
-    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore,
-    integrator.t` might equal `0.0`, for example, before it's actually gotten
-    to the bottom. `integrator.prevt` is the last `t` on the "left"
-    side of the `integrator`, which covers the local interval [`tprev`, `t`].
-    The "condition" is met at `integrator.t` and `integrator.t` is the time at
-    which the affect occurs.
-    However, it is not guaranteed that each (`tprev`, `t`) directly abuts the
-    next `tprev`, `t`).
+    NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore, integrator.t`
+    might equal `0.0`, for example, before it's actually gotten to the bottom.
+    `integrator.prevt` is the last `t` on the "left" side of the `integrator`, which covers
+    the local interval [`tprev`, `t`]. The "condition" is met at `integrator.t` and
+    `integrator.t` is the time at which the affect occurs.
+    However, it is not guaranteed that each (`tprev`, `t`) directly abuts the next (`tprev`,
+    `t`).
     ==#
 
     integrator.p = WavefieldIntegrationParams(integrator.t,
@@ -197,20 +201,19 @@ end
 """
     scalewavefields(e1, e2)
 
-Returns orthonormalized vectors `e1` and `e2`, as well as the scaling terms `a`,
+Return orthonormalized vectors `e1` and `e2`, as well as the scaling terms `a`,
 `e1_scale_val`, and `e2_scale_val` applied to the original vectors.
 
-First applies Gram-Schmidt orthogonalization and then scales the vectors so they
-each have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique
-suggested by [^Pitteway1965] to counter numerical swamping during integration of
-wavefields.
+First applies Gram-Schmidt orthogonalization and then scales the vectors so they each have
+length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested by
+[^Pitteway1965] to counter numerical swamping during integration of wavefields.
 
 # References
 
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields,
-reflexion coefficients and polarizations for long radio waves in the lower
-ionosphere. I.,” Phil. Trans. R. Soc. Lond. A, vol. 257, no. 1079,
-pp. 219–241, Mar. 1965, doi: 10.1098/rsta.1965.0004.
+[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+    coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
+    Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
+    doi: 10.1098/rsta.1965.0004.
 """
 function scalewavefields(e1, e2)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
@@ -229,20 +232,14 @@ function scalewavefields(e1, e2)
 end
 
 """
-    scalewavefields(e)
+    scalewavefields(e::SMatrix{4,2})
 
-!!! note
-
-    This function only applies scaling to the first 2 columns of `e`.
+Apply scaling to the both columns of `e` and concatenate the results.
 """
-function scalewavefields(e)
+function scalewavefields(e::SMatrix{4,2})
     e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
 
-    if size(e, 2) == 2
-        e = hcat(e1, e2)
-    else
-        e = hcat(e1, e2, e[:,3:end])
-    end
+    e = hcat(e1, e2)
 
     return e, a, e1_scale_val, e2_scale_val
 end
@@ -250,11 +247,9 @@ end
 """
     unscalewavefields!(e, saved_values::SavedValues)
 
-Unscale the integrated wavefields `e` in place.
+Unscale the integrated wavefields, a vector of fields at each integration step `e`, in place.
 
-Assumes fields have been scaled by [`scalewavefields`](@ref) during integration.
-
-See also [`unscalewavefields`](@ref) for additional details.
+See also: [`unscalewavefields`](@ref)
 """
 function unscalewavefields!(e, saved_values::SavedValues)
     zs = saved_values.t
@@ -315,14 +310,15 @@ end
 
 Return the unscaled integrated wavefields originally scaled by [`scalewavefields`](@ref).
 
-The fields are not "unscaled" so much as further scaled so that at all heights the fields
-are scaled similarly to the cumulative scaling that applied to the fields at the bottom.
-
 The bottom level does not get unscaled. We reference the higher levels to the bottom. The
-level above the bottom level needs to be additionally scaled by the amount that was applied
-to originally get from this level down to the bottom level. The next level up (2 above the
-bottom level) needs to be scaled by the amount applied to the next level and then the bottom
+level above the bottom level is additionally scaled by the amount that was applied to
+originally get from this level down to the bottom level. The next level up (2 above the
+bottom level) is scaled by the amount applied to the next level and then the bottom
 level, i.e. we keep track of a cumulative correction on the way back up.
+
+Assumes fields have been scaled by [`scalewavefields`](@ref) during integration.
+
+See also: [`unscalewavefields!`](@ref)
 """
 function unscalewavefields(saved_values::SavedValues)
     e = Vector{SArray{Tuple{4,2},Complex{Float64},2,8}}(undef, length(saved_values.saveval))
@@ -336,8 +332,6 @@ end
     save_values(u, t, integrator)
 
 Return a `ScaleRecord` from `u`, `t`, and `integrator`.
-
-Used by SavingCallback in [`integratewavefields`](@ref).
 """
 save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
                                             u,
@@ -349,13 +343,16 @@ save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
     integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
         species::Species; params=LMPParams())
 
-Return wavefields `e` at `zs` by downward integration over `zs`.
+Compute wavefields `e` at `zs` by downward integration over `zs`.
+
+`params.integrationparams` is not used by this function.
 """
 function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
     species::Species; params=LMPParams())
     # TODO: version that updates output `e` in place
 
-    issorted(zs, rev=true) || throw(ArgumentError("zs should go from top to bottom"))
+    issorted(zs, rev=true) ||
+        throw(ArgumentError("zs should go from top to bottom of ionosphere"))
 
     # Initial conditions
     Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
@@ -433,24 +430,15 @@ New York: Cambridge University Press, 1988.
 """
 vacuumreflectioncoeffs(ea::EigenAngle, e1, e2) = bookerreflection(ea, hcat(e1, e2))
 
-"""
-    vacuumreflectioncoeffs(ea, e)
-
-Calculate `vacuumreflectioncoeffs` where `e` can be decomposed into `e[:,1]` and
-`e[:,2]`.
-"""
-vacuumreflectioncoeffs(ea, e) = bookerreflection(ea, e)
+#TEMP TODO remove this function (only here for docs reference for now)
 
 """
-    wavefieldboundary(R, Rg, e1, e2)
+    boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
 
-Calculate coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield
-as ``e = b1*e1 + b2*e2``.
-
-This process is used by LWPC ("wf_bndy.FOR") and is similar to the calculation of excitation
-factor at the ground because it makes use of the mode condition.
+Compute coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield in the
+waveguide as ``e = b1*e1 + b2*e2``.
 """
-function boundaryscalars(R, Rg, e1, e2, isotropic=false)
+function boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
     # This is similar to excitation factor calculation, using the waveguide mode condition
 
     ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]
@@ -490,13 +478,14 @@ function boundaryscalars(R, Rg, e1, e2, isotropic=false)
     return b1, b2
 end
 
-boundaryscalars(R, Rg, e, isotropic::Bool) = boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
+"`boundaryscalars(R, Rg, e, isotropic::Bool=false)`"
+boundaryscalars(R, Rg, e, isotropic::Bool=false) = boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
 
 """
-    fieldstrengths()
+    fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+        species::Species, ground::Ground; params=LMPParams())
 
-Calculate `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by full wave integration at heights
-`zs`.
+Compute `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by fullwave integration at heights `zs`.
 
 Scales wavefields for waveguide boundary conditions.
 """
@@ -508,7 +497,7 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
         calculated at the ground (`z = 0`)."
 
     e = integratewavefields(zs, ea, frequency, bfield, species, params=params)
-    R = vacuumreflectioncoeffs(ea, e[end])
+    R = bookerreflection(ea, e[end])
     Rg = fresnelreflection(ea, ground, frequency)
     b1, b2 = boundaryscalars(R, Rg, e[end], isisotropic(bfield))
 
@@ -523,16 +512,24 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
         EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
     end
 
+    # TODO: BUG is this Ey or -Ey?
+
     return nothing
 end
 
+"""
+    calculate_wavefields!(wavefields, adjoint_wavefields, frequency, waveguide,
+        adjoint_waveguide; params=LMPParams())
+"""
 function calculate_wavefields!(wavefields, adjoint_wavefields, frequency, waveguide,
     adjoint_waveguide; params=LMPParams())
 
     @unpack bfield, species, ground = waveguide
 
-    ground == adjoint_waveguide.ground || throw(ArgumentError("waveguide and adjoint_waveguide should have same Ground"))
-    species == adjoint_waveguide.species || throw(ArgumentError("waveguide and adjoint_waveguide should have same Species"))
+    ground == adjoint_waveguide.ground ||
+        throw(ArgumentError("waveguide and adjoint_waveguide should have same Ground"))
+    species == adjoint_waveguide.species ||
+        throw(ArgumentError("waveguide and adjoint_waveguide should have same Species"))
 
     adjoint_bfield = adjoint_waveguide.bfield
 
