@@ -50,20 +50,20 @@ const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't 0, many assumptions break
 
 struct Dθ end
 
+# Concrete types defined in relevant files, e.g. `modefinder.jl` for `PhysicalModeEquation`
+abstract type ModeEquation end
+
 """
     IntegrationParams{T}
 
 Parameters passed to `OrdinaryDiffEq.jl` during the integration of the ionosphere reflection
 coefficient matrix in `modefinder.jl`.
 
-Fields:
+# Fields
 
-    - tolerance::Float64
-    - solver::T
-    - force_dtmin::Bool
-
-By default, the private function `integratedreflection` called by `findmodes` uses
-`IntegrationParams(1e-6, OwrenZen5(), false)`.
+- `tolerance::Float64`: integration `atol` and `rtol`.
+- `solver::T`: a `DifferentialEquations.jl` solver.
+- `force_dtmin::Bool`: if true, continue integration when solver reaches minimum step size.
 """
 struct IntegrationParams{T}
     tolerance::Float64
@@ -77,12 +77,28 @@ const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
 const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, OwrenZen5(), false)
 
 """
-    LMPParams{T,H<:AbstractRange{Float64}}
+    LMPParams{T,H <: AbstractRange{Float64}}
 
-Parameters for the `LongwaveModePropagator` module with defaults.
+Parameters for the `LongwaveModePropagator` module with defaults:
 
-The struct is created with `Parameters.jl` `@with_kw` and supports that package's
-instantiation capabilities, e.g.
+- `topheight::Float64 = 110e3`: starting height for integration of the ionosphere reflection
+    coefficient.
+- `earthradius::Float64 = 6369`: Earth radius in meters.
+- `earthcurvature::Bool = true`: toggle inclusion of Earth curvature in calculations. This
+    is not supported by all functions.
+- `curvatureheight::Float64 = 50e3`: reference height for Earth curvature in meters. At this
+    height, the index of refraction is 1, and is therefore the reference height for
+    eigenangles.
+- `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
+    complex root-finding algorithm.
+- `integrationparams::IntegrationParams{T} = IntegrationParams(1e-7, OwrenZen5(), false)`:
+    parameters passed to `DifferentialEquations.jl` for integration of the ionosphere
+    reflection coefficient.
+- `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
+    wavefields will be integrated.
+
+The struct is created using `Parameters.jl` `@with_kw` and supports that package's
+instantiation capabilities, e.g.:
 
 ```jldoctest
 p = LMPParams()
@@ -99,6 +115,7 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     integrationparams::IntegrationParams{T} = DEFAULT_INTEGRATIONPARAMS
     wavefieldheights::H = range(topheight, 0, length=513)
 end
+
 export LMPParams
 
 #

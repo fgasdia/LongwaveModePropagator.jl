@@ -92,7 +92,7 @@ function test_bookerquarticT_deriv(scenario)
                    (q, B) = LMP.bookerquartic(T); LMP.sortquarticroots!(q); q[i])
         dqref = FiniteDiff.finite_difference_derivative(qfcn, θs, Val{:central})
         dq(θ) = (ea = EigenAngle(θ);
-                 T = LMP.tmatrix(ea, M); dT = LMP.tmatrix(ea, M, LMP.Dθ());
+                 T = LMP.tmatrix(ea, M); dT = LMP.dtmatrix(ea, M);
                  (q, B) = LMP.bookerquartic(T);
                  LMP.sortquarticroots!(q); LMP.dbookerquartic(T, dT, q, B)[i])
 
@@ -142,7 +142,7 @@ function test_bookerwavefields_deriv(scenario)
     for i in eachindex(θs)
         ea = EigenAngle(θs[i])
         T = LMP.tmatrix(ea, M)
-        dT = LMP.tmatrix(ea, M, LMP.Dθ())
+        dT = LMP.dtmatrix(ea, M)
         de1[i] = LMP.bookerwavefields(ea, M, LMP.Dθ())[2]
         de2[i] = LMP.bookerwavefields(T, dT, LMP.Dθ())[2]
     end
@@ -212,8 +212,9 @@ function test_dbookerreflection(scenario)
     for i in eachindex(θs)
         ea = EigenAngle(θs[i])
         T = LMP.tmatrix(ea, M)
+        dT = LMP.dtmatrix(ea, M)
         W = LMP.wmatrix(ea, T)
-        dW = LMP.wmatrix(ea, M, T, LMP.Dθ())
+        dW = LMP.dwmatrix(ea, T, dT)
 
         R = LMP.bookerreflection(ea, M)
 

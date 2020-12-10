@@ -15,7 +15,7 @@ function test_physicalmodeequation(scenario)
 end
 
 function test_roots(scenario)
-    x = 0.005
+    x = 0.0005
     z = complex(x, -x)
 
     # isroot Real and Complex
@@ -86,42 +86,91 @@ function test_wmatrix_deriv(scenario)
     end
 end
 
-function integratedreflection_deriv(scenario)
-    @unpack tx, ground, bfield, species = scenario
-    freq = tx.frequency
+function test_dRdz(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario()
 
-    # params = LMPParams(integrationparams=IntegrationParams(1e-7, LMP.RK4(), false))
     params = LMPParams()
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LMP.PhysicalModeEquation(freq, waveguide)
+    me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    Rref(θ,m) = (m = LMP.setea(EigenAngle(θ), m); LMP.integratedreflection(m, params=params))
-    RdR(θ,m) = (m = LMP.setea(EigenAngle(θ), m); LMP.integratedreflection(m, LMP.Dθ(), params=params))
+    Mtop = LMP.susceptibility(params.topheight, me, params=params)
+    Rtop = LMP.bookerreflection(ea, Mtop)
+
+    # sharply bounded R from bookerreflection satisfies dR/dz = 0
+    @test isapprox(LMP.dRdz(Rtop, (me, params), params.topheight), zeros(2, 2), atol=1e-15)
+end
+
+function test_dRdθdz(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario()
+
+    params = LMPParams()
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+
+    Mtop = LMP.susceptibility(params.topheight, me)
+    z = params.topheight - 500
+
+    for i = 1:4
+        dRfcn(θ) = (ea = EigenAngle(θ); Rtop = LMP.bookerreflection(ea, Mtop);
+            me = LMP.setea(ea, me); LMP.dRdz(Rtop, (me, params), z)[i])
+        dRdθref = FiniteDiff.finite_difference_derivative(dRfcn, θs, Val{:central})
+        dRdθtmp(θ) = (ea = EigenAngle(θ); me = LMP.setea(ea, me);
+            (Rtop, dRdθtop) = LMP.bookerreflection(ea, Mtop, LMP.Dθ());
+            RdRdθtop = vcat(Rtop, dRdθtop);
+            LMP.dRdθdz(RdRdθtop, (me, params), z))
+        dR(θ) = dRdθtmp(θ)[SVector(1,2),:][i]
+        dRdθ(θ) = dRdθtmp(θ)[SVector(3,4),:][i]
+
+        @test dRfcn.(θs) ≈ dR.(θs)
+        @test err_func(dRdθ.(θs), dRdθref) < 1e-6
+    end
+end
+
+function test_integratedreflection_vertical(scenario)
+    @unpack ea, tx, ground, bfield, species = scenario()
+
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(tx.frequency, waveguide)
+
+    R = LMP.integratedreflection(me)
+
+    @test R[1,2] ≈ R[2,1]
+end
+
+function test_integratedreflection_deriv(scenario)
+    @unpack tx, ground, bfield, species = scenario()
+    freq = tx.frequency
+
+    params = LMPParams()
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(freq, waveguide)
+
+    Rref(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, params=params))
+    RdR(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, LMP.Dθ(), params=params))
 
     Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(Rs)
     Rrefs = similar(Rs)
     dRrefs = similar(Rs)
-    Threads.@threads for i in 1:length(θs)  # NOTE: this also effectively checks for thread safety
-        v = RdR(θs[i], modeequation)
+    # NOTE: this also effectively checks for thread safety
+    Threads.@threads for i in 1:length(θs)
+        v = RdR(θs[i])
         Rs[i] = v[SVector(1,2),:]
         dRs[i] = v[SVector(3,4),:]
-        Rrefs[i] = Rref(θs[i], modeequation)
-        dRrefs[i] = FiniteDiff.finite_difference_derivative(z->Rref(z, modeequation), θs[i],
-                                                            Val{:central})
+        Rrefs[i] = Rref(θs[i])
+        dRrefs[i] = FiniteDiff.finite_difference_derivative(Rref, θs[i], Val{:central})
     end
 
     for i = 1:4
-        R = [v[i] for v in Rs[1:end-1]]
-        dR = [v[i] for v in dRs[1:end-1]]
-        Rr = [v[i] for v in Rrefs[1:end-1]]
-        dRr = [v[i] for v in dRrefs[1:end-1]]
+        R = getindex.(Rs, i)
+        dR = getindex.(dRs, i)
+        Rr = getindex.(Rrefs, i)
+        dRr = getindex.(dRrefs, i)
 
-        isapprox(R, Rr, rtol=1e-5) || return false
-        isapprox(dR, dRr, rtol=1e-3) || return false
+        # err_func criteria doesn't capture range of R and dR so rtol is used
+        @test isapprox(R, Rr, rtol=1e-5)
+        @test isapprox(dR, dRr, rtol=1e-3)
     end
-
-    return true
 end
 
 function test_fresnelreflection(scenario)
@@ -142,11 +191,12 @@ function test_fresnelreflection_deriv(scenario)
     @unpack ea, tx, bfield, species, ground = scenario()
     freq = tx.frequency
 
+    dRgtmp(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ()))
     for i = 1:4
         Rgref(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq)[i])
         dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
-        Rg(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())[1][i])
-        dRg(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ())[2][i])
+        Rg(θ) = dRgtmp(θ)[1][i]
+        dRg(θ) = dRgtmp(θ)[2][i]
 
         @test Rgref.(θs) ≈ Rg.(θs)
         @test err_func(dRg.(θs), dRgref) < 1e-6
@@ -159,72 +209,71 @@ function test_fresnelreflection_deriv(scenario)
     @test Rg1 == Rg2
 end
 
-function modalequation_deriv(scenario)
-    @unpack ea, tx, ground, bfield, species = scenario
+function test_modalequation_resonant(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario()
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+
+    R = @SMatrix [1 0; 0 1]
+    Rg = @SMatrix [1 0; 0 -1]
+    @test isapprox(LMP.modalequation(R, Rg), 0, atol=1e-15)
+
+    R = LMP.integratedreflection(me)
+    Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
+    f = LMP.modalequation(R, Rg)
+    @test LMP.isroot(f, atol=1e-4)  # this test is a little cyclic
+
+    @test f == LMP.solvemodalequation(me)
+
+    θ = 1.5 - 0.02im  # not resonant
+    @test abs(LMP.solvemodalequation(θ, me)) > 1e-3
+end
+
+function test_modalequation_deriv(scenario)
+    @unpack ea, tx, ground, bfield, species = scenario()
     freq = tx.frequency
 
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LMP.PhysicalModeEquation(ea, freq, waveguide)
 
-    dFref = FiniteDiff.finite_difference_derivative(z->LMP.solvemodalequation(z, modeequation),
+    dFref = FiniteDiff.finite_difference_derivative(θ->LMP.solvemodalequation(θ, modeequation),
         θs, Val{:central})
 
     dFs = Vector{ComplexF64}(undef, length(θs))
     Threads.@threads for i in eachindex(θs)
-        dFdθ, R, Rg = LMP.solvemodalequation(θs[i], modeequation, LMP.Dθ())
+        dFdθ, R, Rg = LMP.solvedmodalequation(θs[i], modeequation)
         dFs[i] = dFdθ
     end
 
-    return isapprox(dFs, dFref, rtol=1e-4)
+    @test isapprox(dFs, dFref, rtol=1e-4)
 end
 
-function verticalreflection(scenario)
-    @unpack ea, tx, ground, bfield, species = scenario
-
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
-
-    R = LMP.integratedreflection(modeequation)
-
-    return R[1,2] ≈ R[2,1]
-end
-
-function modalequation(scenario)
-    @unpack ea, tx, ground, bfield, species = scenario
-
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
-
-    f = LMP.solvemodalequation(modeequation)
-
-    return LMP.isroot(f)
-end
-
-function modefinder(scenario)
-    @unpack tx, bfield, species, ground = scenario
+function test_findmodes(scenario)
+    @unpack tx, bfield, species, ground = scenario()
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
     origcoords = LMP.defaultcoordinates(tx.frequency)
 
-    params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
+    # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
+    params = LMPParams()
     modes = LMP.findmodes(modeequation, origcoords, params=params)
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation, params=params)
-        LMP.isroot(f) || return false
+        @test LMP.isroot(f)
     end
+
     # return modes
-    return true
 end
-
-function evalroot(root, scenario)
-    @unpack tx, bfield, species, ground = scenario
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-
-    modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
-    LMP.solvemodalequation(EigenAngle(root), modeequation)
-end
+#
+# function evalroot(root, scenario)
+#     @unpack tx, bfield, species, ground = scenario
+#     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+#
+#     modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
+#     LMP.solvemodalequation(EigenAngle(root), modeequation)
+# end
 
 
 @testset "modefinder.jl" begin
@@ -236,20 +285,23 @@ end
         test_wmatrix(scn)
         test_wmatrix_deriv(scn)
 
+        test_dRdz(scn)
+        test_dRdθdz(scn)
+
+        test_integratedreflection_deriv(scn)
+
         test_fresnelreflection(scn)
         test_fresnelreflection_deriv(scn)
 
-        @test modefinder(scn)
-        @test iterativesharpboundary(scn)
-        @test integratedreflection_deriv(scn) # again, a problem with off-diag
-        @test modalequation_deriv(scn)
+        test_modalequation_deriv(scn)
+
+        test_findmodes(scn)
     end
     for scn in (resonant_scenario, )
         test_roots(scn)
-
-        @test modalequation(scn)
+        test_modalequation_resonant(scn)
     end
     for scn in (verticalB_scenario, )
-        @test verticalreflection(scn)
+        test_integratedreflection_vertical(scn)
     end
 end

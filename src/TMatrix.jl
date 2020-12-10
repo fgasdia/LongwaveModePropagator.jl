@@ -256,7 +256,7 @@ where ``z`` is upward, propagation is directed obliquely in the ``x``-``z`` plan
 invariance is assumed in ``y``. For the four characteristic wave components
 ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``, the differential equations are ``de/dz = -ikTe``.
 
-See also: [`susceptibility`](@ref)
+See also: [`susceptibility`](@ref), [`dtmatrix`](@ref)
 
 # References
 
@@ -304,6 +304,8 @@ end
     dtmatrix(ea::EigenAngle, M)
 
 Compute a dense `SMatrix` with the derivative of `T` with respect to `θ`.
+
+See also: [`tmatrix`](@ref)
 """
 function dtmatrix(ea::EigenAngle, M)
     S, C = ea.sinθ, ea.cosθ

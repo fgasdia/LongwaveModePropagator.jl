@@ -296,7 +296,7 @@ function bookerwavefields(ea::EigenAngle, M, ::Dθ)
     sortquarticroots!(q)
     dq = dbookerquartic(ea, M, q, B)
     T = tmatrix(ea, M)
-    dT = tmatrix(ea, M, Dθ())
+    dT = dtmatrix(ea, M)
 
     return bookerwavefields(T, dT, q, dq)
 end
