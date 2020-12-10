@@ -18,8 +18,8 @@ end
 """
     Sampler{T} <: AbstractSampler{T}
 
-`Sampler` types sample the field specified by `Fields.Field` at `altitude` and
-distance(s) `distance` from the transmitter.
+`Sampler` types sample the field specified by `Fields.Field` at `altitude` and ground
+`distance` from the transmitter.
 """
 struct Sampler{T} <: AbstractSampler{T}
     distance::T
@@ -36,8 +36,7 @@ fieldcomponent(s::Sampler) = s.fieldcomponent
 """
     GroundSampler{T} <: AbstractSampler{T}
 
-Ground samplers are designed to sample the field specified by `Fields.Field`
-at distance(s) `distance` along the ground from the transmitter.
+`GroundSamplers` are `Sampler` types with an altitude of zero.
 """
 struct GroundSampler{T} <: AbstractSampler{T}
     distance::T  # T is usually <: AbstractVector but could be a scalar
@@ -53,10 +52,15 @@ fieldcomponent(g::GroundSampler) = g.fieldcomponent
 """
     Receiver{<:Antenna}
 
-Represent a physical receiver with a `name`, `latitude`, `longitude`, `altitude`,
-and `antenna`.
+Represent a physical receiver.
 
-`Receiver`s are converted into `AbstractSampler` objects for simulation.
+# Fields
+
+- `name::String`: receiver name.
+- `latitude::Float64`: geographic latitude in degrees.
+- `longitude::Float64`: geographic longitude in degrees.
+- `altitude::Float64`: receiver altitude in meters above the ground.
+- `antenna::Antenna`: receiver antenna.
 """
 struct Receiver{A<:Antenna}
     name::String
@@ -69,8 +73,8 @@ end
 """
     Receiver()
 
-Returns a default `Receiver{VerticalDipole}` with an empty name and zeroed
-geographic position.
+Return a default `Receiver{VerticalDipole}` with an empty name and zeroed geographic
+position.
 """
 Receiver() = Receiver{VerticalDipole}("", 0.0, 0.0, 0.0, VerticalDipole())
 

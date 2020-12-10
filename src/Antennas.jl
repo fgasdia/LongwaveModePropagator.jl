@@ -1,14 +1,9 @@
-"""
-    Antenna
-
-Abstract type for antenna designs.
-"""
 abstract type Antenna end
 
 """
     AbstractDipole <: Antenna
 
-Abstract type for dipole antenna designs.
+Abstract type for dipole antennas.
 
 Subtypes of `AbstractDipole` have an orientation `azimuth_angle` (``ϕ``) and
 `inclination_angle` (``γ``) where
@@ -21,9 +16,26 @@ Subtypes of `AbstractDipole` have an orientation `azimuth_angle` (``ϕ``) and
 !!! note
 
     Angles describe the orientation of the antenna, not the radiation pattern.
-
 """
 abstract type AbstractDipole <: Antenna end
+
+"""
+    azimuth(d::AbstractDipole)
+
+Return the azimuth angle ``ϕ`` of `d`.
+
+See also: [`inclination`](@ref)
+"""
+function azimuth end
+
+"""
+    inclination(d::AbstractDipole)
+
+Return the inclination (dip) angle ``γ`` of `d`.
+
+See also: [`azimuth`](@ref)
+"""
+function inclination end
 
 """
     Dipole
@@ -43,8 +55,7 @@ inclination(d::Dipole) = d.inclination_angle
 
 Dipole antenna with inclination angle ``γ = 0`` from the vertical.
 
-`azimuth(VerticalDipole())` returns ``0.0`` but physically this has
-little meaning.
+`azimuth(VerticalDipole())` returns `0.0` but physically this has little meaning.
 """
 struct VerticalDipole <: AbstractDipole end
 azimuth(d::VerticalDipole) = 0.0
@@ -53,8 +64,8 @@ inclination(d::VerticalDipole) = 0.0
 """
     HorizontalDipole
 
-Dipole antenna with inclination angle ``γ = π/2`` from the vertical and
-`azimuth_angle` orientation ``ϕ`` where
+Dipole antenna with inclination angle ``γ = π/2`` from the vertical and `azimuth_angle`
+orientation ``ϕ`` where:
 
 |  ϕ [rad] | orientation |
 |:--------:|:-----------:|
