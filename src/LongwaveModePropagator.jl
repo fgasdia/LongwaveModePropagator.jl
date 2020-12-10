@@ -27,7 +27,6 @@ export bpm
 
 # Geophysics.jl
 export BField, Species, EigenAngle, Fields, Ground
-export dip, azimuth
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl

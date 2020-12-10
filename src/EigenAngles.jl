@@ -1,18 +1,25 @@
 """
     EigenAngle
 
-Waveguide EigenAngle `θ` (rad), as well as:
+Plane-wave propagation direction in angle `θ` from the vertical in radians.
 
-  - `cosθ`
-  - `sinθ`
-  - `secθ`
-  - `cos²θ`
-  - `sin²θ`
+Common trigonometric function values of this angle are calculated to increase performance.
 
-Real `θ` will be automatically converted to `complex`.
+# Fields
 
-Technically this is an angle of incidence from the vertical, and not necessarily an
-_eigen_angle unless it is found to be associated with a propagated mode in the waveguide.
+- `θ::ComplexF64`
+- `cosθ::ComplexF64`
+- `sinθ::ComplexF64`
+- `secθ::ComplexF64`
+- `cos²θ::ComplexF64`
+- `sin²θ::ComplexF64`
+
+`Real` `θ` will be automatically converted to `Complex`.
+
+!!! note
+
+    Technically this is an angle of incidence from the vertical, and not necessarily an
+    _eigen_angle unless it is found to be associated with a propagated mode in the waveguide.
 """
 struct EigenAngle
     θ::ComplexF64  # radians, because df/dθ are in radians
@@ -22,9 +29,9 @@ struct EigenAngle
     cos²θ::ComplexF64
     sin²θ::ComplexF64
 end
+
 EigenAngle(ea::EigenAngle) = ea
 EigenAngle(θ::Real) = EigenAngle(complex(θ))
-
 function EigenAngle(θ::Complex)
     rθ, iθ = reim(θ)
     ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ > 2π. Make sure θ is in radians."
@@ -34,7 +41,6 @@ function EigenAngle(θ::Complex)
     S² = 1 - C²
     EigenAngle(θ, C, S, Cinv, C², S²)
 end
-
 
 """
     isless(x::EigenAngle, y::EigenAngle)
