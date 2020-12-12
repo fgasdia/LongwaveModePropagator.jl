@@ -68,9 +68,9 @@ diff((tmp1 - tmp2)/(tmp1 + tmp2), θ)  # rg11
 
 diff((C - tmp2)/(C + tmp2), θ)  # rg22  factor() for simplification
 
-
+########
 # height gain function
-@vars z d a h10 h20 k
+@vars z a h10 h20 k
 
 h1 = sympy.Function("h1")(z)
 h2 = sympy.Function("h2")(z)
@@ -78,10 +78,10 @@ F1 = sympy.Function("F1")(z)
 F2 = sympy.Function("F2")(z)
 
 f1 = exp(z/a)*(F1*h1 + F2*h2)/(F1*h10 + F2*h20)
-1/(im*k)*diff(f1, z)
+1/(1im*k)*diff(f1, z)
 
 # If dF/dz = 0
-@vars z d a h10 h20 k F1 F2
+@vars z a h10 h20 k F1 F2
 
 h1 = sympy.Function("h1")(z)
 h2 = sympy.Function("h2")(z)
