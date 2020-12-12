@@ -488,6 +488,8 @@ end
 
 Compute the ionosphere and ground reflection coefficients and return the value of the
 determinental modal equation associated with `modeequation`.
+
+See also: [`solvedmodalequation`](@ref)
 """
 function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
     R = integratedreflection(modeequation, params=params)
@@ -513,6 +515,8 @@ end
 
 Compute the derivative of the modal equation with respect to ``θ``. The reflection
 coefficients `R` and `Rg` are also returned.
+
+See also: [`solvemodalequation`](@ref)
 """
 function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
     RdR = integratedreflection(modeequation, Dθ(), params=params)
@@ -569,6 +573,29 @@ function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
 
     return EigenAngle.(roots)
 end
+
+#==
+Coordinate grids for `GRPF`
+==#
+
+function defaultcoordinates(frequency)
+    # TODO: get a better idea of frequency transition
+    if frequency > 15000
+        Zb = deg2rad(complex(30.0, -10.0))
+        Ze = deg2rad(complex(89.9, 0.0))
+        d = deg2rad(60)
+        Δr = deg2rad(0.4)
+        coordgrid = eiwgdomain(Zb, Ze, d, Δr)
+    else
+        Zb = deg2rad(complex(0.0, -30.0))
+        Ze = deg2rad(complex(89.9, 0.0))
+        Δr = deg2rad(1.0)
+        coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
+    end
+
+    return coordgrid
+end
+defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
 """
     triangulardomain(Za, Zb, Zc, Δr)

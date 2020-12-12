@@ -69,3 +69,25 @@ function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle)
     println(io, "EigenAngle: ")
     show(io, e)
 end
+
+"""
+    referencetoground(ea::EigenAngle; params=LMPParams())
+
+Reference `ea` from `params.curvatureheight` to ground (``z = 0``).
+"""
+function referencetoground(ea::EigenAngle; params=LMPParams())
+    # see, e.g. PS71 pg 11
+    @unpack earthradius, curvatureheight = params
+    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/earthradius*curvatureheight)))
+end
+
+"""
+    referencetoground(x; params=LMPParams())
+
+Reference ``x == sin(ea)`` from `params.curvatureheight` to the ground and return `sin(ea)` at
+the ground.
+"""
+function referencetoground(x; params=LMPParams())
+    @unpack earthradius, curvatureheight = params
+    return x/sqrt(1 - 2/earthradius*curvatureheight)
+end

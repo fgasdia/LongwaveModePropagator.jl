@@ -1,6 +1,3 @@
-"""
-Main program/scratch file
-"""
 module LongwaveModePropagator
 
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
@@ -10,7 +7,7 @@ using LinearAlgebra
 
 using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
-using OrdinaryDiffEq, DiffEqCallbacks  # DiffEqBase,
+using OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
 using ProgressMeter
 using BetterExp  # TEMP faster exp() until merged into Base
@@ -23,7 +20,7 @@ using RootsAndPoles
 using ModifiedHankelFunctionsOfOrderOneThird
 
 # LongwaveModePropagator.jl
-export bpm
+export propagate
 
 # Geophysics.jl
 export BField, Species, EigenAngle, Fields, Ground
@@ -37,15 +34,14 @@ export Receiver, GroundSampler
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
-export inclination, azimuth, altitude, fieldcomponent
 
 # modefinder.jl
 export findmodes
 
 # Waveguides.jl
-export HomogeneousWaveguide
+export HomogeneousWaveguide, SegmentedWaveguide
 
-const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't 0, many assumptions break
+const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't zero, many assumptions break
 
 struct Dθ end
 
@@ -138,33 +134,55 @@ include("modesum.jl")
 include("IO.jl")
 
 
-function defaultcoordinates(frequency)
-    # TODO: get a better idea of frequency transition
-    if frequency > 15000
-        Zb = deg2rad(complex(30.0, -10.0))
-        Ze = deg2rad(complex(89.9, 0.0))
-        d = deg2rad(60)
-        Δr = deg2rad(0.4)
-        coordgrid = eiwgdomain(Zb, Ze, d, Δr)
+"""
+    propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+              coordgrid=nothing, params=LMPParams())
+
+Compute electric field `E`, `amplitude`, and `phase`.
+"""
+function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+    coordgrid=nothing, params=LMPParams())
+
+    if isnothing(coordgrid)
+        coordgrid = defaultcoordinates(tx.frequency)
     else
-        Zb = deg2rad(complex(0.0, -30.0))
-        Ze = deg2rad(complex(89.9, 0.0))
-        Δr = deg2rad(1.0)
-        coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
+        if minimum(imag(coordgrid)) < deg2rad(-31)
+            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
+                calculated with modified Hankel functions to overflow."
+        end
     end
 
-    return coordgrid
+    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
+    modes = findmodes(modeequation, coordgrid, params=params)
+
+    E = Efield(modes, waveguide, tx, rx, params=params)
+
+    amplitude = Vector{Float64}(undef, length(E))
+    phase = similar(amp)
+    @inbounds for i in eachindex(E)
+        e = E[i]
+        amplitude[i] = 10log10(abs2(e))  # == 20log10(abs(E))
+        phase[i] = angle(e)  # ranges between -π:π rad
+    end
+
+    # Amplitude at transmitter may be calculated as Inf
+    # TODO: replace with something accurate?
+    isinf(amplitude[1]) && (amplitude[1] = 0)
+
+    # By definition, phase at transmitter is 0, but is calculated as NaN
+    isnan(phase[1]) && (phase[1] = 0)
+    unwrap!(phase)
+
+    return E, amplitude, phase
 end
-defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
 """
-    bpm(waveguide::HomogeneousWaveguide, tx, rx::AbstractSampler{<:Real}; coordgrid=nothing,
-        params=LMPParams())
+    propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
+              coordgrid=nothing, params=LMPParams())
 
-Specialized form for `AbstractSampler`s with a single distance which returns scalar `E`,
-`amp`, and `phase`.
+For `AbstractSampler`s with a single `distance`, compute scalar `E`, `amp`, and `phase`.
 """
-function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
+function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
     coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
@@ -186,48 +204,7 @@ function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<
     return E, amp, phase
 end
 
-"""
-    bpm(waveguide::HomogeneousWaveguide, tx, rx; coordgrid=nothing, params=LMPParams())
-
-Return electric field `E`, and field `amplitude` and `phase`.
-"""
-function bpm(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing, params=LMPParams())
-
-    if isnothing(coordgrid)
-        coordgrid = defaultcoordinates(tx.frequency)
-    else
-        if minimum(imag(coordgrid)) < deg2rad(-31)
-            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
-                calculated with modified Hankel functions to overflow."
-        end
-    end
-
-    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(modeequation, coordgrid, params=params)
-
-    E = Efield(modes, waveguide, tx, rx, params=params)
-
-    amp = Vector{Float64}(undef, length(E))
-    phase = similar(amp)
-    @inbounds for i in eachindex(E)
-        e = E[i]
-        amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
-        phase[i] = angle(e)  # ranges between -π:π rad
-    end
-
-    # Amplitude at transmitter may be calculated as Inf
-    # TODO: replace with something accurate?
-    isinf(amp[1]) && (amp[1] = 0)
-
-    # By definition, phase at transmitter is 0, but is calculated as NaN
-    isnan(phase[1]) && (phase[1] = 0)
-    unwrap!(phase)
-
-    return E, amp, phase
-end
-
-function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
+function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
@@ -255,14 +232,13 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
-        @unpack bfield, species, ground = wvg
-        adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
-        adjwvg = HomogeneousWaveguide(adjoint_bfield, species, ground)
+        adjwvg = adjoint(wvg)
 
         wavefields = Wavefields(modes, params.wavefieldheights)
         adjwavefields = Wavefields(modes, params.wavefieldheights)
 
-        calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg, params=params)
+        calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg,
+                              params=params)
 
         wavefields_vec[nsgmnt] = wavefields
         adjwavefields_vec[nsgmnt] = adjwavefields
@@ -290,11 +266,11 @@ function bpm(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
 end
 
 """
-    bpm(filename::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing)
+    propagate(filename::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing)
 
 Run the model given a String filename and save a JSON file of `BasicOutput`.
 """
-function bpm(file::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing,
+function propagate(file::AbstractString; incrementalwrite=false, append=false, coordgrid=nothing,
     params=LMPParams())
 
     ispath(file) || error("$file is not a valid file name")
@@ -303,7 +279,7 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false, coordgr
     basepath = dirname(file)
     filename, fileextension = splitext(basename(file))
 
-    outfile = joinpath(basepath, filename)*"_bpm.json"
+    outfile = joinpath(basepath, filename)*"_propagate.json"
 
     s = parse(file)
     if incrementalwrite
@@ -323,3 +299,29 @@ function bpm(file::AbstractString; incrementalwrite=false, append=false, coordgr
 end
 
 end
+
+#==
+Utility functions
+==#
+
+"""
+    unwrap!(x)
+
+Unwrap a phase vector `x` in radians in-place.
+"""
+function unwrap!(x)
+	v = first(x)
+	@inbounds for k in eachindex(x)
+		x[k] = v = v + rem2pi(x[k]-v, RoundNearest)
+	end
+	return x
+end
+
+"""
+    pow23(x)
+
+Efficiently compute ``x^(2/3)``.
+"""
+function pow23 end
+pow23(x::Real) = cbrt(x)^2
+pow23(z::Complex) = exp(2/3*log(z))

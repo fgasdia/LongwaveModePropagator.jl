@@ -22,18 +22,18 @@ abstract type AbstractDipole <: Antenna end
 """
     azimuth(d::AbstractDipole)
 
-Return the azimuth angle ``ϕ`` of `d`.
+Return the azimuth angle ``ϕ`` of `d` measured towards positive `y` direction from `x`.
 
-See also: [`inclination`](@ref)
+See also: [`inclination`](@ref), [`AbstractDipole`](@ref)
 """
 function azimuth end
 
 """
     inclination(d::AbstractDipole)
 
-Return the inclination (dip) angle ``γ`` of `d`.
+Return the inclination (dip) angle ``γ`` of `d` measured from vertical.
 
-See also: [`azimuth`](@ref)
+See also: [`azimuth`](@ref), [`AbstractDipole`](@ref)
 """
 function inclination end
 
@@ -42,6 +42,8 @@ function inclination end
 
 Dipole antenna with arbitrary orientation described by `azimuth_angle` and
 `inclination_angle` from vertical.
+
+See also: [`AbstractDipole`](@ref)
 """
 struct Dipole <: AbstractDipole
     azimuth_angle::Float64

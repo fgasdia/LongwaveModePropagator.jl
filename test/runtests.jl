@@ -100,6 +100,7 @@ const segmented_scenario = @with_kw (
                      electroncollisionfrequency)],
     ground=[Ground(15, 0.001), Ground(15, 0.001)],
     tx=Transmitter(24e3),
+    distances=[0.0, 1000e3]
     # GroundSampler(2000e3, Fields.Ez)
 )
 
@@ -117,6 +118,7 @@ err_func(a,b) = maximum(abs.(a-b))
     include("bookerquartic.jl")
     include("modefinder.jl")
     include("wavefields.jl")
+    include("modeconversion.jl")
 
     include("test_IO.jl")
 end

@@ -33,6 +33,17 @@ HomogeneousWaveguide(bfield, species::S, ground) where S =
     HomogeneousWaveguide{S}(bfield, species, ground, 0.0)
 
 """
+    adjoint(w::HomogeneousWaveguide)
+
+Return `w` with an adjoint `BField` having an `x` component of opposite sign.
+"""
+function adjoint(w::HomogeneousWaveguide)
+    @unpack bfield, species, ground, distance = w
+    adjoint_bfield = BField(bfield.B, -bfield.dcl, bfield.dcm, bfield.dcn)
+    return HomogeneousWaveguide(adjoint_bfield, species, ground, distance)
+end
+
+"""
     SegmentedWaveguide{T<:Vector{<:Waveguide}} <: Waveguide
 
 A collection of `Waveguide`s make up an inhomogeneous segmented waveguide.
