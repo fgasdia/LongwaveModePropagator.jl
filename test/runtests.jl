@@ -22,8 +22,8 @@ const verticalB_scenario = @with_kw (
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
-    tx=Transmitter(24e3),
-    # GroundSampler(2000e3, Fields.Ez)
+    tx = Transmitter(VerticalDipole(), 24e3, 1e3),
+    rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
 )
 
 const isotropicB_resonant_scenario = @with_kw (

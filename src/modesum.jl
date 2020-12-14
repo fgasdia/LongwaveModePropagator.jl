@@ -331,6 +331,7 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     @unpack ea, frequency, waveguide = modeequation
     @unpack ground = waveguide
     ea₀ = referencetoground(ea, params=params)
+    S₀ = ea₀.sinθ
 
     frequency == tx.frequency ||
         throw(ArgumentError("`tx.frequency` and `modeequation.frequency` do not match"))
@@ -340,7 +341,7 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     dFdθ, R, Rg = solvedmodalequation(modeequation, params=params)
     efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground, params=params)
 
-    λv, λe, λb = excitationfactor(ea, ea₀, dFdθ, R, Rg, efconstants, params=params)
+    λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, params=params)
 
     # Transmitter term
     f₁, f₂, f₃ = heightgains(0.0, ea₀, Rg, frequency, efconstants, params=params)
@@ -440,6 +441,12 @@ function Efield!(E, modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, 
 
     @inbounds for i in eachindex(E)
         E[i] *= Q/sqrt(abs(sin(X[i]/params.earthradius)))
+    end
+
+    # At transmitter (≈ within a meter from it), E is complex NaN or Inf
+    if X[1] < 1
+        # TODO: accurate replacement?
+        E[1] = 0
     end
 
     return E

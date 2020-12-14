@@ -119,8 +119,8 @@ export LMPParams
 #
 include("utils.jl")
 include("Antennas.jl")
+include("Emitters.jl")  # must be before EigenAngles.jl
 include("EigenAngles.jl")
-include("Emitters.jl")
 include("Geophysics.jl")
 include("Samplers.jl")
 include("TMatrix.jl")
@@ -169,12 +169,9 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
         phase[i] = angle(e)  # ranges between -π:π rad
     end
 
-    # Amplitude at transmitter may be calculated as Inf
-    # TODO: replace with something accurate?
+    # E is 0 at transmitter
     isinf(amplitude[1]) && (amplitude[1] = 0)
 
-    # By definition, phase at transmitter is 0, but is calculated as NaN
-    isnan(phase[1]) && (phase[1] = 0)
     unwrap!(phase)
 
     return E, amplitude, phase
@@ -258,12 +255,9 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         phase[i] = angle(e)  # ranges between -π:π rad
     end
 
-    # Amplitude at transmitter may be calculated as Inf
-    # TODO: replace with something accurate
+    # E is 0 at transmitter
     isinf(amplitude[1]) && (amplitude[1] = 0)
 
-    # By definition, phase at transmitter is 0, but is calculated as NaN
-    isnan(phase[1]) && (phase[1] = 0)
     unwrap!(phase)
 
     return E, amplitude, phase
