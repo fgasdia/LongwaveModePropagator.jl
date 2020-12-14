@@ -169,9 +169,6 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
         phase[i] = angle(e)  # ranges between -π:π rad
     end
 
-    # E is 0 at transmitter
-    isinf(amplitude[1]) && (amplitude[1] = 0)
-
     unwrap!(phase)
 
     return E, amplitude, phase
@@ -254,9 +251,6 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         amplitude[i] = 10log10(abs2(e))  # == 20log10(abs(E))
         phase[i] = angle(e)  # ranges between -π:π rad
     end
-
-    # E is 0 at transmitter
-    isinf(amplitude[1]) && (amplitude[1] = 0)
 
     unwrap!(phase)
 

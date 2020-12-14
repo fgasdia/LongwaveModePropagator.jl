@@ -443,10 +443,11 @@ function Efield!(E, modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, 
         E[i] *= Q/sqrt(abs(sin(X[i]/params.earthradius)))
     end
 
-    # At transmitter (≈ within a meter from it), E is complex NaN or Inf
+    # At transmitter (within 1 meter from it), E is complex NaN or Inf
     if X[1] < 1
-        # TODO: accurate replacement?
-        E[1] = 0
+        # Used in LWPC `lw_sum_modes.for`, but not sure where they got it
+        # amplitude = 10log10(80*Q)
+        E[1] = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
     end
 
     return E
@@ -468,6 +469,17 @@ function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::
     txpower = power(tx)
     x = distance(rx, tx)
 
+    Q = 0.6822408*sqrt(frequency.f*txpower)
+
+    # At transmitter (within 1 meter from it), E is complex NaN or Inf
+    if x < 1
+        # Used in LWPC `lw_sum_modes.for`, but not sure where they got it
+        # amplitude = 10log10(80*Q)
+        E = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
+
+        return E
+    end
+
     E = zero(ComplexF64)
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
@@ -480,7 +492,6 @@ function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::
         E += txrxterm*cis(expterm*x)
     end
 
-    Q = 0.6822408*sqrt(frequency.f*txpower)
     E *= Q/sqrt(abs(sin(x/params.earthradius)))
 
     return E
@@ -596,6 +607,13 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
             end
             previous_eacount = current_eacount
         end
+    end
+
+    # At transmitter (within 1 meter from it), E is complex NaN or Inf
+    if X[1] < 1
+        # Used in LWPC `lw_sum_modes.for`, but not sure where they got it
+        # amplitude = 10log10(80*Q)
+        E[1] = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
     end
 
     return E
