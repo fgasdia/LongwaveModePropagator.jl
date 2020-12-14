@@ -1,7 +1,9 @@
 function randomwavefields()
     modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
+    heights = LMPParams().wavefieldheights
 
-    wavefields = LMP.Wavefields(LMPParams().wavefieldheights, modes)
+    v = rand(SVector{6,ComplexF64}, length(heights), length(modes))
+    wavefields = LMP.Wavefields(v, heights, modes)
 
     return modes, wavefields
 end
@@ -16,7 +18,7 @@ function test_Wavefields()
     @test LMP.nummodes(wavefields) == 10
 
     @test size(wavefields) == (length(wavefieldheights), 10)
-    @test view(wavefields, 1:5) == view(wavefields.v, 1:5)
+    @test isequal(view(wavefields, 1:5), view(wavefields.v, 1:5))
 
     newwavefields = similar(wavefields)
     @test size(newwavefields) == size(wavefields)
@@ -28,10 +30,10 @@ function test_Wavefields()
 
     # copy and ==
     cpwavefields = copy(wavefields)
-    @test cpwavefields == wavefields
-    @test cpwavefields.v == wavefields.v
     @test cpwavefields.heights == wavefields.heights
     @test cpwavefields.eas == wavefields.eas
+    @test isequal(cpwavefields.v, wavefields.v)
+    @test cpwavefields == wavefields
 
     # isvalid
     heights = LMP.heights(wavefields)
@@ -48,7 +50,7 @@ function test_Wavefields()
 end
 
 function test_WavefieldIntegrationParams(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     params = LMPParams()
     topheight = params.topheight
@@ -69,7 +71,7 @@ function test_integratewavefields_homogeneous(scenario)
     See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
     ==#
 
-    @unpack ea, bfield, tx, ground, species = scenario()
+    @unpack ea, bfield, tx, ground, species = scenario
     params = LMPParams(earthcurvature=false)
 
     ionobottom = params.curvatureheight
@@ -97,7 +99,7 @@ function test_wavefieldreflection(scenario)
     Confirm reflection coefficients from wavefields match with dr/dz calculation.
     ==#
 
-    @unpack ea, bfield, tx, ground, species = scenario()
+    @unpack ea, bfield, tx, ground, species = scenario
     params = LMPParams()
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
@@ -119,7 +121,7 @@ function test_wavefieldreflection(scenario)
 end
 
 function test_wavefieldreflection_resonant(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario()
+    @unpack ea, bfield, tx, ground, species = scenario
     params = LMPParams()
 
     ztop = params.topheight
@@ -139,7 +141,7 @@ function test_boundaryscalars(scenario)
     # Check if boundaryscalars match for isotropic=false and isotropic=true when both
     # actually are isotropic
 
-    @unpack ea, bfield, tx, ground, species = scenario()
+    @unpack ea, bfield, tx, ground, species = scenario
     params = LMPParams()
 
     ztop = params.topheight
@@ -159,7 +161,7 @@ function test_boundaryscalars(scenario)
 end
 
 function test_fieldstrengths(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario()
+    @unpack ea, bfield, tx, ground, species = scenario
     modes, wavefields = randomwavefields()
 
     modes = LMP.eigenangles(wavefields)

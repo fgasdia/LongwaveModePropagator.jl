@@ -6,10 +6,10 @@ function test_Species()
 end
 
 function test_BField()
-    @test isbits(BField(50e-6, π/2, 3π/2))
-    @test BField(0, π/2, 3π/2).B == 1e-15
-    @test_logs ((:warn, "B field magnitude of exactly 0 is not supported. Setting B = 1e-15."),
-        BField(0, π/2, 3π/2))
+    bfield = BField(50e-6, π/2, 3π/2)
+    @test isbits(bfield)
+    @test (@test_logs (:warn, "BField magnitude of exactly 0 is not supported."*
+                       " Setting B = 1e-16.") BField(0, π/2, 3π/2).B) == 1e-16
 
     #==
     dip and az
@@ -74,6 +74,6 @@ end
     test_BField()
     test_Ground()
     test_waitprofile()
-    @test electroncollisionfrequency(110e3) isa Real
-    @test ioncollisionfrequency(110e3) isa Real
+    @test electroncollisionfrequency(110e3) isa Float64
+    @test ioncollisionfrequency(110e3) isa Float64
 end

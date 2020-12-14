@@ -1,5 +1,5 @@
 function test_bookerquarticM(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
     q, B = LMP.bookerquartic(ea, M)
@@ -24,7 +24,7 @@ function test_bookerquarticM(scenario)
 end
 
 function test_bookerquarticT(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
     T = LMP.tmatrix(ea, M)
@@ -52,7 +52,7 @@ function test_bookerquarticT(scenario)
 end
 
 function test_bookerquartics(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
     T = LMP.tmatrix(ea, M)
@@ -67,7 +67,7 @@ function test_bookerquartics(scenario)
 end
 
 function test_bookerquarticM_deriv(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 
@@ -83,7 +83,7 @@ function test_bookerquarticM_deriv(scenario)
 end
 
 function test_bookerquarticT_deriv(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 
@@ -101,7 +101,7 @@ function test_bookerquarticT_deriv(scenario)
 end
 
 function test_bookerwavefields(scenario)
-    @unpack ea, bfield, tx, species = scenario()
+    @unpack ea, bfield, tx, species = scenario
 
     topheight = first(LMPParams().wavefieldheights)
     M = LMP.susceptibility(topheight, tx.frequency, bfield, species)
@@ -121,7 +121,7 @@ function test_bookerwavefields(scenario)
 end
 
 function test_bookerwavefields_deriv(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 
@@ -150,7 +150,7 @@ function test_bookerwavefields_deriv(scenario)
 end
 
 function test_bookerreflection_vertical(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
     R = LMP.bookerreflection(ea, M)
@@ -173,7 +173,7 @@ function sharpR!(f, dR, R, dW, W)
 end
 
 function test_bookerreflection(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 
@@ -210,8 +210,8 @@ function test_bookerreflection(scenario)
                           0, -Cinv, 0, Cinv,
                           1, 0, 1, 0)
 
-    f1 = Sv_inv*e1
-    f2 = Sv_inv*e2
+    f1 = Sv_inv*e[:,1]
+    f2 = Sv_inv*e[:,2]
 
     U = SMatrix{2,2}(f1[1], f1[2], f2[1], f2[2])
     D = SMatrix{2,2}(f1[3], f1[4], f2[3], f2[4])
@@ -220,7 +220,7 @@ function test_bookerreflection(scenario)
 end
 
 function test_dbookerreflection(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 

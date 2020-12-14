@@ -1,5 +1,5 @@
 function test_tmatrix_deriv(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 

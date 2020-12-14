@@ -1,5 +1,5 @@
 function test_susceptibility(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
 
     M1 = LMP.susceptibility(70e3, tx.frequency, bfield, species)
     M2 = LMP.susceptibility(70e3, tx.frequency, bfield, species, params=LMPParams())

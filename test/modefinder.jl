@@ -1,5 +1,5 @@
 function test_physicalmodeequation(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
 
     me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
@@ -30,23 +30,23 @@ function test_roots(scenario)
     @test LMP.isroot(z3) == false
 
     # filterroots! setup
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     me = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
     # nothing filtered
-    roots = copy(TEST_ROOTS)
+    roots = copy(TEST_ROOTS[scenario])
     @test LMP.filterroots!(roots, me) == roots
     @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
 
     # filter bad root
-    push!(roots, complex(1.5, -0.5))
-    @test LMP.filterroots!(roots, me) == TEST_ROOTS
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_ROOTS
+    push!(roots, EigenAngle(complex(1.5, -0.5)))
+    @test LMP.filterroots!(roots, me) == TEST_ROOTS[scenario]
+    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_ROOTS[scenario]
 
     # filter (or not) with different tolerance
     roots2 = copy(roots)
-    roots2[1] += 0.001
+    roots2[1] = EigenAngle(roots2[1].θ + 0.001)
     f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
     @test LMP.isroot(f, atol=0.5)  # NOTE: atol is for value of modal equation, not θ
     @test LMP.filterroots!(roots2, me, atol=0.5) == roots2
@@ -54,7 +54,7 @@ function test_roots(scenario)
 end
 
 function test_wmatrix(scenario)
-    @unpack ea, tx, bfield, species = scenario()
+    @unpack ea, tx, bfield, species = scenario
 
     C = ea.cosθ
     L = @SMatrix [C 0 -C 0;
@@ -70,7 +70,7 @@ function test_wmatrix(scenario)
 end
 
 function test_wmatrix_deriv(scenario)
-    @unpack tx, bfield, species = scenario()
+    @unpack tx, bfield, species = scenario
 
     M = LMP.susceptibility(80e3, tx.frequency, bfield, species)
 
@@ -87,7 +87,7 @@ function test_wmatrix_deriv(scenario)
 end
 
 function test_dRdz(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
 
     params = LMPParams()
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
@@ -101,7 +101,7 @@ function test_dRdz(scenario)
 end
 
 function test_dRdθdz(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
 
     params = LMPParams()
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
@@ -127,7 +127,7 @@ function test_dRdθdz(scenario)
 end
 
 function test_integratedreflection_vertical(scenario)
-    @unpack ea, tx, ground, bfield, species = scenario()
+    @unpack ea, tx, ground, bfield, species = scenario
 
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     me = LMP.PhysicalModeEquation(tx.frequency, waveguide)
@@ -138,7 +138,7 @@ function test_integratedreflection_vertical(scenario)
 end
 
 function test_integratedreflection_deriv(scenario)
-    @unpack tx, ground, bfield, species = scenario()
+    @unpack tx, ground, bfield, species = scenario
     freq = tx.frequency
 
     params = LMPParams()
@@ -174,7 +174,7 @@ function test_integratedreflection_deriv(scenario)
 end
 
 function test_fresnelreflection(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
 
     # PEC ground
     pec_ground = LMP.Ground(1, 1e12)
@@ -188,7 +188,7 @@ function test_fresnelreflection(scenario)
 end
 
 function test_fresnelreflection_deriv(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
     freq = tx.frequency
 
     dRgtmp(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ()))
@@ -210,7 +210,7 @@ function test_fresnelreflection_deriv(scenario)
 end
 
 function test_modalequation_resonant(scenario)
-    @unpack ea, tx, bfield, species, ground = scenario()
+    @unpack ea, tx, bfield, species, ground = scenario
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
 
@@ -230,7 +230,7 @@ function test_modalequation_resonant(scenario)
 end
 
 function test_modalequation_deriv(scenario)
-    @unpack ea, tx, ground, bfield, species = scenario()
+    @unpack ea, tx, ground, bfield, species = scenario
     freq = tx.frequency
 
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
@@ -249,7 +249,7 @@ function test_modalequation_deriv(scenario)
 end
 
 function test_findmodes(scenario)
-    @unpack tx, bfield, species, ground = scenario()
+    @unpack tx, bfield, species, ground = scenario
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
     modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
