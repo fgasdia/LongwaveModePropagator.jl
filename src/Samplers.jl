@@ -18,25 +18,35 @@ end
 """
     Sampler{T} <: AbstractSampler{T}
 
-`Sampler` types sample the field specified by `Fields.Field` at `altitude` and ground
-`distance` from the transmitter.
+`Sampler` types sample (measure) the electromagnetic field in the waveguide.
+
+# Fields
+
+- `distance::T`: ground distance from the transmitter in meters.
+- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
+- `altitude::Float64`: height above the ground in meters.
 """
 struct Sampler{T} <: AbstractSampler{T}
     distance::T
-    altitude::Float64
     fieldcomponent::Fields.Field
+    altitude::Float64
 
-    Sampler(d::T, fc) where T = distancechecks(d, Sampler) && new{T}(d, fc)
+    Sampler(d::T, fc, a) where T = distancechecks(d, Sampler) && new{T}(d, fc, a)
 end
-altitude(s::Sampler) = s.altitude
 distance(s::Sampler) = s.distance
 distance(s::Sampler,t::Transmitter) = s.distance
 fieldcomponent(s::Sampler) = s.fieldcomponent
+altitude(s::Sampler) = s.altitude
 
 """
     GroundSampler{T} <: AbstractSampler{T}
 
 `GroundSamplers` are `Sampler` types with an altitude of zero.
+
+# Fields
+
+- `distance::T`: ground distance from the transmitter in meters.
+- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
 """
 struct GroundSampler{T} <: AbstractSampler{T}
     distance::T  # T is usually <: AbstractVector but could be a scalar
@@ -44,10 +54,10 @@ struct GroundSampler{T} <: AbstractSampler{T}
 
     GroundSampler(d::T, fc) where T = distancechecks(d, GroundSampler) && new{T}(d, fc)
 end
-altitude(g::GroundSampler) = 0.0
 distance(g::GroundSampler) = g.distance
 distance(g::GroundSampler,t::Transmitter) = g.distance
 fieldcomponent(g::GroundSampler) = g.fieldcomponent
+altitude(g::GroundSampler) = 0.0
 
 """
     Receiver{<:Antenna}
