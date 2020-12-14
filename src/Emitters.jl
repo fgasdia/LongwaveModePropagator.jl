@@ -74,28 +74,28 @@ inclination(t::Transmitter) = inclination(t.antenna)
 power(t::Transmitter) = t.power
 
 """
-    Transmitter(name, lat, lon, freq)
+    Transmitter(name, lat, lon, frequency)
 
 Return a `Transmitter` with a `VerticalDipole` antenna and transmit power of 1000 W.
 """
-Transmitter(name, lat, lon, freq) =
-    Transmitter{VerticalDipole}(name, lat, lon, VerticalDipole(), Frequency(freq), 1000)
+Transmitter(name, lat, lon, frequency) =
+    Transmitter{VerticalDipole}(name, lat, lon, VerticalDipole(), Frequency(frequency), 1000)
 
 """
-    Transmitter(freq)
+    Transmitter(frequency)
 
 Return a `Transmitter` with zeroed geographic position, 1000 W transmit power, and
 `VerticalDipole` antenna.
 """
-Transmitter(freq) = Transmitter("", 0, 0, freq)
+Transmitter(frequency) = Transmitter("", 0, 0, frequency)
 
 """
-    Transmitter(freq, power, antenna)
+    Transmitter(antenna, frequency, power)
 
 Return a `Transmitter` with zeroed geographic position.
 """
-Transmitter(antenna::A, freq::Frequency, power) where {A<:Antenna} =
-    Transmitter{A}("", 0, 0, antenna, Frequency(freq), power)
+Transmitter(antenna::A, frequency, power) where {A<:Antenna} =
+    Transmitter{A}("", 0, 0, antenna, Frequency(frequency), power)
 
 """
     AirborneTransmitter{A<:Antenna} <: Emitter

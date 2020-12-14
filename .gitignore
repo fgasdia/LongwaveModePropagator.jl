@@ -1,6 +1,6 @@
-*.svg
 python_tests/
 *.xlsx
-
+.stignore
+*.svg
 *.png
-
+!test/verticalB.log

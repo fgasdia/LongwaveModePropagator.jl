@@ -56,8 +56,6 @@ inclination(d::Dipole) = d.inclination_angle
     VerticalDipole
 
 Dipole antenna with inclination angle ``γ = 0`` from the vertical.
-
-`azimuth(VerticalDipole())` returns `0.0` but physically this has little meaning.
 """
 struct VerticalDipole <: AbstractDipole end
 azimuth(d::VerticalDipole) = 0.0

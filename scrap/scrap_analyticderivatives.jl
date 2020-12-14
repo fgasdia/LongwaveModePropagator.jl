@@ -102,7 +102,8 @@ h2 = sympy.Function("h2")(z)
 
 f₁ = exp(z/Re)*(F₁*h1 + F₂*h2)
 
-1/(im*k)*diff(f₁, z)
+1/(1im*k)*diff(f₁, z)
+
 
 
 #

@@ -3,7 +3,7 @@ using LinearAlgebra, Statistics
 using StaticArrays
 using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
-using JSON3, StructTypes
+using JSON3, StructTypes, CSV
 using Interpolations, NLsolve, FiniteDiff
 
 using LongwaveModePropagator
@@ -109,6 +109,8 @@ err_func(a,b) = maximum(abs.(a-b))
 
 
 @testset "LongwaveModePropagator" begin
+    include("LWPC_utils.jl")
+
     include("EigenAngles.jl")
     include("Geophysics.jl")
     include("Waveguides.jl")

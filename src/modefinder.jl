@@ -578,14 +578,27 @@ end
 Coordinate grids for `GRPF`
 ==#
 
+"""
+    defaultcoordinates(frequency)
+
+Generate `coordgrid` vector of complex coordinates to be used by `GRPF` in the search for
+waveguide modes.
+
+See also: [`findmodes`](@ref)
+"""
 function defaultcoordinates(frequency)
     # TODO: get a better idea of frequency transition
     if frequency > 15000
-        Zb = deg2rad(complex(30.0, -10.0))
+        Zb = deg2rad(complex(30.0, -12.0))
         Ze = deg2rad(complex(89.9, 0.0))
-        d = deg2rad(60)
-        Δr = deg2rad(0.4)
-        coordgrid = eiwgdomain(Zb, Ze, d, Δr)
+        cr, ci = deg2rad(75.0), deg2rad(-6.0)
+        dx, dy = deg2rad(0.5), deg2rad(0.5)
+        finedx, finedy = deg2rad(0.1), deg2rad(0.1)
+
+        g1 = uppertriangularrectdomain(Zb, Ze, dx, dy)
+        filter!(z->(real(z)<cr || imag(z)<ci), g1)
+        g2 = uppertriangularrectdomain(complex(cr, ci), Ze, finedx, finedy)
+        coordgrid = vcat(g1, g2)
     else
         Zb = deg2rad(complex(0.0, -30.0))
         Ze = deg2rad(complex(89.9, 0.0))

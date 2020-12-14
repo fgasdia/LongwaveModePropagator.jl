@@ -30,7 +30,7 @@ export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 export BasicInput, TableInput, BatchInput, BasicOutput, BatchOutput
 
 # Samplers.jl
-export Receiver, GroundSampler
+export Receiver, Sampler, GroundSampler
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
@@ -114,6 +114,7 @@ end
 export LMPParams
 
 #
+include("utils.jl")
 include("Antennas.jl")
 include("EigenAngles.jl")
 include("Emitters.jl")
@@ -158,7 +159,7 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
     E = Efield(modes, waveguide, tx, rx, params=params)
 
     amplitude = Vector{Float64}(undef, length(E))
-    phase = similar(amp)
+    phase = similar(amplitude)
     @inbounds for i in eachindex(E)
         e = E[i]
         amplitude[i] = 10log10(abs2(e))  # == 20log10(abs(E))
@@ -180,7 +181,7 @@ end
     propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
               coordgrid=nothing, params=LMPParams())
 
-For `AbstractSampler`s with a single `distance`, compute scalar `E`, `amp`, and `phase`.
+For `AbstractSampler`s with a single `distance`, compute scalar `E`, `amplitude`, and `phase`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
     coordgrid=nothing, params=LMPParams())
@@ -198,10 +199,10 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
     modes = findmodes(modeequation, coordgrid, params=params)
 
     E = Efield(modes, waveguide, tx, rx, params=params)
-    amp = 10log10(abs2(E))  # == 20log10(abs(E))
-    phase = angle(E)
+    amplitude = 10log10(abs2(E))  # == 20log10(abs(E))
+    phase = angle(E)  # BUG? do we need to actually unwrap field all the way from tx?
 
-    return E, amp, phase
+    return E, amplitude, phase
 end
 
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
@@ -246,23 +247,23 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
     E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx, params=params)
 
-    amp = Vector{Float64}(undef, length(E))
-    phase = similar(amp)
+    amplitude = Vector{Float64}(undef, length(E))
+    phase = similar(amplitude)
     @inbounds for i in eachindex(E)
         e = E[i]
-        amp[i] = 10log10(abs2(e))  # == 20log10(abs(E))
+        amplitude[i] = 10log10(abs2(e))  # == 20log10(abs(E))
         phase[i] = angle(e)  # ranges between -π:π rad
     end
 
     # Amplitude at transmitter may be calculated as Inf
     # TODO: replace with something accurate
-    isinf(amp[1]) && (amp[1] = 0)
+    isinf(amplitude[1]) && (amplitude[1] = 0)
 
     # By definition, phase at transmitter is 0, but is calculated as NaN
     isnan(phase[1]) && (phase[1] = 0)
     unwrap!(phase)
 
-    return E, amp, phase
+    return E, amplitude, phase
 end
 
 """
@@ -299,29 +300,3 @@ function propagate(file::AbstractString; incrementalwrite=false, append=false, c
 end
 
 end
-
-#==
-Utility functions
-==#
-
-"""
-    unwrap!(x)
-
-Unwrap a phase vector `x` in radians in-place.
-"""
-function unwrap!(x)
-	v = first(x)
-	@inbounds for k in eachindex(x)
-		x[k] = v = v + rem2pi(x[k]-v, RoundNearest)
-	end
-	return x
-end
-
-"""
-    pow23(x)
-
-Efficiently compute ``x^(2/3)``.
-"""
-function pow23 end
-pow23(x::Real) = cbrt(x)^2
-pow23(z::Complex) = exp(2/3*log(z))
