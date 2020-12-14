@@ -22,6 +22,9 @@ using ModifiedHankelFunctionsOfOrderOneThird
 # LongwaveModePropagator.jl
 export propagate
 
+# EigenAngle.jl
+export attenuation, phasevelocity
+
 # Geophysics.jl
 export BField, Species, EigenAngle, Fields, Ground
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency

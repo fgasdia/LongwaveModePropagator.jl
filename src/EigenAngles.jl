@@ -91,3 +91,30 @@ function referencetoground(x; params=LMPParams())
     @unpack earthradius, curvatureheight = params
     return x/sqrt(1 - 2/earthradius*curvatureheight)
 end
+
+"""
+    attenuation(ea, frequency::Frequency; params=LMPParams())
+
+Compute attenuation of `ea`.
+
+This function internally references `ea` to the ground.
+"""
+function attenuation(ea, frequency::Frequency; params=LMPParams())
+    ea = EigenAngle(ea)
+    S₀ = referencetoground(ea.sinθ)
+    neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
+    return -neper2dB*frequency.k*imag(S₀)*1e6
+end
+
+"""
+    phasevelocity(ea)
+
+Compute the relative phase velocity ``v/c``.
+
+This function internally references `ea` to the ground.
+"""
+function phasevelocity(ea)
+    ea = EigenAngle(ea)
+    S₀ = referencetoground(ea.sinθ)
+    return 1/real(S₀)
+end
