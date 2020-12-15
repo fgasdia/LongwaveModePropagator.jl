@@ -562,9 +562,9 @@ function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
     # Scale tolerance for filtering
     # if tolerance is 1e-8, this rounds to 6 decimal places
     ndigits = round(Int, abs(log10(grpfparams.tolerance)+2), RoundDown)
-    filtertolerance = exp10(-ndigits)
 
     # Ensure roots are valid solutions to the modal equation
+    filtertolerance = exp10(-ndigits+1)  # +3 from the grpfparams.tolerannce
     filterroots!(roots, modeequation, atol=filtertolerance)
 
     # Remove any redundant modes
