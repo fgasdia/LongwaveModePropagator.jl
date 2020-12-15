@@ -2,8 +2,7 @@ module LongwaveModePropagator
 
 import Base: @_inline_meta, @propagate_inbounds, @_propagate_inbounds_meta
 import Base: ==
-using Dates
-using LinearAlgebra
+using Dates, LinearAlgebra
 
 using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
@@ -23,10 +22,10 @@ using ModifiedHankelFunctionsOfOrderOneThird
 export propagate
 
 # EigenAngle.jl
-export attenuation, phasevelocity
+export attenuation, phasevelocity, referencetoground
 
 # Geophysics.jl
-export BField, Species, EigenAngle, Fields, Ground
+export BField, Species, EigenAngle, Fields, Ground, GROUND
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl
@@ -34,22 +33,18 @@ export BasicInput, TableInput, BatchInput, BasicOutput, BatchOutput
 
 # Samplers.jl
 export Receiver, Sampler, GroundSampler
+export distance
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
+export inclination, azimuth, power
 
 # modefinder.jl
-export findmodes
+export findmodes, PhysicalModeEquation
 
 # Waveguides.jl
 export HomogeneousWaveguide, SegmentedWaveguide
 
-const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't zero, many assumptions break
-
-struct Dθ end
-
-# Concrete types defined in relevant files, e.g. `modefinder.jl` for `PhysicalModeEquation`
-abstract type ModeEquation end
 
 """
     IntegrationParams{T}
@@ -59,20 +54,19 @@ coefficient matrix in `modefinder.jl`.
 
 # Fields
 
-- `tolerance::Float64`: integration `atol` and `rtol`.
-- `solver::T`: a `DifferentialEquations.jl` solver.
-- `force_dtmin::Bool`: if true, continue integration when solver reaches minimum step size.
+- `tolerance::Float64 = 1e-7`: integration `atol` and `rtol`.
+- `solver::T = OwrenZen5()`: a `DifferentialEquations.jl` solver.
+- `force_dtmin::Bool = false`: if true, continue integration when solver reaches minimum
+    step size.
 """
-struct IntegrationParams{T}
-    tolerance::Float64
-    solver::T
-    force_dtmin::Bool
+@with_kw struct IntegrationParams{T}
+    tolerance::Float64 = 1e-7
+    solver::T = OwrenZen5()
+    force_dtmin::Bool = false
 end
-
 export IntegrationParams
 
 const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
-const DEFAULT_INTEGRATIONPARAMS = IntegrationParams(1e-7, OwrenZen5(), false)
 
 """
     LMPParams{T,H <: AbstractRange{Float64}}
@@ -110,11 +104,23 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     earthcurvature::Bool = true
     curvatureheight::Float64 = 50e3  # m
     grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
-    integrationparams::IntegrationParams{T} = DEFAULT_INTEGRATIONPARAMS
+    integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0, length=513)
 end
-
 export LMPParams
+
+# Concrete subtypes defined in files, e.g. `modefinder.jl` for `PhysicalModeEquation`
+abstract type ModeEquation end
+
+"Indicates derivative with respect to eigenangle ``θ``."
+struct Dθ end
+
+"""
+Bottom of reflection coefficient integration. `LongwaveModePropagator.jl` assumes
+`BOTTOMHEIGHT = 0.0`.
+"""
+const BOTTOMHEIGHT = 0.0  # WARNING: if this isn't zero, many assumptions break
+
 
 #
 include("utils.jl")

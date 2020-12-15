@@ -35,14 +35,14 @@ function test_roots(scenario)
     me = LMP.PhysicalModeEquation(tx.frequency, waveguide)
 
     # nothing filtered
-    roots = copy(TEST_ROOTS[scenario])
+    roots = copy(TEST_MODES[scenario])
     @test LMP.filterroots!(roots, me) == roots
     @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
 
     # filter bad root
     push!(roots, EigenAngle(complex(1.5, -0.5)))
-    @test LMP.filterroots!(roots, me) == TEST_ROOTS[scenario]
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_ROOTS[scenario]
+    @test LMP.filterroots!(roots, me) == TEST_MODES[scenario]
+    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_MODES[scenario]
 
     # filter (or not) with different tolerance
     roots2 = copy(roots)
@@ -81,7 +81,7 @@ function test_wmatrix_deriv(scenario)
             dW(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M);
                      dT = LMP.dtmatrix(ea, M); LMP.dwmatrix(ea, T, dT)[i][j])
 
-            @test err_func(dW.(θs), dWref) < 1e-3
+            @test maxabsdiff(dW.(θs), dWref) < 1e-3
         end
     end
 end
@@ -122,7 +122,7 @@ function test_dRdθdz(scenario)
         dRdθ(θ) = dRdθtmp(θ)[SVector(3,4),:][i]
 
         @test dRfcn.(θs) ≈ dR.(θs)
-        @test err_func(dRdθ.(θs), dRdθref) < 1e-6
+        @test maxabsdiff(dRdθ.(θs), dRdθref) < 1e-6
     end
 end
 
@@ -167,7 +167,7 @@ function test_integratedreflection_deriv(scenario)
         Rr = getindex.(Rrefs, i)
         dRr = getindex.(dRrefs, i)
 
-        # err_func criteria doesn't capture range of R and dR so rtol is used
+        # maxabsdiff criteria doesn't capture range of R and dR so rtol is used
         @test isapprox(R, Rr, rtol=1e-5)
         @test isapprox(dR, dRr, rtol=1e-3)
     end
@@ -199,7 +199,7 @@ function test_fresnelreflection_deriv(scenario)
         dRg(θ) = dRgtmp(θ)[2][i]
 
         @test Rgref.(θs) ≈ Rg.(θs)
-        @test err_func(dRg.(θs), dRgref) < 1e-6
+        @test maxabsdiff(dRg.(θs), dRgref) < 1e-6
     end
 
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
@@ -245,7 +245,7 @@ function test_modalequation_deriv(scenario)
         dFs[i] = dFdθ
     end
 
-    @test isapprox(dFs, dFref, rtol=1e-4)
+    @test isapprox(dFs, dFref, rtol=1e-3)
 end
 
 function test_findmodes(scenario)
@@ -261,12 +261,13 @@ function test_findmodes(scenario)
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation, params=params)
+        LMP.isroot(f) || return f
         @test LMP.isroot(f)
     end
 
     # return modes
 end
-#
+
 # function evalroot(root, scenario)
 #     @unpack tx, bfield, species, ground = scenario
 #     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
@@ -297,6 +298,15 @@ end
 
         test_findmodes(scn)
     end
+
+    # Fill in TEST_MODES
+    @info "Mode finding..."
+    for scenario in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+        if !haskey(TEST_MODES, scenario)
+            TEST_MODES[scenario] = findroots(scenario)
+        end
+    end
+
     for scn in (resonant_scenario, )
         test_roots(scn)
         test_modalequation_resonant(scn)

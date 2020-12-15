@@ -3,21 +3,29 @@
 ################
 
 """
-    ExcitationFactor{T}
+    ExcitationFactor{T,T2}
 
 Constants used in calculating excitation factors and height gains.
 
 # Fields
 
-- `F₁::T`
+- `F₁::T`: height gain constant. See [^Pappert1976].
 - `F₂::T`
 - `F₃::T`
 - `F₄::T`
 - `h₁0::T`: first modified Hankel function of order 1/3 at the ground.
 - `h₂0::T`: second modified Hankel function of order 1/3 at the ground.
 - `EyHy::T`: polarization ratio ``Ey/Hy``, derived from reflection coefficients (or ``T``s).
+- `Rg::T2`: ground reflection coefficient matrix.
+
+# References
+
+[^Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
+    with allowance for elevated, arbitrarily oriented electric dipole antennas,” Naval
+    Electronics Laboratory Center, San Diego, CA, Interim Report 771, Oct. 1976. [Online].
+    Available: http://archive.org/details/DTIC_ADA033412.
 """
-struct ExcitationFactor{T}
+struct ExcitationFactor{T,T2}
     F₁::T
     F₂::T
     F₃::T
@@ -25,6 +33,7 @@ struct ExcitationFactor{T}
     h₁0::T
     h₂0::T
     EyHy::T
+    Rg::T2
 end
 
 """
@@ -61,12 +70,9 @@ function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPPa
 
     @unpack earthradius = params
 
-    # Eigenangle `ea` should be referenced to `curvatureheight`.
-    # See, e.g. [^Morfitt1980] pg. 17
-
     # Precompute
     α = 2/earthradius
-    tmp1 = pow23(α/k)/2  # ½(a/k)^(2/3)
+    tmp1 = pow23(α/k)/2  # 1/2*(a/k)^(2/3)
 
     q₀ = pow23(k/α)*C²  # (a/k)^(-2/3)*C²
     h₁0, h₂0, dh₁0, dh₂0 = modifiedhankel(q₀)
@@ -74,7 +80,7 @@ function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPPa
     H₁0 = dh₁0 + tmp1*h₁0
     H₂0 = dh₂0 + tmp1*h₂0
 
-    n₀² = 1  # modified index of refraction (free space) squared referenced to ground
+    n₀² = 1  # modified free space index of refraction squared, referenced to ground
     Ng² = complex(ϵᵣ, -σ/(ω*E0))  # ground index of refraction
 
     # Precompute
@@ -88,24 +94,28 @@ function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPPa
     # ``EyHy = ey/hy``. Also known as `f0fr` or `f`.
     # It is a polarization ratio that adds the proper amount of TE wave when the y component
     # of the magnetic field is normalized to unity at the ground.
-    # A principally TM mode will have `1 - R[2,2]Rg[2,2]` very small and EyHy very large,
-    # resulting in the use of the first equation below. Conversely, a principally TE mode
-    # will have `1 - R[1,1]*Rg[1,1]` very small and EyHy will be very small, so we use the
-    # second equation below. [^Ferguson1980] pg. 58
-    if abs2(1 - R[1,1]*Rg[1,1]) > abs2(1 - R[2,2]*Rg[2,2])
-        EyHy = (1 + Rg[2,2])*(1 - R[1,1]*Rg[1,1])/((1 + Rg[1,1])*R[1,2]*Rg[2,2])
-    else
+    # A principally TE mode will have `1 - R[1,1]*Rg[1,1]` very small and EyHy will be very
+    # small, so we use the first equation below. Conversely, a principally TM mode will have
+    # `1 - R[2,2]Rg[2,2]` very small and EyHy very large, resulting in the use of the second
+    # equation below. [^Ferguson1980] pg. 58 seems to suggest the use of the opposite, but
+    # LWPC uses the form used here and this makes sense because there are more working
+    # decimal places.
+    if abs2(1 - R[1,1]*Rg[1,1]) < abs2(1 - R[2,2]*Rg[2,2])
+        # EyHy = T₃/T₁
         EyHy = (1 + Rg[2,2])*R[2,1]*Rg[1,1]/((1 + Rg[1,1])*(1 - R[2,2]*Rg[2,2]))
+    else
+        # EyHy = T₂/(T₃*T₄)
+        EyHy = (1 + Rg[2,2])*(1 - R[1,1]*Rg[1,1])/((1 + Rg[1,1])*R[1,2]*Rg[2,2])
     end
 
-    return ExcitationFactor(F₁, F₂, F₃, F₄, h₁0, h₂0, EyHy)
+    return ExcitationFactor(F₁, F₂, F₃, F₄, h₁0, h₂0, EyHy, Rg)
 end
 
 """
     excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor; params=LMPParams())
 
 Compute excitation factors for the ``Hy`` field at the emitter returned as the tuple
-`(λv, λe, λb)` for vertical, end-on, and broadside dipoles.
+`(λv, λb, λe)` for vertical, broadside, and end-on dipoles.
 
 The excitation factor describes how efficiently the field component can be excited in the
 waveguide.
@@ -140,13 +150,12 @@ be found as:
     for air to air transmissions in the earth-ionosphere waveguide,” Radio Sci., vol. 21,
     no. 4, pp. 551–558, Jul. 1986, doi: 10.1029/RS021i004p00551.
 """
-function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor; params=LMPParams())
-
+function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LMPParams())
     S = ea.sinθ
     sqrtS = sqrt(S)
     S₀ = referencetoground(ea.sinθ, params=params)
 
-    @unpack F₁, F₂, F₃, F₄, h₁0, h₂0 = efconstants
+    @unpack F₁, F₂, F₃, F₄, h₁0, h₂0, Rg = efconstants
 
     # Unlike the formulations shown in the references, we scale these excitation factors
     # with `D##` instead of `EyHy` and appropriately don't scale the height gains.
@@ -165,22 +174,23 @@ function excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor; param
     T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]/(dFdθ*D₁₂)
     T₄ = R[1,2]/R[2,1]
 
+    # These are [^Pappert1983] terms divided by `-S`, the factor between Hy and Ez
     λv = -S₀*T₁
-    λe = T₁
     λb = T₃*T₄
+    λe = T₁
 
-    return λv, λe, λb
+    return λv, λb, λe
 end
 
 @doc raw"""
-    heightgains(z, ea₀, Rg, frequency, efconstants::ExcitationFactor; params=LMPParams())
+    heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
 
-Compute height-gain functions at height `z` returned as the tuple `(f₁, f₂, f₃)` where
+Compute height gain functions at height `z` returned as the tuple `(fz, fy, fx)` where
 eigenangle `ea₀` is referenced to the ground.
 
-- `f₁` is the height gain for the vertical electric field component ``Ez``.
-- `f₂` is the height gain for the horizontal electric field component ``Ex``.
-- `f₃` is the height gain for the transverse electric field component ``Ey``.
+- `fz` is the height gain for the vertical electric field component ``Ez``.
+- `fy` is the height gain for the transverse electric field component ``Ey``.
+- `fx` is the height gain for the horizontal electric field component ``Ex``.
 [^Pappert1983]
 
 !!! note
@@ -201,10 +211,10 @@ See also: [`excitationfactorconstants`](@ref)
     for air to air transmissions in the earth-ionosphere waveguide,” Radio Sci., vol. 21,
     no. 4, pp. 551–558, Jul. 1986, doi: 10.1029/RS021i004p00551.
 """
-function heightgains(z, ea₀, Rg, frequency, efconstants::ExcitationFactor; params=LMPParams())
-    C² = ea₀.cos²θ
+function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
+    C, C² = ea₀.cosθ, ea₀.cos²θ
     k = frequency.k
-    @unpack F₁, F₂, F₃, F₄ = efconstants
+    @unpack F₁, F₂, F₃, F₄, Rg = efconstants
     @unpack earthradius, earthcurvature = params
 
     if earthcurvature
@@ -221,24 +231,26 @@ function heightgains(z, ea₀, Rg, frequency, efconstants::ExcitationFactor; par
         F₂h₂z = F₂*h₂z
 
         # Height gain for Ez, also called f∥(z).
-        f₁ = expz*(F₁h₁z + F₂h₂z)
+        fz = expz*(F₁h₁z + F₂h₂z)
+
+        # Height gain for Ey, also called f⟂(z)
+        fy = (F₃*h₁z + F₄*h₂z)
 
         # Height gain for Ex, also called g(z)
         # f₂ = 1/(1im*k) df₁/dz
-        f₂ = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
-
-        # Height gain for Ey, also called f⟂(z)
-        f₃ = (F₃*h₁z + F₄*h₂z)
+        fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
     else
+        # BUG? I'm suspicious of the values, but would need to get modifiedhankel working
+        # with big floats to check against earthradius ≈ Inf
         # Flat earth, [^Pappert1983] pg. 12--13
         expiz = cis(k*C*z)
         expmiz = cis(-k*C*z)
-        f₁ = expiz + Rg[1,1]*expmiz
-        f₂ = C*(expiz - Rg[1,1]*expmiz)
-        f₃ = expiz + Rg[2,2]*expmiz
+        fz = expiz + Rg[1,1]*expmiz
+        fy = expiz + Rg[2,2]*expmiz
+        fx = C*(expiz - Rg[1,1]*expmiz)
     end
 
-    return f₁, f₂, f₃
+    return fz, fy, fx
 end
 
 @doc raw"""
@@ -251,10 +263,13 @@ The returned `txterm` is:
 ```math
 λ_v \cos(γ) f_z(zₜ) + λ_b \sin(γ)\sin(ϕ) f_y(zₜ) + λ_e \sin(γ)\cos(ϕ) f_z(zₜ)
 ```
-and `rxterm` is the height-gain function appropriate for the `rx` `fieldcomponent` `j`:
-```math
-fⱼ(zᵣ)
-```
+and `rxterm` is the height-gain function appropriate for `rx.fieldcomponent`:
+
+| `fieldcomponent` |    f(zᵣ)       |
+|:----------------:|:--------------:|
+|      ``z``       |  ``-S₀⋅f_z``   |
+|      ``y``       |  ``EyHy⋅f_y``  |
+|      ``x``       |     ``-f_x``   |
 
 # References
 
@@ -270,6 +285,8 @@ fⱼ(zᵣ)
 """
 function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPParams())
     @unpack ea, frequency, waveguide = modeequation
+    @unpack ground = waveguide
+
     ea₀ = referencetoground(ea, params=params)
     S₀ = ea₀.sinθ
 
@@ -286,33 +303,32 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
     t1 = Cγ
-    t2 = Sγ*Cϕ
-    t3 = Sγ*Sϕ
+    t2 = Sγ*Sϕ
+    t3 = Sγ*Cϕ
 
     dFdθ, R, Rg = solvedmodalequation(modeequation, params=params)
-    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, waveguide.ground,
-                                            params=params)
+    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground, params=params)
 
-    λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, params=params)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants, params=params)
 
     # Transmitter term
-    f₁t, f₂t, f₃t = heightgains(zt, ea₀, Rg, frequency, efconstants, params=params)
-    txterm = λv*f₁t*t1 + λe*f₂t*t2 + λb*f₃t*t3
+    fzt, fyt, fxt = heightgains(zt, ea₀, frequency, efconstants, params=params)
+    txterm = λv*fzt*t1 + λb*fyt*t2 + λe*fxt*t3
 
     # Receiver term
     if zr == zt
-        f₁r, f₂r, f₃r = f₁t, f₂t, f₃t
+        fzr, fyr, fxr = fzt, fyt, fxt
     else
-        f₁r, f₂r, f₃r = heightgains(zr, ea₀, Rg, frequency, efconstants, params=params)
+        fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants, params=params)
     end
 
     # TODO: Handle multiple fields - maybe just always return all 3?
     if rxfield == Fields.Ez
-        rxterm = -S₀*f₁r
-    elseif rxfield == Fields.Ex
-        rxterm = -f₂r
+        rxterm = -S₀*fzr
     elseif rxfield == Fields.Ey
-        rxterm = efconstants.EyHy*f₃r
+        rxterm = efconstants.EyHy*fyr
+    elseif rxfield == Fields.Ex
+        rxterm = -fxr
     end
 
     return txterm, rxterm
@@ -341,19 +357,20 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     dFdθ, R, Rg = solvedmodalequation(modeequation, params=params)
     efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground, params=params)
 
-    λv, λe, λb = excitationfactor(ea, dFdθ, R, Rg, efconstants, params=params)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants, params=params)
 
     # Transmitter term
-    f₁, f₂, f₃ = heightgains(0.0, ea₀, Rg, frequency, efconstants, params=params)
-    txterm = λv*f₁
+    # TODO: specialized heightgains for z = 0
+    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants, params=params)
+    txterm = λv*fz
 
     # Receiver term
     if rxfield == Fields.Ez
-        rxterm = -S₀*f₁
-    elseif rxfield == Fields.Ex
-        rxterm = -f₂
+        rxterm = -S₀*fz
     elseif rxfield == Fields.Ey
-        rxterm = efconstants.EyHy*f₃
+        rxterm = efconstants.EyHy*fy
+    elseif rxfield == Fields.Ex
+        rxterm = -fx
     end
 
     return txterm, rxterm

@@ -21,6 +21,8 @@ include("utils.jl")
 #==
 Scenarios
 ==#
+const TEST_MODES = Dict{Any,Vector{EigenAngle}}()
+
 const verticalB_scenario = (
     ea=EigenAngle(1.5 - 0.1im),
     bfield=BField(50e-6, π/2, 0),
@@ -127,6 +129,7 @@ function findroots(scenario)
     return LMP.findmodes(me, origcoords)
 end
 
+
 @testset "LongwaveModePropagator" begin
     include("EigenAngles.jl")
     include("Geophysics.jl")
@@ -136,14 +139,12 @@ end
     include("TMatrix.jl")
     include("bookerquartic.jl")
 
-    @info "Mode finding..."
-    const TEST_MODES = Dict{Any,Vector{EigenAngle}}((scenario, findroots(scenario))
-        for scenario in (verticalB_scenario, resonant_scenario, nonresonant_scenario))
-
     include("modefinder.jl")
     include("wavefields.jl")
     include("modeconversion.jl")
     include("modesum.jl")
 
-    include("test_IO.jl")
+    include("IO.jl")
+
+    include("lwpc_comparisons.jl")
 end

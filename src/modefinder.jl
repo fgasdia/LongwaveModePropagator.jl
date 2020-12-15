@@ -56,40 +56,40 @@ setea(θ, p::PhysicalModeEquation) =
     PhysicalModeEquation(EigenAngle(θ), p.frequency, p.waveguide)
 
 """
-    isroot(x::Real; atol=1e-3)
+    isroot(x::Real; atol=1e-2)
 
 Return `true` if the value of `x` is approximately equal to 0.
 """
-isroot(x::Real; atol=1e-3) = isapprox(x, 0, atol=atol)
+isroot(x::Real; atol=1e-2) = isapprox(x, 0, atol=atol)
 
 """
-    isroot(z::Complex; atol=1e-3)
+    isroot(z::Complex; atol=1e-2)
 
 Return `true` if both real and imaginary components of `z` are approximately equal to 0.
 """
-function isroot(z::Complex; atol=1e-3)
+function isroot(z::Complex; atol=1e-2)
     rz, iz = reim(z)
     isapprox(rz, 0, atol=atol) && isapprox(iz, 0, atol=atol)
 end
 
 """
-    filterroots!(roots, frequency, waveguide; atol=1e-3)
+    filterroots!(roots, frequency, waveguide; atol=1e-2)
 
 Remove elements from `roots` if they are not valid roots of the physical modal equation.
 
 See also: [`isroot`](@ref)
 """
-function filterroots!(roots, frequency, waveguide; atol=1e-3)
+function filterroots!(roots, frequency, waveguide; atol=1e-2)
     modeequation = PhysicalModeEquation(frequency, waveguide)
     return filterroots!(roots, modeequation, atol=atol)
 end
 
 """
-    filterroots!(roots, modeequation; atol=1e-3)
+    filterroots!(roots, modeequation; atol=1e-2)
 
 Use `modeequation` to validate and filter `roots`.
 """
-function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-3)
+function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
     i = 1
     while i <= length(roots)
         modeequation = setea(EigenAngle(roots[i]), modeequation)
@@ -548,6 +548,17 @@ Return eigenangles associated with the `waveguide` of `modeequation` within the 
 
 `origcoords` should be an array of complex numbers that make up the original grid over which
 the `GRPF` algorithm searches for roots of `modeequation`.
+
+Roots found by the `grpf` algorithm are confirmed to a tolerance of approximately 3 orders
+of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
+For example, if `grpfparams.tolerance = 1e-5`, then the real and imaginary components of
+the modal equation for each root must each be less than 1e-2. Typically the values of each
+component are close to `grpfparams.tolerance`.
+
+There is also a check for redundant modes that requires modes to be separated by at least
+2 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
+component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
+component of each mode must be separated by at least 1e-3 from every other mode.
 """
 function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
     @unpack grpfparams = params

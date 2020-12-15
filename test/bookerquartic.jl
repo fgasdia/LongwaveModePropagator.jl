@@ -78,7 +78,7 @@ function test_bookerquarticM_deriv(scenario)
         dq(θ) = (ea = EigenAngle(θ); (q, B) = LMP.bookerquartic(ea, M);
             sort!(q, by=LMP.upgoing); LMP.dbookerquartic(ea, M, q, B)[i])
 
-        @test err_func(dq.(θs), dqref) < 1e-6
+        @test maxabsdiff(dq.(θs), dqref) < 1e-6
     end
 end
 
@@ -96,7 +96,7 @@ function test_bookerquarticT_deriv(scenario)
                  (q, B) = LMP.bookerquartic(T);
                  LMP.sortquarticroots!(q); LMP.dbookerquartic(T, dT, q, B)[i])
 
-        @test err_func(dq.(θs), dqref) < 1e-6
+        @test maxabsdiff(dq.(θs), dqref) < 1e-6
     end
 end
 
@@ -133,7 +133,7 @@ function test_bookerwavefields_deriv(scenario)
         de(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[2][i])
 
         @test eref.(θs) ≈ e.(θs)
-        @test err_func(deref, de.(θs)) < 1e-3
+        @test maxabsdiff(deref, de.(θs)) < 1e-3
     end
 
     # Compare functions using `M` and `T`
@@ -197,7 +197,7 @@ function test_bookerreflection(scenario)
     end
 
     for n in 1:4
-        @test err_func(getindex.(initRs, n), getindex.(Rs, n)) < 1e-8
+        @test maxabsdiff(getindex.(initRs, n), getindex.(Rs, n)) < 1e-8
     end
 
     # Matrix solution
@@ -245,7 +245,7 @@ function test_dbookerreflection(scenario)
     end
 
     for n in 1:4
-        @test err_func(getindex.(initdRs, n), getindex.(dRs, n)) < 1e-4
+        @test maxabsdiff(getindex.(initdRs, n), getindex.(dRs, n)) < 1e-4
     end
 
     # Finite difference derivative
@@ -256,7 +256,7 @@ function test_dbookerreflection(scenario)
         dR(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[2][i])
 
         @test Rref.(θs) ≈ R.(θs)
-        @test err_func(dRref, dR.(θs)) < 1e-4
+        @test maxabsdiff(dRref, dR.(θs)) < 1e-4
     end
 end
 

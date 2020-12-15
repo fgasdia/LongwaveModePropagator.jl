@@ -9,7 +9,7 @@ function test_tmatrix_deriv(scenario)
             dTref = FiniteDiff.finite_difference_derivative(Tfcn, θs, Val{:central})
             dT(θ) = (ea = EigenAngle(θ); T = LMP.dtmatrix(ea, M)[i,j])
 
-            @test err_func(dT.(θs), dTref) < 1e-7
+            @test maxabsdiff(dT.(θs), dTref) < 1e-7
         end
     end
 end

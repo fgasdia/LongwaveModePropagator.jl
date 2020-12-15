@@ -40,10 +40,16 @@ Base.similar(A::Wavefields) = Wavefields(A.heights, A.eas)
 Base.copy(A::Wavefields) = Wavefields(copy(A.v), copy(A.heights), copy(A.eas))
 Base.view(A::Wavefields, I...) = view(A.v, I...)
 
+"""
+    ==(A::Wavefields, B::Wavefields)
+
+Weaker than Base.(==), this checks for `isequal` between `A.v` and `B.v` and true (==)
+between `heights` and `eas`.
+"""
 function (==)(A::Wavefields, B::Wavefields)
     A.heights == B.heights || return false
     A.eas == B.eas || return false
-    A.v == B.v || return false
+    isequal(A.v, B.v) || return false
     return true
 end
 

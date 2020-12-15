@@ -82,20 +82,20 @@ function referencetoground(ea::EigenAngle; params=LMPParams())
 end
 
 """
-    referencetoground(x; params=LMPParams())
+    referencetoground(sinθ; params=LMPParams())
 
-Reference ``x == sin(ea)`` from `params.curvatureheight` to the ground and return `sin(ea)` at
+Reference ``sin(θ)`` from `params.curvatureheight` to the ground and return ``sin(θ₀)`` at
 the ground.
 """
-function referencetoground(x; params=LMPParams())
+function referencetoground(sinθ; params=LMPParams())
     @unpack earthradius, curvatureheight = params
-    return x/sqrt(1 - 2/earthradius*curvatureheight)
+    return sinθ/sqrt(1 - 2/earthradius*curvatureheight)
 end
 
 """
     attenuation(ea, frequency::Frequency; params=LMPParams())
 
-Compute attenuation of `ea`.
+Compute attenuation of `ea` at the ground.
 
 This function internally references `ea` to the ground.
 """

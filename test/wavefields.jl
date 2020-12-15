@@ -12,8 +12,6 @@ function test_Wavefields()
     modes, wavefields = randomwavefields()
     @unpack wavefieldheights = LMPParams()
 
-    wavefields = LMP.Wavefields(wavefieldheights, modes)
-
     @test LMP.numheights(wavefields) == length(wavefieldheights)
     @test LMP.nummodes(wavefields) == 10
 
