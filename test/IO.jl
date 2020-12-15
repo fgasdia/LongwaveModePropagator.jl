@@ -281,8 +281,8 @@ function run_batchtablesave()
     return sres
 end
 
-function basic_bpm()
-    output = LMP.bpm("basic.json")
+function basic_lmp()
+    output = LMP.propagate("basic.json")
     return output
 end
 
@@ -309,13 +309,20 @@ end
     @test LMP.validlengths(read_batchbasic())
     @test LMP.parse("batchbasic.json") isa BatchInput{BasicInput}
 
+    @info "    Running:"
+    @info "    Segmented Wait ionospheres..."
     @test run_basic() isa BasicOutput
+    @info "    Segmented tabular ionospheres..."
     @test run_table() isa BasicOutput
+    @info "    Multiple segmented Wait ionospheres..."
     @test run_batchbasic() isa BatchOutput{BasicOutput}
+    @info "    Multiple segmented Wait ionospheres, appending..."
     @test run_batchbasicsave() isa BatchOutput{BasicOutput}
+    @info "    Multiple segmented tabular ionospheres, appending."
     @test run_batchtablesave() isa BatchOutput{BasicOutput}
 
-    @test basic_bpm() isa BasicOutput
+    @info "    `propagate` segmented Wait ionospheres"
+    @test basic_lmp() isa BasicOutput
 
     isfile("basic.json") && rm("basic.json")
     isfile("table.json") && rm("table.json")
@@ -323,5 +330,5 @@ end
     isfile("batchtable.json") && rm("batchtable.json")
     isfile("batchbasictest.json") && rm("batchbasictest.json")
     isfile("batchtabletest.json") && rm("batchtabletest.json")
-    isfile("basic_bpm.json") && rm("basic_bpm.json")
+    isfile("basic_lmp.json") && rm("basic_lmp.json")
 end

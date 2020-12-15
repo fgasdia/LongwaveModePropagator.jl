@@ -208,6 +208,10 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
     return E, amplitude, phase
 end
 
+"""
+    propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
+              coordgrid=nothing, params=LMPParams())
+"""
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LMPParams())
 
@@ -220,15 +224,15 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         end
     end
 
-    numsegments = length(waveguide)
+    J = length(waveguide)  # number of waveguide segments
 
     heighttype = typeof(params.wavefieldheights)
-    wavefields_vec = Vector{Wavefields{heighttype}}(undef, numsegments)
-    adjwavefields_vec = Vector{Wavefields{heighttype}}(undef, numsegments)
+    wavefields_vec = Vector{Wavefields{heighttype}}(undef, J)
+    adjwavefields_vec = Vector{Wavefields{heighttype}}(undef, J)
 
     # Calculate wavefields and adjoint wavefields for each segment of waveguide
-    for nsgmnt in 1:numsegments
-        wvg = waveguide[nsgmnt]
+    for j in 1:J
+        wvg = waveguide[j]
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
@@ -238,14 +242,14 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         # as wavefield
         adjwvg = adjoint(wvg)
 
-        wavefields = Wavefields(modes, params.wavefieldheights)
-        adjwavefields = Wavefields(modes, params.wavefieldheights)
+        wavefields = Wavefields(params.wavefieldheights, modes)
+        adjwavefields = Wavefields(params.wavefieldheights, modes)
 
         calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg,
                               params=params)
 
-        wavefields_vec[nsgmnt] = wavefields
-        adjwavefields_vec[nsgmnt] = adjwavefields
+        wavefields_vec[j] = wavefields
+        adjwavefields_vec[j] = adjwavefields
     end
 
     E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx, params=params)

@@ -384,7 +384,7 @@ function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, params=params)
+    E, amp, phase = propagate(waveguide, tx, rx, coordgrid=coordgrid, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -423,7 +423,7 @@ function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = bpm(waveguide, tx, rx, coordgrid=coordgrid, params=params)
+    E, amp, phase = propagate(waveguide, tx, rx, coordgrid=coordgrid, params=params)
 
     output = BasicOutput()
     output.name = s.name

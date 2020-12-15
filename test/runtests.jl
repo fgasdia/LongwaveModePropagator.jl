@@ -107,7 +107,7 @@ const segmented_scenario = (
                      z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                      electroncollisionfrequency),
              Species(QE, ME,
-                     z->waitprofile(z, 77, 0.35, cutoff_low=40e3),
+                     z->waitprofile(z, 80, 0.45, cutoff_low=40e3),
                      electroncollisionfrequency)],
     ground=[Ground(15, 0.001), Ground(15, 0.001)],
     tx=Transmitter(24e3),

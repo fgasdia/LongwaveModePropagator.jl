@@ -60,5 +60,7 @@ Base.size(w::SegmentedWaveguide) = size(w.v)
 Base.getindex(w::SegmentedWaveguide, i::Int) = w.v[i]
 Base.setindex(w::SegmentedWaveguide, x, i::Int) = (w.v[i] = x)
 Base.push!(w::SegmentedWaveguide, x) = push!(w.v, x)
+Base.iterate(w::SegmentedWaveguide) = iterate(w.v)
+Base.iterate(w::SegmentedWaveguide, state) = iterate(w.v, state)
 
 # TODO: WKBWaveguide (that's why we can't call SegmentedWaveguide -> InhomogeneousWaveguide)
