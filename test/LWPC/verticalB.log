@@ -1,12 +1,12 @@
 Program identifier: LWPM 2.1
 
-Run started  on 12-12-2020 at 17:33:36
+Run started  on 12-14-2020 at 18:06:02
 file-mds    Output\
 file-lwf    Output\
 file-prf    cases\
 file-ndx    cases\
-case-id     homogeneous_day
-tx          homogeneous_day
+case-id     verticalB
+tx          verticalB
 tx-data     fe71c8ec-2944-11eb-b113-54bf648adb1d 24.00 0.000 0.000 1.00 0.00 0.00 0.00
 receivers   0.000000 0.000000
 range-max   2000
@@ -22,18 +22,18 @@ xmtr_id                tlat    tlon   bearing  range
 VLFTX                  0.00    0.00      0.0    2000.
 
 LWFields
-file_id:  12Dec20 E5H LWPM 2.1 c:\lwpcv21_0\output\homogeneous_day.mds
-          12Dec20 E5H LWPM 2.1 c:\lwpcv21_0\output\homogeneous_day.lwf
+file_id:  14Dec20 PG3 LWPM 2.1 c:\lwpcv21_0\output\verticalb.mds
+          14Dec20 PG3 LWPM 2.1 c:\lwpcv21_0\output\verticalb.lwf
           ***
 prgm_id:  LWPM 2.1
-case_id:  homogeneous_day
+case_id:  verticalB
 prfl_id:  Homogeneous profile: 0.32000/75.0
 xmtr_id                tlat    tlon   freq
 VLFTX                   0.0     0.0   24.0
 path_id                lat1    lon1   lat2    lon2
 Receivers               0.0     0.0    0.0     0.0
 
- homogeneous_day
+ verticalB
  freq= 24.0 tlat=  0.0 tlon=   0.0 bearng=  0.0  power=   1.
  z component  incl= 0. headng=  0. talt= 0.0 ralt= 0.0
   dist   amplitude  phase    dist   amplitude  phase    dist   amplitude  phase
@@ -176,4 +176,4 @@ nc nrpt bearng  rhomx  rlat   rlon   rrho    pwr    dist incl headng talt ralt
  1  402    0.0  2000.   0.0    0.0     0.     1.      0.   0.    0.0  0.0  0.0
 quit
 
-Run finished on 12-12-2020 at 17:33:36
+Run finished on 12-14-2020 at 18:06:02

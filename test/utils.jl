@@ -1,3 +1,10 @@
+"""
+    readlog(file)
+
+Read standard LWPC `.log` files and return `distance`, `amplitude`, and `phase` vectors.
+
+The amplitude and phase at the receiver is not returned by this function.
+"""
 function readlog(file)
     # Search for first and last line of data
     lines = readlines(file)
@@ -12,31 +19,31 @@ function readlog(file)
 
     # Stack the columns together
     dist = vcat(raw.Column1, raw.Column4, raw.Column7)
-    amp = vcat(raw.Column2, raw.Column5, raw.Column8)
+    amplitude = vcat(raw.Column2, raw.Column5, raw.Column8)
     phase = vcat(raw.Column3, raw.Column6, raw.Column9)
 
     # Clean up end of the last column
     delidxs = ismissing.(dist)  # assuming these are at the end
     delidxs[findfirst(delidxs)-1] = true  # last valid entry is at receiver distance
     deleteat!(dist, delidxs)
-    deleteat!(amp, delidxs)
+    deleteat!(amplitude, delidxs)
     deleteat!(phase, delidxs)
 
-    # If phase gets above 9999 deg in log file, there is no space between amp and phase
-    if count(ismissing.(amp)) != count(ismissing.(phase))
+    # If phase gets above 9999 deg in log file, there is no space between amplitude and phase
+    if count(ismissing.(amplitude)) != count(ismissing.(phase))
         for i in eachindex(phase)
             if ismissing(phase[i])
-                phase[i] = parse(Float64, amp[i][end-9:end])  # phase is 10000.0000
-                amp[i] = parse(Float64, amp[i][1:end-10])
+                phase[i] = parse(Float64, amplitude[i][end-9:end])  # phase is 10000.0000
+                amplitude[i] = parse(Float64, amplitude[i][1:end-10])
             end
         end
         # Other elements in the same column will also be string type
-        for i in eachindex(amp)
-            if amp[i] isa String
-                amp[i] = parse(Float64, amp[i])
+        for i in eachindex(amplitude)
+            if amplitude[i] isa String
+                amplitude[i] = parse(Float64, amplitude[i])
             end
         end
     end
 
-    return dist, amp, phase
+    return dist, amplitude, phase
 end

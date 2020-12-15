@@ -3,4 +3,4 @@ python_tests/
 .stignore
 *.svg
 *.png
-!test/verticalB.log
+!test/LWPC/*.log

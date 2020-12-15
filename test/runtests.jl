@@ -14,7 +14,13 @@ const ME = LMP.ME
 
 const TEST_RNG = MersenneTwister(1234)
 
+const LWPC_PATH = "LWPC"
 
+include("utils.jl")
+
+#==
+Scenarios
+==#
 const verticalB_scenario = (
     ea=EigenAngle(1.5 - 0.1im),
     bfield=BField(50e-6, π/2, 0),
@@ -34,7 +40,7 @@ const isotropicB_resonant_scenario = (
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
-    rx=GroundSampler(2000e3, Fields.Ez)
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
 )
 
 const resonant_scenario = (
@@ -45,7 +51,29 @@ const resonant_scenario = (
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
-    rx=GroundSampler(2000e3, Fields.Ez)
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
+)
+
+const resonant_elevatedrx_scenario = (
+    ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
+    bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
+    species=Species(QE, ME,
+                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    electroncollisionfrequency),
+    ground=Ground(15, 0.001),
+    tx=Transmitter(24e3),
+    rx=Sampler(0:5e3:2000e3, Fields.Ez, 8e3)
+)
+
+const resonant_horizontal_scenario = (
+    ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
+    bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
+    species=Species(QE, ME,
+                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    electroncollisionfrequency),
+    ground=Ground(15, 0.001),
+    tx=Transmitter(24e3),
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ey)
 )
 
 const nonresonant_scenario = (
@@ -54,9 +82,9 @@ const nonresonant_scenario = (
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
                     electroncollisionfrequency),
-    ground=Ground(10, 0.0003),
+    ground=Ground(5, 0.00005),
     tx=Transmitter(24e3),
-    rx=GroundSampler(2000e3, Fields.Ez)
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
 )
 
 const homogeneousiono_scenario = (
@@ -67,7 +95,7 @@ const homogeneousiono_scenario = (
                     z->1e8),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
-    rx=GroundSampler(2000e3, Fields.Ez)
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
 )
 
 const segmented_scenario = (
@@ -81,12 +109,15 @@ const segmented_scenario = (
                      electroncollisionfrequency)],
     ground=[Ground(15, 0.001), Ground(15, 0.001)],
     tx=Transmitter(24e3),
-    rx=GroundSampler(2000e3, Fields.Ez),
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez),
     distances=[0.0, 1000e3],
 )
 
-const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i = range(deg2rad(-15), deg2rad(0), length=16)]
-err_func(a,b) = maximum(abs.(a-b))
+const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i =
+            range(deg2rad(-15), deg2rad(0), length=16)]
+
+maxabsdiff(a, b) = maximum(abs.(a - b))
+meanabsdiff(a, b) = mean(abs.(a - b))
 
 function findroots(scenario)
     @unpack bfield, species, ground, tx = scenario
@@ -97,8 +128,6 @@ function findroots(scenario)
 end
 
 @testset "LongwaveModePropagator" begin
-    include("LWPC_utils.jl")
-
     include("EigenAngles.jl")
     include("Geophysics.jl")
     include("Waveguides.jl")
@@ -107,12 +136,14 @@ end
     include("TMatrix.jl")
     include("bookerquartic.jl")
 
-    @test_nowarn const TEST_ROOTS = Dict{Any,Vector{EigenAngle}}((scenario, findroots(scenario))
+    @info "Mode finding..."
+    const TEST_MODES = Dict{Any,Vector{EigenAngle}}((scenario, findroots(scenario))
         for scenario in (verticalB_scenario, resonant_scenario, nonresonant_scenario))
 
     include("modefinder.jl")
     include("wavefields.jl")
     include("modeconversion.jl")
+    include("modesum.jl")
 
     include("test_IO.jl")
 end
