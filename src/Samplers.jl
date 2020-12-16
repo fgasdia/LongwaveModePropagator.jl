@@ -7,7 +7,7 @@ Subtypes of AbstractSampler have a position in the guide and a `Fields.Field`.
 """
 abstract type AbstractSampler{T} end
 
-function distancechecks(d, stype; earthradius=LWMSParams().earthradius)
+function distancechecks(d, stype; earthradius=LMPParams().earthradius)
     !issorted(d) && error("$stype distance must be sorted")
     minimum(d) < 0 && error("$stype distance must be positive")
     maximum(d) > (π*earthradius - 500e3) && @warn "antipode focusing effects not modeled"
@@ -18,26 +18,35 @@ end
 """
     Sampler{T} <: AbstractSampler{T}
 
-`Sampler` types sample the field specified by `Fields.Field` at `altitude` and
-distance(s) `distance` from the transmitter.
+`Sampler` types sample (measure) the electromagnetic field in the waveguide.
+
+# Fields
+
+- `distance::T`: ground distance from the transmitter in meters.
+- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
+- `altitude::Float64`: height above the ground in meters.
 """
 struct Sampler{T} <: AbstractSampler{T}
     distance::T
-    altitude::Float64
     fieldcomponent::Fields.Field
+    altitude::Float64
 
-    Sampler(d::T, fc) where T = distancechecks(d, Sampler) && new{T}(d, fc)
+    Sampler(d::T, fc, a) where T = distancechecks(d, Sampler) && new{T}(d, fc, a)
 end
-altitude(s::Sampler) = s.altitude
 distance(s::Sampler) = s.distance
 distance(s::Sampler,t::Transmitter) = s.distance
 fieldcomponent(s::Sampler) = s.fieldcomponent
+altitude(s::Sampler) = s.altitude
 
 """
     GroundSampler{T} <: AbstractSampler{T}
 
-Ground samplers are designed to sample the field specified by `Fields.Field`
-at distance(s) `distance` along the ground from the transmitter.
+`GroundSamplers` are `Sampler` types with an altitude of zero.
+
+# Fields
+
+- `distance::T`: ground distance from the transmitter in meters.
+- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
 """
 struct GroundSampler{T} <: AbstractSampler{T}
     distance::T  # T is usually <: AbstractVector but could be a scalar
@@ -45,18 +54,23 @@ struct GroundSampler{T} <: AbstractSampler{T}
 
     GroundSampler(d::T, fc) where T = distancechecks(d, GroundSampler) && new{T}(d, fc)
 end
-altitude(g::GroundSampler) = 0.0
 distance(g::GroundSampler) = g.distance
 distance(g::GroundSampler,t::Transmitter) = g.distance
 fieldcomponent(g::GroundSampler) = g.fieldcomponent
+altitude(g::GroundSampler) = 0.0
 
 """
     Receiver{<:Antenna}
 
-Represent a physical receiver with a `name`, `latitude`, `longitude`, `altitude`,
-and `antenna`.
+Represent a physical receiver.
 
-`Receiver`s are converted into `AbstractSampler` objects for simulation.
+# Fields
+
+- `name::String`: receiver name.
+- `latitude::Float64`: geographic latitude in degrees.
+- `longitude::Float64`: geographic longitude in degrees.
+- `altitude::Float64`: receiver altitude in meters above the ground.
+- `antenna::Antenna`: receiver antenna.
 """
 struct Receiver{A<:Antenna}
     name::String
@@ -69,8 +83,8 @@ end
 """
     Receiver()
 
-Returns a default `Receiver{VerticalDipole}` with an empty name and zeroed
-geographic position.
+Return a default `Receiver{VerticalDipole}` with an empty name and zeroed geographic
+position.
 """
 Receiver() = Receiver{VerticalDipole}("", 0.0, 0.0, 0.0, VerticalDipole())
 

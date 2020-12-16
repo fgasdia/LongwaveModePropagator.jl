@@ -1,6 +1,4 @@
-*.svg
-python_tests/
-*.xlsx
-
-*.png
-
+!test/LWPC/*.log
+.stignore
+*.json
+!test/corrupted_basic.json

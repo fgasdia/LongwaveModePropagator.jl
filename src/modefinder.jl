@@ -1,24 +1,56 @@
 #==
-Functions related to identifying resonant modes ("eigenangles") within the
-earth-ionosphere waveguide.
+Functions related to identifying resonant modes (eigenangles) within the earth-ionosphere
+waveguide.
 
-These functions use Budden's model, which represents the ground and ionosphere
-as sharply reflecting boundaries. The middle of the waveguide is filled with a
-fictitious medium with a refractive index that mimicks the propagation of the
-radio wave through free space over curved earth.
+These functions use Budden's model, which represents the ground and ionosphere as sharply
+reflecting boundaries. The middle of the waveguide is filled with a fictitious medium with a
+refractive index that mimicks the propagation of the radio wave through free space over
+curved earth.
 ==#
 
-abstract type ModeEquation end
+@doc raw"""
+    PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
 
+Parameters for solving the physical mode equation ``\det(Rg*R - I)``.
+
+Fields:
+
+    - ea::EigenAngle
+    - frequency::Frequency
+    - waveguide::W
+"""
 struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     ea::EigenAngle
     frequency::Frequency
     waveguide::W
 end
+
+"""
+    PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide)
+
+Create a `PhysicalModeEquation` struct with `ea = complex(0.0)`.
+
+See also: [`setea`](@ref)
+"""
 PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
-setea(ea::EigenAngle, p::PhysicalModeEquation) = PhysicalModeEquation(ea, p.frequency, p.waveguide)
 
+"""
+    setea(ea, me)
+
+Return `me` with new `ea`.
+"""
+setea(ea::EigenAngle, me::PhysicalModeEquation) =
+    PhysicalModeEquation(ea, me.frequency, me.waveguide)
+setea(θ, me::PhysicalModeEquation) =
+    PhysicalModeEquation(EigenAngle(θ), me.frequency, me.waveguide)
+
+"""
+    isroot(x::Real; atol=1e-2)
+
+Return `true` if the value of `x` is approximately equal to 0.
+"""
+isroot(x::Real; atol=1e-2) = isapprox(x, 0, atol=atol)
 
 """
     isroot(z::Complex; atol=1e-2)
@@ -31,33 +63,21 @@ function isroot(z::Complex; atol=1e-2)
 end
 
 """
-    isroot(x::Real; atol=1e-2)
-
-Return `true` if the value of `x` is approximately equal to 0.
-"""
-isroot(x::Real; atol=1e-2) = isapprox(z, 0, atol=atol)
-
-"""
     filterroots!(roots, frequency, waveguide; atol=1e-2)
 
-Remove elements from `roots` if they are not valid roots (determined by `isroot`) to the modal
-equation.
+Remove elements from `roots` if they are not valid roots of the physical modal equation.
 
-The absolute tolerance `atol` is passed through to `isroot`.
+See also: [`isroot`](@ref)
 """
 function filterroots!(roots, frequency, waveguide; atol=1e-2)
-    modeequation = PhysicalModeEquation(EigenAngle(0.0), frequency, waveguide)
-    filterroots!(roots, modeequation, atol=atol)
+    modeequation = PhysicalModeEquation(frequency, waveguide)
+    return filterroots!(roots, modeequation, atol=atol)
 end
 
 """
-    filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
+    filterroots!(roots, modeequation; atol=1e-2)
 
-Use existing `modeequation` to validate `roots`.
-
-!!! note
-
-    `modeequation.ea` will be modified by this function.
+Use `modeequation` to validate and filter `roots`.
 """
 function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
     i = 1
@@ -66,112 +86,42 @@ function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
         f = solvemodalequation(modeequation)
         isroot(f, atol=atol) ? (i += 1) : deleteat!(roots, i)
     end
-    return nothing
+    return roots
 end
-
 
 ##########
 # Reflection coefficients
 ##########
 
 """
-    bookerreflection(ea, M)
-
-Return ionosphere reflection matrix `R` for a sharply bounded anisotropic ionosphere""
-referenced to the ground.
-
-The reflection coefficient matrix for the sharply bounded case is used as a starting solution
-for integration of the reflection coefficient matrix through the ionosphere.
-
-From the differential equations for fields in the ionosphere ``de/dz = -ikTe``, assuming
-a homogeneous ionosphere ``(T - q)e = 0``. This only has a non-trivial solution if
-``det(T - q) = 0``, which is a fourth degree equation in ``q``, the Booker quartic.
-
-From linear algebra theory, the four ``q``s are eigenvalues of ``T`` and the ``e``s are the
-associated eigencolumns, then ``Teᵢ = qᵢeᵢ``. If any ``eᵢ`` is multiplied by a constant, it
-remains an eigencolumn of ``T``.
-
-The reflection coefficient is the ratio of field components, thus we are free to choose any
-consistent scaling of the fields ``e``. This function uses the scaling in [^Budden1988]
-pg. 190 and the expression for the reflection coefficient in [^Budden1988] pg. 307.
-
-# References
-
-[^Sheddy1968a]: C. H. Sheddy, “A General Analytic Solution for Reflection From a Sharply
-Bounded Anisotropic Ionosphere,” Radio Science, vol. 3, no. 8, pp. 792–795, Aug. 1968.
-[^Budden1988]:
-"""
-function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
-    e = bookerwavefields(ea, M)
-    return bookerreflection(ea, e)
-end
-
-function bookerreflection(ea::EigenAngle, e)
-    C = ea.cosθ
-
-    # Compute reflection matrix referenced to z=0 [^Budden1988] pg 307
-    d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
-    u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
-
-    R = d/u
-
-    return R
-end
-
-"""
-    bookerreflection(ea::EigenAngle, M, ::Dθ)
-
-Calculate the ionosphere reflection coefficient matrix ``R`` for a sharply bounded
-ionosphere as well as ``dR/dθ`` returned as tuple `R, dR`.
-"""
-function bookerreflection(ea::EigenAngle, M, ::Dθ)
-    S, C = ea.sinθ, ea.cosθ
-
-    e, de = bookerwavefields(ea, M, Dθ())
-
-    d = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
-    dd = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
-                      -S*e[4,2] + C*de[4,2] - de[1,2], S*e[2,2] - C*de[2,2] + de[3,2])
-
-    u = SMatrix{2,2}(C*e[4,1]+e[1,1], -C*e[2,1]-e[3,1], C*e[4,2]+e[1,2], -C*e[2,2]-e[3,2])
-    du = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] + de[1,1], S*e[2,1] - C*de[2,1] - de[3,1],
-                      -S*e[4,2] + C*de[4,2] + de[1,2], S*e[2,2] - C*de[2,2] - de[3,2])
-
-    R = d/u
-    dR = dd/u + d*(-u\du/u)
-
-    return R, dR
-end
-
-"""
     wmatrix(ea::EigenAngle, T)
 
-Compute submatrix elements of `W` for solving the differential equation of reflection matrix
-`R` wrt `z`.
+Compute the four submatrix elements of `W` used in the equation ``dR/dz`` returned as a
+tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
+
+Following Budden's formalism for the reflection matrix of a plane wave obliquely incident on
+the ionosphere [^Budden1955a], the wave below the ionosphere can be resolved into upgoing
+and downgoing waves of elliptical polarization, each of whose components are themselves
+resolved into a component with the electric field in the plane of propagation and a
+component perpendicular to the plane of propagation. The total field can be written in
+matrix form as ``e = Lf`` where ``L`` is a 4×4 matrix that simply selects and specifies the
+incident angle of the components and ``f`` is a column matrix of the complex amplitudes of
+the component waves. By inversion, ``f = L⁻¹e`` and its derivative with respect to height
+``z`` is ``f′ = -iL⁻¹TLf = -½iWf``. Then ``W = 2L⁻¹TL`` describes the change in amplitude of
+the upgoing and downgoing component waves.
 
 ``W`` is also known as ``S`` in many texts.
 
-Following Budden's [^Budden1955a] formalism for the reflection matrix of a plane wave
-obliquely incident on the ionosphere, the wave below the ionosphere can be resolved into
-upgoing and downgoing waves of elliptical polarization, each of whose components are
-themselves resolved into a component with the electric field in the plane of propagation and
-a component perpendicular to the plane of propagation. The total field can be written in
-matrix form as ``e = L q`` where ``L`` is a 4×4 matrix that simply selects and specifies the
-incident angle of the components and ``q`` is a column matrix of the complex amplitudes of
-the component waves. By inversion, ``q = L⁻¹ e`` and its derivative wrt height `z` is
-``q′ = -i L⁻¹ T L q = -½ i S q``. Then ``S = 2 L⁻¹ T L``, which is calculated by this
-function, describes the change in amplitude of the upgoing and downgoing component waves.
-
-See also: [`tmatrix`](@ref), [`susceptibility`](@ref)
+See also: [`tmatrix`](@ref)
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955.
-[^Sheddy1968]: C. H. Sheddy, R. Pappert, Y. Gough, and W. Moler, “A Fortran program for mode constants in an earth-ionosphere waveguide,” Naval Electronics Laboratory Center, San Diego, CA, Interim Report 683, May 1968.
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955.
 """
 function wmatrix(ea::EigenAngle, T)
-    C = ea.cosθ
-    Cinv = ea.secθ
+    C, Cinv = ea.cosθ, ea.secθ
 
     # Precompute
     T12Cinv = T[1,2]*Cinv
@@ -181,25 +131,19 @@ function wmatrix(ea::EigenAngle, T)
     CT41 = C*T[4,1]
 
     #==
-    Sheddy 1968 has at least 1 "typo": S11b should be written T14/C+CT41
-    Budden 1988 has at least 1 typo: -T11 - T14 + CT41 + T44 for element [1,1] of [2,1]
-
-    The analytical solution below was checked using SymPy.
-    There is also a test against 2*inv(L)*T*L:
-
     T = SMatrix{4,4}(T11, 0, T31, T41,
                      T12, 0, T32, T42,
-                     0, 1, 0, 0,
+                     0,   1,   0,   0,
                      T14, 0, T34, T44)
-    L = SMatrix{4,4}(C, 0, 0, 1,
+    L = SMatrix{4,4}(C,  0,  0, 1,
                      0, -1, -C, 0,
-                     -C, 0, 0, 1,
-                     0, -1, C, 0)
+                    -C,  0,  0, 1,
+                     0, -1,  C, 0)
     # 2*inv(L) = Linv2
-    L2inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
-                        0, -1, 0, -1,
-                        0, -Cinv, 0, Cinv,
-                        1, 0, 1, 0)
+    L2inv = SMatrix{4,4}(Cinv,  0, -Cinv,    0,
+                         0,    -1,     0,   -1,
+                         0, -Cinv,     0, Cinv,
+                         1,     0,     1,    0)
     W = Linv2*T*L
 
     # W = 2*(L\T)*L
@@ -246,21 +190,16 @@ function wmatrix(ea::EigenAngle, T)
 end
 
 """
-    wmatrix(ea, M, T, ::Dθ)
+    dwmatrix(ea::EigenAngle, T, dT)
 
-Return the 4 submatrix elements of the derivative of the `W` matrix wrt θ.
-
-See also: [`wmatrix`](@ref), [`susceptibility`](@ref), [`tmatrix`](@ref)
+Compute the four submatrix elements of ``dW/dθ``.
 """
-function wmatrix(ea::EigenAngle, M, T, ::Dθ)
-    C, S, C² = ea.cosθ, ea.sinθ, ea.cos²θ
-    Cinv = ea.secθ
+function dwmatrix(ea::EigenAngle, T, dT)
+    C, S, C², Cinv = ea.cosθ, ea.sinθ, ea.cos²θ, ea.secθ
     C²inv = Cinv^2
 
     dC = -S
     dCinv = S*C²inv
-
-    dT = tmatrix(ea, M, Dθ())  # many zeros
 
     dt12Cinv = dT[1,2]*Cinv + T[1,2]*dCinv
     dt14Cinv = dT[1,4]*Cinv + T[1,4]*dCinv
@@ -289,58 +228,85 @@ function wmatrix(ea::EigenAngle, M, T, ::Dθ)
 end
 
 """
-    dRdz(R, modeequation, z)
+    dRdz(R, p, z)
 
-Return the differential of the reflection matrix `R` wrt height `z`.
+Compute the differential of the reflection matrix ``dR/dz`` at height `z`.
 
-Following the Budden [^Budden1955a] formalism for the reflection of an (obliquely) incident
-plane wave from a horizontally stratified ionosphere, the differential of the reflection
-matrix `R` with height `z` can be described by ``2i R′ = W⁽²¹⁾ + W⁽²²⁾R - RW⁽¹¹⁾ - RW⁽¹²⁾R``.
-Integrating ``R′`` wrt height `z`, gives the reflection matrix ``R`` for the ionosphere.
+`p` is a tuple containing instances of `(PhysicalModeEquation, LMPParams)`.
+
+Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
+a horizontally stratified ionosphere [^Budden1955a], the differential of the reflection
+matrix `R` with height `z` can be described by
+```math
+dR/dz = k/(2i)⋅(W₂₁ + W₂₂R - RW₁₁ - RW₁₂R)
+```
+Integrating ``dR/dz`` downwards through the ionosphere gives the reflection matrix ``R`` for
+the ionosphere as if it were a sharp boundary at the stopping level with free space below.
+
+See also: [`dRdθdz`](@ref)
 
 # References
 
 [^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
-reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
-no. 1171, pp. 516–537, Feb. 1955.
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, p, z)
     modeequation, params = p
-    @unpack ea, frequency, waveguide = modeequation
+    @unpack ea, frequency = modeequation
 
     k = frequency.k
 
-    M = susceptibility(z, frequency, waveguide, params=params)
+    M = susceptibility(z, modeequation, params=params)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
-    # the factor k/(2i) isn't explicitly in Budden1955a b/c of his change of variable ``s = kz``
-    return -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
+    # the factor k/(2i) isn't explicitly in [^Budden1955a] because of his change of variable
+    # ``s = kz``
+    return k/2im*(W21 + W22*R - R*W11 - R*W12*R)
 end
 
+"""
+    dRdθdz(RdRdθ, p, z)
+
+Compute the differential ``dR/dθ/dz`` at height `z` returned as an `SMatrix{4,2}` with
+``dR/dz`` in the first 2 rows and ``dR/dθ/dz`` in the bottom 2 rows.
+
+`p` is a tuple containing instances of `(PhysicalModeEquation, LMPParams)`.
+
+See also: [`dRdz`](@ref)
+"""
 function dRdθdz(RdRdθ, p, z)
     modeequation, params = p
-    @unpack ea, frequency, waveguide = modeequation
+    @unpack ea, frequency = modeequation
 
     k = frequency.k
 
-    M = susceptibility(z, frequency, waveguide, params=params)
+    M = susceptibility(z, modeequation, params=params)
     T = tmatrix(ea, M)
+    dT = dtmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
-    dW11, dW21, dW12, dW22 = wmatrix(ea, M, T, Dθ())
+    dW11, dW21, dW12, dW22 = dwmatrix(ea, T, dT)
 
     R = RdRdθ[SVector(1,2),:]
     dRdθ = RdRdθ[SVector(3,4),:]
 
-    dz = -1im/2*k*(W21 + W22*R - R*W11 - R*W12*R)
-    dθdz = -1im/2*k*(dW21 + dW22*R + W22*dRdθ - (dRdθ*W11 + R*dW11) -
+    dz = k/2im*(W21 + W22*R - R*W11 - R*W12*R)
+    dθdz = k/2im*(dW21 + dW22*R + W22*dRdθ - (dRdθ*W11 + R*dW11) -
                     (dRdθ*W12*R + R*dW12*R + R*W12*dRdθ))
 
     return vcat(dz, dθdz)
 end
 
-function integratedreflection(modeequation::PhysicalModeEquation; params=LWMSParams())
+"""
+    integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
 
+Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` from
+`params.topheight`, returning the ionosphere reflection coefficient `R` at the ground.
+
+`params.integrationparams` are passed to `DifferentialEquations.jl`.
+"""
+function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
 
@@ -361,9 +327,9 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LWMSPar
     | 1e-8  | BS5               |  892, 442      |    9      |                        |
     ==#
 
-    # NOTE: When save_on=false, don't try interpolating the solution!
+    # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin, dt=1,
+                force_dtmin=force_dtmin, dt=1.0,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -371,12 +337,13 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LWMSPar
     return R
 end
 
-# This is kept as a completely separate function because the size of the matrix being
-# integrated is different and therefore the size of sol[end] is different too
-# The derivative terms are intertwined with the non-derivative terms so we can't do only
-# the derivative terms
-function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
+"""
+    integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
 
+Compute ``R`` and ``dR/dθ`` as an `SMatrix{4,2}` with ``R`` in rows (1, 2) and ``dR/dθ`` in
+rows (3, 4).
+"""
+function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, force_dtmin = integrationparams
 
@@ -384,10 +351,10 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
     Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
     RdRdθtop = vcat(Rtop, dRdθtop)
 
-    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
+    prob = ODEProblem{false}(dRdθdz, RdRdθtop, (topheight, BOTTOMHEIGHT),
+                             (modeequation, params))
 
-    # NOTE: When save_on=false, don't try interpolating the solution!
-    # Purposefully higher tolerance than non-derivative version
+    # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
                 force_dtmin=force_dtmin,
                 save_on=false, save_start=false, save_end=true)
@@ -397,24 +364,21 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
     return RdR
 end
 
-
 ##########
 # Ground reflection coefficient matrix
 ##########
 
 """
-    fresnelreflection(ea, ground, frequency)
+    fresnelreflection
 
-Return the Fresnel reflection coefficient matrix for the ground free-space interface at the
-ground (``z = 0``). Follows the formulation in [^Morfitt1976] pages 25-26.
-
-# References
-
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
-    for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
-    Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
+Compute the Fresnel reflection coefficient matrix for the ground-freespace interface at the
+ground.
 """
+function fresnelreflection end
+
+"`fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)`"
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
 
@@ -430,9 +394,17 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
 
     return Rg
 end
+
+"`fresnelreflection(m::PhysicalModeEquation)`"
 fresnelreflection(m::PhysicalModeEquation) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
 
+"""
+    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+
+Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
+with respect to ``θ`` returned as the tuple `(Rg, dRg)`.
+"""
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
     S2 = 2*S
@@ -455,6 +427,8 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
 
     return Rg, dRg
 end
+
+"`fresnelreflection(m::PhysicalModeEquation, ::Dθ)`"
 fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency, Dθ())
 
@@ -465,70 +439,119 @@ fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
 """
     modalequation(R, Rg)
 
-Return value of the determinental mode equation ``det(Rg R - I)`` given `R` and `Rg`.
+Compute the determinental mode equation ``det(Rg R - I)`` given reflection coefficients `R`
+and `Rg`.
 
-If the reflection matrix ``R₁`` represents the reflection coefficient at height ``z₁``, then
-the reflection coefficient at ``z₂`` is ``R₂ = R₁ exp(2ik(z₂ - z₁) sin(θ))``. For a wave that
-starts at the ground, reflects off the ionosphere at level ``h`` with ``R``, and then at the
-ground with ``Rg``, the fields must be multiplied by ``̅Rg R exp(-2ikh sin(θ))``. For a
-self-consistent waveguide mode, the resulting wave must be identifcal with the original
-wave, and a necessary and sufficient condition for this is that one eigenvalue of this matrix
-is unity. This leads to the mode equation [^Budden1962].
+A propagating waveguide mode requires that a wave, having reflected from the ionosphere and
+then the ground, must be identical with the original upgoing wave. This criteria is met at
+roots of the mode equation [^Budden1962].
+
+See also: [`modalequation`](@ref)
 
 # References
 
 [^Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
-radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A.
-Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962.
+    radio propagation by wave-guide modes,” Proceedings of the Royal Society of London.
+    Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553,
+    Feb. 1962.
 """
 function modalequation(R, Rg)
     return det(Rg*R - I)
 end
 
 """
-See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
+    dmodalequation(R, dR, Rg, dRg)
+
+Compute the derivative of the determinantal mode equation with respect to ``θ``.
+
+See also: [`modalequation`](@ref)
 """
-function modalequationdθ(R, dR, Rg, dRg)
+function dmodalequation(R, dR, Rg, dRg)
+    # See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
+
     A = Rg*R - I
     dA = dRg*R + Rg*dR
     return det(A)*tr(A\dA)
 end
 
-function solvemodalequation(modeequation::PhysicalModeEquation; params=LWMSParams())
+"""
+    solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
+
+Compute the ionosphere and ground reflection coefficients and return the value of the
+determinental modal equation associated with `modeequation`.
+
+See also: [`solvedmodalequation`](@ref)
+"""
+function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
     R = integratedreflection(modeequation, params=params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
     return f
 end
-function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LWMSParams())
+
+"""
+    solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
+
+Set `θ` for `modeequation` and then solve the modal equation.
+"""
+function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
     solvemodalequation(modeequation, params=params)
 end
 
 """
-This returns R and Rg in addition to df because the only time this function is needed, we also
-need R and Rg (in excitationfactors).
+    solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
+
+Compute the derivative of the modal equation with respect to ``θ``. The reflection
+coefficients `R` and `Rg` are also returned.
+
+See also: [`solvemodalequation`](@ref)
 """
-function solvemodalequation(modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
+function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
     RdR = integratedreflection(modeequation, Dθ(), params=params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
     Rg, dRg = fresnelreflection(modeequation, Dθ())
 
-    df = modalequationdθ(R, dR, Rg, dRg)
+    df = dmodalequation(R, dR, Rg, dRg)
     return df, R, Rg
 end
 
-function solvemodalequation(θ, modeequation::PhysicalModeEquation, ::Dθ; params=LWMSParams())
-    # Convenience function for `grpf`
+"""
+    solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
+
+Set `θ` for `modeequation` and then solve the derivative of the mode equation with respect
+to `θ`.
+"""
+function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, Dθ(), params=params)
+    solvedmodalequation(modeequation, params=params)
 end
 
-function findmodes(modeequation::ModeEquation, origcoords; params=LWMSParams(), atol=1e-2)
+"""
+    findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
+
+Return eigenangles associated with the `waveguide` of `modeequation` within the domain of
+`origcoords`.
+
+`origcoords` should be an array of complex numbers that make up the original grid over which
+the `GRPF` algorithm searches for roots of `modeequation`.
+
+Roots found by the `grpf` algorithm are confirmed to a tolerance of approximately 3 orders
+of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
+For example, if `grpfparams.tolerance = 1e-5`, then the real and imaginary components of
+the modal equation for each root must each be less than 1e-2. Typically the values of each
+component are close to `grpfparams.tolerance`.
+
+There is also a check for redundant modes that requires modes to be separated by at least
+2 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
+component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
+component of each mode must be separated by at least 1e-3 from every other mode.
+"""
+function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
     @unpack grpfparams = params
 
     # WARNING: If tolerance of mode finder is much less than the R integration
@@ -538,17 +561,56 @@ function findmodes(modeequation::ModeEquation, origcoords; params=LWMSParams(), 
     roots, poles = grpf(θ->solvemodalequation(θ, modeequation, params=params),
                         origcoords, grpfparams)
 
+    # Scale tolerance for filtering
+    # if tolerance is 1e-8, this rounds to 6 decimal places
+    ndigits = round(Int, abs(log10(grpfparams.tolerance)+2), RoundDown)
+
     # Ensure roots are valid solutions to the modal equation
-    filterroots!(roots, modeequation, atol=atol)
+    filtertolerance = exp10(-ndigits+1)  # +3 from the grpfparams.tolerannce
+    filterroots!(roots, modeequation, atol=filtertolerance)
 
     # Remove any redundant modes
-    # if tolerance is 1e-8, this rounds to 7 decimal places
     sort!(roots, by=reim, rev=true)
-    ndigits = round(Int, abs(log10(grpfparams.tolerance)+2), RoundDown)
     unique!(z->round(z, digits=ndigits), roots)
 
     return EigenAngle.(roots)
 end
+
+#==
+Coordinate grids for `GRPF`
+==#
+
+"""
+    defaultcoordinates(frequency)
+
+Generate `coordgrid` vector of complex coordinates to be used by `GRPF` in the search for
+waveguide modes.
+
+See also: [`findmodes`](@ref)
+"""
+function defaultcoordinates(frequency)
+    # TODO: get a better idea of frequency transition
+    if frequency > 15000
+        Zb = deg2rad(complex(30.0, -12.0))
+        Ze = deg2rad(complex(89.9, 0.0))
+        cr, ci = deg2rad(75.0), deg2rad(-6.0)
+        dx, dy = deg2rad(0.5), deg2rad(0.5)
+        finedx, finedy = deg2rad(0.1), deg2rad(0.1)
+
+        g1 = uppertriangularrectdomain(Zb, Ze, dx, dy)
+        filter!(z->(real(z)<cr || imag(z)<ci), g1)
+        g2 = uppertriangularrectdomain(complex(cr, ci), Ze, finedx, finedy)
+        coordgrid = vcat(g1, g2)
+    else
+        Zb = deg2rad(complex(0.0, -30.0))
+        Ze = deg2rad(complex(89.9, 0.0))
+        Δr = deg2rad(1.0)
+        coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
+    end
+
+    return coordgrid
+end
+defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
 
 """
     triangulardomain(Za, Zb, Zc, Δr)
@@ -626,26 +688,6 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     return v
 end
 
-"""
-    eiwgdomain(Zb, Ze, d, Δr)
-
-Generate a vector of complex coordinates as a rectangulardomain with Δr on the left
-and a uppertriangularrectdomain with Δr/5 on the right. The transition occurs at `d` in real.
-"""
-function eiwgdomain(Zb, Ze, d, Δr)
-    if real(Zb) > d
-        tricoords = uppertriangularrectdomain(Zb, Ze, Δr/5)
-    else
-        tricoords = uppertriangularrectdomain(complex(d, imag(Zb)), Ze, Δr/5)
-        rectcoords = rectangulardomain(Zb, complex(d, imag(Ze)), Δr)
-    end
-
-    origcoords = vcat(tricoords, rectcoords)
-    unique!(origcoords)
-
-    return origcoords
-end
-
 function uppertriangularrectdomain(Zb::Complex, Ze::Complex, dx, dy)
     rZb, iZb = reim(Zb)
     rZe, iZe = reim(Ze)
@@ -655,41 +697,9 @@ function uppertriangularrectdomain(Zb::Complex, Ze::Complex, dx, dy)
     Y = abs(iZe - iZb)
 
     n = ceil(Int, Y/dy)
-    dy = Y/n
+    dy = Y/n  # BUG are dx, dy arguments even being used?
 
     m = ceil(Int, X/sqrt(dx^2 - dy^2/4))
-    dx = X/m
-
-    slope = 1  # 45° angle
-
-    v = Vector{complex(typeof(X))}()
-    for j = 0:m  # col
-        x = rZb + dx*j
-
-        for i = 0:n  # row (we're traversing down column)
-            y = iZb + dy*i
-
-            if x <= (rZe - (iZe - y)/slope)
-                push!(v, complex(x, y))
-            end
-        end
-    end
-
-    return v
-end
-
-function uppertriangularrectdomain(Zb::Complex, Ze::Complex, Δr)
-    rZb, iZb = reim(Zb)
-    rZe, iZe = reim(Ze)
-
-    # Determine `dx` and `dy`
-    X = rZe - rZb
-    Y = abs(iZe - iZb)
-
-    n = ceil(Int, Y/Δr)
-    dy = Y/n
-
-    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
     dx = X/m
 
     slope = 1  # 45° angle

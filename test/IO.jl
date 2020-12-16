@@ -51,8 +51,8 @@ function generate_table()
     density = [Vector{Float64}(undef, length(altitude)) for i = 1:length(segment_ranges)]
     collision_frequency = similar(density)
     for i in eachindex(segment_ranges)
-        density[i] = LWMS.waitprofile.(altitude, hprimes[i], betas[i])
-        collision_frequency[i] = LWMS.electroncollisionfrequency.(altitude)
+        density[i] = LMP.waitprofile.(altitude, hprimes[i], betas[i])
+        collision_frequency[i] = LMP.electroncollisionfrequency.(altitude)
     end
 
     b_mags = fill(50e-6, length(segment_ranges))
@@ -113,8 +113,8 @@ function generate_batchtable()
     density = [Vector{Float64}(undef, length(altitude)) for i = 1:length(segment_ranges)]
     collision_frequency = similar(density)
     for i in eachindex(segment_ranges)
-        density[i] = LWMS.waitprofile.(altitude, hprimes[i], betas[i])
-        collision_frequency[i] = LWMS.electroncollisionfrequency.(altitude)
+        density[i] = LMP.waitprofile.(altitude, hprimes[i], betas[i])
+        collision_frequency[i] = LMP.electroncollisionfrequency.(altitude)
     end
 
     # Transmitter
@@ -250,39 +250,39 @@ function read_corrupted_basic()
 end
 
 function run_basic()
-    s = LWMS.parse("basic.json")
-    output = LWMS.buildrun(s)
+    s = LMP.parse("basic.json")
+    output = LMP.buildrun(s)
     return output
 end
 
 function run_table()
-    s = LWMS.parse("table.json")
-    output = LWMS.buildrun(s)
+    s = LMP.parse("table.json")
+    output = LMP.buildrun(s)
     return output
 end
 
 function run_batchbasic()
-    s = LWMS.parse("batchbasic.json")
-    output = LWMS.buildrun(s)
+    s = LMP.parse("batchbasic.json")
+    output = LMP.buildrun(s)
     return output
 end
 
 function run_batchbasicsave()
-    s = LWMS.parse("batchbasic.json")
-    output = LWMS.buildrunsave("batchbasictest.json", s)
-    sres = LWMS.parse("batchbasictest.json")
+    s = LMP.parse("batchbasic.json")
+    output = LMP.buildrunsave("batchbasictest.json", s)
+    sres = LMP.parse("batchbasictest.json")
     return sres
 end
 
 function run_batchtablesave()
-    s = LWMS.parse("batchtable.json")
-    output = LWMS.buildrunsave("batchtabletest.json", s)
-    sres = LWMS.parse("batchtabletest.json")
+    s = LMP.parse("batchtable.json")
+    output = LMP.buildrunsave("batchtabletest.json", s)
+    sres = LMP.parse("batchtabletest.json")
     return sres
 end
 
-function basic_bpm()
-    output = LWMS.bpm("basic.json")
+function basic_lmp()
+    output = LMP.propagate("basic.json")
     return output
 end
 
@@ -294,28 +294,35 @@ end
     generate_batchbasic()
     generate_batchtable()
 
-    @test LWMS.iscomplete(read_basic())
-    @test LWMS.validlengths(read_basic())
-    @test LWMS.iscomplete(read_corrupted_basic()) == false
-    @test LWMS.parse("basic.json") isa BasicInput
-    @test LWMS.parse("basic.json", BasicInput) isa BasicInput
+    @test LMP.iscomplete(read_basic())
+    @test LMP.validlengths(read_basic())
+    @test LMP.iscomplete(read_corrupted_basic()) == false
+    @test LMP.parse("basic.json") isa BasicInput
+    @test LMP.parse("basic.json", BasicInput) isa BasicInput
 
-    @test LWMS.iscomplete(read_table())
-    @test LWMS.validlengths(read_table())
-    @test LWMS.parse("table.json") isa TableInput
-    @test LWMS.parse("table.json", TableInput) isa TableInput
+    @test LMP.iscomplete(read_table())
+    @test LMP.validlengths(read_table())
+    @test LMP.parse("table.json") isa TableInput
+    @test LMP.parse("table.json", TableInput) isa TableInput
 
-    @test LWMS.iscomplete(read_batchbasic())
-    @test LWMS.validlengths(read_batchbasic())
-    @test LWMS.parse("batchbasic.json") isa BatchInput{BasicInput}
+    @test LMP.iscomplete(read_batchbasic())
+    @test LMP.validlengths(read_batchbasic())
+    @test LMP.parse("batchbasic.json") isa BatchInput{BasicInput}
 
+    @info "  Running:"
+    @info "    Segmented Wait ionospheres..."
     @test run_basic() isa BasicOutput
+    @info "    Segmented tabular ionospheres..."
     @test run_table() isa BasicOutput
+    @info "    Multiple segmented Wait ionospheres..."
     @test run_batchbasic() isa BatchOutput{BasicOutput}
+    @info "    Multiple segmented Wait ionospheres, appending..."
     @test run_batchbasicsave() isa BatchOutput{BasicOutput}
+    @info "    Multiple segmented tabular ionospheres, appending."
     @test run_batchtablesave() isa BatchOutput{BasicOutput}
 
-    @test basic_bpm() isa BasicOutput
+    @info "    `propagate` segmented Wait ionospheres"
+    @test basic_lmp() isa BasicOutput
 
     isfile("basic.json") && rm("basic.json")
     isfile("table.json") && rm("table.json")
@@ -323,5 +330,5 @@ end
     isfile("batchtable.json") && rm("batchtable.json")
     isfile("batchbasictest.json") && rm("batchbasictest.json")
     isfile("batchtabletest.json") && rm("batchtabletest.json")
-    isfile("basic_bpm.json") && rm("basic_bpm.json")
+    isfile("basic_output.json") && rm("basic_output.json")
 end

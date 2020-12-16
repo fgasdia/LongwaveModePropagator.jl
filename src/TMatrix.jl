@@ -1,17 +1,26 @@
 """
-    TMatrix <: SMatrix{4, 4, T, 16}
+    TMatrix <: SMatrix{4, 4, T}
 
-A custom `SMatrix` subtype that represents the `T` matrix from Clemmow and Heading
-that is semi-sparse. The form of the matrix is:
+A custom `SMatrix` subtype that represents the `T` matrix from [^Clemmow1954] that is
+semi-sparse. The form of the matrix is:
 
 ```
-┌ 11 12  0 14 ┐
-| 0  0   1  0 |
-| 31 32  0 34 |
-└ 41 42  0 44 ┘
+┌                ┐
+| T₁₁ T₁₂ 0  T₁₄ |
+| 0   0   1  0   |
+| T₃₁ T₃₂ 0  T₃₄ |
+| T₄₁ T₄₂ 0  T₄₄ |
+└                ┘
 ```
 
-Implements custom (efficient) matrix-vector multiplication.
+`TMatrix` implements efficient matrix-vector multiplication and other math based on its
+special form.
+
+# References
+
+[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
+    governing radio propagation in the ionosphere,” Mathematical Proceedings of the
+    Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """
 struct TMatrix{T} <: StaticMatrix{4, 4, T}
     data::SVector{9,T}
@@ -228,4 +237,101 @@ end
         T = Base.promote_op(LinearAlgebra.matprod, Ta, Tb)
         @inbounds return similar_type(a, T, $S)(tuple($(exprs...)))
     end
+end
+
+#==
+Computing the T matrix entries
+==#
+
+
+@doc raw"""
+    tmatrix(ea::EigenAngle, M)
+
+Compute the matrix `T` as a `TMatrix` for the differential equations of a wave propagating
+at angle `ea` in an ionosphere with susceptibility `M`.
+
+Clemmow and Heading derived the `T` matrix from Maxwell's equations for an electromagnetic
+wave in the anisotropic, collisional cold plasma of the ionosphere in a coordinate frame
+where ``z`` is upward, propagation is directed obliquely in the ``x``-``z`` plane and
+invariance is assumed in ``y``. For the four characteristic wave components
+``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``, the differential equations are ``de/dz = -ikTe``.
+
+See also: [`susceptibility`](@ref), [`dtmatrix`](@ref)
+
+# References
+
+[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955.
+
+[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
+    governing radio propagation in the ionosphere,” Mathematical Proceedings of the
+    Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
+"""
+function tmatrix(ea::EigenAngle, M)
+    S, C² = ea.sinθ, ea.cos²θ
+
+    # Denominator of most of the entries of `T`
+    den = inv(1 + M[3,3])
+
+    M31den = M[3,1]*den
+    M32den = M[3,2]*den
+
+    T11 = -S*M31den
+    T12 = S*M32den
+    # T13 = 0
+    T14 = (C² + M[3,3])*den
+    # T21 = 0
+    # T22 = 0
+    # T23 = 1
+    # T24 = 0
+    T31 = M[2,3]*M31den - M[2,1]
+    T32 = C² + M[2,2] - M[2,3]*M32den
+    # T33 = 0
+    T34 = S*M[2,3]*den
+    T41 = 1 + M[1,1] - M[1,3]*M31den
+    T42 = M[1,3]*M32den - M[1,2]
+    # T43 = 0
+    T44 = -S*M[1,3]*den
+
+    # `TMatrix` is a special 4×4 matrix
+    return TMatrix(T11, T31, T41,
+                   T12, T32, T42,
+                   T14, T34, T44)
+end
+
+"""
+    dtmatrix(ea::EigenAngle, M)
+
+Compute a dense `SMatrix` with the derivative of `T` with respect to `θ`.
+
+See also: [`tmatrix`](@ref)
+"""
+function dtmatrix(ea::EigenAngle, M)
+    S, C = ea.sinθ, ea.cosθ
+    dC² = -2*S*C  # d/dθ (C²)
+
+    den = inv(1 + M[3,3])
+
+    dT11 = -C*M[3,1]*den
+    dT12 = C*M[3,2]*den
+    dT13 = 0
+    dT14 = dC²*den
+    dT21 = 0
+    dT22 = 0
+    dT23 = 0
+    dT24 = 0
+    dT31 = 0
+    dT32 = dC²
+    dT33 = 0
+    dT34 = C*M[2,3]*den
+    dT41 = 0
+    dT42 = 0
+    dT43 = 0
+    dT44 = -C*M[1,3]*den
+
+    return SMatrix{4,4}(dT11, dT21, dT31, dT41,
+                        dT12, dT22, dT32, dT42,
+                        dT13, dT23, dT33, dT43,
+                        dT14, dT24, dT34, dT44)
 end
