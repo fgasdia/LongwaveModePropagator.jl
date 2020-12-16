@@ -300,7 +300,7 @@ end
     end
 
     # Fill in TEST_MODES
-    @info "Mode finding..."
+    @info "  Mode finding..."
     for scenario in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
         if !haskey(TEST_MODES, scenario)
             TEST_MODES[scenario] = findroots(scenario)
