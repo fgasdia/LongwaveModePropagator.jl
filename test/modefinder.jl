@@ -135,6 +135,8 @@ function test_integratedreflection_vertical(scenario)
     R = LMP.integratedreflection(me)
 
     @test R[1,2] ≈ R[2,1]
+
+    @test R == LMP.ionospherereflection(me)
 end
 
 function test_integratedreflection_deriv(scenario)
@@ -171,6 +173,10 @@ function test_integratedreflection_deriv(scenario)
         @test isapprox(R, Rr, rtol=1e-5)
         @test isapprox(dR, dRr, rtol=1e-3)
     end
+
+    R, dR = RdR(θs[30])
+    @test R == LMP.ionospherereflection(me, LMP.Dθ())[1]
+    @test dR == LMP.ionospherereflection(me, LMP.Dθ())[2]
 end
 
 function test_fresnelreflection(scenario)
@@ -209,6 +215,58 @@ function test_fresnelreflection_deriv(scenario)
     @test Rg1 == Rg2
 end
 
+function test_detachedreflection(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario
+
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+    @test LMP.detachedreflection(ea, tx.frequency) == LMP.detachedreflection(me)
+end
+
+function test_detachedreflection_deriv(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario
+    freq = tx.frequency
+
+    dRgtmp(θ) = (ea = EigenAngle(θ); LMP.detachedreflection(ea, freq, LMP.Dθ()))
+    for i = 1:4
+        Rgref(θ) = (ea = EigenAngle(θ); LMP.detachedreflection(ea, freq)[i])
+        dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
+        Rg(θ) = dRgtmp(θ)[1][i]
+        dRg(θ) = dRgtmp(θ)[2][i]
+
+        @test Rgref.(θs) ≈ Rg.(θs)
+        @test maxabsdiff(dRg.(θs), dRgref) < 1e-8
+    end
+
+    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
+    me = LMP.PhysicalModeEquation(ea, freq, waveguide)
+    Rg1 = LMP.detachedreflection(ea, freq, LMP.Dθ())
+    Rg2 = LMP.detachedreflection(me, LMP.Dθ())
+    @test Rg1 == Rg2
+end
+
+function test_groundreflection(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario
+
+    R = LMP.groundreflection(ea, ground, tx.frequency)
+    if isdetached(ea, tx.frequency)
+        @test R ≈ LMP.detachedreflection(ea, tx.frequency)
+    else
+        @test R ≈ LMP.fresnelreflection(ea, ground, tx.frequency)
+    end
+
+    R, dR = LMP.groundreflection(ea, ground, tx.frequency, LMP.Dθ())
+    if isdetached(ea, tx.frequency)
+        testR, testdR = LMP.detachedreflection(ea, tx.frequency)
+        @test R ≈ testR
+        @test dR ≈ testdR
+    else
+        testR, testdR = LMP.fresnelreflection(ea, ground, tx.frequency)
+        @test R ≈ testR
+        @test dR ≈ testdR
+    end
+end
+
 function test_modalequation_resonant(scenario)
     @unpack ea, tx, bfield, species, ground = scenario
     waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
@@ -218,8 +276,8 @@ function test_modalequation_resonant(scenario)
     Rg = @SMatrix [1 0; 0 -1]
     @test isapprox(LMP.modalequation(R, Rg), 0, atol=1e-15)
 
-    R = LMP.integratedreflection(me)
-    Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
+    R = LMP.ionospherereflection(me)
+    Rg = LMP.groundreflection(ea, ground, tx.frequency)
     f = LMP.modalequation(R, Rg)
     @test LMP.isroot(f, atol=1e-4)  # this test is a little cyclic
 
@@ -293,6 +351,9 @@ end
 
         test_fresnelreflection(scn)
         test_fresnelreflection_deriv(scn)
+        # test_detachedreflection(scn)  # TODO: finish implement checks
+        # test_detachedreflection_deriv(scn)
+        test_groundreflection(scn)
 
         test_modalequation_deriv(scn)
 

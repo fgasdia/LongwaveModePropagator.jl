@@ -22,7 +22,7 @@ using ModifiedHankelFunctionsOfOrderOneThird
 export propagate
 
 # EigenAngle.jl
-export attenuation, phasevelocity, referencetoground
+export attenuation, phasevelocity, referencetoground, isdetached
 
 # Geophysics.jl
 export BField, Species, EigenAngle, Fields, Ground, GROUND

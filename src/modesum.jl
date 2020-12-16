@@ -183,15 +183,18 @@ function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LM
 end
 
 @doc raw"""
-    heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
+    heightgains(z, ea, frequency, efconstants::ExcitationFactor; params=LMPParams())
 
-Compute height gain functions at height `z` returned as the tuple `(fz, fy, fx)` where
-eigenangle `ea₀` is referenced to the ground.
+Compute height gain functions at height `z` returned as the tuple `(fz, fy, fx)`.
 
 - `fz` is the height gain for the vertical electric field component ``Ez``.
 - `fy` is the height gain for the transverse electric field component ``Ey``.
 - `fx` is the height gain for the horizontal electric field component ``Ex``.
 [^Pappert1983]
+
+If the mode is earth detached (whispering gallery) according to the criteria in
+[^Pappert1981] eq. 1, alternative height gain functions are returned that remove earth
+effects. This is most likely to occur in the LF frequency range.
 
 !!! note
 
@@ -201,17 +204,21 @@ See also: [`excitationfactorconstants`](@ref)
 
 # References
 
+[^Pappert1981]: R. A. Pappert, “LF daytime earth ionosphere waveguide calculations,” Naval
+    Ocean Systems Center, San Diego, CA, NOSC/TR-647, Jan. 1981.
+    [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
+
 [^Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
     Frequency/Very Low Frequency) long path pulse program for antennas of arbitrary
     elevation and orientation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891,
-    Aug. 1983. Accessed: Jul. 04, 2018. [Online].
-    Available: http://www.dtic.mil/docs/citations/ADA133876.
+    Aug. 1983. [Online]. Available: http://www.dtic.mil/docs/citations/ADA133876.
 
 [^Pappert1986]: R. A. Pappert and J. A. Ferguson, “VLF/LF mode conversion model calculations
     for air to air transmissions in the earth-ionosphere waveguide,” Radio Sci., vol. 21,
     no. 4, pp. 551–558, Jul. 1986, doi: 10.1029/RS021i004p00551.
 """
-function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
+function heightgains(z, ea, frequency, efconstants::ExcitationFactor; params=LMPParams())
+    ea₀ = referencetoground(ea)
     C, C² = ea₀.cosθ, ea₀.cos²θ
     k = frequency.k
     @unpack F₁, F₂, F₃, F₄, Rg = efconstants
@@ -220,34 +227,44 @@ function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=
     if earthcurvature
         # Precompute
         α = 2/earthradius
-        expz = exp(z/earthradius)  # assumes reflection coefficients are referenced to `d = 0`
 
         qz = pow23(k/α)*(C² + α*z)  # (k/α)^(2/3)*(C² + α*z)
-
         h₁z, h₂z, dh₁z, dh₂z = modifiedhankel(qz)
 
-        # Precompute
-        F₁h₁z = F₁*h₁z
-        F₂h₂z = F₂*h₂z
+        # Check for earth detached (whispering gallery) modes [^Pappert1981] eq. 1
+        if isdetached(ea, frequency, params=params)
+            expz = exp((z - earthradius)/2)
+            tmp = exp(4im*π/3)
+            hz = h₂z - tmp*h₁z
+            dhz = dh₂z - tmp*dh₂z
 
-        # Height gain for Ez, also called f∥(z).
-        fz = expz*(F₁h₁z + F₂h₂z)
+            fz = expz*hz
+            fy = hz
+            fx = expz/(1im*k)*(hz/2 + dhz)
+        else
+            # These are the "regular" height gain functions
+            # Precompute
+            expz = exp(z/earthradius)  # assumes `d = 0`
 
-        # Height gain for Ey, also called f⟂(z)
-        fy = (F₃*h₁z + F₄*h₂z)
+            F₁h₁z = F₁*h₁z
+            F₂h₂z = F₂*h₂z
 
-        # Height gain for Ex, also called g(z)
-        # f₂ = 1/(1im*k) df₁/dz
-        fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
+            # Height gain for Ez, also called f∥(z).
+            fz = expz*(F₁h₁z + F₂h₂z)
+
+            # Height gain for Ey, also called f⟂(z)
+            fy = (F₃*h₁z + F₄*h₂z)
+
+            # Height gain for Ex, also called g(z)
+            # f₂ = 1/(1im*k) df₁/dz
+            fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
+        end
     else
-        # BUG? I'm suspicious of the values, but would need to get modifiedhankel working
-        # with big floats to check against earthradius ≈ Inf
         # Flat earth, [^Pappert1983] pg. 12--13
         expiz = cis(k*C*z)
-        expmiz = cis(-k*C*z)
-        fz = expiz + Rg[1,1]*expmiz
-        fy = expiz + Rg[2,2]*expmiz
-        fx = C*(expiz - Rg[1,1]*expmiz)
+        fz = expiz + Rg[1,1]/expiz
+        fy = expiz + Rg[2,2]/expiz
+        fx = C*(expiz - Rg[1,1]/expiz)
     end
 
     return fz, fy, fx
@@ -312,14 +329,14 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants, params=params)
 
     # Transmitter term
-    fzt, fyt, fxt = heightgains(zt, ea₀, frequency, efconstants, params=params)
+    fzt, fyt, fxt = heightgains(zt, ea, frequency, efconstants, params=params)
     txterm = λv*fzt*t1 + λb*fyt*t2 + λe*fxt*t3
 
     # Receiver term
     if zr == zt
         fzr, fyr, fxr = fzt, fyt, fxt
     else
-        fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants, params=params)
+        fzr, fyr, fxr = heightgains(zr, ea, frequency, efconstants, params=params)
     end
 
     # TODO: Handle multiple fields - maybe just always return all 3?
@@ -361,7 +378,7 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     # Transmitter term
     # TODO: specialized heightgains for z = 0
-    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants, params=params)
+    fz, fy, fx = heightgains(0.0, ea, frequency, efconstants, params=params)
     txterm = λv*fz
 
     # Receiver term
@@ -656,32 +673,3 @@ function radiationresistance(k, Cγ, zt)
 
     return xt3
 end
-
-#==
-TODO: LF corrections/fixes
-
-Pappert 1981 LF Daytime Earth Ionosphere...
-finds that the linear combination of modified Hankel functions of order one third used to
-represent the height gain at the ground is in fact incorrect at the ground for modes which
-are highly earth detached (pg 7-8). To correct for this, they just throw away earth
-effects altogether when the condition
-Re(2im*(k/α)*(C²ₕ - α*H)^(3/2)/3)) > 12.4
-is met. The value of 12.4 was found by trial and error and requires the degree of evanescence
-at the ground to be of the order of several times 10⁻⁶. When this condition is met, the
-plane wave reflection coefficients (for ground) become eq (2) and (3).
-There are additional equation replacements on page 10.
-Otherwise, this is following the math from Pappert & Shockey 71. This paper (81) explicitly
-identifies where some of the angles should be referenced.
-==#
-
-#==
-TODO: ELF corrections/fixes
-
-Pappert Shockey 1971 WKB Mode Summing...
-changes height gain functions for ELF, pg. 9
-
-Switches to flat earth at imaginary angles less than -10° (see LWPC or Pappert 1983 ELF-VLF)
-
-Pappert Shockey 1971 pg 9 or Pappert 198e pg 12
-elf_heightgains()
-==#

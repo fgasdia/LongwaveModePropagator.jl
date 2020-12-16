@@ -43,13 +43,12 @@ Base.view(A::Wavefields, I...) = view(A.v, I...)
 """
     ==(A::Wavefields, B::Wavefields)
 
-Weaker than Base.(==), this checks for `isequal` between `A.v` and `B.v` and true (==)
-between `heights` and `eas`.
+Check for equality `==` between `A.v` and `B.v`, `heights`, and `eas`.
 """
 function (==)(A::Wavefields, B::Wavefields)
     A.heights == B.heights || return false
     A.eas == B.eas || return false
-    isequal(A.v, B.v) || return false
+    A.v == B.v || return false
     return true
 end
 
@@ -224,13 +223,13 @@ have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested
 function scalewavefields(e1, e2)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
-    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), `imag(dot(e1,e1)) == 0`
+    e1_dot_e1 = real(dot(e1, e1))  # == sum(abs2.(e1)), imag(dot(e1,e1)) == 0
     a = dot(e1, e2)/e1_dot_e1  # purposefully unsigned
     e2 -= a*e1
 
     # Normalize `e1` and `e2`
-    e1_scale_val = inv(sqrt(e1_dot_e1))
-    e2_scale_val = inv(norm(e2))  # == 1/sqrt(dot(e2,e2))
+    e1_scale_val = 1/(sqrt(e1_dot_e1))
+    e2_scale_val = 1/(norm(e2))  # == 1/sqrt(dot(e2,e2))
     e1 *= e1_scale_val
     e2 *= e2_scale_val  # == normalize(e2)
 
@@ -392,90 +391,47 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
 end
 
 """
-    vacuumreflectioncoeffs(ea, e1, e2)
-
-Return ionosphere reflection coefficient matrix from upgoing wave fields `e`.
-
-Integrating for one set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``
-can be separated into an upgoing and downgoing wave, each of which is generally
-elliptically polarized. One might assume that the ratio of the amplitudes of
-these two waves would give a reflection coefficient, and it does, except the
-coefficient would only apply for an incident wave of that particular elliptical
-polarization. However, the first set of fields can be linearly combined with
-a second independent solution for the fields, which will generally have a
-different elliptical polarization than the first. Two linear combinations of the
-two sets of fields are formed with unit amplitude, linearly polarized
-incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or
-``R₁₂``, ``R₂₂`` for the incident wave in the plane of incidence and
-perpendicular to it, respectively [^Budden1988] (pg 552).
-
-The process for determining the reflection coefficient requires resolving the
-two sets of fields `e1` and `e2` into the four linearly polarized vacuum
-modes. The layer of vacuum can be assumed to be so thin that it does not affect
-the fields. There will be two upgoing waves, one of which has ``E``, and the
-other ``H`` in the plane of incidence, and two downgoing waves, with ``E`` and
-``H`` in the plane of incidence. If ``f₁, f₂, f₃, f₄`` are the complex
-amplitudes of the four component waves, then in matrix notation ``e = Sᵥ f``.
-
-For `e1` and `e2`, we can find the corresponding vectors `f1` and `f2` by
-``f1 = Sᵥ⁻¹ e1``, ``f2 = Sᵥ⁻¹ e2`` where the two column vectors are partitioned
-such that ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing
-2-element vectors `u` and `d`. From the definition of the reflection coefficient
-`R`, ``d = Ru``. Letting ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and
-the reflection coefficient is ``R = DU¹``. Because the reflection coefficient
-matrix is a ratio of fields, either `e1` and/or `e2` can be independently
-multiplied by an arbitrary constant and the value of `R` is unaffected.
-
-For additional details, see [^Budden1988], chapter 18, section 7.
-
-# References
-
-[^Budden1988] K. G. Budden, The propagation of radio waves: the theory of radio
-waves of low power in the ionosphere and magnetosphere, First paperback edition.
-New York: Cambridge University Press, 1988.
-"""
-vacuumreflectioncoeffs(ea::EigenAngle, e1, e2) = bookerreflection(ea, hcat(e1, e2))
-
-#TEMP TODO remove this function (only here for docs reference for now)
-
-"""
     boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
 
 Compute coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield in the
 waveguide as ``e = b1*e1 + b2*e2``.
+
+!!! note
+
+    This function assumes that the reflection coefficients and `e1`, `e2` are at the ground.
 """
 function boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
     # This is similar to excitation factor calculation, using the waveguide mode condition
 
-    ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]
+    ex1, ey1, hx1, hy1 = e1[1], -e1[2], e1[3], e1[4]  # the ey component was originally -Ey
     ex2, ey2, hx2, hy2 = e2[1], -e2[2], e2[3], e2[4]
 
-    # TODO modify for flat earth case (imag < -10)
-    # NOTE: these assume `R`s and `e`s at the ground, see e.g. "wf_rbars.for"
+    # NOTE: Because `R`s and `e`s are at the ground, `hy0` and `ey0` are the same regardless
+    # of `earthcurvature` being `true` or `false`.
     hy0 = 1  # == (1 + Rg[1,1])/(1 + Rg[1,1])
     ey0 = 1  # == (1 + Rg[2,2])/(1 + Rg[2,2])
 
-    abparal = 1 - Rg[1,1]*R[1,1]
-    abperp = 1 - Rg[2,2]*R[2,2]
+    paral = 1 - R[1,1]*Rg[1,1]
+    perp = 1 - R[2,2]*Rg[2,2]
 
     if isotropic
-        if abs2(abperp) < abs2(abparal)
-            b1 = zero(ey2)
-            b2 = ey0/ey2
-            # hyg = 0
-        else
+        if abs2(paral) < abs2(perp)
             b1 = hy0/hy1
             b2 = zero(hy1)
             # eyg = 0
+        else
+            b1 = zero(ey2)
+            b2 = ey0/ey2
+            # hyg = 0
         end
     else
         # polarization ratio Ey/Hy (often `f` or `fofr` in papers)
-        if abs2(abparal) < abs2(abperp)
-            pol = ((1 + Rg[2,2])*Rg[1,1]*R[2,1])/((1 + Rg[1,1])*abperp)
+        if abs2(paral) < abs2(perp)
+            EyHy = ((1 + Rg[2,2])*R[2,1]*Rg[1,1])/((1 + Rg[1,1])*perp)
         else
-            pol = ((1 + Rg[2,2])*abparal)/((1 + Rg[1,1])*Rg[2,2]*R[1,2])
+            EyHy = ((1 + Rg[2,2])*paral)/((1 + Rg[1,1])*R[1,2]*Rg[2,2])
         end
-        a = (-ey1 + pol*hy1)/(ey2 - pol*hy2)
+        a = (-ey1 + EyHy*hy1)/(ey2 - EyHy*hy2)
         hysum = hy1 + a*hy2
         b1 = hy0/hysum
         b2 = b1*a
@@ -512,16 +468,20 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
 
     S = ea.sinθ
     @inbounds for i in eachindex(EH)
+        M = susceptibility(zs[i], frequency, bfield, species, params=params)
+
         # Scale to waveguide boundary conditions
         w = e[i][:,1]*b1 + e[i][:,2]*b2
 
-        M = susceptibility(zs[i], frequency, bfield, species, params=params)
+        ex = w[1]
+        ey = -w[2]
         ez = -(w[4]*S + M[3,1]*w[1] - M[3,2]*w[2])/(1 + M[3,3])
+        hx = w[3]
+        hy = w[4]
         hz = -w[2]*S
-        EH[i] = SVector(w[1], -w[2], ez, w[3], w[4], hz)
-    end
 
-    # TODO: BUG is this Ey or -Ey?
+        EH[i] = SVector(ex, ey, ez, hx, hy, hz)
+    end
 
     return nothing
 end

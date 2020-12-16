@@ -338,6 +338,15 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LMPPara
 end
 
 """
+    ionospherereflection(modeequation; params=LMPParams())
+
+Equivalent to [`integratedreflection`](@ref).
+"""
+function ionospherereflection(modeequation; params=LMPParams())
+    return integratedreflection(modeequation, params=params)
+end
+
+"""
     integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
 
 Compute ``R`` and ``dR/dθ`` as an `SMatrix{4,2}` with ``R`` in rows (1, 2) and ``dR/dθ`` in
@@ -364,6 +373,15 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
     return RdR
 end
 
+"""
+    ionospherereflection(modeequation, ::Dθ; params=LMPParams())
+
+Equivalent to [`integratedreflection`](@ref).
+"""
+function ionospherereflection(modeequation, ::Dθ; params=LMPParams())
+    return integratedreflection(modeequation, Dθ(), params=params)
+end
+
 ##########
 # Ground reflection coefficient matrix
 ##########
@@ -378,6 +396,7 @@ function fresnelreflection end
 
 "`fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)`"
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
 
@@ -431,6 +450,49 @@ end
 fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency, Dθ())
 
+"""
+    groundreflection(ea::EigenAngle, ground::Ground, frequency::Frequency; params=LMPParams())
+
+Compute the reflection coefficient matrix of the ground referenced to height ``d = z = 0``.
+"""
+function groundreflection(ea::EigenAngle, ground::Ground, frequency::Frequency;
+    params=LMPParams())
+
+    # TODO - more robust checks needed before improved LF support is fully implemented.
+    # if isdetached(ea, frequency, params=params)
+    #     Rg = detachedreflection(ea, frequency, params=params)
+    # else
+    Rg = fresnelreflection(ea, ground, frequency)
+
+    return Rg
+end
+
+"`groundreflection(m::PhysicalModeEquation; params=LMPParams())`"
+groundreflection(m::PhysicalModeEquation; params=LMPParams()) =
+    groundreflection(m.ea, m.waveguide.ground, m.frequency, params=params)
+
+"""
+    groundreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ;
+                     params=LMPParams())
+
+Compute the reflection coefficient matrix of the ground as well as its derivative with
+respect to ``θ`` referenced to height ``d = z = 0``.
+"""
+function groundreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ;
+    params=LMPParams())
+
+    # if isdetached(ea, frequency, params=params)
+    #     Rg, dRg = detachedreflection(ea, frequency, params=params)
+    # else
+    Rg, dRg = fresnelreflection(ea, ground, frequency)
+
+    return Rg, dRg
+end
+
+"`groundreflection(m::PhysicalModeEquation, ::Dθ; params=LMPParams())`"
+groundreflection(m::PhysicalModeEquation, ::Dθ; params=LMPParams()) =
+    groundreflection(m.ea, m.waveguide.ground, m.frequency, Dθ(), params=params)
+
 ##########
 # Identify EigenAngles
 ##########
@@ -482,8 +544,8 @@ determinental modal equation associated with `modeequation`.
 See also: [`solvedmodalequation`](@ref)
 """
 function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
-    R = integratedreflection(modeequation, params=params)
-    Rg = fresnelreflection(modeequation)
+    R = ionospherereflection(modeequation, params=params)
+    Rg = groundreflection(modeequation, params=params)
 
     f = modalequation(R, Rg)
     return f
@@ -509,11 +571,11 @@ coefficients `R` and `Rg` are also returned.
 See also: [`solvemodalequation`](@ref)
 """
 function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
-    RdR = integratedreflection(modeequation, Dθ(), params=params)
+    RdR = ionospherereflection(modeequation, Dθ(), params=params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
-    Rg, dRg = fresnelreflection(modeequation, Dθ())
+    Rg, dRg = groundreflection(modeequation, Dθ(), params=params)
 
     df = dmodalequation(R, dR, Rg, dRg)
     return df, R, Rg
@@ -738,6 +800,8 @@ function uppertriangularrectdomain(Zb::Complex, Ze::Complex, dx, dy)
 
     return v
 end
+
+# TODO: remove some of these coordgrid functions?
 
 function uppertriangularrectdomain(Zb::Complex, Ze::Complex, Δr)
     rZb, iZb = reim(Zb)

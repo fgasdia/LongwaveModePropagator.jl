@@ -16,7 +16,7 @@ function test_Wavefields()
     @test LMP.nummodes(wavefields) == 10
 
     @test size(wavefields) == (length(wavefieldheights), 10)
-    @test isequal(view(wavefields, 1:5), view(wavefields.v, 1:5))
+    @test view(wavefields, 1:5) == view(wavefields.v, 1:5)
 
     newwavefields = similar(wavefields)
     @test size(newwavefields) == size(wavefields)
@@ -30,7 +30,7 @@ function test_Wavefields()
     cpwavefields = copy(wavefields)
     @test cpwavefields.heights == wavefields.heights
     @test cpwavefields.eas == wavefields.eas
-    @test isequal(cpwavefields.v, wavefields.v)
+    @test cpwavefields.v == wavefields.v
     @test cpwavefields == wavefields
 
     # isvalid
