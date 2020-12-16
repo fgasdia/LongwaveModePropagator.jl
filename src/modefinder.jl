@@ -18,16 +18,6 @@ Fields:
     - ea::EigenAngle
     - frequency::Frequency
     - waveguide::W
-
-Functions can dispatch on this type of `ModeEquation`, although the `ModifiedModeEquation`
-of [^Morfitt1976] is not currently supported.
-
-# References
-
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
-    for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
-    Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976. Accessed:
-    Dec. 13, 2017. [Online]. Available: http://www.dtic.mil/docs/citations/ADA032573.
 """
 struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     ea::EigenAngle
@@ -46,14 +36,14 @@ PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 
 """
-    setea(ea, p)
+    setea(ea, me)
 
-Return `p` with new `ea`.
+Return `me` with new `ea`.
 """
-setea(ea::EigenAngle, p::PhysicalModeEquation) =
-    PhysicalModeEquation(ea, p.frequency, p.waveguide)
-setea(θ, p::PhysicalModeEquation) =
-    PhysicalModeEquation(EigenAngle(θ), p.frequency, p.waveguide)
+setea(ea::EigenAngle, me::PhysicalModeEquation) =
+    PhysicalModeEquation(ea, me.frequency, me.waveguide)
+setea(θ, me::PhysicalModeEquation) =
+    PhysicalModeEquation(EigenAngle(θ), me.frequency, me.waveguide)
 
 """
     isroot(x::Real; atol=1e-2)
@@ -107,13 +97,13 @@ end
     wmatrix(ea::EigenAngle, T)
 
 Compute the four submatrix elements of `W` used in the equation ``dR/dz`` returned as a
-tuple `W₁₁`, `W₂₁`, `W₁₂`, `W₂₂`.
+tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
 
-Following Budden's [^Budden1955a] formalism for the reflection matrix of a plane wave
-obliquely incident on the ionosphere, the wave below the ionosphere can be resolved into
-upgoing and downgoing waves of elliptical polarization, each of whose components are
-themselves resolved into a component with the electric field in the plane of propagation and
-a component perpendicular to the plane of propagation. The total field can be written in
+Following Budden's formalism for the reflection matrix of a plane wave obliquely incident on
+the ionosphere [^Budden1955a], the wave below the ionosphere can be resolved into upgoing
+and downgoing waves of elliptical polarization, each of whose components are themselves
+resolved into a component with the electric field in the plane of propagation and a
+component perpendicular to the plane of propagation. The total field can be written in
 matrix form as ``e = Lf`` where ``L`` is a 4×4 matrix that simply selects and specifies the
 incident angle of the components and ``f`` is a column matrix of the complex amplitudes of
 the component waves. By inversion, ``f = L⁻¹e`` and its derivative with respect to height
@@ -242,7 +232,7 @@ end
 
 Compute the differential of the reflection matrix ``dR/dz`` at height `z`.
 
-`p` is a tuple containing instances of `PhysicalModeEquation, LMPParams`.
+`p` is a tuple containing instances of `(PhysicalModeEquation, LMPParams)`.
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
 a horizontally stratified ionosphere [^Budden1955a], the differential of the reflection
@@ -282,7 +272,7 @@ end
 Compute the differential ``dR/dθ/dz`` at height `z` returned as an `SMatrix{4,2}` with
 ``dR/dz`` in the first 2 rows and ``dR/dθ/dz`` in the bottom 2 rows.
 
-`p` is a tuple containing instances of `PhysicalModeEquation, LMPParams`.
+`p` is a tuple containing instances of `(PhysicalModeEquation, LMPParams)`.
 
 See also: [`dRdz`](@ref)
 """
@@ -412,7 +402,7 @@ fresnelreflection(m::PhysicalModeEquation) =
     fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
 
 Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
-with respect to ``θ`` returned as the tuple `Rg, dRg`.
+with respect to ``θ`` returned as the tuple `(Rg, dRg)`.
 """
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ

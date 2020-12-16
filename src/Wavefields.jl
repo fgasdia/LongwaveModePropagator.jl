@@ -141,7 +141,7 @@ end
 """
     dedz(e, k, T::Tmatrix)
 
-Compute ``de/dz = -ikTe``.
+Compute ``de/dz = -ikTe`` where ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ``.
 """
 dedz(e, k, T::TMatrix) = -1im*k*(T*e)  # `(T*e)` uses specialized TMatrix math
 
@@ -207,11 +207,11 @@ end
 """
     scalewavefields(e1, e2)
 
-Return orthonormalized vectors `e1` and `e2`, as well as the scaling terms `a`,
+Orthonormalize the vectors `e1` and `e2`, and also return the scaling terms `a`,
 `e1_scale_val`, and `e2_scale_val` applied to the original vectors.
 
-First applies Gram-Schmidt orthogonalization and then scales the vectors so they each have
-length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested by
+This first applies Gram-Schmidt orthogonalization and then scales the vectors so they each
+have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested by
 [^Pitteway1965] to counter numerical swamping during integration of wavefields.
 
 # References
@@ -240,7 +240,7 @@ end
 """
     scalewavefields(e::SMatrix{4,2})
 
-Apply scaling to the both columns of `e` and concatenate the results.
+Apply scaling to both columns of `e`.
 """
 function scalewavefields(e::SMatrix{4,2})
     e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
@@ -349,7 +349,7 @@ save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
     integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
         species::Species; params=LMPParams())
 
-Compute wavefields `e` at `zs` by downward integration over `zs`.
+Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`.
 
 `params.integrationparams` is not used by this function.
 """
@@ -358,7 +358,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # TODO: version that updates output `e` in place
 
     issorted(zs, rev=true) ||
-        throw(ArgumentError("zs should go from top to bottom of ionosphere"))
+        throw(ArgumentError("`zs` should go from top to bottom of the ionosphere."))
 
     # Initial conditions
     Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
@@ -485,15 +485,18 @@ function boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
 end
 
 "`boundaryscalars(R, Rg, e, isotropic::Bool=false)`"
-boundaryscalars(R, Rg, e, isotropic::Bool=false) = boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
+boundaryscalars(R, Rg, e, isotropic::Bool=false) =
+    boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
 
 """
     fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
         species::Species, ground::Ground; params=LMPParams())
 
-Compute `Ex`, `Ey`, `Ez`, `Hx`, `Hy`, `Hz` wavefields by fullwave integration at heights `zs`.
+Compute ``(Ex, Ey, Ez, Hx, Hy, Hz)ᵀ`` wavefields vectors as elements of `EH` by fullwave
+integration at each height in `zs`.
 
-Scales wavefields for waveguide boundary conditions.
+The wavefields are scaled to satisfy the waveguide boundary conditions, which is only valid
+at solutions of the mode equation.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
     species::Species, ground::Ground; params=LMPParams())

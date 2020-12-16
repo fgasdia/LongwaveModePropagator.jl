@@ -71,6 +71,28 @@ function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle)
 end
 
 """
+    isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
+
+Return `true` if this is likely an earth detached (whispering gallery) mode according to the
+criteria in [^Pappert1981] eq. 1 with the additional criteria that the frequency be above
+100 kHz.
+
+# References
+
+[^Pappert1981]: R. A. Pappert, “LF daytime earth ionosphere waveguide calculations,” Naval
+    Ocean Systems Center, San Diego, CA, NOSC/TR-647, Jan. 1981.
+    [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
+"""
+function isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
+    C, C² = ea.cosθ, ea.cos²θ
+    f, k = frequency.f, frequency.k
+    @unpack earthradius, curvatureheight = params
+    α = 2/earthradius
+
+    return f > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
+end
+
+"""
     referencetoground(ea::EigenAngle; params=LMPParams())
 
 Reference `ea` from `params.curvatureheight` to ground (``z = 0``).

@@ -309,7 +309,7 @@ end
     @test LMP.validlengths(read_batchbasic())
     @test LMP.parse("batchbasic.json") isa BatchInput{BasicInput}
 
-    @info "    Running:"
+    @info "  Running:"
     @info "    Segmented Wait ionospheres..."
     @test run_basic() isa BasicOutput
     @info "    Segmented tabular ionospheres..."

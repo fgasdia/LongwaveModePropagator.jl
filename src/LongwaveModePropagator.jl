@@ -109,8 +109,22 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
 end
 export LMPParams
 
-# Concrete subtypes defined in files, e.g. `modefinder.jl` for `PhysicalModeEquation`
-abstract type ModeEquation end
+"""
+    ModeEquation
+
+Functions can dispatch on subtypes of `ModeEquation`, although currently only
+`PhysicalModeEquation` is supported.
+
+Future work might include the `ModifiedModeEquation` of [^Morfitt1976].
+
+# References
+
+[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
+    for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
+    Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976. Accessed:
+    Dec. 13, 2017. [Online]. Available: http://www.dtic.mil/docs/citations/ADA032573.
+"""
+abstract type ModeEquation end  # concrete subtypes defined in modefinder files
 
 "Indicates derivative with respect to eigenangle ``θ``."
 struct Dθ end

@@ -102,7 +102,6 @@ function isisotropic(b::BField)
     tolerance = deg2rad(0.15)
 
     bdip = dip(b)
-    # BUG?: this is the opposite of what I'd first expect... it means the dip angle should be horizontal to be isotropic
     abs(bdip) < tolerance && return true
 
     baz = azimuth(b)

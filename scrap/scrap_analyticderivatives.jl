@@ -104,7 +104,16 @@ f₁ = exp(z/Re)*(F₁*h1 + F₂*h2)
 
 1/(1im*k)*diff(f₁, z)
 
+@vars k z Re con
 
+h1 = sympy.Function("h1")(z)
+h2 = sympy.Function("h2")(z)
+h = h2 - con*h1
+
+h = sympy.Function("h")(z)
+
+fz = exp((z - Re)/2)*h
+1/(1im*k)*diff(fz, z)
 
 #
 # dRdz

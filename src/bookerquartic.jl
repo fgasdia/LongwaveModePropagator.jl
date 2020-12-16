@@ -12,6 +12,12 @@ related to calculating wavefields and vacuum reflection coefficients from the qu
 Compute roots `q` and the coefficients `B` of the Booker quartic.
 
 See also: [`dbookerquartic`](@ref)
+
+# References
+
+[^Budden1988]: K. G. Budden, “The propagation of radio waves: the theory of radio
+    waves of low power in the ionosphere and magnetosphere,” First paperback edition.
+    New York: Cambridge University Press, 1988.
 """
 function bookerquartic end
 
@@ -171,6 +177,8 @@ to the:
 ```
 
 Based on [^Pitteway1965] fig. 5.
+
+# References
 
 [^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
     coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
@@ -339,10 +347,10 @@ end
 @doc raw"""
     bookerreflection
 
-The reflection coefficient matrix is calculated from a ratio of the downgoing to upgoing
-plane waves in the free space beneath the ionosphere [^Budden1988] pg. 307. These are
-obtained from the two upgoing characteristic waves found from the Booker quartic. Each make
-up a column of `e`.
+Compute the ionosphere reflection coefficient matrix from a ratio of the downgoing to
+upgoing plane waves in the free space beneath the ionosphere [^Budden1988] pg. 307. These
+are obtained from the two upgoing characteristic waves found from the Booker quartic. Each
+make up a column of `e`.
 
 ```math
 R =
@@ -364,8 +372,43 @@ See also: [`bookerwavefields`](@ref)
 
 # References
 
-[^Budden1988]: K. G. Budden, “The propagation of radio waves,”
-    Cambridge University Press, 1988.
+[^Budden1988]: K. G. Budden, “The propagation of radio waves: the theory of radio
+    waves of low power in the ionosphere and magnetosphere,” First paperback edition.
+    New York: Cambridge University Press, 1988.
+
+# Extended help
+
+The set of horizontal field components ``e = (Ex, -Ey, Z₀Hx, Z₀Hy)ᵀ`` can be separated into
+an upgoing and downgoing wave, each of which is generally elliptically polarized. A ratio of
+the amplitudes of these two waves give a reflection coefficient, except it would only apply
+for an incident wave of that particular elliptical polarization. However, the first set of
+fields can be linearly combined with a second independent solution for the fields, which
+will generally have a elliptical polarization than the first. Two linear combinations of the
+two sets of fields are formed with unit amplitude, linearly polarized incident waves. The
+reflected waves then give the components ``R₁₁``, ``R₂₁`` or ``R₁₂``, ``R₂₂`` for the
+incident wave in the plane of incidence and perpendicular to it, respectively [^Budden1988]
+(pg 552).
+
+The process for determining the reflection coefficient requires resolving the two sets of
+fields ``e₁`` and ``e₂`` into the four linearly polarized vacuum modes. The layer of vacuum
+can be assumed to be so thin that it does not affect the fields. There will be two upgoing
+waves and two downgoing waves, each which has one ``E`` and one ``H`` in the plane of
+incidence. If ``f₁, f₂, f₃, f₄`` are the complex amplitudes of the four component waves,
+then in matrix notation ``e = Lf`` where ``L`` is the appropriate transformation matrix.
+
+For ``e₁`` and ``e₂``, we can find the corresponding vectors ``f1`` and ``f2`` by
+``f1 = L⁻¹e₁``, ``f2 = L⁻¹e₂`` where the two column vectors are partitioned such that
+``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing 2-element vectors ``u``
+and ``d``. From the definition of the reflection coefficient ``R``, ``d = Ru``. Letting
+``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and the reflection coefficient is
+``R = DU¹``. Because the reflection coefficient matrix is a ratio of fields, either ``e₁``
+and/or ``e₂`` can be independently multiplied by an arbitrary constant and the value of
+``R`` is unaffected.
+
+This function directly computes ``D`` and ``U`` and solves for ``R`` using the right
+division operator `R = D/U`.
+
+For additional details, see [^Budden1988], chapter 18, section 7.
 """
 function bookerreflection end
 
