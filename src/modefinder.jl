@@ -36,17 +36,14 @@ PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 
 """
-    setea(ea::EigenAngle, modeequation)
-    setea(θ, modeequation)
+    setea(ea, modeequation)
 
-Return `modeequation` with `EigenAngle` of `ea` or `θ`.
+Return `modeequation` with eigenangle `ea`.
+
+`ea` will be converted to an `EigenAngle` if necessary.
 """
-setea
-
-setea(ea::EigenAngle, modeequation::PhysicalModeEquation) =
-    PhysicalModeEquation(ea, modeequation.frequency, modeequation.waveguide)
-setea(θ, modeequation::PhysicalModeEquation) =
-    PhysicalModeEquation(EigenAngle(θ), modeequation.frequency, modeequation.waveguide)
+setea(ea, modeequation::PhysicalModeEquation) =
+    PhysicalModeEquation(EigenAngle(ea), modeequation.frequency, modeequation.waveguide)
 
 """
     isroot(x; atol=1e-2)

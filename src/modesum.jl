@@ -253,7 +253,7 @@ end
     modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPParams())
 
 Compute `tx` and `rx` height-gain and excitation factor products and `ExcitationFactor`
-constants returned as the tuple `txterm, rxterm`.
+constants returned as the tuple `(txterm, rxterm)`.
 
 The returned `txterm` is:
 ```math

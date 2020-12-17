@@ -158,11 +158,13 @@ include("IO.jl")
 
 
 """
-    propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+    propagate(waveguide::Waveguide, tx::Emitter, rx::AbstractSampler;
               coordgrid=nothing, params=LMPParams())
 
 Compute electric field `E`, `amplitude`, and `phase`.
 """
+propagate
+
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LMPParams())
 
@@ -193,10 +195,6 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
     return E, amplitude, phase
 end
 
-"""
-    propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-              coordgrid=nothing, params=LMPParams())
-"""
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LMPParams())
 
