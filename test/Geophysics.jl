@@ -1,7 +1,6 @@
 function test_Species()
     electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32),
-                        z -> electroncollisionfrequency)
+                        z -> waitprofile(z, 75, 0.32), electroncollisionfrequency)
     @test isbits(electrons)
 end
 

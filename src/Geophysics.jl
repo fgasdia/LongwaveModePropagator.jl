@@ -186,7 +186,7 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
     Atmospheric and Terrestrial Physics, vol. 55, no. 2, pp. 173–184, Feb. 1993,
     doi: 10.1016/0021-9169(93)90122-F.
 """
-function waitprofile(z::Real, hp::Real, β::Real; cutoff_low=0, threshold=1e12)
+function waitprofile(z, hp, β; cutoff_low=0, threshold=1e12)
     if z > cutoff_low
         # Using form with single `exp` for speed
         Ne = 1.43e13*exp(-0.15*hp - (β - 0.15)*(hp - z/1000))
@@ -223,7 +223,7 @@ See also: [`waitprofile`](@ref), [`ioncollisionfrequency`](@ref)
     Atmospheric and Terrestrial Physics, vol. 55, no. 2, pp. 173–184, Feb. 1993,
     doi: 10.1016/0021-9169(93)90122-F.
 """
-function electroncollisionfrequency(z::Real)
+function electroncollisionfrequency(z)
     return 1.816e11*exp(-0.15e-3*z)  # e-3 converts `z` to km
 end
 
@@ -246,7 +246,7 @@ See also: [`waitprofile`](@ref), [`electroncollisionfrequency`](@ref)
     for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
     Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """
-function ioncollisionfrequency(z::Real)
+function ioncollisionfrequency(z)
     return 4.54e9*exp(-0.15e-3*z)  # e-3 converts `z` to km
 end
 
