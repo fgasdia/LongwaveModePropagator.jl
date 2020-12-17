@@ -191,7 +191,7 @@ jsonsafe!(s::BatchOutput) = jsonsafe!(s.outputs)
 """
     iscomplete(s)
 
-Return `true` if struct is completely defined, otherwise return `false`.
+Return `true` if input or output struct `s` is completely defined, otherwise return `false`.
 """
 function iscomplete(s)
     for fn in fieldnames(typeof(s))
@@ -200,7 +200,6 @@ function iscomplete(s)
     return true
 end
 
-"`iscomplete(s::BatchInput)`"
 function iscomplete(s::BatchInput)
     isdefined(s, :inputs) || return false
     for i in eachindex(s.inputs)
@@ -209,7 +208,6 @@ function iscomplete(s::BatchInput)
     return true
 end
 
-"`iscomplete(s::BatchOutput)`"
 function iscomplete(s::BatchOutput)
     isdefined(s, :outputs) || return false
     for i in eachindex(s.outputs)
@@ -221,11 +219,10 @@ end
 """
     validlengths(s)
 
-Check if field lengths match.
+Check if field lengths of input `s` match their number of segments.
 """
-function validlengths end
+validlengths
 
-"`validlengths(s::BasicInput)`"
 function validlengths(s::BasicInput)
     numsegments = length(s.segment_ranges)
     checkfields = (:hprimes, :betas, :b_mags, :b_dips, :b_azs, :ground_sigmas,
@@ -236,7 +233,6 @@ function validlengths(s::BasicInput)
     return true
 end
 
-"`validlengths(s::TableInput)`"
 function validlengths(s::TableInput)
     numsegments = length(s.segment_ranges)
     checkfields = (:b_mags, :b_dips, :b_azs, :ground_sigmas, :ground_epsrs)
@@ -257,7 +253,6 @@ function validlengths(s::TableInput)
     return true
 end
 
-"`validlengths(s::BatchInput)`"
 function validlengths(s::BatchInput)
     isdefined(s, :inputs) || return false
     for i in eachindex(s.inputs)
@@ -335,7 +330,7 @@ Return `HomogeneousWaveguide` from the `i`th entry in each field of `s`.
 function buildwaveguide(s::BasicInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
     species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i],
-                                               cutoff_low=40e3, threshold=1e12),
+                                               cutoff_low=40e3),
                       electroncollisionfrequency)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -357,19 +352,20 @@ function buildwaveguide(s::TableInput, i)
 end
 
 """
-    buildrun
+    buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
+    buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
+    buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
 
 Build LMP structs from an `Input` and run `LMP`.
 """
-function buildrun end
+buildrun
 
-"`buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())`"
 function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
         species = Species(QE, ME, z -> waitprofile(z, only(s.hprimes), only(s.betas),
-                                                   cutoff_low=40e3, threshold=1e12),
+                                                   cutoff_low=40e3),
                           electroncollisionfrequency)
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
@@ -401,7 +397,6 @@ function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
     return output
 end
 
-"`buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())`"
 function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
 
     if length(s.segment_ranges) == 1
@@ -440,7 +435,6 @@ function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
     return output
 end
 
-"`buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())`"
 function buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
 
     batch = BatchOutput{BasicOutput}()
