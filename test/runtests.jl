@@ -121,16 +121,14 @@ meanabsdiff(a, b) = mean(abs.(a - b))
 
 function findroots(scenario)
     @unpack bfield, species, ground, tx = scenario
-    w = LMP.HomogeneousWaveguide(bfield, species, ground)
-    me = LMP.PhysicalModeEquation(tx.frequency, w)
+    w = HomogeneousWaveguide(bfield, species, ground)
+    me = PhysicalModeEquation(tx.frequency, w)
     origcoords = LMP.defaultcoordinates(tx.frequency)
-    return LMP.findmodes(me, origcoords)
+    return findmodes(me, origcoords)
 end
 
 
 @testset "LongwaveModePropagator" begin
-    @info "Testing LongwaveModePropagator.jl\n"
-
     include("EigenAngles.jl")
     include("Geophysics.jl")
     include("Waveguides.jl")
@@ -144,6 +142,7 @@ end
     include("modeconversion.jl")
     include("modesum.jl")
 
+    include("LongwaveModePropagator.jl")
     include("lwpc_comparisons.jl")
 
     include("IO.jl")
