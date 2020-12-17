@@ -16,12 +16,12 @@ Ionosphere constituent `Species`.
 
 # Fields
 
-- `charge::Float64`: signed species charged in Coulombs (C).
-- `mass::Float64`: species mass in kilograms (kg).
-- `numberdensity::F`: a callable that returns number density in number per cubic meter (m⁻³)
-    as a function of height in meters.
+- `charge::Float64`: signed species charged in Coulombs.
+- `mass::Float64`: species mass in kilograms.
+- `numberdensity::F`: a callable that returns number density in number per cubic meter as a
+    function of height in meters.
 - `collisionfrequency::G`: a callable that returns the collision frequency in collisions per
-    second (s⁻¹) as a function of height in meters.
+    second as a function of height in meters.
 """
 struct Species{F, G}
     charge::Float64  # C
@@ -35,9 +35,9 @@ end
 """
     BField
 
-Background magnetic field vector of strength `B` (T) with direction cosines `dcl`, `dcm`,
-and `dcn` corresponding to x, y, and z directions parallel, perpendicular, and up to the
-waveguide.
+Background magnetic field vector of strength `B` in Tesla with direction cosines `dcl`,
+`dcm`, and `dcn` corresponding to ``x``, ``y``, and ``z`` directions parallel,
+perpendicular, and up to the waveguide.
 """
 struct BField
     B::Float64
@@ -57,8 +57,8 @@ end
 """
     BField(B, dip, azimuth)
 
-Return a `BField` of strength `B` (T), `dip` angle (rad) from the horizontal, and `azimuth`
-angle (rad) from the propagation direction, positive towards y.
+Return a `BField` of strength `B` in Tesla, `dip` angle in radians from the horizontal, and
+`azimuth` angle in radians from the propagation direction, positive towards ``y``.
 
 Dip (inclination) is the angle made with the horizontal by the background magnetic field
 lines. Positive dip corresponds to when the magnetic field vector is directed downward into
@@ -73,9 +73,9 @@ function BField(B, dip, azimuth)
     abs(dip) <= deg2rad(1) &&
         @warn "magnetic dip angles between ±1° have known numerical issues."
     abs(dip) > π &&
-        @warn "magnetic dip angle should be in radians"
+        @warn "magnetic dip angle should be in radians."
     abs(azimuth) > 2π &&
-        @warn "magnetic azimuth angle should be in radians"
+        @warn "magnetic azimuth angle should be in radians."
 
     Sdip, Cdip = sincos(dip)
     Saz, Caz = sincos(azimuth)
@@ -85,14 +85,14 @@ end
 """
     dip(b::BField)
 
-Return the dip angle (rad) from `b`.
+Return the dip angle in radians from `b`.
 """
 dip(b::BField) = -asin(b.dcn)
 
 """
     azimuth(b::BField)
 
-Return the azimuth angle (rad) from `b`.
+Return the azimuth angle in radians from `b`.
 """
 azimuth(b::BField) = atan(b.dcm,b.dcl)
 
@@ -115,8 +115,8 @@ end
 """
     Ground(ϵᵣ, σ)
 
-Isotropic earth ground characterized by a relative permittivity `ϵᵣ` and a
-conductivity `σ`.
+Isotropic earth ground characterized by a relative permittivity `ϵᵣ` and a conductivity `σ`
+in Siemens per meter.
 """
 struct Ground
     ϵᵣ::Int
@@ -162,8 +162,9 @@ end
 @doc raw"""
     waitprofile(z, h′, β; cutoff_low=0, threshold=1e12)
 
-Compute the electron number density in ``m⁻³`` at altitude `z` in ``m`` using Wait's
-exponential profile [^Wait1964] with parameters `h′` in ``km`` and `β` in ``km⁻¹``.
+Compute the electron number density in electrons per cubic meter at altitude `z` in meters
+using Wait's exponential profile [^Wait1964] with parameters `h′` in kilometers and `β` in
+inverse kilometers.
 
 The profile is:
 ```math
@@ -171,7 +172,7 @@ Nₑ = 1.43 × 10¹³ \exp(-0.15 h') \exp[(β - 0.15)(z/1000 - h')]
 ```
 
 Optional arguments:
-- `cutoff_low=0`: when `z` is below `cutoff_low`, return ``0``, appropriately typed.
+- `cutoff_low=0`: when `z` is below `cutoff_low`, return zero.
 - `threshold=1e12`: when density is greater than `threshold`, return `threshold`.
 
 See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
@@ -203,8 +204,8 @@ end
 @doc raw"""
     electroncollisionfrequency(z)
 
-Compute the electron-neutral collision frequency in ``s⁻¹`` at height `z` in ``m`` based on
-Wait's conductivity profile [^Wait1964].
+Compute the electron-neutral collision frequency in collisions per second at height `z` in
+meters based on Wait's conductivity profile [^Wait1964].
 
 The profile is:
 ```math
@@ -230,8 +231,8 @@ end
 @doc raw"""
     ioncollisionfrequency(z)
 
-Compute the ion-neutral collision frequency in ``s⁻¹`` at height `z` in ``m`` from
-[^Morfitt1976].
+Compute the ion-neutral collision frequency in collisions per second at height `z` in meters
+from [^Morfitt1976].
 
 The profile is:
 ```math
@@ -255,6 +256,7 @@ end
 
 """
     plasmafrequency(n, q, m)
+    plasmafrequency(z, s::Species)
 
 Return the plasma frequency ``ωₚ = √(nq²/(ϵ₀m))`` for a ``cold'' plasma.
 """
@@ -263,6 +265,7 @@ plasmafrequency(z, s::Species) = plasmafrequency(s.numberdensity(z), s.charge, s
 
 """
     gyrofrequency(q, m, B)
+    gyrofrequency(s::Species, b::BField)
 
 Return the _signed_ gyrofrequency ``Ω = qB/m``.
 """

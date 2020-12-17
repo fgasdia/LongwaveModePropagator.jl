@@ -7,10 +7,8 @@ using JSON3, StructTypes, CSV
 using Interpolations, NLsolve, FiniteDiff
 
 using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME, distance, power
 const LMP = LongwaveModePropagator
-
-const QE = LMP.QE
-const ME = LMP.ME
 
 const TEST_RNG = MersenneTwister(1234)
 

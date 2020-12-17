@@ -45,7 +45,7 @@ end
 """
     isless(x::EigenAngle, y::EigenAngle)
 
-Calls `isless` for complex `EigenAngle` by `real` and then `imag` component.
+Calls `Base.isless` for complex `EigenAngle` by `real` and then `imag` component.
 
 By defining `isless`, calling `sort` on `EigenAngle`s sorts by real component first and
 imaginary component second.
@@ -117,7 +117,9 @@ end
 """
     attenuation(ea, frequency::Frequency; params=LMPParams())
 
-Compute attenuation of `ea` at the ground.
+Compute attenuation of eigenangle `ea` at the ground.
+
+`ea` will be converted to an `EigenAngle` if needed.
 
 This function internally references `ea` to the ground.
 """
@@ -131,7 +133,9 @@ end
 """
     phasevelocity(ea)
 
-Compute the relative phase velocity ``v/c``.
+Compute the relative phase velocity ``v/c`` associated with the eigenangle `θ`.
+
+`ea` will be converted to an `EigenAngle` if needed.
 
 This function internally references `ea` to the ground.
 """

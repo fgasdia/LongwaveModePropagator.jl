@@ -36,49 +36,38 @@ PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 
 """
-    setea(ea, me)
+    setea(ea::EigenAngle, modeequation)
+    setea(θ, modeequation)
 
-Return `me` with new `ea`.
+Return `modeequation` with `EigenAngle` of `ea` or `θ`.
 """
-setea(ea::EigenAngle, me::PhysicalModeEquation) =
-    PhysicalModeEquation(ea, me.frequency, me.waveguide)
-setea(θ, me::PhysicalModeEquation) =
-    PhysicalModeEquation(EigenAngle(θ), me.frequency, me.waveguide)
+setea
 
-"""
-    isroot(x::Real; atol=1e-2)
-
-Return `true` if the value of `x` is approximately equal to 0.
-"""
-isroot(x::Real; atol=1e-2) = isapprox(x, 0, atol=atol)
+setea(ea::EigenAngle, modeequation::PhysicalModeEquation) =
+    PhysicalModeEquation(ea, modeequation.frequency, modeequation.waveguide)
+setea(θ, modeequation::PhysicalModeEquation) =
+    PhysicalModeEquation(EigenAngle(θ), modeequation.frequency, modeequation.waveguide)
 
 """
-    isroot(z::Complex; atol=1e-2)
+    isroot(x; atol=1e-2)
 
-Return `true` if both real and imaginary components of `z` are approximately equal to 0.
+Return `true` if `x` is approximately equal to 0 with the absolute tolerance `atol`.
 """
-function isroot(z::Complex; atol=1e-2)
-    rz, iz = reim(z)
-    isapprox(rz, 0, atol=atol) && isapprox(iz, 0, atol=atol)
-end
+isroot(x; atol=1e-2, kws...) = isapprox(x, 0, atol=atol, kws...)
 
 """
     filterroots!(roots, frequency, waveguide; atol=1e-2)
+    filterroots!(roots, modeequation; atol=1e-2)
 
 Remove elements from `roots` if they are not valid roots of the physical modal equation.
-
-See also: [`isroot`](@ref)
 """
+filterroots!
+
 function filterroots!(roots, frequency, waveguide; atol=1e-2)
     modeequation = PhysicalModeEquation(frequency, waveguide)
     return filterroots!(roots, modeequation, atol=atol)
 end
 
-"""
-    filterroots!(roots, modeequation; atol=1e-2)
-
-Use `modeequation` to validate and filter `roots`.
-"""
 function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
     i = 1
     while i <= length(roots)
@@ -96,8 +85,8 @@ end
 """
     wmatrix(ea::EigenAngle, T)
 
-Compute the four submatrix elements of `W` used in the equation ``dR/dz`` returned as a
-tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
+Compute the four submatrix elements of `W` used in the equation ``dR/dz`` from the
+ionosphere with `T` matrix returned as a tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
 
 Following Budden's formalism for the reflection matrix of a plane wave obliquely incident on
 the ionosphere [^Budden1955a], the wave below the ionosphere can be resolved into upgoing
@@ -111,8 +100,6 @@ the component waves. By inversion, ``f = L⁻¹e`` and its derivative with respe
 the upgoing and downgoing component waves.
 
 ``W`` is also known as ``S`` in many texts.
-
-See also: [`tmatrix`](@ref)
 
 # References
 
@@ -192,7 +179,9 @@ end
 """
     dwmatrix(ea::EigenAngle, T, dT)
 
-Compute the four submatrix elements of ``dW/dθ``.
+Compute the four submatrix elements of ``dW/dθ`` returned as the tuple
+`(dW₁₁, dW₂₁, dW₁₂, dW₂₂)` from the ionosphere with `T` matrix and its derivative with
+respect to ``θ``, `dT`.
 """
 function dwmatrix(ea::EigenAngle, T, dT)
     C, S, C², Cinv = ea.cosθ, ea.sinθ, ea.cos²θ, ea.secθ
@@ -230,9 +219,8 @@ end
 """
     dRdz(R, p, z)
 
-Compute the differential of the reflection matrix ``dR/dz`` at height `z`.
-
-`p` is a tuple containing instances of `(PhysicalModeEquation, LMPParams)`.
+Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`. `p` is a
+tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
 a horizontally stratified ionosphere [^Budden1955a], the differential of the reflection
@@ -242,8 +230,6 @@ dR/dz = k/(2i)⋅(W₂₁ + W₂₂R - RW₁₁ - RW₁₂R)
 ```
 Integrating ``dR/dz`` downwards through the ionosphere gives the reflection matrix ``R`` for
 the ionosphere as if it were a sharp boundary at the stopping level with free space below.
-
-See also: [`dRdθdz`](@ref)
 
 # References
 
@@ -272,9 +258,7 @@ end
 Compute the differential ``dR/dθ/dz`` at height `z` returned as an `SMatrix{4,2}` with
 ``dR/dz`` in the first 2 rows and ``dR/dθ/dz`` in the bottom 2 rows.
 
-`p` is a tuple containing instances of `(PhysicalModeEquation, LMPParams)`.
-
-See also: [`dRdz`](@ref)
+`p` is a tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
 """
 function dRdθdz(RdRdθ, p, z)
     modeequation, params = p
@@ -314,18 +298,6 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LMPPara
     Rtop = bookerreflection(modeequation.ea, Mtop)
 
     prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
-
-    # timed with test_modefinder.jl parallel_integration()
-    #==
-    |  tol  |       method      | time, thrds ms | memory MB |           notes        |
-    |-------|-------------------|----------------|-----------|------------------------|
-    | 1e-8  | Vern8             |  755, 332      |   12.5    | threads dtmin warnings |
-    | 1e-6  | Vern8             |                |           |                        |
-    | 1e-8  | Tsit5             |  1199, 567     |    8      |                        |
-    | 1e-8  | AutoVern7(Rodas5) |  1011, 459     |    37     | threads dtmin warnings |
-    | 1e-8  | Vern6             |  972, 508      |    9      |                        |
-    | 1e-8  | BS5               |  892, 442      |    9      |                        |
-    ==#
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
@@ -369,14 +341,14 @@ end
 ##########
 
 """
-    fresnelreflection
+    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+    fresnelreflection(m::PhysicalModeEquation)
 
 Compute the Fresnel reflection coefficient matrix for the ground-freespace interface at the
 ground.
 """
-function fresnelreflection end
+fresnelreflection
 
-"`fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)`"
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
 
     C, S² = ea.cosθ, ea.sin²θ
@@ -395,12 +367,12 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
     return Rg
 end
 
-"`fresnelreflection(m::PhysicalModeEquation)`"
 fresnelreflection(m::PhysicalModeEquation) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
 
 """
     fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+    fresnelreflection(m::PhysicalModeEquation, ::Dθ)
 
 Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
 with respect to ``θ`` returned as the tuple `(Rg, dRg)`.
@@ -428,7 +400,6 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
     return Rg, dRg
 end
 
-"`fresnelreflection(m::PhysicalModeEquation, ::Dθ)`"
 fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency, Dθ())
 
@@ -446,8 +417,6 @@ A propagating waveguide mode requires that a wave, having reflected from the ion
 then the ground, must be identical with the original upgoing wave. This criteria is met at
 roots of the mode equation [^Budden1962].
 
-See also: [`modalequation`](@ref)
-
 # References
 
 [^Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
@@ -463,12 +432,9 @@ end
     dmodalequation(R, dR, Rg, dRg)
 
 Compute the derivative of the determinantal mode equation with respect to ``θ``.
-
-See also: [`modalequation`](@ref)
 """
 function dmodalequation(R, dR, Rg, dRg)
-    # See https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
-
+    # See e.g. https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
     A = Rg*R - I
     dA = dRg*R + Rg*dR
     return det(A)*tr(A\dA)
@@ -504,10 +470,8 @@ end
 """
     solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
 
-Compute the derivative of the modal equation with respect to ``θ``. The reflection
-coefficients `R` and `Rg` are also returned.
-
-See also: [`solvemodalequation`](@ref)
+Compute the derivative of the modal equation with respect to ``θ`` returned as the tuple
+`(dF, R, Rg)` for the ionosphere and ground reflection coefficients.
 """
 function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
     RdR = integratedreflection(modeequation, Dθ(), params=params)
@@ -516,8 +480,8 @@ function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParam
 
     Rg, dRg = fresnelreflection(modeequation, Dθ())
 
-    df = dmodalequation(R, dR, Rg, dRg)
-    return df, R, Rg
+    dF = dmodalequation(R, dR, Rg, dRg)
+    return dF, R, Rg
 end
 
 """
@@ -534,17 +498,17 @@ end
 """
     findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
 
-Return eigenangles associated with the `waveguide` of `modeequation` within the domain of
+Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
 `origcoords`.
 
 `origcoords` should be an array of complex numbers that make up the original grid over which
-the `GRPF` algorithm searches for roots of `modeequation`.
+the GRPF algorithm searches for roots of `modeequation`.
 
-Roots found by the `grpf` algorithm are confirmed to a tolerance of approximately 3 orders
+Roots found by the GRPF algorithm are confirmed to a tolerance of approximately 3 orders
 of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
-For example, if `grpfparams.tolerance = 1e-5`, then the real and imaginary components of
-the modal equation for each root must each be less than 1e-2. Typically the values of each
-component are close to `grpfparams.tolerance`.
+For example, if `grpfparams.tolerance = 1e-5`, then the value of the modal equation for each
+root must be less than `1e-2`. Typically the values of each component are close to
+`grpfparams.tolerance`.
 
 There is also a check for redundant modes that requires modes to be separated by at least
 2 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
@@ -554,9 +518,9 @@ component of each mode must be separated by at least 1e-3 from every other mode.
 function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
     @unpack grpfparams = params
 
-    # WARNING: If tolerance of mode finder is much less than the R integration
-    # tolerance, it may possible multiple identical modes will be identified. Checks for
-    # valid and redundant modes help ensure valid eigenangles are returned from this function.
+    # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
+    # is possible multiple identical modes will be identified. Checks for valid and
+    # redundant modes help ensure valid eigenangles are returned from this function.
 
     roots, poles = grpf(θ->solvemodalequation(θ, modeequation, params=params),
                         origcoords, grpfparams)

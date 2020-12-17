@@ -7,11 +7,11 @@ related to calculating wavefields and vacuum reflection coefficients from the qu
 ==#
 
 """
-    bookerquartic
+    bookerquartic(ea::EigenAngle, M)
+    bookerquartic(T::TMatrix)
 
-Compute roots `q` and the coefficients `B` of the Booker quartic.
-
-See also: [`dbookerquartic`](@ref)
+Compute roots `q` and the coefficients `B` of the Booker quartic described by the
+susceptibility tensor `M` or `T` matrix.
 
 # References
 
@@ -19,9 +19,8 @@ See also: [`dbookerquartic`](@ref)
     waves of low power in the ionosphere and magnetosphere,” First paperback edition.
     New York: Cambridge University Press, 1988.
 """
-function bookerquartic end
+bookerquartic
 
-"`bookerquartic(ea::EigenAngle, M)`"
 function bookerquartic(ea::EigenAngle, M)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
@@ -58,7 +57,6 @@ function bookerquartic(ea::EigenAngle, M)
     return booker_quartic_roots, SVector(booker_quartic_coeffs)
 end
 
-"`bookerquartic(T::TMatrix)`"
 function bookerquartic(T::TMatrix)
     # Precompute
     T34T42 = T[3,4]*T[4,2]
@@ -80,15 +78,14 @@ function bookerquartic(T::TMatrix)
 end
 
 """
-    dbookerquartic
+    dbookerquartic(ea::EigenAngle, M, q, B)
+    dbookerquartic(T::TMatrix, dT, q, B)
 
-Compute derivative `dq` of the Booker quartic roots with respect to ``θ``.
-
-See also: [`bookerquartic`](@ref)
+Compute derivative `dq` of the Booker quartic roots `q` with respect to ``θ`` for the
+ionosphere described by susceptibility tensor `M` or `T` matrix.
 """
-function dbookerquartic end
+dbookerquartic
 
-"`dbookerquartic(ea::EigenAngle, M, q, B)`"
 function dbookerquartic(ea::EigenAngle, M, q, B)
     S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
 
@@ -111,7 +108,6 @@ function dbookerquartic(ea::EigenAngle, M, q, B)
     return SVector(dq)
 end
 
-"`dbookerquartic(T::TMatrix, dT, q, B)`"
 function dbookerquartic(T::TMatrix, dT, q, B)
     dB3 = -dT[1,1] - dT[4,4]
     dB2 = T[1,1]*dT[4,4] + dT[1,1]*T[4,4] - dT[1,4]*T[4,1] - dT[3,2]
@@ -228,10 +224,13 @@ function sortquarticroots!(q)
 end
 
 @doc raw"""
-    bookerwavefields
+    bookerwavefields(ea::EigenAngle, M)
+    bookerwavefields(T::TMatrix)
 
-Compute the two-column wavefields matrix `e` from the Booker quartic for the two upgoing
-wavefields where subscript `1` is the evanescent wave and `2` is the travelling wave.
+Compute the two-column wavefields matrix `e` from the ionosphere with susceptibility tensor
+`M` or `T` matrix for the two upgoing wavefields.
+
+The first column of `e` is the evanescent wave and the second is the travelling wave.
 
 ```math
 e =
@@ -248,16 +247,14 @@ for the roots `q`. Then they are sorted so that the roots associated with the tw
 waves can be selected. `e` is solved as the eigenvectors for the two `q`s. An
 analytical solution is used where `e[2,:] = 1`.
 """
-function bookerwavefields end
+bookerwavefields
 
-"`bookerwavefields(T::TMatrix)`"
 function bookerwavefields(T::TMatrix)
     q, B = bookerquartic(T)
     sortquarticroots!(q)
     return bookerwavefields(T, q)
 end
 
-"`bookerwavefields(ea::EigenAngle, M)`"
 function bookerwavefields(ea::EigenAngle, M)
     q, B = bookerquartic(ea, M)
     sortquarticroots!(q)
@@ -286,10 +283,12 @@ function bookerwavefields(T::TMatrix, q)
 end
 
 """
+    bookerwavefields(ea::EigenAngle, M, ::Dθ)
     bookerwavefields(T::TMatrix, dT, ::Dθ)
 
-Compute the two-column wavefields `e` as well as its derivative with respect to ``θ``,
-returned as a tuple `e, de`.
+Compute the two-column wavefields matrix `e` as well as its derivative with respect to
+``θ``, returned as a tuple `(e, de)` for the ionosphere with susceptibility tensor `M` or
+`T` matrix and its derivative with respect to ``θ``, `dT`.
 """
 function bookerwavefields(T::TMatrix, dT, ::Dθ)
     q, B = bookerquartic(T)
@@ -298,7 +297,6 @@ function bookerwavefields(T::TMatrix, dT, ::Dθ)
     return bookerwavefields(T, dT, q, dq)
 end
 
-"`bookerwavefields(ea::EigenAngle, M, ::Dθ)`"
 function bookerwavefields(ea::EigenAngle, M, ::Dθ)
     q, B = bookerquartic(ea, M)
     sortquarticroots!(q)
@@ -309,7 +307,6 @@ function bookerwavefields(ea::EigenAngle, M, ::Dθ)
     return bookerwavefields(T, dT, q, dq)
 end
 
-"`bookerwavefields(T::TMatrix, dT, q, dq)`"
 function bookerwavefields(T::TMatrix, dT, q, dq)
     # Precompute
     T14T41 = T[1,4]*T[4,1]
@@ -345,9 +342,13 @@ function bookerwavefields(T::TMatrix, dT, q, dq)
 end
 
 @doc raw"""
-    bookerreflection
+    bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
+    bookerreflection(ea::EigenAngle, e)
 
-Compute the ionosphere reflection coefficient matrix from a ratio of the downgoing to
+Compute the ionosphere reflection coefficient matrix for a sharply bounded ionosphere from
+4×2 wavefields matrix `e` or the susceptibility matrix `M`.
+
+The ionosphere reflection coefficient matrix is computed from a ratio of the downgoing to
 upgoing plane waves in the free space beneath the ionosphere [^Budden1988] pg. 307. These
 are obtained from the two upgoing characteristic waves found from the Booker quartic. Each
 make up a column of `e`.
@@ -367,8 +368,6 @@ R =
 The reflection coefficient matrix for the sharply bounded case is commonly used as a
 starting solution for integration of the reflection coefficient matrix through the
 ionosphere.
-
-See also: [`bookerwavefields`](@ref)
 
 # References
 
@@ -410,13 +409,8 @@ division operator `R = D/U`.
 
 For additional details, see [^Budden1988], chapter 18, section 7.
 """
-function bookerreflection end
+bookerreflection
 
-"""
-    bookerreflection(ea::EigenAngle, e)
-
-For two column wavefield matrix `e`.
-"""
 function bookerreflection(ea::EigenAngle, e)
     C = ea.cosθ
 
@@ -431,7 +425,6 @@ function bookerreflection(ea::EigenAngle, e)
     return R
 end
 
-"`bookerreflection(ea::EigenAngle, M::SMatrix{3,3})`"
 function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
     e = bookerwavefields(ea, M)
     return bookerreflection(ea, e)
@@ -441,7 +434,8 @@ end
     bookerreflection(ea::EigenAngle, M, ::Dθ)
 
 Compute the ionosphere reflection coefficient matrix ``R`` for a sharply bounded
-ionosphere as well as its derivative ``dR/dθ`` returned as tuple `R, dR`.
+ionosphere with susceptibility tensor `M`, as well as its derivative ``dR/dθ`` returned as
+the tuple `(R, dR)`.
 """
 function bookerreflection(ea::EigenAngle, M, ::Dθ)
     S, C = ea.sinθ, ea.cosθ

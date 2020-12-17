@@ -4,7 +4,9 @@ Functions related to calculating physical parameters of the ionospheric plasma
 ==#
 
 @doc raw"""
-    susceptibility
+    susceptibility(altitude, frequency, bfield, species; params=LMPParams())
+    susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams())
+    susceptibility(altitude, me::ModeEquation; params=LMPParams())
 
 Compute the ionosphere susceptibility tensor `M` as a `SMatrix{3,3}` using
 `species.numberdensity` and `species.collisionfrequency` at `altitude`.
@@ -38,9 +40,8 @@ correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where 
 [^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
     ionosphere," Cambridge University Press, 1959.
 """
-function susceptibility end
+susceptibility
 
-"`susceptibility(altitude, frequency, bfield, species; params=LMPParams())`"
 function susceptibility(altitude, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
@@ -115,10 +116,8 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     return M
 end
 
-"`susceptibility(altitude, me::ModeEquation; params=LMPParams())`"
 susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
     susceptibility(altitude, me.frequency, me.waveguide, params=params)
 
-"`susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams())`"
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
     susceptibility(altitude, frequency, w.bfield, w.species, params=params)

@@ -33,11 +33,10 @@ export BasicInput, TableInput, BatchInput, BasicOutput, BatchOutput
 
 # Samplers.jl
 export Receiver, Sampler, GroundSampler
-export distance
 
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
-export inclination, azimuth, power
+export inclination, azimuth
 
 # modefinder.jl
 export findmodes, PhysicalModeEquation
@@ -195,34 +194,6 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
 end
 
 """
-    propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
-              coordgrid=nothing, params=LMPParams())
-
-For `AbstractSampler`s with a single `distance`, compute scalar `E`, `amplitude`, and `phase`.
-"""
-function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler{<:Real};
-    coordgrid=nothing, params=LMPParams())
-
-    if isnothing(coordgrid)
-        coordgrid = defaultcoordinates(tx.frequency)
-    else
-        if minimum(imag(coordgrid)) < deg2rad(-31)
-            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields
-                calculated with modified Hankel functions to overflow."
-        end
-    end
-
-    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(modeequation, coordgrid, params=params)
-
-    E = Efield(modes, waveguide, tx, rx, params=params)
-    amplitude = 10log10(abs2(E))  # == 20log10(abs(E))
-    phase = angle(E)  # BUG? do we need to actually unwrap field all the way from tx?
-
-    return E, amplitude, phase
-end
-
-"""
     propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
               coordgrid=nothing, params=LMPParams())
 """
@@ -287,7 +258,7 @@ end
 
 Run the model scenario described by `file` and save the results as `outfile`.
 
-If `outfile = missing`, the output file name will be `$(file)_output.json`.
+If `outfile = missing`, the output file name will be `\$(file)_output.json`.
 """
 function propagate(file::AbstractString; outfile=missing, incrementalwrite=false,
     append=false, coordgrid=nothing, params=LMPParams())

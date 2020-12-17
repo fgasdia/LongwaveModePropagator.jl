@@ -16,6 +16,8 @@ semi-sparse. The form of the matrix is:
 `TMatrix` implements efficient matrix-vector multiplication and other math based on its
 special form.
 
+See also: [`tmatrix`](@ref)
+
 # References
 
 [^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations

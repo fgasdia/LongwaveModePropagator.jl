@@ -44,7 +44,8 @@ factors where eigenangle `ea₀` is referenced to the ground.
 
 !!! note
 
-    This function assumes that reflection coefficients are referenced to ``d = z = 0``.
+    This function assumes that reflection coefficients `R` and `Rg` are referenced to
+    ``d = z = 0``.
 
 # References
 
@@ -114,15 +115,16 @@ end
     excitationfactor(ea, dFdθ, R, Rg, efconstants::ExcitationFactor; params=LMPParams())
 
 Compute excitation factors for the ``Hy`` field at the emitter returned as the tuple
-`(λv, λb, λe)` for vertical, broadside, and end-on dipoles.
+`(λv, λb, λe)` for vertical, broadside, and end-on dipoles. `dFdθ` is the derivative of the
+modal equation with respect to ``θ``.
 
 The excitation factor describes how efficiently the field component can be excited in the
 waveguide.
 
 This function most closely follows the approach taken in [^Pappert1983], which makes use of
-``T`` rather than ``τ``. From the total ``Hy`` excitation factor (the sum product of the
-`λ`s with the antenna orientation terms), the excitation factor for electric fields can
-be found as:
+``T`` (different from `TMatrix`) rather than ``τ``. From the total ``Hy`` excitation factor
+(the sum product of the `λ`s with the antenna orientation terms), the excitation factor for
+electric fields can be found as:
 
 - ``λz = -S₀λ``
 - ``λx = EyHy⋅λ``
@@ -130,7 +132,8 @@ be found as:
 
 !!! note
 
-    This function assumes that `R` and `Rg` are referenced to ``d = z = 0``.
+    This function assumes that reflection coefficients `R` and `Rg` are referenced to
+    ``d = z = 0``.
 
 # References
 
@@ -256,9 +259,9 @@ The returned `txterm` is:
 ```math
 λ_v \cos(γ) f_z(zₜ) + λ_b \sin(γ)\sin(ϕ) f_y(zₜ) + λ_e \sin(γ)\cos(ϕ) f_z(zₜ)
 ```
-and `rxterm` is the height-gain function appropriate for `rx.fieldcomponent`:
+and `rxterm` is the height-gain function ``f(zᵣ)`` appropriate for `rx.fieldcomponent`:
 
-| `fieldcomponent` |    f(zᵣ)       |
+| `fieldcomponent` |   ``f(zᵣ)``    |
 |:----------------:|:--------------:|
 |      ``z``       |  ``-S₀⋅f_z``   |
 |      ``y``       |  ``EyHy⋅f_y``  |
@@ -326,13 +329,7 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     return txterm, rxterm
 end
 
-"""
-    modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
-        rx::GroundSampler; params=LMPParams())
-
-Specialized `modeterms` for the common case of `GroundSampler` and
-`Transmitter{VerticalDipole}`.
-"""
+# Specialized for the common case of `GroundSampler` and `Transmitter{VerticalDipole}`.
 function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     rx::GroundSampler; params=LMPParams())
 
@@ -373,33 +370,11 @@ Electric field calculation
 ==#
 
 """
-    Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
-           rx::AbstractSampler; params=LMPParams())
+    Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+           params=LMPParams())
 
-Compute the complex electric field by summing `modes` in `waveguide` with transmitter `tx`
-and receiver `rx`.
-
-See also: [`Efield!`](@ref)
-"""
-function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
-    rx::AbstractSampler; params=LMPParams())
-
-    X = distance(rx, tx)
-    Xlength = length(X)
-
-    E = zeros(ComplexF64, Xlength)
-    Efield!(E, modes, waveguide, tx, rx, params=params)
-
-    return E
-end
-
-"""
-    Efield!(E, modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide,
-            tx::Emitter, rx::AbstractSampler; params=LMPParams())
-
-Compute the complex electric field `E` in-place.
-
-See also: [`Efield`](@ref)
+Compute the complex electric field by summing `modes` in `waveguide` for emitter `tx` at
+sampler `rx`.
 
 # References
 
@@ -412,19 +387,15 @@ See also: [`Efield`](@ref)
     elevation and orientation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891,
     Aug. 1983. [Online]. Available: http://www.dtic.mil/docs/citations/ADA133876.
 """
-function Efield!(E, modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
-    rx::AbstractSampler; params=LMPParams())
+function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+    params=LMPParams())
 
     X = distance(rx, tx)
-    length(E) == length(X) ||
-        throw(ArgumentError("`E` must be same length as `rx` distances."))
+    E = zeros(ComplexF64, length(X))
 
     txpower = power(tx)
     frequency = tx.frequency
     k = frequency.k
-
-    # Initialize `E` to zeros if necessary
-    iszero(E) || fill!(E, 0)
 
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
@@ -460,16 +431,9 @@ function Efield!(E, modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, 
     return E
 end
 
-"""
-    Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
-           rx::AbstractSampler{<:Real}; params=LMPParams())
-
-Compute the scalar electric field when `AbstractSampler` has a (single) `Real` `distance`.
-"""
-function Efield(modes::Vector{EigenAngle}, waveguide::HomogeneousWaveguide, tx::Emitter,
+function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
     rx::AbstractSampler{<:Real}; params=LMPParams())
 
-    # Unpack
     frequency = tx.frequency
     k = frequency.k
 
@@ -631,12 +595,12 @@ end
 
 ########
 
-"""
+#==
 radiation resistance correction factor for when zt isn't 0.
 
 From lw_sum_modes.for
 but could also see Pappert and Hitney 1989 TWIRE paper
-"""
+==#
 function radiationresistance(k, Cγ, zt)
     x = 2*k*zt
     sinx, cosx = sincos(x)

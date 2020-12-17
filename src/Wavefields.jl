@@ -205,9 +205,10 @@ end
 
 """
     scalewavefields(e1, e2)
+    scalewavefields(e::SMatrix{4,2})
 
-Orthonormalize the vectors `e1` and `e2`, and also return the scaling terms `a`,
-`e1_scale_val`, and `e2_scale_val` applied to the original vectors.
+Orthonormalize the vectors `e1` and `e2` or the columns of `e`, and also return the scaling
+terms `a`, `e1_scale_val`, and `e2_scale_val` applied to the original vectors.
 
 This first applies Gram-Schmidt orthogonalization and then scales the vectors so they each
 have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested by
@@ -220,6 +221,8 @@ have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested
     Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
     doi: 10.1098/rsta.1965.0004.
 """
+scalewavefields
+
 function scalewavefields(e1, e2)
     # Orthogonalize vectors `e1` and `e2` (Gram-Schmidt process)
     # `dot` for complex vectors automatically conjugates first vector
@@ -236,11 +239,6 @@ function scalewavefields(e1, e2)
     return e1, e2, a, e1_scale_val, e2_scale_val
 end
 
-"""
-    scalewavefields(e::SMatrix{4,2})
-
-Apply scaling to both columns of `e`.
-"""
 function scalewavefields(e::SMatrix{4,2})
     e1, e2, a, e1_scale_val, e2_scale_val = scalewavefields(e[:,1], e[:,2])
 
@@ -392,13 +390,20 @@ end
 
 """
     boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
+    boundaryscalars(R, Rg, e, isotropic::Bool=false)
 
-Compute coefficients `b1`, `b2` required to sum `e1`, `e2` for total wavefield in the
-waveguide as ``e = b1*e1 + b2*e2``.
+Compute coefficients `(b1, b2)` required to sum the two wavefields vectors `e1` and `e2` or
+both columns of `e` for the total wavefield at the ground as ``e = b1*e1 + b2*e2``.
+
+The `b1` and `b2` that satisfy the waveguide boundary conditions are only valid for true
+eigenangles of the waveguide.
 
 !!! note
 
-    This function assumes that the reflection coefficients and `e1`, `e2` are at the ground.
+    This function assumes that the reflection coefficients `R` and `Rg` and the wavefield
+    vectors `e1`, `e2` are at the ground.
+
+    These boundary conditions
 """
 function boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
     # This is similar to excitation factor calculation, using the waveguide mode condition
@@ -440,7 +445,6 @@ function boundaryscalars(R, Rg, e1, e2, isotropic::Bool=false)
     return b1, b2
 end
 
-"`boundaryscalars(R, Rg, e, isotropic::Bool=false)`"
 boundaryscalars(R, Rg, e, isotropic::Bool=false) =
     boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
 
@@ -489,6 +493,18 @@ end
 """
     calculate_wavefields!(wavefields, adjoint_wavefields, frequency, waveguide,
         adjoint_waveguide; params=LMPParams())
+
+Compute fields of `wavefields` in-place scaled to satisfy the `waveguide` boundary
+conditions.
+
+This function implements the method of integrating wavefields suggested by [^Pitteway1965].
+
+# References
+
+[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+    coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
+    Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
+    doi: 10.1098/rsta.1965.0004.
 """
 function calculate_wavefields!(wavefields, adjoint_wavefields, frequency, waveguide,
     adjoint_waveguide; params=LMPParams())

@@ -34,18 +34,13 @@ function test_Efield(scenario)
     X = LMP.distance(rx, tx)
     E = zeros(ComplexF64, length(X))
 
-    E1 = LMP.Efield!(E, modes, waveguide, tx, rx)  # in-place
-    E2 = LMP.Efield(modes, waveguide, tx, rx)  # out-of-place
-    @test E1 == E2
+    E1 = LMP.Efield(modes, waveguide, tx, rx)  # out-of-place
 
     singlerx = GroundSampler(1000e3, rx.fieldcomponent)
-    E3 = LMP.Efield(modes, waveguide, tx, singlerx)  # specialized
-    distidx = findfirst(x->x==1000e3, X)
-    @test E3 ≈ E2[distidx]
+    E2 = LMP.Efield(modes, waveguide, tx, singlerx)  # specialized
 
-    # E and X length mismatch
-    Ewrong = zeros(ComplexF64, 13)
-    @test_throws ArgumentError LMP.Efield!(Ewrong, modes, waveguide, tx, rx)
+    distidx = findfirst(x->x==1000e3, X)
+    @test E2 ≈ E1[distidx]
 end
 
 
