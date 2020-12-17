@@ -99,8 +99,8 @@ function test_wavefieldreflection(scenario)
 
     @unpack ea, bfield, tx, ground, species = scenario
     params = LMPParams()
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LMP.PhysicalModeEquation(ea, tx.frequency, waveguide)
+    waveguide = HomogeneousWaveguide(bfield, species, ground)
+    modeequation = PhysicalModeEquation(ea, tx.frequency, waveguide)
 
     zs = params.wavefieldheights
 

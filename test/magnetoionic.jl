@@ -8,8 +8,8 @@ function test_susceptibility(scenario)
     @test M1 == M2
     @test !(M2 ≈ M3)
 
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground)
-    modeequation = LMP.PhysicalModeEquation(tx.frequency, waveguide)
+    waveguide = HomogeneousWaveguide(bfield, species, ground)
+    modeequation = PhysicalModeEquation(tx.frequency, waveguide)
 
     M4 = LMP.susceptibility(70e3, tx.frequency, waveguide)
     M5 = LMP.susceptibility(70e3, tx.frequency, waveguide, params=LMPParams())

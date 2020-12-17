@@ -2,7 +2,7 @@ function test_modeconversion_segmented(scenario)
     @unpack distances, ea, tx, bfield, species, ground = scenario()
     params = LMPParams()
 
-    waveguide = LMP.SegmentedWaveguide([LMP.HomogeneousWaveguide(bfield[i], species[i],
+    waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i],
                                         ground[i], distances[i]) for i in 1:2])
 
 
@@ -14,7 +14,7 @@ function test_modeconversion_segmented(scenario)
     for i = 1:2
         wvg = waveguide[i]
         adjwvg = LMP.adjoint(wvg)
-        modeequation = LMP.PhysicalModeEquation(tx.frequency, wvg)
+        modeequation = PhysicalModeEquation(tx.frequency, wvg)
         modes = findmodes(modeequation, coordgrid, params=params)
 
         wavefields = LMP.Wavefields(params.wavefieldheights, modes)

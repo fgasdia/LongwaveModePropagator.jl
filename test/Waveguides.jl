@@ -2,7 +2,7 @@ function test_HomogeneousWaveguide(scenario)
     @unpack bfield, species, ground = scenario
 
     distance = 1000e3
-    waveguide = LMP.HomogeneousWaveguide(bfield, species, ground, distance)
+    waveguide = HomogeneousWaveguide(bfield, species, ground, distance)
     @test isbits(waveguide)
 
     adjwaveguide = LMP.adjoint(waveguide)
