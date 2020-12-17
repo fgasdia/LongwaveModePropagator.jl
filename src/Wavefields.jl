@@ -82,7 +82,7 @@ Parameters passed to Pitteway integration of wavefields.
 - `frequency::Frequency`: electromagentic wave frequency in Hz.
 - `bfield::BField`: Earth's magnetic field in Tesla.
 - `species::Species{F,G}`: species in the ionosphere.
-- `LMPParams::LMPParams{H}`: module-wide parameters.
+- `params::LMPParams{H}`: module-wide parameters.
 """
 struct WavefieldIntegrationParams{F,G,H}
     z::Float64
@@ -94,11 +94,11 @@ struct WavefieldIntegrationParams{F,G,H}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
-    LMPParams::LMPParams{H}
+    params::LMPParams{H}
 end
 
 """
-    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, LMPParams)
+    WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, params)
 
 Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
 
@@ -110,9 +110,9 @@ Automatically set values are:
 - `e2_scalar = one(Float64)`
 """
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    LMPParams::LMPParams{H}) where {F,G,H}
+    params::LMPParams{H}) where {F,G,H}
     return WavefieldIntegrationParams{F,G,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
-        one(Float64), one(Float64), ea, frequency, bfield, species, LMPParams)
+        one(Float64), one(Float64), ea, frequency, bfield, species, params)
 end
 
 """
@@ -152,9 +152,9 @@ Compute derivative of field components vector `e` at height `z`.
 The parameter `p` should be a `WavefieldIntegrationParams`.
 """
 function dedz(e, p, z)
-    @unpack ea, frequency, bfield, species, LMPParams = p
+    @unpack ea, frequency, bfield, species, params = p
 
-    M = susceptibility(z, frequency, bfield, species, params=LMPParams)
+    M = susceptibility(z, frequency, bfield, species, params=params)
     T = tmatrix(ea, M)
 
     return dedz(e, frequency.k, T)
@@ -180,7 +180,7 @@ function scale!(integrator)
     new_e, new_orthos, new_e1s, new_e2s = scalewavefields(integrator.u)
 
     # Last set of scaling values
-    @unpack bottomz, ea, frequency, bfield, species, LMPParams = integrator.p
+    @unpack bottomz, ea, frequency, bfield, species, params = integrator.p
 
     #==
     NOTE: `integrator.t` is the "time" of the _proposed_ step. Therefore, integrator.t`
@@ -196,7 +196,7 @@ function scale!(integrator)
                                               bottomz,
                                               new_orthos,
                                               new_e1s, new_e2s,
-                                              ea, frequency, bfield, species, LMPParams)
+                                              ea, frequency, bfield, species, params)
 
     integrator.u = new_e
 
