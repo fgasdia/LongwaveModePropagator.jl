@@ -67,7 +67,7 @@ function Base.isvalid(A::Wavefields)
 end
 
 """
-    WavefieldIntegrationParams{F,G,H}
+    WavefieldIntegrationParams{F,G,T,H}
 
 Parameters passed to Pitteway integration of wavefields.
 
@@ -82,9 +82,9 @@ Parameters passed to Pitteway integration of wavefields.
 - `frequency::Frequency`: electromagentic wave frequency in Hz.
 - `bfield::BField`: Earth's magnetic field in Tesla.
 - `species::Species{F,G}`: species in the ionosphere.
-- `params::LMPParams{H}`: module-wide parameters.
+- `params::LMPParams{T,H}`: module-wide parameters.
 """
-struct WavefieldIntegrationParams{F,G,H}
+struct WavefieldIntegrationParams{F,G,T,H}
     z::Float64
     bottomz::Float64
     ortho_scalar::ComplexF64
@@ -94,7 +94,7 @@ struct WavefieldIntegrationParams{F,G,H}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
-    params::LMPParams{H}
+    params::LMPParams{T,H}
 end
 
 """
@@ -110,8 +110,8 @@ Automatically set values are:
 - `e2_scalar = one(Float64)`
 """
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    params::LMPParams{H}) where {F,G,H}
-    return WavefieldIntegrationParams{F,G,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
+    params::LMPParams{T,H}) where {F,G,T,H}
+    return WavefieldIntegrationParams{F,G,T,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
         one(Float64), one(Float64), ea, frequency, bfield, species, params)
 end
 
@@ -332,15 +332,15 @@ function unscalewavefields(saved_values::SavedValues)
 end
 
 """
-    save_values(u, t, integrator)
+    savevalues(u, t, integrator)
 
 Return a `ScaleRecord` from `u`, `t`, and `integrator`.
 """
-save_values(u, t, integrator) = ScaleRecord(integrator.p.z,
-                                            u,
-                                            integrator.p.ortho_scalar,
-                                            integrator.p.e1_scalar,
-                                            integrator.p.e2_scalar)
+savevalues(u, t, integrator) = ScaleRecord(integrator.p.z,
+                                           u,
+                                           integrator.p.ortho_scalar,
+                                           integrator.p.e1_scalar,
+                                           integrator.p.e2_scalar)
 
 """
     integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
@@ -371,8 +371,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
 
     saved_values = SavedValues(Float64, ScaleRecord)
-
-    scb = SavingCallback(save_values, saved_values, save_everystep=false, saveat=zs, tdir=-1)
+    scb = SavingCallback(savevalues, saved_values, save_everystep=false, saveat=zs, tdir=-1)
 
     p = WavefieldIntegrationParams(params.topheight, ea, frequency, bfield, species, params)
 

@@ -63,9 +63,7 @@ end
 function test_integratewavefields_homogeneous(scenario)
     #==
     Check wavefields in homogeneous ionosphere are valid solutions to wave equation.
-
     Compares to Booker quartic solution.
-
     See, e.g. Pitteway 1965 pg 234; also Barron & Budden 1959 sec 10
     ==#
 
@@ -93,9 +91,7 @@ function test_integratewavefields_homogeneous(scenario)
 end
 
 function test_wavefieldreflection(scenario)
-    #==
-    Confirm reflection coefficients from wavefields match with dr/dz calculation.
-    ==#
+    # Confirm reflection coefficients from wavefields match with dr/dz calculation.
 
     @unpack ea, bfield, tx, ground, species = scenario
     params = LMPParams()

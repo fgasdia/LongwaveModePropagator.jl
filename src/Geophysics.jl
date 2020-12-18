@@ -190,7 +190,7 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 function waitprofile(z, hp, β; cutoff_low=0, threshold=1e12)
     if z > cutoff_low
         # Using form with single `exp` for speed
-        Ne = 1.43e13*exp(-0.15*hp - (β - 0.15)*(hp - z/1000))
+        Ne = 1.43e13*exp(-0.15*hp - (β - 0.15)*(hp - z*0.001))  # converting `z` to km
         if Ne > threshold
             return oftype(Ne, threshold)
         else
