@@ -598,28 +598,6 @@ function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
     rZb, iZb = reim(Zb)
     rZc, iZc = reim(Zc)
 
-    #==
-    # Check if this is a right triangle
-    validtriangle = true
-    if rZa == rZb == rZc
-        validtriangle = false
-    elseif iZa == iZb == iZc
-        validtriangle = false
-    elseif rZa == rZb
-        iZa == iZc || iZb == iZc || (validtriangle = false)
-    elseif rZa == rZc
-        iZa == iZb || iZb == iZc || (validtriangle = false)
-    elseif rZb == rZc
-        iZa == iZb || iZa == iZc || (validtriangle = false)
-    else
-        validtriangle = false
-    end
-    validtriangle || throw(ArgumentError("`Za`, `Zb`, `Zc` do not define a grid-aligned right triangle"))
-
-    iZa == iZb || ((Zb, Zc) = (Zc, Zb))
-    rZb > rZa || ((Za, Zb) = (Zb, Za))
-    ==#
-
     # Determine `dx` and `dy`
     X = rZb - rZa
     Y = abs(iZa - iZc)

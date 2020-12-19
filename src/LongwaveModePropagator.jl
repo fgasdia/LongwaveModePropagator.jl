@@ -22,10 +22,11 @@ using ModifiedHankelFunctionsOfOrderOneThird
 export propagate
 
 # EigenAngle.jl
+export EigenAngle
 export attenuation, phasevelocity, referencetoground
 
 # Geophysics.jl
-export BField, Species, EigenAngle, Fields, Ground, GROUND
+export BField, Species, Fields, Ground, GROUND
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl
@@ -91,7 +92,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 The struct is created using `Parameters.jl` `@with_kw` and supports that package's
 instantiation capabilities, e.g.:
 
-```jldoctest
+```julia
 p = LMPParams()
 p2 = LMPParams(earth_radius=6370e3)
 p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
