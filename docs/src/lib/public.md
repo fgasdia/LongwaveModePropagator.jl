@@ -2,7 +2,7 @@
 
 Documentation of `LongwaveModePropagator.jl`'s exported structs and functions.
 
-## Contents
+**Contents**
 
 - [Basic Functions](@ref)
 - [Mode Finder](@ref)
