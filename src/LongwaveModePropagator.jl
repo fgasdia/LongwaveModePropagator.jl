@@ -16,6 +16,7 @@ using Interpolations
 using PolynomialRoots: roots!
 
 using RootsAndPoles
+using Romberg
 using ModifiedHankelFunctionsOfOrderOneThird
 
 # LongwaveModePropagator.jl
@@ -145,8 +146,6 @@ include("Samplers.jl")
 include("TMatrix.jl")
 include("Waveguides.jl")
 include("Wavefields.jl")
-
-include("romberg.jl")
 
 include("bookerquartic.jl")
 include("magnetoionic.jl")

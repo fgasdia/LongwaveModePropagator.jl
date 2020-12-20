@@ -47,8 +47,8 @@ function modeconversion(previous_wavefields::Wavefields{H}, wavefields::Wavefiel
                 product[i] = gtranspose*f
                 pproduct[i] = gtranspose*fp
             end
-            N = romberg(heights(wavefields), product)  # normalization
-            I = romberg(heights(wavefields), pproduct)
+            N, Nerr = romberg(heights(wavefields), product)  # normalization
+            I, Ierr = romberg(heights(wavefields), pproduct)
             @inbounds a[m,n] = I/N
         end
     end
