@@ -2,3 +2,4 @@
 .stignore
 *.json
 !test/corrupted_basic.json
+build/
