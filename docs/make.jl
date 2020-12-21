@@ -1,7 +1,7 @@
 push!(LOAD_PATH, "..")
 
 using Documenter, DocumenterCitations
-# using Literate
+using Literate
 
 using LongwaveModePropagator
 using LongwaveModePropagator.Fields
@@ -9,35 +9,28 @@ using LongwaveModePropagator.Fields
 bib_filepath = joinpath(dirname(@__FILE__), "longwavemodepropagator.bib")
 bib = CitationBibliography(bib_filepath)
 
-# #####
-# ##### Generate examples
-# #####
-#
-# const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
-# const OUTPUT_DIR   = joinpath(@__DIR__, "src/generated")
-#
-# examples = [
-#     "one_dimensional_diffusion.jl",
-#     "two_dimensional_turbulence.jl",
-#     "internal_wave.jl",
-#     "convecting_plankton.jl",
-#     "ocean_wind_mixing_and_convection.jl",
-#     "langmuir_turbulence.jl",
-#     "eady_turbulence.jl",
-#     "kelvin_helmholtz_instability.jl"
-# ]
-#
-# for example in examples
-#     example_filepath = joinpath(EXAMPLES_DIR, example)
-#     Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
-# end
+#==
+Generate examples
+==#
+
+const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
+const OUTPUT_DIR   = joinpath(@__DIR__, "src", "generated")
+
+examples = [
+    "meshgrid.jl"
+]
+
+for example in examples
+    example_filepath = joinpath(EXAMPLES_DIR, example)
+    Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
+end
 
 #==
 Organize page hierarchies
 ==#
 
 manual_pages = [
-    "examples/demo.md"
+    "generated/meshgrid.md"
 ]
 
 library_pages = [
