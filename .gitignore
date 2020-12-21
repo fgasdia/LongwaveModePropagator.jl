@@ -3,3 +3,5 @@
 *.json
 !test/corrupted_basic.json
 build/
+.sav
+.bak

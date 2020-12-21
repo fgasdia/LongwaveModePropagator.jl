@@ -12,11 +12,11 @@ Compute the ionosphere susceptibility tensor `M` as a `SMatrix{3,3}` using
 `species.numberdensity` and `species.collisionfrequency` at `altitude`.
 
 If `params.earthcurvature == true`, `M` includes a first order correction for earth
-curvature by means of a fictitious refractive index [^Pappert1967].
+curvature by means of a fictitious refractive index [[Pappert1967](@cite)].
 
 The susceptibility matrix is calculated from the constitutive relations presented in
-[^Ratcliffe1959]. This includes the effect of earth's magnetic field vector and collisional
-damping on electron motion.
+[[Ratcliffe1959](@cite)]. This includes the effect of earth's magnetic field vector and
+collisional damping on electron motion.
 
 The tensor is:
 ```math
@@ -33,11 +33,11 @@ correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where 
 
 # References
 
-[^Pappert1967]: R. A. Pappert, E. E. Gossard, and I. J. Rothmuller, “A numerical
+[Pappert1967]: R. A. Pappert, E. E. Gossard, and I. J. Rothmuller, “A numerical
     investigation of classical approximations used in VLF propagation,” Radio Science,
     vol. 2, no. 4, pp. 387–400, Apr. 1967, doi: 10.1002/rds196724387.
 
-[^Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
+[Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
     ionosphere," Cambridge University Press, 1959.
 """
 susceptibility
@@ -56,7 +56,7 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     invmω = invω/m  # == inv(m*ω)
 
     # Constitutive relations
-    # (see Budden1955a, pg. 517, Budden1988 pg. 39, or [^Ratcliffe1959])
+    # (see Budden1955a, pg. 517, Budden1988 pg. 39, or [Ratcliffe1959])
     X = N(altitude)*e^2*invω*invmω/E0
     Y = e*B*invmω  # [^Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
     Z = nu(altitude)*invω

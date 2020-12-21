@@ -86,10 +86,10 @@ Compute the four submatrix elements of `W` used in the equation ``dR/dz`` from t
 ionosphere with `T` matrix returned as a tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
 
 Following Budden's formalism for the reflection matrix of a plane wave obliquely incident on
-the ionosphere [^Budden1955a], the wave below the ionosphere can be resolved into upgoing
-and downgoing waves of elliptical polarization, each of whose components are themselves
-resolved into a component with the electric field in the plane of propagation and a
-component perpendicular to the plane of propagation. The total field can be written in
+the ionosphere [[Budden1955a](@cite)], the wave below the ionosphere can be resolved into
+upgoing and downgoing waves of elliptical polarization, each of whose components are
+themselves resolved into a component with the electric field in the plane of propagation and
+a component perpendicular to the plane of propagation. The total field can be written in
 matrix form as ``e = Lf`` where ``L`` is a 4×4 matrix that simply selects and specifies the
 incident angle of the components and ``f`` is a column matrix of the complex amplitudes of
 the component waves. By inversion, ``f = L⁻¹e`` and its derivative with respect to height
@@ -100,7 +100,7 @@ the upgoing and downgoing component waves.
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
@@ -220,8 +220,8 @@ Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
 tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
-a horizontally stratified ionosphere [^Budden1955a], the differential of the reflection
-matrix `R` with height `z` can be described by
+a horizontally stratified ionosphere [[Budden1955a](@cite)], the differential of the
+reflection matrix `R` with height `z` can be described by
 ```math
 dR/dz = k/(2i)⋅(W₂₁ + W₂₂R - RW₁₁ - RW₁₂R)
 ```
@@ -230,7 +230,7 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
@@ -412,11 +412,11 @@ and `Rg`.
 
 A propagating waveguide mode requires that a wave, having reflected from the ionosphere and
 then the ground, must be identical with the original upgoing wave. This criteria is met at
-roots of the mode equation [^Budden1962].
+roots of the mode equation [[Budden1962](@cite)].
 
 # References
 
-[^Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
+[Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
     radio propagation by wave-guide modes,” Proceedings of the Royal Society of London.
     Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553,
     Feb. 1962.

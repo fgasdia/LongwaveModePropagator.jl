@@ -1,8 +1,8 @@
 """
     TMatrix <: SMatrix{4, 4, T}
 
-A custom `SMatrix` subtype that represents the `T` matrix from [^Clemmow1954] that is
-semi-sparse. The form of the matrix is:
+A custom `SMatrix` subtype that represents the `T` matrix from [[Clemmow1954](@cite)] that
+is semi-sparse. The form of the matrix is:
 
 ```
 ┌                ┐
@@ -20,7 +20,7 @@ See also: [`tmatrix`](@ref)
 
 # References
 
-[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
+[Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
     governing radio propagation in the ionosphere,” Mathematical Proceedings of the
     Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """
@@ -262,11 +262,11 @@ See also: [`susceptibility`](@ref), [`dtmatrix`](@ref)
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 
-[^Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
+[Clemmow1954]: P. C. Clemmow and J. Heading, “Coupled forms of the differential equations
     governing radio propagation in the ionosphere,” Mathematical Proceedings of the
     Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """

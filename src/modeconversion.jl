@@ -5,11 +5,11 @@
 Compute the mode conversion matrix `a` from the modes associated with `previous_wavefields`
 to modes associated with `wavefields` and its `adjoint_wavefields`.
 
-This is used in the approach known as full mode conversion [^Pappert1972b].
+This is used in the approach known as full mode conversion [[Pappert1972b](@cite)].
 
 # References
 
-[^Pappert1972b]: R. A. Pappert and R. R. Smith, “Orthogonality of VLF height gains in the
+[Pappert1972b]: R. A. Pappert and R. R. Smith, “Orthogonality of VLF height gains in the
     earth ionosphere waveguide,” Radio Science, vol. 7, no. 2, pp. 275–278, 1972,
     doi: 10.1029/RS007i002p00275.
 """

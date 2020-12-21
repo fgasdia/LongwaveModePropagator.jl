@@ -345,9 +345,9 @@ version = "0.3.5"
 
 [[NonlinearSolve]]
 deps = ["FiniteDiff", "ForwardDiff", "RecursiveArrayTools", "Reexport", "Setfield", "StaticArrays", "UnPack"]
-git-tree-sha1 = "8d37028ee57882e08563d3a94669673c2b337487"
+git-tree-sha1 = "ba82aa84671f83b6fb6862499dc2dfe1d08e4604"
 uuid = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
-version = "0.3.1"
+version = "0.3.2"
 
 [[OffsetArrays]]
 deps = ["Adapt"]
@@ -464,9 +464,9 @@ version = "0.2.0"
 
 [[RootsAndPoles]]
 deps = ["LinearAlgebra", "VoronoiDelaunay"]
-path = "C:\\dev\\RootsAndPoles.jl\\\\"
+git-tree-sha1 = "efd5e6f46ed7d21c9bdad439e191388dd9513313"
 uuid = "a0859a10-ccb4-11e8-145d-674b3750773a"
-version = "1.3.0"
+version = "1.3.1"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -571,9 +571,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[VectorizationBase]]
 deps = ["ArrayInterface", "Hwloc", "IfElse", "Libdl", "LinearAlgebra"]
-git-tree-sha1 = "fa6ef8980ee738089ef69298e9aa824cc0a86c25"
+git-tree-sha1 = "8c3532473dbc6e2cc51240ca054755c1c80cb32f"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.14.2"
+version = "0.14.3"
 
 [[VertexSafeGraphs]]
 deps = ["LightGraphs"]

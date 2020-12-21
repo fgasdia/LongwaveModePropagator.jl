@@ -299,9 +299,9 @@ version = "0.3.5"
 
 [[NonlinearSolve]]
 deps = ["FiniteDiff", "ForwardDiff", "RecursiveArrayTools", "Reexport", "Setfield", "StaticArrays", "UnPack"]
-git-tree-sha1 = "8d37028ee57882e08563d3a94669673c2b337487"
+git-tree-sha1 = "ba82aa84671f83b6fb6862499dc2dfe1d08e4604"
 uuid = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
-version = "0.3.1"
+version = "0.3.2"
 
 [[OffsetArrays]]
 deps = ["Adapt"]

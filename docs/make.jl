@@ -1,21 +1,69 @@
-"../src/" in LOAD_PATH || push!(LOAD_PATH, "../src/")
+push!(LOAD_PATH, "..")
 
-using Documenter, LongwaveModePropagator
+using Documenter, DocumenterCitations
+# using Literate
 
-makedocs(
-    sitename="LongwaveModePropagator.jl",
-    format=Documenter.HTML(
-        prettyurls=get(ENV, "CI", nothing)=="true"
-    ),
-    modules=[LongwaveModePropagator,LongwaveModePropagator.Fields],
-    pages=[
-        "Home" => "index.md",
-        "Manual" => [
-            "examples/demo.md"
-        ],
-        "Library" => [
-            "lib/public.md",
-            "lib/internals.md"
-        ]
-    ],
+using LongwaveModePropagator
+using LongwaveModePropagator.Fields
+
+bib_filepath = joinpath(dirname(@__FILE__), "longwavemodepropagator.bib")
+bib = CitationBibliography(bib_filepath)
+
+# #####
+# ##### Generate examples
+# #####
+#
+# const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
+# const OUTPUT_DIR   = joinpath(@__DIR__, "src/generated")
+#
+# examples = [
+#     "one_dimensional_diffusion.jl",
+#     "two_dimensional_turbulence.jl",
+#     "internal_wave.jl",
+#     "convecting_plankton.jl",
+#     "ocean_wind_mixing_and_convection.jl",
+#     "langmuir_turbulence.jl",
+#     "eady_turbulence.jl",
+#     "kelvin_helmholtz_instability.jl"
+# ]
+#
+# for example in examples
+#     example_filepath = joinpath(EXAMPLES_DIR, example)
+#     Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
+# end
+
+#==
+Organize page hierarchies
+==#
+
+manual_pages = [
+    "examples/demo.md"
+]
+
+library_pages = [
+    "lib/public.md",
+    "lib/internals.md"
+]
+
+pages = [
+    "Home" => "index.md",
+    "Manual" => manual_pages,
+    "Library" => library_pages,
+    "References" => "references.md"
+]
+
+#==
+Build and deploy docs
+==#
+
+format = Documenter.HTML(
+    prettyurls=get(ENV, "CI", nothing)=="true"
+)
+
+makedocs(bib,
+    sitename = "LongwaveModePropagator.jl",
+    authors = "Forrest Gasdia",
+    format = format,
+    pages = pages,
+    modules = [LongwaveModePropagator]
 )

@@ -69,7 +69,7 @@ end
 """
     WavefieldIntegrationParams{F,G,T,H}
 
-Parameters passed to Pitteway integration of wavefields.
+Parameters passed to Pitteway integration of wavefields [[Pitteway1965](@cite)].
 
 # Fields
 
@@ -100,7 +100,8 @@ end
 """
     WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, params)
 
-Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
+Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration
+[[Pitteway1965](@cite)].
 
 Automatically set values are:
 
@@ -119,7 +120,7 @@ end
     ScaleRecord
 
 Struct for saving wavefield scaling information used in a callback during Pitteway
-integration of wavefields.
+integration of wavefields [[Pitteway1965](@cite)].
 
 # Fields
 
@@ -212,11 +213,11 @@ terms `a`, `e1_scale_val`, and `e2_scale_val` applied to the original vectors.
 
 This first applies Gram-Schmidt orthogonalization and then scales the vectors so they each
 have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested by
-[^Pitteway1965] to counter numerical swamping during integration of wavefields.
+[[Pitteway1965](@cite)] to counter numerical swamping during integration of wavefields.
 
 # References
 
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+[Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
     coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
     Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
     doi: 10.1098/rsta.1965.0004.
@@ -496,11 +497,12 @@ end
 Compute fields of `wavefields` in-place scaled to satisfy the `waveguide` boundary
 conditions.
 
-This function implements the method of integrating wavefields suggested by [^Pitteway1965].
+This function implements the method of integrating wavefields suggested by
+[[Pitteway1965](@cite)].
 
 # References
 
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+[Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
     coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
     Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
     doi: 10.1098/rsta.1965.0004.

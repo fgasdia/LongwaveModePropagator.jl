@@ -17,7 +17,6 @@ Pages = [
   "modeconversion.jl",
   "modefinder.jl",
   "modesum.jl",
-  "romberg.jl",
   "Samplers.jl",
   "TMatrix.jl",
   "utils.jl",
