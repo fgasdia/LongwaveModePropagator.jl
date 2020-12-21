@@ -54,6 +54,7 @@ ioncollisionfrequency
 ```@docs
 Sampler
 GroundSampler
+Fields
 ```
 
 ### Emitters

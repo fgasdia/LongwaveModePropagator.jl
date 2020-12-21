@@ -138,28 +138,6 @@ const GROUND = Dict(
 
 ########
 
-"""
-    Fields
-
-This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
-and `Ez`.
-
-# Examples
-
-```jldoctest; setup=:(using LongwaveModePropagator.Fields)
-julia> Fields.Ex
-Ex::Field = 0
-julia> Fields.Ey
-Ey::Field = 1
-```
-"""
-baremodule Fields
-using Base: @enum
-@enum Field Ex Ey Ez
-end
-
-########
-
 @doc raw"""
     waitprofile(z, h′, β; cutoff_low=0, threshold=1e12)
 
