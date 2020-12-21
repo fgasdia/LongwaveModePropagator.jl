@@ -43,17 +43,90 @@ using Plots
 using LongwaveModePropagator
 using LongwaveModePropagator: solvemodalequation
 
+## Using the GR backend
+gr(legend=false)
+
 # ## Building the mesh grid
 #
 # The U.S. Navy's Long Wavelength Propagation Capability searches the region of the
 # complex plane from 30° to 90° in the real axis and 0° to -10° in the imaginary axis.
-# The lowest order modes are nearest ``90° - i0°`` excluding 90°.
+# The lowest order modes are nearest ``90° - i0°``, excluding 90°.
 # Modes with large negative imaginary components are highly attenuated and have
 # relatively little affect on the total field in the waveguide.
 # Large negative imaginary angles also pose numerical issues for the computation of
 # the modified Hankel functions of order one-third used to describe the height gain
 # functions of the fields in the waveguide.
+#
+# GRPF is most efficient when the initial mesh grid consists of equilateral triangles.
+# We can construct such a grid with the function below, which builds the grid over a
+# rectangular region from `zbl` in the bottom left to `ztr` in the top right
+# of the lower right quadrant of the complex plane (with positive real and negative
+# imaginary) and `Δr` is the mesh step.
+
+function rectanglemesh(zbl, ztr, Δr)
+    rzbl, izbl = reim(zbl)
+    rztr, iztr = reim(ztr)
+
+    X = rztr - rzbl
+    Y = iztr - izbl
+
+    n = ceil(Int, Y/Δr)
+    dy = Y/n
+
+    # dx = sqrt(Δr² - (dy/2)²), solved for equilateral triangle
+    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
+    dx = X/m
+    half_dx = dx/2
+
+    T = promote_type(ComplexF64, typeof(zbl), typeof(ztr), typeof(Δr))
+    v = Vector{T}()
+
+    shift = false  # we will displace every other line
+    for j = 0:n
+        y = izbl + dy*j
+
+        for i = 0:m
+            x = rzbl + dx*i
+
+            if shift
+                x -= half_dx
+            end
+
+            if (i ) == m
+                shift = !shift
+            end
+
+            push!(v, complex(x, y))
+        end
+    end
+
+    return v
+end
+
+zbl = complex(30.0, -10.0)
+ztr = complex(89.9, 0.0)
+Δr = 0.5
+v = rectanglemesh(zbl, ztr, Δr)
+
+# Let's plot `v` to make sure it's correct.
+# We set the axis limits so there are equal ranges in both axes.
+# The maximum real and imaginary values are drawn in red
+
+plot(real(v), imag(v), seriestype=:scatter,
+     xlims=(80, 90), ylims=(-10, 0),
+     xlabel="real(θ)", ylabel="imag(θ)")
+plot!([80, 90], [0, 0], color="red")
+plot!([89.9, 89.9], [-10, 0], color="red")
+
+# Looks good!
+#
+# Naturally we want to be able to use the coarsest initial mesh grid as possible
+# because the reflection coefficient has to be integrated through the ionosphere
+# for every node of the grid.
+# But for now, let's solve the modal equation on a very fine grid to explore its
+# phase across the complex quadrant.
+
 
 function defaultmesh(z_bl, z_tr, Δr)
-    
+
 end
