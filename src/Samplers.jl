@@ -1,3 +1,27 @@
+########
+
+"""
+    Fields
+
+This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
+and `Ez`.
+
+# Examples
+
+```jldoctest; setup=:(using LongwaveModePropagator.Fields)
+julia> Fields.Ex
+Ex::Field = 0
+julia> Fields.Ey
+Ey::Field = 1
+```
+"""
+baremodule Fields
+using Base: @enum
+@enum Field Ex Ey Ez
+end
+
+########
+
 """
     AbstractSampler
 
@@ -87,25 +111,3 @@ Receiver() = Receiver{VerticalDipole}("", 0.0, 0.0, 0.0, VerticalDipole())
 altitude(r::Receiver) = r.altitude
 distance(r::Receiver,t::Transmitter) = nothing   # TODO proj4 stuff
 fieldcomponent(r::Receiver) = fieldcomponent(r.antenna)
-
-########
-
-"""
-    Fields
-
-This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
-and `Ez`.
-
-# Examples
-
-```jldoctest; setup=:(using LongwaveModePropagator.Fields)
-julia> Fields.Ex
-Ex::Field = 0
-julia> Fields.Ey
-Ey::Field = 1
-```
-"""
-baremodule Fields
-using Base: @enum
-@enum Field Ex Ey Ez
-end
