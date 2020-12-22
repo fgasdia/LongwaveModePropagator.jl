@@ -53,19 +53,23 @@ Return `true` if `x` is approximately equal to 0 with the absolute tolerance `at
 isroot(x; atol=1e-2, kws...) = isapprox(x, 0, atol=atol, kws...)
 
 """
-    filterroots!(roots, frequency, waveguide; atol=1e-2)
-    filterroots!(roots, modeequation; atol=1e-2)
+    filterroots!(roots, frequency, waveguide; atol=0.1)
+    filterroots!(roots, modeequation; atol=0.1)
 
 Remove elements from `roots` if they are not valid roots of the physical modal equation.
+
+Although the default `atol` for this function is larger than for `isroot`(@ref), the
+modal equation is very sensitive to θ, and thus is much larger than 0.1 if θ is off
+from an eigenangle even slightly.
 """
 filterroots!
 
-function filterroots!(roots, frequency, waveguide; atol=1e-2)
+function filterroots!(roots, frequency, waveguide; atol=0.1)
     modeequation = PhysicalModeEquation(frequency, waveguide)
     return filterroots!(roots, modeequation, atol=atol)
 end
 
-function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
+function filterroots!(roots, modeequation::PhysicalModeEquation; atol=0.1)
     i = 1
     while i <= length(roots)
         modeequation = setea(EigenAngle(roots[i]), modeequation)
@@ -493,13 +497,14 @@ function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPP
 end
 
 """
-    findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
+    findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
 
 Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
 `origcoords`.
 
 `origcoords` should be an array of complex numbers that make up the original grid over which
-the GRPF algorithm searches for roots of `modeequation`.
+the GRPF algorithm searches for roots of `modeequation`. If `origcoords == nothing`,
+it is computed with [`defaultmesh`](@ref).
 
 Roots found by the GRPF algorithm are confirmed to a tolerance of approximately 3 orders
 of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
@@ -512,8 +517,12 @@ There is also a check for redundant modes that requires modes to be separated by
 component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
 component of each mode must be separated by at least 1e-3 from every other mode.
 """
-function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
+function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
     @unpack grpfparams = params
+
+    if isnothing(origcoords)
+        origcoords = defaultmesh(modeequation.frequency)
+    end
 
     # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
     # is possible multiple identical modes will be identified. Checks for valid and
@@ -538,40 +547,111 @@ function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
 end
 
 #==
-Coordinate grids for `GRPF`
+Mesh grids for `GRPF`
 ==#
 
 """
-    defaultcoordinates(frequency)
+    defaultmesh(frequency)
 
-Generate `coordgrid` vector of complex coordinates to be used by `GRPF` in the search for
+Generate vector of complex coordinates to be used by GRPF in the search for
 waveguide modes.
 
 See also: [`findmodes`](@ref)
 """
-function defaultcoordinates(frequency)
+function defaultmesh(frequency)
+
+    zbl = deg2rad(complex(30.0, -10.0))
+    ztr = deg2rad(complex(89.9, 0.0))
+    Δr = deg2rad(0.5)
+
+    return trianglemesh(zbl, ztr, Δr)
+
     # TODO: get a better idea of frequency transition
-    if frequency > 15000
-        Zb = deg2rad(complex(30.0, -12.0))
-        Ze = deg2rad(complex(89.9, 0.0))
-        cr, ci = deg2rad(75.0), deg2rad(-6.0)
-        dx, dy = deg2rad(0.5), deg2rad(0.5)
-        finedx, finedy = deg2rad(0.1), deg2rad(0.1)
-
-        g1 = uppertriangularrectdomain(Zb, Ze, dx, dy)
-        filter!(z->(real(z)<cr || imag(z)<ci), g1)
-        g2 = uppertriangularrectdomain(complex(cr, ci), Ze, finedx, finedy)
-        coordgrid = vcat(g1, g2)
-    else
-        Zb = deg2rad(complex(0.0, -30.0))
-        Ze = deg2rad(complex(89.9, 0.0))
-        Δr = deg2rad(1.0)
-        coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
-    end
-
-    return coordgrid
+    # if frequency > 15000
+    #     Zb = deg2rad(complex(30.0, -12.0))
+    #     Ze = deg2rad(complex(89.9, 0.0))
+    #     cr, ci = deg2rad(75.0), deg2rad(-6.0)
+    #     dx, dy = deg2rad(0.5), deg2rad(0.5)
+    #     finedx, finedy = deg2rad(0.1), deg2rad(0.1)
+    #
+    #     g1 = uppertriangularrectdomain(Zb, Ze, dx, dy)
+    #     filter!(z->(real(z)<cr || imag(z)<ci), g1)
+    #     g2 = uppertriangularrectdomain(complex(cr, ci), Ze, finedx, finedy)
+    #     coordgrid = vcat(g1, g2)
+    # else
+    #     Zb = deg2rad(complex(0.0, -30.0))
+    #     Ze = deg2rad(complex(89.9, 0.0))
+    #     Δr = deg2rad(1.0)
+    #     coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
+    # end
+    #
+    # return coordgrid
 end
 defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
+
+"""
+    trianglemesh(zbl, ztr, Δr)
+
+Generate initial mesh node coordinates for a right triangle domain from complex
+coordinate `zbl` in the bottom left and `ztr` in the top right with initial mesh step `Δr`.
+
+`zbl` and `ztr` are located on the complex plane at the locations marked in the
+diagram below:
+
+       im
+       |
+-re ---|------ ztr
+       |     /
+       |    /
+       |   /
+       |  /
+       zbl
+
+"""
+function trianglemesh(zbl, ztr, Δr)
+    rzbl, izbl = reim(zbl)
+    rztr, iztr = reim(ztr)
+
+    X = rztr - rzbl
+    Y = iztr - izbl
+
+    n = ceil(Int, Y/Δr)
+    dy = Y/n
+
+    ## dx = sqrt(Δr² - (dy/2)²), solved for equilateral triangle
+    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
+    dx = X/m
+    half_dx = dx/2
+
+    slope = 1  # 45° angle
+
+    T = promote_type(ComplexF64, typeof(zbl), typeof(ztr), typeof(Δr))
+    v = Vector{T}()
+
+    shift = false  # we will displace every other line by dx/2
+    for j = 0:n
+        y = izbl + dy*j
+
+        for i = 0:m
+            x = rzbl + dx*i
+
+            if shift
+                x -= half_dx
+            end
+
+            if i == m
+                shift = !shift
+            end
+
+            ## NEW: check if `x, y` is in upper left triangle
+            if y >= slope*x - π/2
+                push!(v, complex(x, y))
+            end
+        end
+    end
+
+    return v
+end
 
 """
     triangulardomain(Za, Zb, Zc, Δr)
