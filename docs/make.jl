@@ -17,8 +17,10 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR   = joinpath(@__DIR__, "src", "generated")
 
 examples = [
-    "meshgrid.jl"
+    "meshgrid.jl",
+    "meshgrid2.jl"
 ]
+
 
 for example in examples
     example_filepath = joinpath(EXAMPLES_DIR, example)
@@ -29,8 +31,9 @@ end
 Organize page hierarchies
 ==#
 
-manual_pages = [
-    "generated/meshgrid.md"
+example_pages = [
+    "generated/meshgrid.md",
+    "generated/meshgrid2.md"
 ]
 
 library_pages = [
@@ -40,7 +43,7 @@ library_pages = [
 
 pages = [
     "Home" => "index.md",
-    "Manual" => manual_pages,
+    "Examples" => example_pages,
     "Library" => library_pages,
     "References" => "references.md"
 ]
@@ -50,6 +53,7 @@ Build and deploy docs
 ==#
 
 format = Documenter.HTML(
+    collapselevel = 1,
     prettyurls=get(ENV, "CI", nothing)=="true"
 )
 
