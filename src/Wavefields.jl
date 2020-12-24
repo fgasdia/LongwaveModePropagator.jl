@@ -352,7 +352,7 @@ Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`
 `params.integrationparams` is not used by this function.
 """
 function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species; params=LMPParams())
+    species::Species; params=LMPParams(), unscale=true)
     # TODO: version that updates output `e` in place
 
     issorted(zs, rev=true) ||
@@ -383,7 +383,12 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
                 save_everystep=false, save_start=false, save_end=false,
                 atol=1e-8, rtol=1e-8)
 
-    e = unscalewavefields(saved_values)
+    if unscale
+        e = unscalewavefields(saved_values)
+    else
+        records = saved_values.saveval
+        e = [records[i].e for i in eachindex(records)]
+    end
 
     return e
 end
