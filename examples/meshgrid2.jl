@@ -1,98 +1,86 @@
 # # Mesh grid for mode finding - Part 2
 #
-# In [Mesh grid for mode finding](@ref) we created a function `trianglemesh` to
-# initialize the grid used by the GRPF algorithm for mode finding. In part 2 we'll
-# look at the final `grpf` grid for several different scenarios.
+# In [Mesh grid for mode finding - Part 1](@ref) we used `trianglemesh` to
+# initialize the GRPF grid for mode finding several different ionospheres and transmit
+# frequencies.
+# In part 2 we'll look at where `grpf` can fail for certain scenarios.
 #
-# Here are the packages needed in this example.
-# Rather than redefining `trianglemesh` from part 1, here we can load a nearly
-# equivalent function from `LongwaveModePropagator.jl`.
+# Naturally we want to be able to use the coarsest initial mesh grid as possible
+# because the reflection coefficient has to be integrated through the ionosphere
+# for every node of the grid and that is the most computationally expensive operation
+# of all of LongwaveModePropagator.jl.
+#
+# First, let's load the packages needed in this example.
 
 using Plots, DisplayAs
 using RootsAndPoles
-using VoronoiDelaunay
 
 using ..LongwaveModePropagator
-using ..LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
+using ..LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh, defaultmesh
 
-## Using the GR backend
+## Using the GR backend for plotting
 gr(legend=false);
 
-# Here are the scenarios defined in part 1.
+# In the LongwaveModePropagator.jl tests suite, the `segmented_scenario` is known to
+# miss roots if we use the same `trianglemesh` parameters (with `Δr = deg2rad(0.5)`)
+# as in part 1 of the example.
+#
+# Here we define the `HomogeneousWaveguide` from the second half of the
+# `segmented_scenario` known to have the missing roots.
 
-lowfrequency = Frequency(10e3)
-midfrequency = Frequency(20e3)
-highfrequency = Frequency(100e3)
+frequency = Frequency(24e3)
+electrons = Species(QE, ME, z->waitprofile(z, 80, 0.45), electroncollisionfrequency)
+waveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), electrons, Ground(15, 0.001))
+me = PhysicalModeEquation(frequency, waveguide)
+title = "24 kHz\nh′: 80, β: 0.45"
+nothing  #hide
 
-day = Species(QE, ME, z->waitprofile(z, 75, 0.35), electroncollisionfrequency)
-night = Species(QE, ME, z->waitprofile(z, 85, 0.9), electroncollisionfrequency)
+# First, let's simply compute the mode equation on a fine grid.
 
-daywaveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), day, GROUND[5])
-nightwaveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), night, GROUND[5])
+Δr = 0.2
+x = 30:Δr:90
+y = -10:Δr:0
+mesh = x .+ 1im*y';
 
-day_low_me = PhysicalModeEquation(lowfrequency, daywaveguide)
-day_mid_me = PhysicalModeEquation(midfrequency, daywaveguide)
-day_high_me = PhysicalModeEquation(highfrequency, daywaveguide)
+# As in part 1, we also define a function to compute the modal equation phase.
 
-night_mid_me = PhysicalModeEquation(midfrequency, nightwaveguide);
+function modeequationphase(me, mesh)
+    phase = Vector{Float64}(undef, length(mesh))
+    Threads.@threads for i in eachindex(mesh)
+        f = solvemodalequation(deg2rad(mesh[i]), me)
+        phase[i] = rad2deg(angle(f))
+    end
+    return phase
+end
 
-day_low_title = "10 kHz\nh′: 75, β: 0.35"
-day_mid_title = "20 kHz\nh′: 75, β: 0.35"
-day_high_title = "100 kHz\nh′: 75, β: 0.35"
-night_mid_title = "20 kHz\nh′: 85, β: 0.9";
+phase = modeequationphase(me, mesh);
 
-# We'll use the following triangle mesh domain.
+img = heatmap(x, y, reshape(phase, length(x), length(y))',
+              color=:twilight, clims=(-180, 180),
+              xlims=(30, 90), ylims=(-10, 0),
+              xlabel="real(θ)", ylabel="imag(θ)",
+              legend=true, size=(600, 400),
+              title=title)
+DisplayAs.PNG(img)  #hide
+
+# Let's run the `grpf` with `Δr = 0.5`.
 
 zbl = deg2rad(complex(30.0, -10.0))
 ztr = deg2rad(complex(89.9, 0.0))
 Δr = deg2rad(0.5)
 
-v = trianglemesh(zbl, ztr, Δr);
-
-# ## Global complex roots and pole finding
-#
-# Let's evaluate the performance of the GRPF algorithm using `trianglemesh` to
-# generate the initial mesh grid. `grpf` will adaptively refine the mesh to obtain
-# a more accurate estimate of the position of the roots and poles.
-#
-# We will pass the `PlotData()` argument to obtain additional information on the
-# function phase for plotting.
+mesh = trianglemesh(zbl, ztr, Δr)
 
 params = LMPParams().grpfparams
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_mid_me),
-                                                  v, PlotData(), params);
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
 
-# We need to do a little preprocessing before we can plot the triangle edges.
-
-function prepareplotdata(tess, quadrants, phasediffs, g2f)
-    edges = [e for e in delaunayedges(tess)]
-
-    edgecolors = fill(5, length(edges))
-    for ii in eachindex(edges)
-        if phasediffs[ii] == 2  # candidate edges (but reallllly hard to see on plot)
-            edgecolors[ii] = 6
-        elseif phasediffs[ii] == 0
-            edgecolors[ii] = quadrants[getindex(geta(edges[ii]))]
-        end
-    end
-
-    edgecolors = repeat(edgecolors, inner=3)  # x, y is xₐ, xᵦ, NaN, repeat
-
-    x, y = getplotxy(edges)
-    z = g2f.(x, y)
-
-    I = sortperm(edgecolors)
-
-    return z[I], edgecolors[I]
-end
-
-z, edgecolors = prepareplotdata(tess, quads, phasediffs, g2f)
-
+zdeg = rad2deg.(z)
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
 
-pal = [
+twilightquads = [
     colorant"#9E3D36",
     colorant"#C99478",
     colorant"#7599C2",
@@ -101,87 +89,83 @@ pal = [
     RGB(0.0, 0.0, 0.0)
 ]
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=pal, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(600,400),
-           title=day_mid_title)
+           title=title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 DisplayAs.PNG(img)  #hide
 
-# In the plot, roots are marked with red circles and poles are marked with red triangles.
-# The automatic refinement of the mesh is clearly visible.
+# Upon inspection, it is clear that there is a root/pole visible at the upper right
+# corner of the domain in the fine mesh above that is not identified by `grpf`.
+# In fact, the algorithm did not even try to refine the mesh in this region.
+# That is because the root and pole pair are too closely spaced for the algorithm
+# to know they are there.
+# The discretized Cauchy
+# [argument principle](https://en.wikipedia.org/wiki/Argument_principle) (DCAP),
+# upon which GRPF is based, can only identify the presence of roots and poles if
+# there are an unequal number of them.
+# If the complex phase change around a tessellation contour is equal to 0, there may
+# be no roots or poles in the contoured region, or there may be an equal number of
+# roots and poles.
 #
-# Here are similar plots for the other three scenarios.
+# This run identified 20 roots and 19 poles.
+# Let's run `grpf` again with a finer resolution of `Δr = 0.2`.
 
-## Daytime ionosphere, low frequency
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_low_me),
-                                                  v, PlotData(), params);
-z, edgecolors = prepareplotdata(tess, quads, phasediffs, g2f)
+Δr = deg2rad(0.2)
 
+mesh = trianglemesh(zbl, ztr, Δr)
+
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+zdeg = rad2deg.(z)
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=pal, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(600,400),
-           title=day_low_title)
+           title=title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 DisplayAs.PNG(img)  #hide
 
-# At 100 kHz, `grpf` requires significantly more mesh refinements and takes considerably
-# more time to run.
+# This higher resolution initial grid has identified 22 roots and 21 poles.
+# Zooming in on the upper right region, we can see that the previously
+# missing roots and poles are very closely spaced.
 
-## Daytime ionosphere, high frequency
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_high_me),
-                                                  v, PlotData(), params);
-z, edgecolors = prepareplotdata(tess, quads, phasediffs, g2f)
-
-rootsdeg = rad2deg.(roots)
-polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
-
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=pal, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
+img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(80, 90), ylims=(-2, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(600,400),
-           title=day_high_title)
+           title=title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 DisplayAs.PNG(img)  #hide
 
-#
+# Roots are frequently located closely to poles in the upper right of the domain for
+# a variety of ionospheres. To ensure they are captured, the `defaultmesh` of
+# LongwaveModePropagator.jl uses a spacing of `Δr = 0.5` for most of the mesh,
+# but a spacing of `Δr = 0.15` for the region with real greater than 80° and imaginary
+# greater than -1°.
 
-## Nighttime ionosphere, 20 kHz
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, night_mid_me),
-                                                  v, PlotData(), params);
-z, edgecolors = prepareplotdata(tess, quads, phasediffs, g2f)
+mesh = defaultmesh(frequency)
+meshdeg = rad2deg.(mesh)
 
-rootsdeg = rad2deg.(roots)
-polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
-
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=pal, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
+img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
-           title=night_mid_title)
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
-      seriestype=:scatter, markersize=5)
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5)
+           size=(450,375))
+plot!(img, [30, 90], [0, 0], color="red")
+plot!(img, [80, 90], [-10, 0], color="red")
 DisplayAs.PNG(img)  #hide
-
-# In `LongwaveModePropagator.jl` the [`findmodes`](@ref) function is used to build the
-# initial meshgrid using `trianglemesh`, call `grpf`, and additionally run some
-# uniqueness and validity checks before returning a vector of eigenangles.
