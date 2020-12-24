@@ -253,7 +253,7 @@ function test_findmodes(scenario)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
 
-    origcoords = LMP.defaultcoordinates(tx.frequency)
+    origcoords = LMP.defaultmesh(tx.frequency)
 
     # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
     params = LMPParams()

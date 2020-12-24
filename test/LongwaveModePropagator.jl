@@ -8,7 +8,7 @@ function test_propagate(scenario)
     @test eltype(amp) == Float64
     @test eltype(phase) == Float64
 
-    coordgrid = LMP.defaultcoordinates(tx.frequency)
+    coordgrid = LMP.defaultmesh(tx.frequency)
     E2, amp2, phase2 = propagate(waveguide, tx, rx, coordgrid=coordgrid)
     @test E2 ≈ E    rtol=1e-3
     @test amp2 ≈ amp    rtol=1e-3
@@ -52,22 +52,11 @@ function test_propagate_segmented(scenario)
     @test eltype(amp) == Float64
     @test eltype(phase) == Float64
 
-    coordgrid = LMP.defaultcoordinates(tx.frequency)
+    coordgrid = LMP.defaultmesh(tx.frequency)
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
     @test E1 ≈ E    rtol=1e-3
     @test amp1 ≈ amp    rtol=1e-3
     @test phase1 ≈ phase   rtol=1e-3
-
-    # Is coordgrid being used?
-    Zb = deg2rad(complex(70.0, -6.0))
-    Ze = deg2rad(complex(89.9, 0.0))
-    dx, dy = deg2rad(0.5), deg2rad(0.5)
-
-    coordgrid = LMP.uppertriangularrectdomain(Zb, Ze, dx, dy)
-    E2, amp2, phase2 = propagate(waveguide, tx, rx, coordgrid=coordgrid)
-    @test !isapprox(E2, E, rtol=1e-3)
-    @test !isapprox(amp2, amp, rtol=1e-3)
-    @test !isapprox(phase2, phase, rtol=1e-3)
 
     # Are params being carried through?
     params = LMPParams(earthradius=6350e3)

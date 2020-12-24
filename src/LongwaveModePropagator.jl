@@ -167,7 +167,7 @@ Compute electric field `E`, `amplitude`, and `phase` at `rx`.
 Precomputed waveguide `modes` can optionally be provided as a `Vector{EigenAngle}`. By
 default modes are found with [`findmodes`](@ref).
 
-If `coordgrid = nothing`, use [`defaultcoordinates`](@ref) to generate `coordgrid` for the
+If `coordgrid = nothing`, use [`defaultmesh`](@ref) to generate `coordgrid` for the
 mode finding algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
@@ -175,7 +175,7 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
 
     if isnothing(modes)
         if isnothing(coordgrid)
-            coordgrid = defaultcoordinates(tx.frequency)
+            coordgrid = defaultmesh(tx.frequency)
         else
             if minimum(imag(coordgrid)) < deg2rad(-31)
                 @warn "imaginary component less than -0.5410 rad (-31°) may cause wave"*
@@ -208,14 +208,14 @@ end
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx` through a `SegmentedWaveguide`.
 
-If `coordgrid = nothing`, use [`defaultcoordinates`](@ref) to generate `coordgrid` for the
+If `coordgrid = nothing`, use [`defaultmesh`](@ref) to generate `coordgrid` for the
 mode finding algorithm.
 """
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
-        coordgrid = defaultcoordinates(tx.frequency)
+        coordgrid = defaultmesh(tx.frequency)
     else
         if minimum(imag(coordgrid)) < deg2rad(-31)
             @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields"*

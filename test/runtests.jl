@@ -123,7 +123,7 @@ function findroots(scenario)
     @unpack bfield, species, ground, tx = scenario
     w = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(tx.frequency, w)
-    origcoords = LMP.defaultcoordinates(tx.frequency)
+    origcoords = LMP.defaultmesh(tx.frequency)
     return findmodes(me, origcoords)
 end
 

@@ -556,38 +556,45 @@ Mesh grids for `GRPF`
 Generate vector of complex coordinates to be used by GRPF in the search for
 waveguide modes.
 
+At frequencies above 12 kHz the mesh spacing in the upper right corner of the domain
+with real values above 80° and imaginary values above -1° is ``0.15 π/180`` and is
+``0.5 π/180`` everywhere else.
+
+The lower right diagonal of the lower right quadrant of the complex plane is excluded
+from the mesh.
+
 See also: [`findmodes`](@ref)
 """
 function defaultmesh(frequency)
 
-    zbl = deg2rad(complex(30.0, -10.0))
-    ztr = deg2rad(complex(89.9, 0.0))
-    Δr = deg2rad(0.5)
-
-    return trianglemesh(zbl, ztr, Δr)
-
     # TODO: get a better idea of frequency transition
-    # if frequency > 15000
-    #     Zb = deg2rad(complex(30.0, -12.0))
-    #     Ze = deg2rad(complex(89.9, 0.0))
-    #     cr, ci = deg2rad(75.0), deg2rad(-6.0)
-    #     dx, dy = deg2rad(0.5), deg2rad(0.5)
-    #     finedx, finedy = deg2rad(0.1), deg2rad(0.1)
-    #
-    #     g1 = uppertriangularrectdomain(Zb, Ze, dx, dy)
-    #     filter!(z->(real(z)<cr || imag(z)<ci), g1)
-    #     g2 = uppertriangularrectdomain(complex(cr, ci), Ze, finedx, finedy)
-    #     coordgrid = vcat(g1, g2)
-    # else
-    #     Zb = deg2rad(complex(0.0, -30.0))
-    #     Ze = deg2rad(complex(89.9, 0.0))
-    #     Δr = deg2rad(1.0)
-    #     coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
-    # end
-    #
-    # return coordgrid
+    if frequency > 12000
+        zbl_coarse = complex(deg2rad(30.0), deg2rad(-10.0))
+        ztr_coarse = complex(deg2rad(89.9), 0.0)
+        Δr_coarse = deg2rad(0.5)
+
+        mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
+
+        rtransition = deg2rad(80.0)
+        itransition = deg2rad(-1.0)
+        filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
+
+        zbl_fine = complex(rtransition, itransition)
+        ztr_fine = complex(deg2rad(89.9), 0.0)
+        Δr_fine = deg2rad(0.15)
+
+        append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
+    else
+        zbl = complex(deg2rad(30.0), deg2rad(-10.0))
+        ztr = complex(deg2rad(89.9), 0.0)
+        Δr = deg2rad(0.5)
+
+        mesh = trianglemesh(zbl, ztr, Δr)
+    end
+
+    return mesh
 end
-defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
+defaultmesh(f::Frequency) = defaultmesh(f.f)
 
 """
     trianglemesh(zbl, ztr, Δr)
@@ -626,7 +633,7 @@ function trianglemesh(zbl, ztr, Δr)
     slope = 1  # 45° angle
 
     T = promote_type(ComplexF64, typeof(zbl), typeof(ztr), typeof(Δr))
-    v = Vector{T}()
+    mesh = Vector{T}()
 
     shift = false  # we will displace every other line by dx/2
     for j = 0:n
@@ -635,7 +642,9 @@ function trianglemesh(zbl, ztr, Δr)
         for i = 0:m
             x = rzbl + dx*i
 
-            if shift
+            if shift && i == 0
+                continue  # otherwise, we shift out of left bound
+            elseif shift
                 x -= half_dx
             end
 
@@ -645,96 +654,10 @@ function trianglemesh(zbl, ztr, Δr)
 
             ## NEW: check if `x, y` is in upper left triangle
             if y >= slope*x - π/2
-                push!(v, complex(x, y))
+                push!(mesh, complex(x, y))
             end
         end
     end
 
-    return v
-end
-
-"""
-    triangulardomain(Za, Zb, Zc, Δr)
-
-Generate initial mesh node coordinates for a grid-aligned right triangle domain
-∈ {`Za`, `Zb`, `Zc`} with initial mesh step `Δr`.
-
-This function generates a mesh grid for particular right triangles where two
-sides of the triangle are aligned to the underlying real/imaginary grid. Examples
-of such triangles are:
-
-a ----- b
-|     /
-|   /
-| /
-c
-
-where
-    - a, b have greatest extent in x
-    - a, c have greatest extent in y
-"""
-function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
-    rZa, iZa = reim(Za)
-    rZb, iZb = reim(Zb)
-    rZc, iZc = reim(Zc)
-
-    # Determine `dx` and `dy`
-    X = rZb - rZa
-    Y = abs(iZa - iZc)
-
-    n = ceil(Int, Y/Δr)
-    dy = Y/n
-
-    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
-    dx = X/m
-
-    # precalculate
-    slope = Y/X
-
-    v = Vector{complex(typeof(dx))}()
-    for j = 0:m  # col
-        for i = 0:n  # row (we're traversing down column)
-
-            x = rZa + dx*j
-            y = iZc + dy*i
-
-            if y >= (iZc + slope*(x - rZa))
-                push!(v, complex(x, y))
-            end
-        end
-    end
-
-    return v
-end
-
-function uppertriangularrectdomain(Zb::Complex, Ze::Complex, dx, dy)
-    rZb, iZb = reim(Zb)
-    rZe, iZe = reim(Ze)
-
-    # Determine `dx` and `dy`
-    X = rZe - rZb
-    Y = abs(iZe - iZb)
-
-    n = ceil(Int, Y/dy)
-    dy = Y/n  # BUG are dx, dy arguments even being used?
-
-    m = ceil(Int, X/sqrt(dx^2 - dy^2/4))
-    dx = X/m
-
-    slope = 1  # 45° angle
-
-    v = Vector{complex(typeof(X))}()
-    for j = 0:m  # col
-        x = rZb + dx*j
-
-        for i = 0:n  # row (we're traversing down column)
-            y = iZb + dy*i
-
-            if x <= (rZe - (iZe - y)/slope)
-                push!(v, complex(x, y))
-            end
-        end
-    end
-
-    return v
+    return mesh
 end
