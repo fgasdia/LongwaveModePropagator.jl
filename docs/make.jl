@@ -22,10 +22,16 @@ examples = [
     "wavefieldintegration.jl"
 ]
 
-
 for example in examples
     example_filepath = joinpath(EXAMPLES_DIR, example)
-    Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
+    if get(ENV, "CI", nothing) == "true"
+        Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
+    else
+        # local
+        root_dir = joinpath("..", "..", "..")  # from docs/build/generated
+        Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true,
+                          repo_root_url=root_dir)
+    end
 end
 
 #==
@@ -33,8 +39,8 @@ Organize page hierarchies
 ==#
 
 example_pages = [
-    "generated/meshgrid.md",
-    "generated/meshgrid2.md",
+    # "generated/meshgrid.md",
+    # "generated/meshgrid2.md",
     "generated/wavefieldintegration.md"
 ]
 
