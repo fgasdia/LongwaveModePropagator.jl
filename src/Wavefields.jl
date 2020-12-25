@@ -67,7 +67,7 @@ function Base.isvalid(A::Wavefields)
 end
 
 """
-    WavefieldIntegrationParams{F,G,T,H}
+    WavefieldIntegrationParams{F,G,T,T2,H}
 
 Parameters passed to Pitteway integration of wavefields [[Pitteway1965](@cite)].
 
@@ -82,9 +82,9 @@ Parameters passed to Pitteway integration of wavefields [[Pitteway1965](@cite)].
 - `frequency::Frequency`: electromagentic wave frequency in Hz.
 - `bfield::BField`: Earth's magnetic field in Tesla.
 - `species::Species{F,G}`: species in the ionosphere.
-- `params::LMPParams{T,H}`: module-wide parameters.
+- `params::LMPParams{T,T2,H}`: module-wide parameters.
 """
-struct WavefieldIntegrationParams{F,G,T,H}
+struct WavefieldIntegrationParams{F,G,T,T2,H}
     z::Float64
     bottomz::Float64
     ortho_scalar::ComplexF64
@@ -94,7 +94,7 @@ struct WavefieldIntegrationParams{F,G,T,H}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
-    params::LMPParams{T,H}
+    params::LMPParams{T,T2,H}
 end
 
 """
@@ -111,8 +111,8 @@ Automatically set values are:
 - `e2_scalar = one(Float64)`
 """
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    params::LMPParams{T,H}) where {F,G,T,H}
-    return WavefieldIntegrationParams{F,G,T,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
+    params::LMPParams{T,T2,H}) where {F,G,T,T2,H}
+    return WavefieldIntegrationParams{F,G,T,T2,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
         one(Float64), one(Float64), ea, frequency, bfield, species, params)
 end
 
@@ -358,6 +358,9 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     issorted(zs, rev=true) ||
         throw(ArgumentError("`zs` should go from top to bottom of the ionosphere."))
 
+    @unpack wavefieldintegrationparams = params
+    @unpack tolerance, solver = wavefieldintegrationparams
+
     # Initial conditions
     Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
     Ttop = tmatrix(ea, Mtop)
@@ -379,9 +382,9 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # WARNING: Without `lazy=false` (necessary since we're using DiscreteCallback) don't
     # use continuous solution output! Also, we're only saving at zs.
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
-    sol = solve(prob, Vern9(lazy=false), callback=CallbackSet(cb, scb),
+    sol = solve(prob, solver, callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
-                atol=1e-8, rtol=1e-8)
+                atol=tolerance, rtol=tolerance)
 
     if unscale
         e = unscalewavefields(saved_values)

@@ -70,7 +70,7 @@ export IntegrationParams
 const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
 
 """
-    LMPParams{T,H <: AbstractRange{Float64}}
+    LMPParams{T,T2,H <: AbstractRange{Float64}}
 
 Parameters for the `LongwaveModePropagator` module with defaults:
 
@@ -89,6 +89,10 @@ Parameters for the `LongwaveModePropagator` module with defaults:
     reflection coefficient.
 - `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
     wavefields will be integrated.
+- `wavefieldintegrationparams::IntegrationParams{T2} =
+    IntegrationParams(solver=Vern6(lazy=false), tolerance=1e-8)`:
+    parameters passed to `DifferentialEquations.jl` for integration of the wavefields
+    used in mode conversion. The solver cannot be lazy.
 
 The struct is created using `Parameters.jl` `@with_kw` and supports that package's
 instantiation capabilities, e.g.:
@@ -99,7 +103,7 @@ p2 = LMPParams(earth_radius=6370e3)
 p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
 ```
 """
-@with_kw struct LMPParams{T,H<:AbstractRange{Float64}}
+@with_kw struct LMPParams{T,T2,H<:AbstractRange{Float64}}
     topheight::Float64 = 110e3
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
@@ -107,6 +111,8 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0, length=513)
+    wavefieldintegrationparams::IntegrationParams{T2} =
+        IntegrationParams(tolerance=1e-8, solver=Vern6(lazy=false))
 end
 export LMPParams
 
