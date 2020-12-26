@@ -100,7 +100,7 @@ function test_wavefieldreflection(scenario)
 
     zs = params.wavefieldheights
 
-    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
     wavefieldRs = [LMP.bookerreflection(ea, s) for s in e]
 
     @unpack tolerance, solver = params.integrationparams

@@ -90,7 +90,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 - `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
     wavefields will be integrated.
 - `wavefieldintegrationparams::IntegrationParams{T2} =
-    IntegrationParams(solver=Vern6(lazy=false), tolerance=1e-8)`:
+    IntegrationParams(solver=Vern7(lazy=false), tolerance=1e-8)`:
     parameters passed to `DifferentialEquations.jl` for integration of the wavefields
     used in mode conversion. The solver cannot be lazy.
 
@@ -112,7 +112,7 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0, length=513)
     wavefieldintegrationparams::IntegrationParams{T2} =
-        IntegrationParams(tolerance=1e-8, solver=Vern6(lazy=false))
+        IntegrationParams(tolerance=1e-8, solver=Vern7(lazy=false))
 end
 export LMPParams
 

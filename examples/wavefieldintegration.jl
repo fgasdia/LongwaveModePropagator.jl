@@ -163,6 +163,8 @@ zs = 110e3:-50:0
 solvers = (Tsit5(), BS5(lazy=false), OwrenZen5(),
            Vern6(lazy=false), Vern7(lazy=false), Vern8(lazy=false), Vern9(lazy=false))
 
+solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
+
 day_es = []
 night_es = []
 for s in eachindex(solvers)
@@ -173,15 +175,16 @@ for s in eachindex(solvers)
     integratewavefields(zs, ea, frequency, bfield, day, params=params);
     integratewavefields(zs, ea, frequency, bfield, night, params=params);
 
+    solverstring = solverstrings[s]
     let day_e, night_e
         ## repeat 25 times to average calls
         for i = 1:25
             ## day ionosphere
-            @timeit TO string(solvers[s]) begin
+            @timeit TO solverstring begin
                 day_e = integratewavefields(zs, ea, frequency, bfield, day, params=params)
             end
             ## night ionosphere
-            @timeit TO string(solvers[s]) begin
+            @timeit TO solverstring begin
                 night_e = integratewavefields(zs, ea, frequency, bfield, night, params=params)
             end
         end
@@ -210,18 +213,22 @@ DisplayAs.PNG(img)  #hide
 
 TO
 
-# The Tsit5 solver (a 5/4 Runge-Kutta method) is the fastest, although the BS5 and
-# 6th, 7th, and 8th order Vern methods are not far behind.
-# The performance of Tsit5 in the LF radio band decreases to 25% slower than Vern6.
+# The Tsit5, BS5, and 6th, 7th, and 8th order Vern methods all have similar performance.
+# In fact, rerunning these same tests multiple times can result in different solvers
+# being "fastest".
 #
-# Vern6 is the default method in `LMPParams().wavefieldintegrationparams`.
-# It should also be more suitable than Tsit5 if a slightly smaller tolerance than
-# 1e-8 is requested.
+# The DifferentialEquations.jl [documents](https://diffeq.sciml.ai/stable/solvers/ode_solve/)
+# suggest that Verner's methods are preferred over the two lower order methods when solving
+# with the accuracy range `~1e-8-1e-12`. We use `Vern7(lazy=false)`as the default in
+# LongwaveModePropagator.jl. There is no direct MATLAB equivalent to `Vern7`; it
+# plays a similar role as [`ode113`](https://www.mathworks.com/help/matlab/ref/ode113.html)
+# (Mathworks suggests `ode113` is better at solving problems with stringent error tolerance
+# than `ode45`). `Vern7` is usually more efficient than `ode113`.
 #
-# Why not RK4 or a more basic method? I tried them and they produce some discontinuities
-# around the reflection height. It is admittedly difficult to tell if this is a true
-# failure of the methods at this height or a problem related to the scaling and saving
-# callbacks that occur during the integration.
+# Why not a strict `RK4` or a more basic method? I tried them and they produce some
+# discontinuities around the reflection height. It is admittedly difficult to tell
+# if this is a true failure of the methods at this height or a problem related
+# to the scaling and saving callbacks that occur during the integration.
 # In any case, none of the methods tested above exhibit that issue.
 
 # ## Pitteway figure 2
