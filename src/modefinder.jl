@@ -293,7 +293,7 @@ Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` 
 """
 function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, force_dtmin = integrationparams
+    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation, params=params)
     Rtop = bookerreflection(modeequation.ea, Mtop)
@@ -302,7 +302,7 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LMPPara
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin, dt=1.0,
+                force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -318,7 +318,7 @@ rows (3, 4).
 """
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, force_dtmin = integrationparams
+    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation, params=params)
     Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
@@ -329,7 +329,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin,
+                force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
     RdR = sol[end]

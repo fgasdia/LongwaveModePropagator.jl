@@ -82,7 +82,7 @@ scenarios = generatescenarios(30);
 # low tolerance Runge-Kutta Order 4 method. The DifferentialEquations.jl implementation
 # of `RK4` uses adaptive stepping.
 
-ip = IntegrationParams(tolerance=1e-14, solver=RK4())
+ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
 params = LMPParams(integrationparams=ip)
 
 Rrefs = [integratedreflection(scenario, params=params) for scenario in scenarios];

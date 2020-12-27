@@ -55,15 +55,19 @@ coefficient matrix in `modefinder.jl`.
 
 # Fields
 
-- `tolerance::Float64 = 1e-7`: integration `atol` and `rtol`.
-- `solver::T = OwrenZen5()`: a `DifferentialEquations.jl` solver.
+- `tolerance::Float64 = 1e-8`: integration `atol` and `rtol`.
+- `solver::T = Vern7()`: a `DifferentialEquations.jl` solver.
+- `dt::Float64 = 1.0`: height step in meters (many methods use a variable step size).
 - `force_dtmin::Bool = false`: if true, continue integration when solver reaches minimum
     step size.
+- `maxiters::Int = 100_000`: maximum number of iterations before stopping.
 """
 @with_kw struct IntegrationParams{T}
-    tolerance::Float64 = 1e-7
-    solver::T = OwrenZen5()
+    tolerance::Float64 = 1e-8
+    solver::T = Vern7()
+    dt::Float64 = 1.0
     force_dtmin::Bool = false
+    maxiters::Int = 100_000
 end
 export IntegrationParams
 
@@ -84,7 +88,8 @@ Parameters for the `LongwaveModePropagator` module with defaults:
     eigenangles.
 - `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
     complex root-finding algorithm.
-- `integrationparams::IntegrationParams{T} = IntegrationParams(1e-7, OwrenZen5(), false)`:
+- `integrationparams::IntegrationParams{T} =
+    IntegrationParams(solver=Vern7(), tolerance=1e-8)`:
     parameters passed to `DifferentialEquations.jl` for integration of the ionosphere
     reflection coefficient.
 - `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
@@ -112,7 +117,7 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0, length=513)
     wavefieldintegrationparams::IntegrationParams{T2} =
-        IntegrationParams(tolerance=1e-8, solver=Vern7(lazy=false))
+        IntegrationParams(solver=Vern7(lazy=false))
 end
 export LMPParams
 
