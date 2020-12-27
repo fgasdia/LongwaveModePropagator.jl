@@ -17,9 +17,9 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR   = joinpath(@__DIR__, "src", "generated")
 
 examples = [
-    # "meshgrid.jl",
-    # "meshgrid2.jl",
-    # "wavefieldintegration.jl",
+    "meshgrid.jl",
+    "meshgrid2.jl",
+    "wavefieldintegration.jl",
     "integratedreflection.jl"
 ]
 
@@ -40,9 +40,9 @@ Organize page hierarchies
 ==#
 
 example_pages = [
-    # "generated/meshgrid.md",
-    # "generated/meshgrid2.md",
-    # "generated/wavefieldintegration.md"
+    "generated/meshgrid.md",
+    "generated/meshgrid2.md",
+    "generated/wavefieldintegration.md",
     "generated/integratedreflection.md"
 ]
 

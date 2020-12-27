@@ -160,7 +160,7 @@ DisplayAs.PNG(img)  #hide
 mean_times = dropdims(mean(times, dims=1), dims=1)
 
 img = heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
-              clims=(0, 10),
+              clims=(0, 9),
               xlabel="tolerance", ylabel="solver", colorbar_title="time (μs)")
 DisplayAs.PNG(img)  #hide
 

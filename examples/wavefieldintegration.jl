@@ -160,8 +160,8 @@ DisplayAs.PNG(img)  #hide
 TO = TimerOutput()
 
 zs = 110e3:-50:0
-solvers = (Tsit5(), BS5(lazy=false), OwrenZen5(),
-           Vern6(lazy=false), Vern7(lazy=false), Vern8(lazy=false), Vern9(lazy=false))
+solvers = [Tsit5(), BS5(lazy=false), OwrenZen5(),
+           Vern6(lazy=false), Vern7(lazy=false), Vern8(lazy=false), Vern9(lazy=false)]
 
 solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
 
@@ -198,7 +198,7 @@ end
 day_e1s = [getindex.(e, 1) for e in day_es]
 
 img = plot(real(day_e1s), zs/1000,
-           label=permutedims([string.(solvers)...]), legend=:topleft)
+           label=permutedims(solverstrings), legend=:topleft)
 DisplayAs.PNG(img)  #hide
 
 # And at night...
@@ -206,7 +206,7 @@ DisplayAs.PNG(img)  #hide
 night_e1s = [getindex.(e, 1) for e in night_es]
 
 img = plot(real(night_e1s), zs/1000,
-           label=permutedims([string.(solvers)...]), legend=:topright)
+           label=permutedims(solverstrings), legend=:topright)
 DisplayAs.PNG(img)  #hide
 
 # The times to run each...
