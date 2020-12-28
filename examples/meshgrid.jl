@@ -36,7 +36,9 @@
 #
 # First, import the necessary packages.
 
-using Plots, DisplayAs
+using Plots
+using DisplayAs  #hide
+
 using RootsAndPoles
 
 using ..LongwaveModePropagator

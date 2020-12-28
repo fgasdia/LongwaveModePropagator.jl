@@ -47,7 +47,7 @@ end
 # Fields
 
 - `distance::T`: ground distance from the transmitter in meters.
-- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
+- `fieldcomponent::Fields.Field`: field component measured by the `Sampler`.
 - `altitude::Float64`: height above the ground in meters.
 """
 struct Sampler{T} <: AbstractSampler{T}

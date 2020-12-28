@@ -39,7 +39,8 @@
 # First we load the packages we need.
 
 using Statistics
-using Plots, DisplayAs
+using Plots
+using DisplayAs  #hide
 
 using ..LongwaveModePropagator
 using ..LongwaveModePropagator: StaticArrays

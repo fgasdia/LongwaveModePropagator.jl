@@ -12,7 +12,9 @@
 #
 # First, let's load the packages needed in this example.
 
-using Plots, DisplayAs
+using Plots
+using DisplayAs  #hide
+
 using RootsAndPoles
 
 using ..LongwaveModePropagator

@@ -1,4 +1,4 @@
-# ## Magnetic field direction
+# # Magnetic field direction
 #
 # In this example we'll look at the influence of the magnetic field direction on
 # a nighttime ionosphere propagation path.
@@ -12,6 +12,8 @@
 # Although commented out in the `generate` function below, we locally saved the
 # `BatchInput` as a JSON file and used it to feed a custom Python code
 # which generates LWPC input files, runs LWPC, and saves the results in an HDF5 file.
+#
+# First load the packages we need.
 
 using Dates, Printf
 using HDF5
@@ -20,10 +22,18 @@ using Plots, DisplayAs
 using ..LongwaveModePropagator
 using ..LongwaveModePropagator: buildrun, Progress, next!
 
+# For convenience, we'll define global `OUTPUT_RANGES` at which the electric field
+# will be computed, and the magnetic field dip and azimuth angles `B_DIPS` and `B_AZS`.
+
 const OUTPUT_RANGES = 0:5e3:3000e3
 const B_DIPS = [90.0, 60, 60, 60, 60, 60, 60, 60, 60]
 const B_AZS = [0.0, 0, 45, 90, 135, 180, 225, 270, 315]  ## vertical, N, E, S, W
+nothing  #hide
 
+# The `generate` function produces the `BatchInput` of the scenarios.
+# If we wanted, we could comment out the JSON lines near the bottom of the function
+# to also write the `BatchInput` to a file.
+# That's not necessary here.
 
 function generate()
     batch = BatchInput{BasicInput}()
@@ -91,7 +101,7 @@ batch = generate();
 # LongwaveModePropagator.jl when a file is passed to `propagate` is more robust
 # for thousands or tens of thousands of inputs.
 
-function runlmp(outfile, inputs)
+function runlmp(inputs, outfile)
 
     h5open(outfile, "cw") do fid
         ## Create Batch attributes if they don't already exist
@@ -131,15 +141,19 @@ function runlmp(outfile, inputs)
         next!(PM)
     end
 end
+nothing  #hide
+
+# `examples_dir` will probably need to be modified to the directory where
+# `bfields_lmp.h5` is located and where you would like `bfields_lmp.h5` to be saved.
 
 examples_dir = joinpath("..", "..", "..", "examples")
 lmpfile = joinpath(examples_dir, "bfields_lmp.h5")
-runlmp(lmpfile, batch)
+runlmp(batch, lmpfile)
 
 # ## Plots
 #
 # To more easily compare the amplitude and phase curves, we define a function
-# to process the HDF5 files into `Array`s of amplitude and phase
+# to process the HDF5 files into arrays of amplitude and phase
 # versus range and magnetic field azimuth.
 
 function process(outputs)
@@ -156,7 +170,7 @@ function process(outputs)
         phase = read(o["phase"])
 
         agrid[:,i] = amp[mask]
-        pgrid[:,i] = phase[mask]
+        pgrid[:,i] = rad2deg.(phase[mask])
     end
 
     return agrid, pgrid
@@ -166,24 +180,53 @@ agrid, pgrid = h5open(lmpfile, "r") do o
     agrid, pgrid = process(o)
 end
 
+nothing  #hide
+
+# Here is the amplitude plot itself.
 
 labels = string.(trunc.(Int, B_AZS), "°")
 labels[1] = "90°, "*labels[1]
 labels[2] = "60°, "*labels[2]
-labels[3:end] .= "    ".*labels[3:end]
+labels[3:end] .= "      ".*labels[3:end]
 
 colors = [palette(:phase, length(B_AZS))...]
 pushfirst!(colors, RGB(0.0, 0, 0))
 
-plot(OUTPUT_RANGES/1000, agrid,
-     linewidth=1.5, palette=colors, colorbar=false,
-     xlabel="range (km)", ylabel="amplitude (dB)",
-     labels=permutedims(labels), legendtitle="  dip, az")
+img = plot(OUTPUT_RANGES/1000, agrid,
+           linewidth=1.5, palette=colors, colorbar=false,
+           xlabel="range (km)", ylabel="amplitude (dB)",
+           labels=permutedims(labels), legendtitle="  dip, az")
+DisplayAs.PNG(img)  #hide
 
+# The amplitude corresponding to each magnetic field azimuth
+# (where 0° is along the propagation direction)
+# is color-coded in the plot above, but a couple of the colors appear to be missing.
+# This is because 0° and 180° are identical. There is no "north/south" dependence.
+# Therefore 45°/135° and 315°/225° are also identical.
+#
+# On the other hand, there is a significant difference between propagation
+# "east" (pinks) versus "west" (greens).
+# This effect can be [observed in real life](https://doi.org/10.1016/0021-9169(58)90081-3).
+#
 # Now we'll plot the difference from LWPC.
 
-lwpcfile = joinpath(exampels_dir, "bfields_lwpc.h5")
+lwpcfile = joinpath(examples_dir, "bfields_lwpc.h5")
 
 lagrid, lpgrid = h5open(lwpcfile, "r") do o
     lagrid, bpgrid = process(o)
 end
+
+adifference = agrid - lagrid
+
+img = plot(OUTPUT_RANGES/1000, adifference,
+           linewidth=1.5, palette=colors, colorbar=false,
+           xlabel="range (km)", ylabel="amplitude difference (dB)",
+           labels=permutedims(labels), legendtitle="  dip, az")
+DisplayAs.PNG(img)  #hide
+
+# The two models are a very close match.
+# Where there are large differences they occur because of slight misalignment of
+# nulls with respect to range from the transmitter.
+# The 315°/225° line has the worst match, although it is not clear if there is
+# a particular cause for this outside of the general differences between the
+# two models.

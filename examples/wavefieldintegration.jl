@@ -16,7 +16,9 @@
 # First we'll import the necessary packages.
 
 using CSV, Interpolations
-using Plots, DisplayAs
+using Plots
+using DisplayAs  #hide
+
 using TimerOutputs
 
 using ..LongwaveModePropagator
