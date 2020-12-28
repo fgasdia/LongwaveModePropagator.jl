@@ -18,11 +18,11 @@ const OUTPUT_DIR   = joinpath(@__DIR__, "src", "generated")
 
 examples = [
     "basic.jl",
-    # "meshgrid.jl",
-    # "meshgrid2.jl",
-    # "wavefieldintegration.jl",
-    # "integratedreflection.jl",
-    # "magneticfield.jl",
+    "meshgrid.jl",
+    "meshgrid2.jl",
+    "wavefieldintegration.jl",
+    "integratedreflection.jl",
+    "magneticfield.jl"
 ]
 
 for example in examples

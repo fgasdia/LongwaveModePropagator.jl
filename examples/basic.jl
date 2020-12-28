@@ -85,9 +85,9 @@ rad2deg(inclination(hd))
 rad2deg(azimuth(hd))
 
 # Additional help can be found by typing, e.g.
-
-? HorizontalDipole
-
+# 
+# `? HorizontalDipole`
+#
 # in the REPL.
 #
 # Why bother defining these types? We make use of Julia's multiple
