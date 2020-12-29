@@ -5,6 +5,9 @@
 # model, but scenarios can otherwise be defined and analyzed from
 # e.g. Matlab or Python.
 #
+# Examples of writing and reading compatible JSON files are provided below
+# for [Matlab](@ref matlab_json) and [Python](@ref python_json).
+#
 # Let's load the necessary packages.
 
 using Dates
@@ -14,6 +17,7 @@ using DisplayAs  #hide
 
 using ..LongwaveModePropagator
 const LMP = LongwaveModePropagator
+nothing  #hide
 
 # ## Inputs
 #
@@ -76,8 +80,9 @@ nothing  #hide
 
 # The second input is the `TableInput`. This type defines the ionosphere using
 # a tabular input of number density and collision frequency over altitude.
-# These tables are then linearly interpolated when integrating the ionosphere
-# reflection coefficient and wavefields.
+# These tables are then _linearly_ interpolated when integrating the ionosphere
+# reflection coefficient and wavefields (so it's better if these tables are fairly
+# dense).
 #
 # The fields of the `TableInput` are
 #
@@ -97,24 +102,24 @@ nothing  #hide
 #
 # Again we'll construct a `TableInput` to look at the JSON
 
-input = TableInput()
-input.name = "table"
-input.description = "Test TableInput"
-input.datetime = Dates.now()
+tinput = TableInput()
+tinput.name = "table"
+tinput.description = "Test TableInput"
+tinput.datetime = Dates.now()
 
-input.segment_ranges = [0.0]
-input.altitude = collect(50e3:5e3:100e3)
-input.density = [waitprofile.(input.altitude, 75, 0.3)]
-input.collision_frequency = [electroncollisionfrequency.(input.altitude)]
-input.b_mags= [50e-6]
-input.b_dips = [π/2]
-input.b_azs = [0.0]
-input.ground_sigmas = [0.001]
-input.ground_epsrs = [4]
-input.frequency = 24e3
-input.output_ranges = collect(0:100e3:1000e3)
+tinput.segment_ranges = [0.0]
+tinput.altitude = collect(50e3:5e3:100e3)
+tinput.density = [waitprofile.(tinput.altitude, 75, 0.3)]
+tinput.collision_frequency = [electroncollisionfrequency.(tinput.altitude)]
+tinput.b_mags= [50e-6]
+tinput.b_dips = [π/2]
+tinput.b_azs = [0.0]
+tinput.ground_sigmas = [0.001]
+tinput.ground_epsrs = [4]
+tinput.frequency = 24e3
+tinput.output_ranges = collect(0:100e3:1000e3)
 
-json_str = JSON3.pretty(input)
+json_str = JSON3.pretty(tinput)
 
 # Both of these input types can be collected together in a `BatchInput` which has fields
 # for a `name`, `description`, `datetime`, and vector of inputs.
@@ -148,16 +153,118 @@ output = propagate(filename);
 
 output
 
-# ## JSON I/O from Matlab
+# ## [JSON I/O from Matlab](@id matlab_json)
 #
 # Here's an example of how to encode the above `BasicInput` to JSON and
 # decode the output using Matlab.
+# It's also in the file [io.m](@__REPO_ROOT_URL__/examples/io.m).
+#
+# ```matlab
+# % Matlab script
+#
+# input.name = "basic";
+# input.description = "Test BasicInput";
+# input.datetime = '2020-12-28T21:06:50.501';
+#
+# input.segment_ranges = {0.0};
+# input.hprimes = {75};
+# input.betas = {0.35};
+# input.b_mags = {50e-6};
+# input.b_dips = {pi/2};
+# input.b_azs = {0.0};
+# input.ground_sigmas = {0.001};
+# input.ground_epsrs = {4};
+# input.frequency = 24e3;
+# input.output_ranges = 0:100e3:1000e3;
+#
+# json_str = jsonencode(input);
+#
+# fid = fopen('basic_matlab.json', 'w');
+# fwrite(fid, json_str, 'char');
+# fclose(fid);
+# ```
+#
+# Matlab was used to generate the file `basic_matlab.json`.
+# We can confirm it's parsed correctly by using the internal
+# LongwaveModePropagator function [`LMP.parse`](@ref), which attempts to parse
+# JSON files into recognized input and output formats.
 
-#==
-```matlab
+matlab_input = LMP.parse(joinpath(examples_dir, "basic_matlab.json"))
 
-```
-==#
+# Let's run it.
 
-# parse
-# TODO run from cmd prompt with file only
+matlab_output = propagate(joinpath(examples_dir, "basic_matlab.json"));
+
+# !!! note
+#     It is possible to run Julia as a script, calling it directly from a terminal
+#     (see [the docs](https://docs.julialang.org/en/v1/manual/getting-started/)), but
+#     it is probably easiest to just run the code from the REPL.
+#
+#     1. `cd` in a terminal to your working directory
+#     2. Start up Julia: `julia`
+#     3. It's recommended to `] activate .`, generating a new environment in this directory
+#     4. If necessary, install LongwaveModePropagator.jl: `] add LongwaveModePropagator`
+#     5. `using LongwaveModePropagator`
+#     6. `propagate("basic_matlab.json")`
+#
+#     If this has been done before in the same directory, then just do steps 1, 2, 5, 6.
+#
+# Reading the results file from Matlab is relatively simple.
+#
+# ```matlab
+# filename = 'basic_matlab_output.json';
+#
+# text = fileread(filename);
+#
+# output = jsondecode(text);
+# ```
+#
+# ## [JSON I/O from Python](@id python_json)
+#
+# Here is similar code for Python, also available in the file
+# [io.py](@__REPO_ROOT_URL__/examples/io.py).
+#
+# ```python
+# # Python script
+#
+# import json
+# import datetime
+# import numpy as np
+#
+# input = dict()
+#
+# input['name'] = "basic"
+# input['description'] = "Test BasicInput"
+# input['datetime'] = datetime.datetime.now().isoformat()[:-3]
+#
+# input['segment_ranges'] = [0.0]
+# input['hprimes'] = [75]
+# input['betas'] = [0.35]
+# input['b_mags'] = [50e-6]
+# input['b_dips'] = [np.pi/2]
+# input['b_azs'] = [0.0]
+# input['ground_sigmas'] = [0.001]
+# input['ground_epsrs'] = [4]
+# input['frequency'] = 24e3
+# input['output_ranges'] = np.arange(0, 1000e3, 100e3).tolist()
+#
+# json_str = json.dumps(input)
+#
+# with open('basic_python.json', 'w') as file:
+#     file.write(json_str)
+# ```
+#
+# Let's ensure that the JSON file is correctly parsed.
+
+python_input = LMP.parse(joinpath(examples_dir, "basic_python.json"))
+
+# And run the file.
+
+python_output = propagate(joinpath(examples_dir, "basic_python.json"));
+
+# To read the results:
+#
+# ```python
+# with open('basic_python_output.json', 'r') as file:
+#     output = json.load(file)
+# ```

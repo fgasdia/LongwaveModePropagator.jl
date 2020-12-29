@@ -1,6 +1,6 @@
 !test/LWPC/*.log
 .stignore
-*.json
+test/*.json
 !test/corrupted_basic.json
 build/
 generated/

@@ -16,7 +16,7 @@
 # LongwaveModePropagator.jl exports several structs which are used to define
 # propagation scenarios.
 # We'll break them into two major categories of [Transmitters and receivers](@ref)
-# and [Waveguides](@ref waveguides_intro)
+# and [Waveguides](@ref waveguides_intro).
 #
 # Let's load the necessary packages.
 
@@ -85,7 +85,7 @@ rad2deg(inclination(hd))
 rad2deg(azimuth(hd))
 
 # Additional help can be found by typing, e.g.
-# 
+#
 # `? HorizontalDipole`
 #
 # in the REPL.
@@ -136,7 +136,7 @@ tx = Transmitter(f)
 
 #
 
-power = 500e3  ## 500 kW
+power = 500e3  # 500 kW
 tx = Transmitter(hd, f, power)
 
 # Although not currently exported by LongwaveModePropagator.jl, there is an
@@ -267,8 +267,7 @@ electrons = Species(QE, ME, z->waitprofile(z, h, β), electroncollisionfrequency
 
 ground = Ground(10, 2e-4)
 
-# For convenience, a global dictionary of common ground indices are
-# exported.
+# For convenience, a dictionary of common ground indices is exported.
 
 ground = GROUND[5]
 
@@ -302,7 +301,7 @@ img = plot(ranges/1000, a,
            linewidth=1.5)
 DisplayAs.PNG(img)  #hide
 
-# and phase
+# and phase.
 
 img = plot(ranges/1000, rad2deg.(p),
            xlabel="range (km)", ylabel="phase (deg)",
@@ -342,7 +341,7 @@ img = plot(ranges/1000, a,
            linewidth=1.5)
 DisplayAs.PNG(img)  #hide
 
-# and phase
+# and phase.
 
 img = plot(ranges/1000, rad2deg.(p),
            xlabel="range (km)", ylabel="phase (deg)",
