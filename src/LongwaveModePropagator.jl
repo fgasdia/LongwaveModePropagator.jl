@@ -278,14 +278,14 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 end
 
 """
-    propagate(file::AbstractString; outfile=missing, incrementalwrite=false, append=false,
+    propagate(file::AbstractString, outfile=missing; incrementalwrite=false, append=false,
               coordgrid=nothing)
 
 Run the model scenario described by `file` and save the results as `outfile`.
 
 If `outfile = missing`, the output file name will be `\$(file)_output.json`.
 """
-function propagate(file::AbstractString; outfile=missing, incrementalwrite=false,
+function propagate(file::AbstractString, outfile=missing; incrementalwrite=false,
     append=false, coordgrid=nothing, params=LMPParams())
 
     ispath(file) || error("$file is not a valid file name")

@@ -51,8 +51,8 @@ function generate_table()
     density = [Vector{Float64}(undef, length(altitude)) for i = 1:length(segment_ranges)]
     collision_frequency = similar(density)
     for i in eachindex(segment_ranges)
-        density[i] = LMP.waitprofile.(altitude, hprimes[i], betas[i])
-        collision_frequency[i] = LMP.electroncollisionfrequency.(altitude)
+        density[i] = waitprofile.(altitude, hprimes[i], betas[i])
+        collision_frequency[i] = electroncollisionfrequency.(altitude)
     end
 
     b_mags = fill(50e-6, length(segment_ranges))
@@ -113,8 +113,8 @@ function generate_batchtable()
     density = [Vector{Float64}(undef, length(altitude)) for i = 1:length(segment_ranges)]
     collision_frequency = similar(density)
     for i in eachindex(segment_ranges)
-        density[i] = LMP.waitprofile.(altitude, hprimes[i], betas[i])
-        collision_frequency[i] = LMP.electroncollisionfrequency.(altitude)
+        density[i] = waitprofile.(altitude, hprimes[i], betas[i])
+        collision_frequency[i] = electroncollisionfrequency.(altitude)
     end
 
     # Transmitter
