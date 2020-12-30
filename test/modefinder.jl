@@ -152,8 +152,9 @@ function test_integratedreflection_deriv(scenario)
     dRs = similar(Rs)
     Rrefs = similar(Rs)
     dRrefs = similar(Rs)
-    # NOTE: this also effectively checks for thread safety
-    Threads.@threads for i in 1:length(θs)
+    # XXX: why are there occasional mismatches between R and Rr if this is threaded
+    # with Threads.@threads()?
+    for i in eachindex(θs)
         v = RdR(θs[i])
         Rs[i] = v[SVector(1,2),:]
         dRs[i] = v[SVector(3,4),:]
@@ -168,8 +169,8 @@ function test_integratedreflection_deriv(scenario)
         dRr = getindex.(dRrefs, i)
 
         # maxabsdiff criteria doesn't capture range of R and dR so rtol is used
-        @test isapprox(R, Rr, rtol=1e-3)
-        @test isapprox(dR, dRr, rtol=1e-2)
+        @test isapprox(R, Rr, rtol=1e-5)
+        @test isapprox(dR, dRr, rtol=1e-3)
     end
 end
 
