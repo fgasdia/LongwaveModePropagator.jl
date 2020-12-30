@@ -168,8 +168,8 @@ function test_integratedreflection_deriv(scenario)
         dRr = getindex.(dRrefs, i)
 
         # maxabsdiff criteria doesn't capture range of R and dR so rtol is used
-        @test isapprox(R, Rr, rtol=1e-5)
-        @test isapprox(dR, dRr, rtol=1e-3)
+        @test isapprox(R, Rr, rtol=1e-3)
+        @test isapprox(dR, dRr, rtol=1e-2)
     end
 end
 

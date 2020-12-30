@@ -51,7 +51,7 @@ nothing  #hide
 input = BasicInput()
 input.name = "basic"
 input.description = "Test BasicInput"
-input.datetime = Dates.now()
+input.datetime = DateTime("2020-12-29T05:00:00.000")  # usually `Dates.now()`
 
 input.segment_ranges = [0.0]
 input.hprimes = [75]
@@ -105,7 +105,7 @@ nothing  #hide
 tinput = TableInput()
 tinput.name = "table"
 tinput.description = "Test TableInput"
-tinput.datetime = Dates.now()
+tinput.datetime = DateTime("2020-12-29T05:00:00.000")
 
 tinput.segment_ranges = [0.0]
 tinput.altitude = collect(50e3:5e3:100e3)
@@ -186,7 +186,7 @@ output
 #
 # Matlab was used to generate the file `basic_matlab.json`.
 # We can confirm it's parsed correctly by using the internal
-# LongwaveModePropagator function [`LMP.parse`](@ref), which attempts to parse
+# LongwaveModePropagator function [`LongwaveModePropagator.parse`](@ref), which attempts to parse
 # JSON files into recognized input and output formats.
 
 matlab_input = LMP.parse(joinpath(examples_dir, "basic_matlab.json"))

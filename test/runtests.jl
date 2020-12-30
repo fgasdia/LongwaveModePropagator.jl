@@ -114,7 +114,7 @@ const segmented_scenario = (
 )
 
 const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i =
-            range(deg2rad(-15), deg2rad(0), length=16)]
+            range(deg2rad(-10), deg2rad(0), length=11)]
 
 maxabsdiff(a, b) = maximum(abs.(a - b))
 meanabsdiff(a, b) = mean(abs.(a - b))

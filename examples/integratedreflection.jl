@@ -56,7 +56,8 @@ function generatescenarios(N)
     frequencies = Frequency.(abs.(randn(N)*60e3))
 
     B = rand(30e-6:5e-7:60e-6, N)
-    bfields = BField.(B, rand(N)*π/2, rand(N)*2π)
+    ## avoiding within 1° from 0° dip angle
+    bfields = BField.(B, rand(N)*(π/2-0.018) .+ 0.018, rand(N)*2π)
 
     hps = randn(N)*5 .+ 79
     betas = randn(N)*0.2 .+ 0.45
@@ -153,7 +154,7 @@ mean_Rerrs = dropdims(mean(Rerrs, dims=1), dims=1)
 img = heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
               clims=(-8, -3),
               xlabel="tolerance", ylabel="solver",
-              colorbar_title="log₁₀ max abs difference")
+              colorbar_title="log₁₀ max abs difference", colorbar=true)
 DisplayAs.PNG(img)  #hide
 
 # And the average runtimes are
@@ -162,7 +163,8 @@ mean_times = dropdims(mean(times, dims=1), dims=1)
 
 img = heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
               clims=(0, 9),
-              xlabel="tolerance", ylabel="solver", colorbar_title="time (μs)")
+              xlabel="tolerance", ylabel="solver",
+              colorbar_title="time (μs)", colorbar=true)
 DisplayAs.PNG(img)  #hide
 
 # The best combination of runtime and accuracy occurs at roughly `Vern7` with a

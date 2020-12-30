@@ -195,7 +195,7 @@ pushfirst!(colors, RGB(0.0, 0, 0))
 img = plot(OUTPUT_RANGES/1000, agrid,
            linewidth=1.5, palette=colors, colorbar=false,
            xlabel="range (km)", ylabel="amplitude (dB)",
-           labels=permutedims(labels), legendtitle="  dip, az")
+           labels=permutedims(labels), legendtitle="  dip, az", legend=true)
 DisplayAs.PNG(img)  #hide
 
 # The amplitude corresponding to each magnetic field azimuth
@@ -221,7 +221,7 @@ adifference = agrid - lagrid
 img = plot(OUTPUT_RANGES/1000, adifference,
            linewidth=1.5, palette=colors, colorbar=false,
            xlabel="range (km)", ylabel="amplitude difference (dB)",
-           labels=permutedims(labels), legendtitle="  dip, az")
+           labels=permutedims(labels), legendtitle="  dip, az", legend=true)
 DisplayAs.PNG(img)  #hide
 
 # The two models are a very close match.
