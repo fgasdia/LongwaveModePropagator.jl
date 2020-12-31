@@ -1,13 +1,15 @@
 # Longwave Mode Propagator
 
-Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).
+[![Build status][gha-img]][gha-url]
+
+**Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).**
 
 LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
-The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [^Budden1955a] and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [^Budden1962].
-It is similar to the Long Wavelength Propagation Capability [^Ferguson1998], but aims to be more robust and adaptable.
+The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [Budden1955a] and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [Budden1962].
+It is similar to the Long Wavelength Propagation Capability [Ferguson1998], but aims to be more robust and adaptable.
 
 The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
-See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
+See the **Examples** section of the docs for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
 
 ## Installation instructions
 
@@ -31,7 +33,7 @@ Please open Issues or Pull requests if you find any problems, are interested in 
 
 Here's a simple homogeneous ground/ionosphere scenario defined in Julia.
 Note that throughout the code SI units (MKS) and radians are used.
-The only notable exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile.
+The only notable exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies h′ and β parameters for the electron density profile.
 
 ```julia
 using LongwaveModePropagator
@@ -92,13 +94,17 @@ prints some explanation of the `bookerquartic` function even though it's not exp
 
 ## References
 
-[^Budden1955]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: 10.1098/rspa.1955.0027.
+[Budden1955]: K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: 10.1098/rspa.1955.0027.
 
-[^Budden1962]: K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: 10.1098/rspa.1962.0041.
+[Budden1962]: K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: 10.1098/rspa.1962.0041.
 
-[^Ferguson1998]: J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. [Online]. Available: http://www.dtic.mil/docs/citations/ADA350375.
+[Ferguson1998]: J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. [Online]. Available: http://www.dtic.mil/docs/citations/ADA350375.
 
 ## Citing
 
 We encourage you to cite this package if used in scientific work. See the Zenodo
 badge above or refer to [CITATION.bib](CITATION.bib).
+
+
+[gha-img]: https://github.com/fgasdia/LongwaveModePropagator.jl/workflows/CI/badge.svg
+[gha-url]: https://github.com/fgasdia/LongwaveModePropagator.jl/actions?query=workflow

@@ -1,4 +1,4 @@
-name: linux
+name: CI
 on:
   pull_request:
     branches:
@@ -9,8 +9,10 @@ on:
     tags: '*'
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }} - threads ${{ matrix.julia-threads }}
     runs-on: ${{ matrix.os }}
+    env:
+      JULIA_NUM_THREADS: ${{ matrix.julia-threads }}
     strategy:
       fail-fast: false
       matrix:
@@ -20,8 +22,12 @@ jobs:
           - 'nightly'
         os:
           - ubuntu-latest
+          - windows-latest
         arch:
           - x64
+        julia-threads:
+          - "1"
+          - "2"
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
