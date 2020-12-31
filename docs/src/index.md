@@ -25,7 +25,7 @@ This means you can leave your code, come back to it two years later on a new com
 To update the environment (while maintaining compatibility across all dependencies), simply
 `] up`.
 
-As with most Julia packages, LongwaveModePropagator.jl is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModeSolver).
+As with most Julia packages, LongwaveModePropagator.jl is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModePropagator).
 Please open Issues or Pull requests if you find any problems, are interested in new features, or you would like to contribute.
 
 ## Running your first model

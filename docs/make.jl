@@ -1,5 +1,3 @@
-".." in LOAD_PATH || push!(LOAD_PATH, "..")  # from docs/
-
 using Documenter, DocumenterCitations
 using Literate
 
@@ -47,7 +45,7 @@ end
 Organize page hierarchies
 ==#
 
-example_pages = [
+example_pages = Any[
     "generated/basic.md",
     "generated/io.md",
     "generated/meshgrid.md",
@@ -57,12 +55,12 @@ example_pages = [
     "generated/magneticfield.md"
 ]
 
-library_pages = [
+library_pages = Any[
     "lib/public.md",
     "lib/internals.md"
 ]
 
-pages = [
+pages = Any[
     "Home" => "index.md",
     "Examples" => example_pages,
     "Library" => library_pages,
@@ -79,7 +77,7 @@ format = Documenter.HTML(
 )
 
 makedocs(bib,
-    sitename = "LongwaveModePropagator.jl",
+    sitename = "LongwaveModePropagator",
     authors = "Forrest Gasdia",
     format = format,
     pages = pages,
