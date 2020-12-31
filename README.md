@@ -13,11 +13,14 @@ See the **Examples** section of the docs for examples of building scenarios and 
 
 ## Installation instructions
 
-1. [download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
+1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
 2. From the Julia REPL, install LongwaveModePropagator.jl and its dependencies
+
+```
     julia> ]
     (v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
     (v1.5) pkg> instantiate
+```
 
 If you'll be working primarily in Julia, of course you probably want to `cd` to your working directory, `] activate` a new environment there, and then `add` LongwaveModePropagator.
 
