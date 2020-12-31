@@ -83,3 +83,7 @@ makedocs(bib,
     pages = pages,
     modules = [LongwaveModePropagator]
 )
+
+deploydocs(
+    repo = "github.com/fgasdia/LongwaveModePropagator.jl.git",
+)

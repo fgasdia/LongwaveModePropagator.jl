@@ -1,5 +1,7 @@
 # Longwave Mode Propagator
 
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://fgasdia.github.io/LongwaveModePropagator.jl/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://fgasdia.github.io/LongwaveModePropagator.jl/dev)
 [![Build status][gha-img]][gha-url]
 
 **Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).**
@@ -82,6 +84,8 @@ It has similarities to Matlab and Python, but is high performance and attempts t
 In part, it achieves its high performance by compiling functions to efficient native code via LLVM.
 Julia is dynamically typed and uses multiple dispatch, so that the first time a given function is passed arguments of a certain type, the function is compiled for those types.
 In practice, this means that the first time a function is called, it appears to take longer than it will on subsequent calls because at the first call the function was also compiled.
+
+### Finding help
 
 I highly recommend reading the [Julia Documentation](https://docs.julialang.org/en/v1/).
 It is very thorough and combines significant text explanations with examples.
