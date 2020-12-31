@@ -15,7 +15,7 @@ using JSON3
 using Plots
 using DisplayAs  #hide
 
-using ..LongwaveModePropagator
+using LongwaveModePropagator
 const LMP = LongwaveModePropagator
 nothing  #hide
 
@@ -70,7 +70,8 @@ json_str = JSON3.pretty(input)
 
 json_str = JSON3.write(input)
 
-examples_dir = joinpath("..", "..", "..", "examples")
+root_dir = dirname(dirname(pathof(LongwaveModePropagator)))
+examples_dir = joinpath(root_dir, "examples")
 filename = joinpath(examples_dir, "basic.json")
 
 open(filename,"w") do f

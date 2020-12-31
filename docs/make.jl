@@ -1,4 +1,4 @@
-push!(LOAD_PATH, "..")
+push!(LOAD_PATH, "..")  # from docs/
 
 using Documenter, DocumenterCitations
 using Literate
@@ -17,13 +17,13 @@ const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR   = joinpath(@__DIR__, "src", "generated")
 
 examples = [
-    "basic.jl",
-    "io.jl",
-    "meshgrid.jl",
-    "meshgrid2.jl",
-    "wavefieldintegration.jl",
-    "integratedreflection.jl",
-    "magneticfield.jl"
+    # "basic.jl",
+    # "io.jl",
+    # "meshgrid.jl",
+    # "meshgrid2.jl",
+    # "wavefieldintegration.jl",
+    # "integratedreflection.jl",
+    # "magneticfield.jl"
 ]
 
 for example in examples
@@ -32,7 +32,7 @@ for example in examples
         Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
     else
         # local
-        root_dir = joinpath("..", "..", "..")  # from docs/build/generated
+        root_dir = joinpath(@__DIR__, "..")
         Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true,
                           repo_root_url=root_dir)
     end
@@ -43,13 +43,13 @@ Organize page hierarchies
 ==#
 
 example_pages = [
-    "generated/basic.md",
-    "generated/io.md",
-    "generated/meshgrid.md",
-    "generated/meshgrid2.md",
-    "generated/wavefieldintegration.md",
-    "generated/integratedreflection.md",
-    "generated/magneticfield.md"
+    # "generated/basic.md",
+    # "generated/io.md",
+    # "generated/meshgrid.md",
+    # "generated/meshgrid2.md",
+    # "generated/wavefieldintegration.md",
+    # "generated/integratedreflection.md",
+    # "generated/magneticfield.md"
 ]
 
 library_pages = [
@@ -59,7 +59,7 @@ library_pages = [
 
 pages = [
     "Home" => "index.md",
-    "Examples" => example_pages,
+    # "Examples" => example_pages,
     "Library" => library_pages,
     "References" => "references.md"
 ]

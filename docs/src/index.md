@@ -1,3 +1,94 @@
 # LongwaveModePropagator.jl
 
-Model the propagation of VLF radio waves in the Earth-ionosphere waveguide.
+Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).
+
+LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
+The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere ([Budden1955a](@cite)) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide ([Budden1962](@cite)).
+It is similar to the Long Wavelength Propagation Capability ([Ferguson1998](@cite)), but aims to be more robust and adaptable.
+
+The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
+See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
+
+## Installation instructions
+
+1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
+2. From the Julia REPL, install LongwaveModePropagator.jl and its dependencies:
+
+    julia> ]
+    (v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
+    (v1.5) pkg> instantiate
+
+If you'll be working primarily in Julia, of course you probably want to `cd` to your working directory, `] activate` a new environment there, and then `add` LongwaveModePropagator.
+
+Julia has an excellent built-in package manager (accessed by typing `]` from the REPL) that also keeps track of the versions of all dependencies within an environment.
+This means you can leave your code, come back to it two years later on a new computer, and as long as you have all the original files (including the `Project.toml` and `Manifest.toml` files), you can `instantiate` the exact environment you were last working with.
+To update the environment (while maintaining compatibility across all dependencies), simply
+`] up`.
+
+As with most Julia packages, LongwaveModePropagator.jl is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModeSolver).
+Please open Issues or Pull requests if you find any problems, are interested in new features, or you would like to contribute.
+
+## Running your first model
+
+Here's a simple homogeneous ground/ionosphere scenario defined in Julia.
+
+```julia
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME
+
+# "standard" vertical dipole transmitter at 24 kHz
+tx = Transmitter(24e3)
+
+# sample vertical electric field every 5 km out to 2000 km from tx
+rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
+
+# vertical magnetic field
+bfield = BField(50e-6, π/2, 0)
+
+# daytime ionosphere
+electrons = Species(QE, ME, z->waitprofile(z, 75, 0.35), electroncollisionfrequency)
+
+# "typical" earth ground
+ground = Ground(10, 1e-4)
+
+waveguide = HomogeneousWaveguide(bfield, electrons, ground)
+
+# return the complex electric field, amplitude, and phase
+E, a, p = propagate(waveguide, tx, rx);
+```
+
+We can plot the results if we `] add Plots`:
+
+```julia
+using Plots
+
+plot(rx.distance/1000, a, xlabel="distance (km)", ylabel="amplitude (dB)")
+```
+
+![](indexexample.png)
+
+Note that throughout the code SI units (MKS) and radians are used.
+The only notable exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile.
+
+Users are encouraged to browse the **Examples** section for more complex scenarios.
+
+## New to Julia?
+
+Julia is a relatively new general programming language that shines for technical computing.
+It has similarities to Matlab and Python, but is high performance and attempts to solve the ["two language problem"](https://thebottomline.as.ucsb.edu/2018/10/julia-a-solution-to-the-two-language-programming-problem).
+In part, it achieves its high performance by compiling functions to efficient native code via LLVM.
+Julia is dynamically typed and uses multiple dispatch, so that the first time a given function is passed arguments of a certain type, the function is compiled for those types.
+In practice, this means that the first time a function is called, it takes longer than it will on subsequent calls because at the first call the function also had to be compiled.
+
+### Finding help
+
+I highly recommend reading the [Julia Documentation](https://docs.julialang.org/en/v1/).
+It is very thorough and combines significant textual explanations with examples.
+
+Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible with `?`.
+The help functionality works "automatically", even for user-defined functions with docstrings.
+Most internal functions of LongwaveModePropagator.jl are documented, so e.g.
+```julia
+? LongwaveModePropagator.bookerquartic
+```
+prints some explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) function even though it's not exported from the package.

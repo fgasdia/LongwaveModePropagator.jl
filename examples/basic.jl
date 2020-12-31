@@ -23,8 +23,8 @@
 using Plots
 using DisplayAs  #hide
 
-using ..LongwaveModePropagator
-using ..LongwaveModePropagator: QE, ME
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME
 
 # ## Transmitters and receivers
 #

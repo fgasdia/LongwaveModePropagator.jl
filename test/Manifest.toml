@@ -14,9 +14,9 @@ version = "0.0.2"
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
-git-tree-sha1 = "3b5bd474a90bee86b50f26268bbb044bb4d9ef83"
+git-tree-sha1 = "c74dd860c9223b5da03d12b393968260d8e674eb"
 uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-version = "2.14.9"
+version = "2.14.10"
 
 [[Artifacts]]
 deps = ["Pkg"]
@@ -258,9 +258,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LoopVectorization]]
 deps = ["ArrayInterface", "DocStringExtensions", "IfElse", "LinearAlgebra", "OffsetArrays", "SLEEFPirates", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "4fb86de1b40bdbda10c069ecee826b660309adac"
+git-tree-sha1 = "0e2521a0baeeb8a4abe114055f678ccc90fbced7"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.9.13"
+version = "0.9.14"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]

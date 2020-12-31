@@ -41,8 +41,8 @@ using DisplayAs  #hide
 
 using RootsAndPoles
 
-using ..LongwaveModePropagator
-using ..LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
 
 ## Using the GR backend for plotting
 gr(legend=false);

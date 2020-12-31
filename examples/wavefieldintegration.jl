@@ -21,9 +21,9 @@ using DisplayAs  #hide
 
 using TimerOutputs
 
-using ..LongwaveModePropagator
-using ..LongwaveModePropagator: QE, ME, integratewavefields
-using ..LongwaveModePropagator: Tsit5, BS5, OwrenZen5, Vern6, Vern7, Vern8, Vern9
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME, integratewavefields
+using LongwaveModePropagator: Tsit5, BS5, OwrenZen5, Vern6, Vern7, Vern8, Vern9
 
 # ## The ionosphere
 
@@ -50,7 +50,8 @@ ground = GROUND[8]
 # of the curves from Piggott and linearly interpolate them.
 # While we're at it, we'll also prepare the nighttime ionosphere.
 
-examples_dir = joinpath("..", "..", "..", "examples")
+root_dir = dirname(dirname(pathof(LongwaveModePropagator)))
+examples_dir = joinpath(root_dir, "examples")
 data = CSV.File(joinpath(examples_dir, "piggott1965_data.csv"))
 
 ## interpolation object

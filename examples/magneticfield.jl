@@ -19,8 +19,8 @@ using Dates, Printf
 using HDF5
 using Plots, DisplayAs
 
-using ..LongwaveModePropagator
-using ..LongwaveModePropagator: buildrun, Progress, next!
+using LongwaveModePropagator
+using LongwaveModePropagator: buildrun, Progress, next!
 
 # For convenience, we'll define global `OUTPUT_RANGES` at which the electric field
 # will be computed, and the magnetic field dip and azimuth angles `B_DIPS` and `B_AZS`.
@@ -146,7 +146,8 @@ nothing  #hide
 # `examples_dir` will probably need to be modified to the directory where
 # `bfields_lmp.h5` is located and where you would like `bfields_lmp.h5` to be saved.
 
-examples_dir = joinpath("..", "..", "..", "examples")
+root_dir = dirname(dirname(pathof(LongwaveModePropagator)))
+examples_dir = joinpath(root_dir, "examples")
 lmpfile = joinpath(examples_dir, "bfields_lmp.h5")
 runlmp(batch, lmpfile)
 

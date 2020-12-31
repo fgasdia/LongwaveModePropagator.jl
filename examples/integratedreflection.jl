@@ -42,10 +42,10 @@ using Statistics
 using Plots
 using DisplayAs  #hide
 
-using ..LongwaveModePropagator
-using ..LongwaveModePropagator: StaticArrays
-using ..LongwaveModePropagator: QE, ME, integratedreflection
-using ..LongwaveModePropagator: RK4, Tsit5, BS5, OwrenZen5, Vern6, Vern7, Vern8
+using LongwaveModePropagator
+using LongwaveModePropagator: StaticArrays
+using LongwaveModePropagator: QE, ME, integratedreflection
+using LongwaveModePropagator: RK4, Tsit5, BS5, OwrenZen5, Vern6, Vern7, Vern8
 
 # We will evaluate the solutions across a range of different random ionospheres,
 # frequencies, and angles of incidence.
