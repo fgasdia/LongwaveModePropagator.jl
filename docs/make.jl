@@ -4,9 +4,6 @@ using Literate
 using LongwaveModePropagator
 using LongwaveModePropagator.Fields
 
-bib_filepath = joinpath(dirname(@__FILE__), "longwavemodepropagator.bib")
-bib = CitationBibliography(bib_filepath)
-
 #==
 Generate examples
 ==#
