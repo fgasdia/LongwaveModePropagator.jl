@@ -90,7 +90,7 @@ Compute the four submatrix elements of `W` used in the equation ``dR/dz`` from t
 ionosphere with `T` matrix returned as a tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
 
 Following Budden's formalism for the reflection matrix of a plane wave obliquely incident on
-the ionosphere [[Budden1955a](@cite)], the wave below the ionosphere can be resolved into
+the ionosphere [Budden1955a], the wave below the ionosphere can be resolved into
 upgoing and downgoing waves of elliptical polarization, each of whose components are
 themselves resolved into a component with the electric field in the plane of propagation and
 a component perpendicular to the plane of propagation. The total field can be written in
@@ -224,7 +224,7 @@ Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
 tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
-a horizontally stratified ionosphere [[Budden1955a](@cite)], the differential of the
+a horizontally stratified ionosphere [Budden1955a], the differential of the
 reflection matrix `R` with height `z` can be described by
 ```math
 dR/dz = k/(2i)⋅(W₂₁ + W₂₂R - RW₁₁ - RW₁₂R)
@@ -416,7 +416,7 @@ and `Rg`.
 
 A propagating waveguide mode requires that a wave, having reflected from the ionosphere and
 then the ground, must be identical with the original upgoing wave. This criteria is met at
-roots of the mode equation [[Budden1962](@cite)].
+roots of the mode equation [Budden1962].
 
 # References
 

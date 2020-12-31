@@ -12,10 +12,10 @@ Compute the ionosphere susceptibility tensor `M` as a `SMatrix{3,3}` using
 `species.numberdensity` and `species.collisionfrequency` at `altitude`.
 
 If `params.earthcurvature == true`, `M` includes a first order correction for earth
-curvature by means of a fictitious refractive index [[Pappert1967](@cite)].
+curvature by means of a fictitious refractive index [Pappert1967].
 
 The susceptibility matrix is calculated from the constitutive relations presented in
-[[Ratcliffe1959](@cite)]. This includes the effect of earth's magnetic field vector and
+[Ratcliffe1959]. This includes the effect of earth's magnetic field vector and
 collisional damping on electron motion.
 
 The tensor is:

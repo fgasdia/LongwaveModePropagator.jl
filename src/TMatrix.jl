@@ -1,7 +1,7 @@
 """
     TMatrix <: SMatrix{4, 4, T}
 
-A custom `SMatrix` subtype that represents the `T` matrix from [[Clemmow1954](@cite)] that
+A custom `SMatrix` subtype that represents the `T` matrix from [Clemmow1954] that
 is semi-sparse. The form of the matrix is:
 
 ```

@@ -3,8 +3,8 @@
 Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).
 
 LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
-The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [[Budden1955a](@cite)] and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [[Budden1962](@cite)].
-It is similar to the Long Wavelength Propagation Capability [[Ferguson1998](@cite)], but aims to be more robust and adaptable.
+The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [(Budden, 1955)](#Budden1955a) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [(Budden, 1962)](#Budden1962).
+It is similar to the Long Wavelength Propagation Capability [(Ferguson, 1998)](#Ferguson1998), but aims to be more robust and adaptable.
 
 The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
 See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
@@ -92,3 +92,12 @@ Most internal functions of LongwaveModePropagator.jl are documented, so e.g.
 ? LongwaveModePropagator.bookerquartic
 ```
 prints some explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) function even though it's not exported from the package.
+
+
+## References
+
+<a name="Budden1955a"></a>K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: [10.1098/rspa.1955.0027](https://doi.org/10.1098/rspa.1955.0027).
+
+<a name="Budden1962"></a>K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: [10.1098/rspa.1962.0041](https://doi.org/10.1098/rspa.1962.0041).
+
+<a name="Ferguson1998"></a>J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. [Online]. Available: http://www.dtic.mil/docs/citations/ADA350375.

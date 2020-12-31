@@ -172,7 +172,7 @@ to the:
           | . 1
 ```
 
-Based on [[Pitteway1965](@cite)] fig. 5.
+Based on [Pitteway1965] fig. 5.
 
 # References
 
@@ -349,7 +349,7 @@ Compute the ionosphere reflection coefficient matrix for a sharply bounded ionos
 4×2 wavefields matrix `e` or the susceptibility matrix `M`.
 
 The ionosphere reflection coefficient matrix is computed from a ratio of the downgoing to
-upgoing plane waves in the free space beneath the ionosphere [[Budden1988](@cite)] pg. 307.
+upgoing plane waves in the free space beneath the ionosphere [Budden1988] pg. 307.
 These are obtained from the two upgoing characteristic waves found from the Booker quartic.
 Each make up a column of `e`.
 
@@ -386,7 +386,7 @@ will generally have a elliptical polarization than the first. Two linear combina
 two sets of fields are formed with unit amplitude, linearly polarized incident waves. The
 reflected waves then give the components ``R₁₁``, ``R₂₁`` or ``R₁₂``, ``R₂₂`` for the
 incident wave in the plane of incidence and perpendicular to it, respectively
-[[Budden1988](@cite)] pg 552.
+[Budden1988] pg 552.
 
 The process for determining the reflection coefficient requires resolving the two sets of
 fields ``e₁`` and ``e₂`` into the four linearly polarized vacuum modes. The layer of vacuum
@@ -407,7 +407,7 @@ and/or ``e₂`` can be independently multiplied by an arbitrary constant and the
 This function directly computes ``D`` and ``U`` and solves for ``R`` using the right
 division operator `R = D/U`.
 
-For additional details, see [[Budden1988](@cite)], chapter 18, section 7.
+For additional details, see [Budden1988], chapter 18, section 7.
 """
 bookerreflection
 

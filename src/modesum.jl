@@ -9,7 +9,7 @@ Constants used in calculating excitation factors and height gains.
 
 # Fields
 
-- `F₁::T`: height gain constant. See [[Pappert1976](@cite)].
+- `F₁::T`: height gain constant. See [Pappert1976].
 - `F₂::T`
 - `F₃::T`
 - `F₄::T`
@@ -121,7 +121,7 @@ modal equation with respect to ``θ``.
 The excitation factor describes how efficiently the field component can be excited in the
 waveguide.
 
-This function most closely follows the approach taken in [[Pappert1983](@cite)], which makes
+This function most closely follows the approach taken in [Pappert1983], which makes
 use of ``T`` (different from `TMatrix`) rather than ``τ``. From the total ``Hy`` excitation
 factor (the sum product of the `λ`s with the antenna orientation terms), the excitation
 factor for electric fields can be found as:
@@ -191,7 +191,7 @@ eigenangle `ea₀` is referenced to the ground.
 - `fz` is the height gain for the vertical electric field component ``Ez``.
 - `fy` is the height gain for the transverse electric field component ``Ey``.
 - `fx` is the height gain for the horizontal electric field component ``Ex``.
-[[Pappert1983](@cite)]
+[Pappert1983]
 
 !!! note
 

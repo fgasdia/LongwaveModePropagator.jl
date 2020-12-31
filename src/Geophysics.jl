@@ -142,7 +142,7 @@ const GROUND = Dict(
     waitprofile(z, h′, β; cutoff_low=0, threshold=1e12)
 
 Compute the electron number density in electrons per cubic meter at altitude `z` in meters
-using Wait's exponential profile [[Wait1964](@cite); [Thomson1993](@cite)] with parameters
+using Wait's exponential profile [[Wait1964]; [Thomson1993]] with parameters
 `h′` in kilometers and `β` in inverse kilometers.
 
 The profile is:
@@ -184,7 +184,7 @@ end
     electroncollisionfrequency(z)
 
 Compute the electron-neutral collision frequency in collisions per second at height `z` in
-meters based on Wait's conductivity profile [[Wait1964](@cite); [Thomson1993](@cite)].
+meters based on Wait's conductivity profile [[Wait1964]; [Thomson1993]].
 
 The profile is:
 ```math
@@ -211,7 +211,7 @@ end
     ioncollisionfrequency(z)
 
 Compute the ion-neutral collision frequency in collisions per second at height `z` in meters
-from [[Morfitt1976](@cite)].
+from [Morfitt1976].
 
 The profile is:
 ```math

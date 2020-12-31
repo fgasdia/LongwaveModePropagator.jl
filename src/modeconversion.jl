@@ -5,7 +5,7 @@
 Compute the mode conversion matrix `a` from the modes associated with `previous_wavefields`
 to modes associated with `wavefields` and its `adjoint_wavefields`.
 
-This is used in the approach known as full mode conversion [[Pappert1972b](@cite)].
+This is used in the approach known as full mode conversion [Pappert1972b].
 
 # References
 

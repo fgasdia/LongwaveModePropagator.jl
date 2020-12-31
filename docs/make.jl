@@ -1,4 +1,4 @@
-using Documenter, DocumenterCitations
+using Documenter
 using Literate
 
 using LongwaveModePropagator
@@ -76,7 +76,7 @@ format = Documenter.HTML(
     prettyurls=get(ENV, "CI", nothing)=="true"
 )
 
-makedocs(bib,
+makedocs(
     sitename = "LongwaveModePropagator",
     authors = "Forrest Gasdia",
     format = format,

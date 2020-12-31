@@ -74,7 +74,7 @@ end
     isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
 
 Return `true` if this is likely an earth detached (whispering gallery) mode according to the
-criteria in [[Pappert1981](@cite)] eq. 1 with the additional criteria that the frequency be
+criteria in [Pappert1981] eq. 1 with the additional criteria that the frequency be
 above 100 kHz.
 
 # References
