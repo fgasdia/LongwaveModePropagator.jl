@@ -74,12 +74,12 @@ end
     isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
 
 Return `true` if this is likely an earth detached (whispering gallery) mode according to the
-criteria in [^Pappert1981] eq. 1 with the additional criteria that the frequency be above
-100 kHz.
+criteria in [[Pappert1981](@cite)] eq. 1 with the additional criteria that the frequency be
+above 100 kHz.
 
 # References
 
-[^Pappert1981]: R. A. Pappert, “LF daytime earth ionosphere waveguide calculations,” Naval
+[Pappert1981]: R. A. Pappert, “LF daytime earth ionosphere waveguide calculations,” Naval
     Ocean Systems Center, San Diego, CA, NOSC/TR-647, Jan. 1981.
     [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
 """

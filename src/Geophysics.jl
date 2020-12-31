@@ -138,33 +138,12 @@ const GROUND = Dict(
 
 ########
 
-"""
-    Fields
-
-This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
-and `Ez`.
-
-# Examples
-```jldoctest
-julia> Fields.Ex
-Ex::Field = 0
-julia> Fields.Ey
-Ey::Field = 1
-```
-"""
-baremodule Fields
-using Base: @enum
-@enum Field Ex Ey Ez
-end
-
-########
-
 @doc raw"""
     waitprofile(z, h′, β; cutoff_low=0, threshold=1e12)
 
 Compute the electron number density in electrons per cubic meter at altitude `z` in meters
-using Wait's exponential profile [^Wait1964] with parameters `h′` in kilometers and `β` in
-inverse kilometers.
+using Wait's exponential profile [[Wait1964](@cite); [Thomson1993](@cite)] with parameters
+`h′` in kilometers and `β` in inverse kilometers.
 
 The profile is:
 ```math
@@ -179,11 +158,11 @@ See also: [`electroncollisionfrequency`](@ref), [`ioncollisionfrequency`](@ref)
 
 # References
 
-[^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the earth-ionosphere waveguide
+[Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the earth-ionosphere waveguide
     for VLF radio waves,” U.S. National Bureau of Standards, Boulder, CO, Technical Note
     300, Dec. 1964.
 
-[^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric parameters,” Journal of
+[Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric parameters,” Journal of
     Atmospheric and Terrestrial Physics, vol. 55, no. 2, pp. 173–184, Feb. 1993,
     doi: 10.1016/0021-9169(93)90122-F.
 """
@@ -205,7 +184,7 @@ end
     electroncollisionfrequency(z)
 
 Compute the electron-neutral collision frequency in collisions per second at height `z` in
-meters based on Wait's conductivity profile [^Wait1964].
+meters based on Wait's conductivity profile [[Wait1964](@cite); [Thomson1993](@cite)].
 
 The profile is:
 ```math
@@ -216,11 +195,11 @@ See also: [`waitprofile`](@ref), [`ioncollisionfrequency`](@ref)
 
 # References
 
-[^Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the earth-ionosphere waveguide
+[Wait1964]: J. R. Wait and K. P. Spies, “Characteristics of the earth-ionosphere waveguide
     for VLF radio waves,” U.S. National Bureau of Standards, Boulder, CO, Technical Note
     300, Dec. 1964.
 
-[^Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric parameters,” Journal of
+[Thomson1993]: N. R. Thomson, “Experimental daytime VLF ionospheric parameters,” Journal of
     Atmospheric and Terrestrial Physics, vol. 55, no. 2, pp. 173–184, Feb. 1993,
     doi: 10.1016/0021-9169(93)90122-F.
 """
@@ -232,7 +211,7 @@ end
     ioncollisionfrequency(z)
 
 Compute the ion-neutral collision frequency in collisions per second at height `z` in meters
-from [^Morfitt1976].
+from [[Morfitt1976](@cite)].
 
 The profile is:
 ```math
@@ -243,7 +222,7 @@ See also: [`waitprofile`](@ref), [`electroncollisionfrequency`](@ref)
 
 # References
 
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
+[Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
     for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
     Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976.
 """

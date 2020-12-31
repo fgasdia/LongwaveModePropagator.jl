@@ -1,3 +1,27 @@
+########
+
+"""
+    Fields
+
+This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
+and `Ez`.
+
+# Examples
+
+```jldoctest; setup=:(using LongwaveModePropagator.Fields)
+julia> Fields.Ex
+Ex::Field = 0
+julia> Fields.Ey
+Ey::Field = 1
+```
+"""
+baremodule Fields
+using Base: @enum
+@enum Field Ex Ey Ez
+end
+
+########
+
 """
     AbstractSampler
 
@@ -23,7 +47,7 @@ end
 # Fields
 
 - `distance::T`: ground distance from the transmitter in meters.
-- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
+- `fieldcomponent::Fields.Field`: field component measured by the `Sampler`.
 - `altitude::Float64`: height above the ground in meters.
 """
 struct Sampler{T} <: AbstractSampler{T}
@@ -64,13 +88,15 @@ altitude(g::GroundSampler) = 0.0
 
 Represent a physical receiver.
 
+A default `Receiver{VerticalDipole}` is returned with `Receiver()`.
+
 # Fields
 
-- `name::String`: receiver name.
-- `latitude::Float64`: geographic latitude in degrees.
-- `longitude::Float64`: geographic longitude in degrees.
-- `altitude::Float64`: receiver altitude in meters above the ground.
-- `antenna::Antenna`: receiver antenna.
+- `name::String = ""`: receiver name.
+- `latitude::Float64 = 0.0`: geographic latitude in degrees.
+- `longitude::Float64 = 0.0`: geographic longitude in degrees.
+- `altitude::Float64 = 0.0`: receiver altitude in meters above the ground.
+- `antenna::Antenna = VerticalDipole()`: receiver antenna.
 """
 struct Receiver{A<:Antenna}
     name::String
@@ -80,12 +106,6 @@ struct Receiver{A<:Antenna}
     antenna::A
 end
 
-"""
-    Receiver()
-
-Return a default `Receiver{VerticalDipole}` with an empty name and zeroed geographic
-position.
-"""
 Receiver() = Receiver{VerticalDipole}("", 0.0, 0.0, 0.0, VerticalDipole())
 
 altitude(r::Receiver) = r.altitude

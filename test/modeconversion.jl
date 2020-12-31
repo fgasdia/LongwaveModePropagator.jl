@@ -10,7 +10,7 @@ function test_modeconversion_segmented(scenario)
     wavefields_vec = Vector{LMP.Wavefields{heighttype}}(undef, 2)
     adjwavefields_vec = Vector{LMP.Wavefields{heighttype}}(undef, 2)
 
-    coordgrid = LMP.defaultcoordinates(tx.frequency)
+    coordgrid = LMP.defaultmesh(tx.frequency)
     for i = 1:2
         wvg = waveguide[i]
         adjwvg = LMP.adjoint(wvg)

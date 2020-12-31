@@ -53,19 +53,23 @@ Return `true` if `x` is approximately equal to 0 with the absolute tolerance `at
 isroot(x; atol=1e-2, kws...) = isapprox(x, 0, atol=atol, kws...)
 
 """
-    filterroots!(roots, frequency, waveguide; atol=1e-2)
-    filterroots!(roots, modeequation; atol=1e-2)
+    filterroots!(roots, frequency, waveguide; atol=0.1)
+    filterroots!(roots, modeequation; atol=0.1)
 
 Remove elements from `roots` if they are not valid roots of the physical modal equation.
+
+Although the default `atol` for this function is larger than for `isroot`(@ref), the
+modal equation is very sensitive to θ, and thus is much larger than 0.1 if θ is off
+from an eigenangle even slightly.
 """
 filterroots!
 
-function filterroots!(roots, frequency, waveguide; atol=1e-2)
+function filterroots!(roots, frequency, waveguide; atol=0.1)
     modeequation = PhysicalModeEquation(frequency, waveguide)
     return filterroots!(roots, modeequation, atol=atol)
 end
 
-function filterroots!(roots, modeequation::PhysicalModeEquation; atol=1e-2)
+function filterroots!(roots, modeequation::PhysicalModeEquation; atol=0.1)
     i = 1
     while i <= length(roots)
         modeequation = setea(EigenAngle(roots[i]), modeequation)
@@ -86,10 +90,10 @@ Compute the four submatrix elements of `W` used in the equation ``dR/dz`` from t
 ionosphere with `T` matrix returned as a tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
 
 Following Budden's formalism for the reflection matrix of a plane wave obliquely incident on
-the ionosphere [^Budden1955a], the wave below the ionosphere can be resolved into upgoing
-and downgoing waves of elliptical polarization, each of whose components are themselves
-resolved into a component with the electric field in the plane of propagation and a
-component perpendicular to the plane of propagation. The total field can be written in
+the ionosphere [[Budden1955a](@cite)], the wave below the ionosphere can be resolved into
+upgoing and downgoing waves of elliptical polarization, each of whose components are
+themselves resolved into a component with the electric field in the plane of propagation and
+a component perpendicular to the plane of propagation. The total field can be written in
 matrix form as ``e = Lf`` where ``L`` is a 4×4 matrix that simply selects and specifies the
 incident angle of the components and ``f`` is a column matrix of the complex amplitudes of
 the component waves. By inversion, ``f = L⁻¹e`` and its derivative with respect to height
@@ -100,7 +104,7 @@ the upgoing and downgoing component waves.
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
@@ -220,8 +224,8 @@ Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
 tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
-a horizontally stratified ionosphere [^Budden1955a], the differential of the reflection
-matrix `R` with height `z` can be described by
+a horizontally stratified ionosphere [[Budden1955a](@cite)], the differential of the
+reflection matrix `R` with height `z` can be described by
 ```math
 dR/dz = k/(2i)⋅(W₂₁ + W₂₂R - RW₁₁ - RW₁₂R)
 ```
@@ -230,7 +234,7 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
 
 # References
 
-[^Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
@@ -289,7 +293,7 @@ Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` 
 """
 function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, force_dtmin = integrationparams
+    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation, params=params)
     Rtop = bookerreflection(modeequation.ea, Mtop)
@@ -298,7 +302,7 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LMPPara
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin, dt=1.0,
+                force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
     R = sol[end]
@@ -314,7 +318,7 @@ rows (3, 4).
 """
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, force_dtmin = integrationparams
+    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation, params=params)
     Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
@@ -325,7 +329,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin,
+                force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
     RdR = sol[end]
@@ -412,11 +416,11 @@ and `Rg`.
 
 A propagating waveguide mode requires that a wave, having reflected from the ionosphere and
 then the ground, must be identical with the original upgoing wave. This criteria is met at
-roots of the mode equation [^Budden1962].
+roots of the mode equation [[Budden1962](@cite)].
 
 # References
 
-[^Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
+[Budden1962]: K. G. Budden and N. F. Mott, “The influence of the earth’s magnetic field on
     radio propagation by wave-guide modes,” Proceedings of the Royal Society of London.
     Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553,
     Feb. 1962.
@@ -493,13 +497,14 @@ function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPP
 end
 
 """
-    findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
+    findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
 
 Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
 `origcoords`.
 
 `origcoords` should be an array of complex numbers that make up the original grid over which
-the GRPF algorithm searches for roots of `modeequation`.
+the GRPF algorithm searches for roots of `modeequation`. If `origcoords == nothing`,
+it is computed with [`defaultmesh`](@ref).
 
 Roots found by the GRPF algorithm are confirmed to a tolerance of approximately 3 orders
 of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
@@ -512,8 +517,12 @@ There is also a check for redundant modes that requires modes to be separated by
 component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
 component of each mode must be separated by at least 1e-3 from every other mode.
 """
-function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
+function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
     @unpack grpfparams = params
+
+    if isnothing(origcoords)
+        origcoords = defaultmesh(modeequation.frequency)
+    end
 
     # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
     # is possible multiple identical modes will be identified. Checks for valid and
@@ -538,145 +547,117 @@ function findmodes(modeequation::ModeEquation, origcoords; params=LMPParams())
 end
 
 #==
-Coordinate grids for `GRPF`
+Mesh grids for `GRPF`
 ==#
 
 """
-    defaultcoordinates(frequency)
+    defaultmesh(frequency)
 
-Generate `coordgrid` vector of complex coordinates to be used by `GRPF` in the search for
+Generate vector of complex coordinates to be used by GRPF in the search for
 waveguide modes.
+
+At frequencies above 12 kHz the mesh spacing in the upper right corner of the domain
+with real values above 80° and imaginary values above -1° is ``0.15 π/180`` and is
+``0.5 π/180`` everywhere else.
+
+The lower right diagonal of the lower right quadrant of the complex plane is excluded
+from the mesh.
 
 See also: [`findmodes`](@ref)
 """
-function defaultcoordinates(frequency)
+function defaultmesh(frequency)
+
     # TODO: get a better idea of frequency transition
-    if frequency > 15000
-        Zb = deg2rad(complex(30.0, -12.0))
-        Ze = deg2rad(complex(89.9, 0.0))
-        cr, ci = deg2rad(75.0), deg2rad(-6.0)
-        dx, dy = deg2rad(0.5), deg2rad(0.5)
-        finedx, finedy = deg2rad(0.1), deg2rad(0.1)
+    if frequency > 12000
+        zbl_coarse = complex(deg2rad(30.0), deg2rad(-10.0))
+        ztr_coarse = complex(deg2rad(89.9), 0.0)
+        Δr_coarse = deg2rad(0.5)
 
-        g1 = uppertriangularrectdomain(Zb, Ze, dx, dy)
-        filter!(z->(real(z)<cr || imag(z)<ci), g1)
-        g2 = uppertriangularrectdomain(complex(cr, ci), Ze, finedx, finedy)
-        coordgrid = vcat(g1, g2)
+        mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
+
+        rtransition = deg2rad(80.0)
+        itransition = deg2rad(-1.0)
+        filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
+
+        zbl_fine = complex(rtransition, itransition)
+        ztr_fine = complex(deg2rad(89.9), 0.0)
+        Δr_fine = deg2rad(0.15)
+
+        append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
     else
-        Zb = deg2rad(complex(0.0, -30.0))
-        Ze = deg2rad(complex(89.9, 0.0))
-        Δr = deg2rad(1.0)
-        coordgrid = uppertriangularrectdomain(Zb, Ze, Δr)
+        zbl = complex(deg2rad(30.0), deg2rad(-10.0))
+        ztr = complex(deg2rad(89.9), 0.0)
+        Δr = deg2rad(0.5)
+
+        mesh = trianglemesh(zbl, ztr, Δr)
     end
 
-    return coordgrid
+    return mesh
 end
-defaultcoordinates(f::Frequency) = defaultcoordinates(f.f)
+defaultmesh(f::Frequency) = defaultmesh(f.f)
 
 """
-    triangulardomain(Za, Zb, Zc, Δr)
+    trianglemesh(zbl, ztr, Δr)
 
-Generate initial mesh node coordinates for a grid-aligned right triangle domain
-∈ {`Za`, `Zb`, `Zc`} with initial mesh step `Δr`.
+Generate initial mesh node coordinates for a right triangle domain from complex
+coordinate `zbl` in the bottom left and `ztr` in the top right with initial mesh step `Δr`.
 
-This function generates a mesh grid for particular right triangles where two
-sides of the triangle are aligned to the underlying real/imaginary grid. Examples
-of such triangles are:
+`zbl` and `ztr` are located on the complex plane at the locations marked in the
+diagram below:
 
-a ----- b
-|     /
-|   /
-| /
-c
+       im
+       |
+-re ---|------ ztr
+       |     /
+       |    /
+       |   /
+       |  /
+       zbl
 
-where
-    - a, b have greatest extent in x
-    - a, c have greatest extent in y
 """
-function triangulardomain(Za::Complex, Zb::Complex, Zc::Complex, Δr)
-    rZa, iZa = reim(Za)
-    rZb, iZb = reim(Zb)
-    rZc, iZc = reim(Zc)
+function trianglemesh(zbl, ztr, Δr)
+    rzbl, izbl = reim(zbl)
+    rztr, iztr = reim(ztr)
 
-    #==
-    # Check if this is a right triangle
-    validtriangle = true
-    if rZa == rZb == rZc
-        validtriangle = false
-    elseif iZa == iZb == iZc
-        validtriangle = false
-    elseif rZa == rZb
-        iZa == iZc || iZb == iZc || (validtriangle = false)
-    elseif rZa == rZc
-        iZa == iZb || iZb == iZc || (validtriangle = false)
-    elseif rZb == rZc
-        iZa == iZb || iZa == iZc || (validtriangle = false)
-    else
-        validtriangle = false
-    end
-    validtriangle || throw(ArgumentError("`Za`, `Zb`, `Zc` do not define a grid-aligned right triangle"))
-
-    iZa == iZb || ((Zb, Zc) = (Zc, Zb))
-    rZb > rZa || ((Za, Zb) = (Zb, Za))
-    ==#
-
-    # Determine `dx` and `dy`
-    X = rZb - rZa
-    Y = abs(iZa - iZc)
+    X = rztr - rzbl
+    Y = iztr - izbl
 
     n = ceil(Int, Y/Δr)
     dy = Y/n
 
+    ## dx = sqrt(Δr² - (dy/2)²), solved for equilateral triangle
     m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
     dx = X/m
-
-    # precalculate
-    slope = Y/X
-
-    v = Vector{complex(typeof(dx))}()
-    for j = 0:m  # col
-        for i = 0:n  # row (we're traversing down column)
-
-            x = rZa + dx*j
-            y = iZc + dy*i
-
-            if y >= (iZc + slope*(x - rZa))
-                push!(v, complex(x, y))
-            end
-        end
-    end
-
-    return v
-end
-
-function uppertriangularrectdomain(Zb::Complex, Ze::Complex, dx, dy)
-    rZb, iZb = reim(Zb)
-    rZe, iZe = reim(Ze)
-
-    # Determine `dx` and `dy`
-    X = rZe - rZb
-    Y = abs(iZe - iZb)
-
-    n = ceil(Int, Y/dy)
-    dy = Y/n  # BUG are dx, dy arguments even being used?
-
-    m = ceil(Int, X/sqrt(dx^2 - dy^2/4))
-    dx = X/m
+    half_dx = dx/2
 
     slope = 1  # 45° angle
 
-    v = Vector{complex(typeof(X))}()
-    for j = 0:m  # col
-        x = rZb + dx*j
+    T = promote_type(ComplexF64, typeof(zbl), typeof(ztr), typeof(Δr))
+    mesh = Vector{T}()
 
-        for i = 0:n  # row (we're traversing down column)
-            y = iZb + dy*i
+    shift = false  # we will displace every other line by dx/2
+    for j = 0:n
+        y = izbl + dy*j
 
-            if x <= (rZe - (iZe - y)/slope)
-                push!(v, complex(x, y))
+        for i = 0:m
+            x = rzbl + dx*i
+
+            if shift && i == 0
+                continue  # otherwise, we shift out of left bound
+            elseif shift
+                x -= half_dx
+            end
+
+            if i == m
+                shift = !shift
+            end
+
+            ## NEW: check if `x, y` is in upper left triangle
+            if y >= slope*x - π/2
+                push!(mesh, complex(x, y))
             end
         end
     end
 
-    return v
+    return mesh
 end

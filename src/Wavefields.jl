@@ -67,9 +67,9 @@ function Base.isvalid(A::Wavefields)
 end
 
 """
-    WavefieldIntegrationParams{F,G,T,H}
+    WavefieldIntegrationParams{F,G,T,T2,H}
 
-Parameters passed to Pitteway integration of wavefields.
+Parameters passed to Pitteway integration of wavefields [[Pitteway1965](@cite)].
 
 # Fields
 
@@ -82,9 +82,9 @@ Parameters passed to Pitteway integration of wavefields.
 - `frequency::Frequency`: electromagentic wave frequency in Hz.
 - `bfield::BField`: Earth's magnetic field in Tesla.
 - `species::Species{F,G}`: species in the ionosphere.
-- `params::LMPParams{T,H}`: module-wide parameters.
+- `params::LMPParams{T,T2,H}`: module-wide parameters.
 """
-struct WavefieldIntegrationParams{F,G,T,H}
+struct WavefieldIntegrationParams{F,G,T,T2,H}
     z::Float64
     bottomz::Float64
     ortho_scalar::ComplexF64
@@ -94,13 +94,14 @@ struct WavefieldIntegrationParams{F,G,T,H}
     frequency::Frequency
     bfield::BField
     species::Species{F,G}
-    params::LMPParams{T,H}
+    params::LMPParams{T,T2,H}
 end
 
 """
     WavefieldIntegrationParams(topheight, ea, frequency, bfield, species, params)
 
-Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration.
+Initialize a `WavefieldIntegrationParams` for downward Pitteway scaled integration
+[[Pitteway1965](@cite)].
 
 Automatically set values are:
 
@@ -110,8 +111,8 @@ Automatically set values are:
 - `e2_scalar = one(Float64)`
 """
 function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    params::LMPParams{T,H}) where {F,G,T,H}
-    return WavefieldIntegrationParams{F,G,T,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
+    params::LMPParams{T,T2,H}) where {F,G,T,T2,H}
+    return WavefieldIntegrationParams{F,G,T,T2,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
         one(Float64), one(Float64), ea, frequency, bfield, species, params)
 end
 
@@ -119,7 +120,7 @@ end
     ScaleRecord
 
 Struct for saving wavefield scaling information used in a callback during Pitteway
-integration of wavefields.
+integration of wavefields [[Pitteway1965](@cite)].
 
 # Fields
 
@@ -212,11 +213,11 @@ terms `a`, `e1_scale_val`, and `e2_scale_val` applied to the original vectors.
 
 This first applies Gram-Schmidt orthogonalization and then scales the vectors so they each
 have length 1, i.e. `norm(e1) == norm(e2) == 1`. This is the technique suggested by
-[^Pitteway1965] to counter numerical swamping during integration of wavefields.
+[[Pitteway1965](@cite)] to counter numerical swamping during integration of wavefields.
 
 # References
 
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+[Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
     coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
     Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
     doi: 10.1098/rsta.1965.0004.
@@ -351,11 +352,14 @@ Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`
 `params.integrationparams` is not used by this function.
 """
 function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species; params=LMPParams())
+    species::Species; params=LMPParams(), unscale=true)
     # TODO: version that updates output `e` in place
 
     issorted(zs, rev=true) ||
         throw(ArgumentError("`zs` should go from top to bottom of the ionosphere."))
+
+    @unpack wavefieldintegrationparams = params
+    @unpack tolerance, solver, dt, force_dtmin, maxiters = wavefieldintegrationparams
 
     # Initial conditions
     Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
@@ -378,11 +382,17 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # WARNING: Without `lazy=false` (necessary since we're using DiscreteCallback) don't
     # use continuous solution output! Also, we're only saving at zs.
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
-    sol = solve(prob, Vern9(lazy=false), callback=CallbackSet(cb, scb),
+    sol = solve(prob, solver, callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
-                atol=1e-8, rtol=1e-8)
+                dt=dt, force_dtmin=force_dtmin, maxiters=maxiters,
+                atol=tolerance, rtol=tolerance)
 
-    e = unscalewavefields(saved_values)
+    if unscale
+        e = unscalewavefields(saved_values)
+    else
+        records = saved_values.saveval
+        e = [records[i].e for i in eachindex(records)]
+    end
 
     return e
 end
@@ -496,11 +506,12 @@ end
 Compute fields of `wavefields` in-place scaled to satisfy the `waveguide` boundary
 conditions.
 
-This function implements the method of integrating wavefields suggested by [^Pitteway1965].
+This function implements the method of integrating wavefields suggested by
+[[Pitteway1965](@cite)].
 
 # References
 
-[^Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
+[Pitteway1965]: M. L. V. Pitteway, “The numerical calculation of wave-fields, reflexion
     coefficients and polarizations for long radio waves in the lower ionosphere. I.,” Phil.
     Trans. R. Soc. Lond. A, vol. 257, no. 1079, pp. 219–241, Mar. 1965,
     doi: 10.1098/rsta.1965.0004.

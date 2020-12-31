@@ -30,3 +30,19 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "LinearAlgebra", "Statistics", "StaticArrays", "RootsAndPoles", "NLsolve"]
+
+[compat]
+julia = "1.5"
+BetterExp = "0.1"
+DiffEqCallbacks = "2"
+Interpolations = "0.13"
+JSON3 = "1"
+ModifiedHankelFunctionsOfOrderOneThird = "1"
+OrdinaryDiffEq = "5"
+Parameters = "0.12"
+PolynomialRoots = "1"
+ProgressMeter = "1"
+Romberg = "0.2"
+RootsAndPoles = "1"
+StaticArrays = "1"
+StructTypes = "1"

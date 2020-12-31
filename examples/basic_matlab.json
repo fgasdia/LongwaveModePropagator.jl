@@ -1,0 +1,1 @@
+{"name":"basic","description":"Test BasicInput","datetime":"2020-12-28T21:06:50.501","segment_ranges":[0],"hprimes":[75],"betas":[0.35],"b_mags":[5E-5],"b_dips":[1.5707963267948966],"b_azs":[0],"ground_sigmas":[0.001],"ground_epsrs":[4],"frequency":24000,"output_ranges":[0,100000,200000,300000,400000,500000,600000,700000,800000,900000,1.0E+6]}

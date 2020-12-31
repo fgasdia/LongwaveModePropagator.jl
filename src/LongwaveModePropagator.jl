@@ -23,10 +23,11 @@ using ModifiedHankelFunctionsOfOrderOneThird
 export propagate
 
 # EigenAngle.jl
+export EigenAngle
 export attenuation, phasevelocity, referencetoground
 
 # Geophysics.jl
-export BField, Species, EigenAngle, Fields, Ground, GROUND
+export BField, Species, Fields, Ground, GROUND
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl
@@ -54,22 +55,26 @@ coefficient matrix in `modefinder.jl`.
 
 # Fields
 
-- `tolerance::Float64 = 1e-7`: integration `atol` and `rtol`.
-- `solver::T = OwrenZen5()`: a `DifferentialEquations.jl` solver.
+- `tolerance::Float64 = 1e-8`: integration `atol` and `rtol`.
+- `solver::T = Vern7()`: a `DifferentialEquations.jl` solver.
+- `dt::Float64 = 1.0`: height step in meters (many methods use a variable step size).
 - `force_dtmin::Bool = false`: if true, continue integration when solver reaches minimum
     step size.
+- `maxiters::Int = 100_000`: maximum number of iterations before stopping.
 """
 @with_kw struct IntegrationParams{T}
-    tolerance::Float64 = 1e-7
-    solver::T = OwrenZen5()
+    tolerance::Float64 = 1e-8
+    solver::T = Vern7()
+    dt::Float64 = 1.0
     force_dtmin::Bool = false
+    maxiters::Int = 100_000
 end
 export IntegrationParams
 
 const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
 
 """
-    LMPParams{T,H <: AbstractRange{Float64}}
+    LMPParams{T,T2,H <: AbstractRange{Float64}}
 
 Parameters for the `LongwaveModePropagator` module with defaults:
 
@@ -83,22 +88,27 @@ Parameters for the `LongwaveModePropagator` module with defaults:
     eigenangles.
 - `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
     complex root-finding algorithm.
-- `integrationparams::IntegrationParams{T} = IntegrationParams(1e-7, OwrenZen5(), false)`:
+- `integrationparams::IntegrationParams{T} =
+    IntegrationParams(solver=Vern7(), tolerance=1e-8)`:
     parameters passed to `DifferentialEquations.jl` for integration of the ionosphere
     reflection coefficient.
 - `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
     wavefields will be integrated.
+- `wavefieldintegrationparams::IntegrationParams{T2} =
+    IntegrationParams(solver=Vern7(lazy=false), tolerance=1e-8)`:
+    parameters passed to `DifferentialEquations.jl` for integration of the wavefields
+    used in mode conversion. The solver cannot be lazy.
 
 The struct is created using `Parameters.jl` `@with_kw` and supports that package's
 instantiation capabilities, e.g.:
 
-```jldoctest
+```julia
 p = LMPParams()
 p2 = LMPParams(earth_radius=6370e3)
 p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
 ```
 """
-@with_kw struct LMPParams{T,H<:AbstractRange{Float64}}
+@with_kw struct LMPParams{T,T2,H<:AbstractRange{Float64}}
     topheight::Float64 = 110e3
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
@@ -106,6 +116,8 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0, length=513)
+    wavefieldintegrationparams::IntegrationParams{T2} =
+        IntegrationParams(solver=Vern7(lazy=false))
 end
 export LMPParams
 
@@ -166,7 +178,7 @@ Compute electric field `E`, `amplitude`, and `phase` at `rx`.
 Precomputed waveguide `modes` can optionally be provided as a `Vector{EigenAngle}`. By
 default modes are found with [`findmodes`](@ref).
 
-If `coordgrid = nothing`, use [`defaultcoordinates`](@ref) to generate `coordgrid` for the
+If `coordgrid = nothing`, use [`defaultmesh`](@ref) to generate `coordgrid` for the
 mode finding algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
@@ -174,7 +186,7 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
 
     if isnothing(modes)
         if isnothing(coordgrid)
-            coordgrid = defaultcoordinates(tx.frequency)
+            coordgrid = defaultmesh(tx.frequency)
         else
             if minimum(imag(coordgrid)) < deg2rad(-31)
                 @warn "imaginary component less than -0.5410 rad (-31°) may cause wave"*
@@ -207,14 +219,14 @@ end
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx` through a `SegmentedWaveguide`.
 
-If `coordgrid = nothing`, use [`defaultcoordinates`](@ref) to generate `coordgrid` for the
+If `coordgrid = nothing`, use [`defaultmesh`](@ref) to generate `coordgrid` for the
 mode finding algorithm.
 """
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     coordgrid=nothing, params=LMPParams())
 
     if isnothing(coordgrid)
-        coordgrid = defaultcoordinates(tx.frequency)
+        coordgrid = defaultmesh(tx.frequency)
     else
         if minimum(imag(coordgrid)) < deg2rad(-31)
             @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields"*
@@ -266,14 +278,14 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 end
 
 """
-    propagate(file::AbstractString; outfile=missing, incrementalwrite=false, append=false,
+    propagate(file::AbstractString, outfile=missing; incrementalwrite=false, append=false,
               coordgrid=nothing)
 
 Run the model scenario described by `file` and save the results as `outfile`.
 
 If `outfile = missing`, the output file name will be `\$(file)_output.json`.
 """
-function propagate(file::AbstractString; outfile=missing, incrementalwrite=false,
+function propagate(file::AbstractString, outfile=missing; incrementalwrite=false,
     append=false, coordgrid=nothing, params=LMPParams())
 
     ispath(file) || error("$file is not a valid file name")

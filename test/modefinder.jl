@@ -152,8 +152,9 @@ function test_integratedreflection_deriv(scenario)
     dRs = similar(Rs)
     Rrefs = similar(Rs)
     dRrefs = similar(Rs)
-    # NOTE: this also effectively checks for thread safety
-    Threads.@threads for i in 1:length(θs)
+    # XXX: why are there occasional mismatches between R and Rr if this is threaded
+    # with Threads.@threads()?
+    for i in eachindex(θs)
         v = RdR(θs[i])
         Rs[i] = v[SVector(1,2),:]
         dRs[i] = v[SVector(3,4),:]
@@ -253,7 +254,7 @@ function test_findmodes(scenario)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     modeequation = PhysicalModeEquation(tx.frequency, waveguide)
 
-    origcoords = LMP.defaultcoordinates(tx.frequency)
+    origcoords = LMP.defaultmesh(tx.frequency)
 
     # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
     params = LMPParams()

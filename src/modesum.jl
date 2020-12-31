@@ -9,7 +9,7 @@ Constants used in calculating excitation factors and height gains.
 
 # Fields
 
-- `F₁::T`: height gain constant. See [^Pappert1976].
+- `F₁::T`: height gain constant. See [[Pappert1976](@cite)].
 - `F₂::T`
 - `F₃::T`
 - `F₄::T`
@@ -20,7 +20,7 @@ Constants used in calculating excitation factors and height gains.
 
 # References
 
-[^Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
+[Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
     with allowance for elevated, arbitrarily oriented electric dipole antennas,” Naval
     Electronics Laboratory Center, San Diego, CA, Interim Report 771, Oct. 1976. [Online].
     Available: http://archive.org/details/DTIC_ADA033412.
@@ -49,17 +49,17 @@ factors where eigenangle `ea₀` is referenced to the ground.
 
 # References
 
-[^Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
+[Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
     with allowance for elevated, arbitrarily oriented electric dipole antennas,” Naval
     Electronics Laboratory Center, San Diego, CA, Interim Report 771, Oct. 1976. [Online].
     Available: http://archive.org/details/DTIC_ADA033412.
 
-[^Ferguson1980]: J. A. Ferguson and F. P. Snyder, “Approximate VLF/LF waveguide mode
+[Ferguson1980]: J. A. Ferguson and F. P. Snyder, “Approximate VLF/LF waveguide mode
     conversion model: Computer applications: FASTMC and BUMP,” Naval Ocean Systems Center,
     San Diego, CA, NOSC-TD-400, Nov. 1980. [Online].
     Available: http://www.dtic.mil/docs/citations/ADA096240.
 
-[^Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
+[Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
     GRNDMC and ARBNMC,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-514, Jan. 1980.
     [Online]. Available: http://www.dtic.mil/docs/citations/ADA082695.
 """
@@ -121,10 +121,10 @@ modal equation with respect to ``θ``.
 The excitation factor describes how efficiently the field component can be excited in the
 waveguide.
 
-This function most closely follows the approach taken in [^Pappert1983], which makes use of
-``T`` (different from `TMatrix`) rather than ``τ``. From the total ``Hy`` excitation factor
-(the sum product of the `λ`s with the antenna orientation terms), the excitation factor for
-electric fields can be found as:
+This function most closely follows the approach taken in [[Pappert1983](@cite)], which makes
+use of ``T`` (different from `TMatrix`) rather than ``τ``. From the total ``Hy`` excitation
+factor (the sum product of the `λ`s with the antenna orientation terms), the excitation
+factor for electric fields can be found as:
 
 - ``λz = -S₀λ``
 - ``λx = EyHy⋅λ``
@@ -137,16 +137,16 @@ electric fields can be found as:
 
 # References
 
-[^Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
+[Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
     GRNDMC and ARBNMC,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-514, Jan. 1980.
     [Online]. Available: http://www.dtic.mil/docs/citations/ADA082695.
 
-[^Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
+[Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
     Frequency/Very Low Frequency) long path pulse program for antennas of arbitrary
     elevation and orientation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891,
     Aug. 1983. [Online]. Available: http://www.dtic.mil/docs/citations/ADA133876.
 
-[^Pappert1986]: R. A. Pappert and J. A. Ferguson, “VLF/LF mode conversion model calculations
+[Pappert1986]: R. A. Pappert and J. A. Ferguson, “VLF/LF mode conversion model calculations
     for air to air transmissions in the earth-ionosphere waveguide,” Radio Sci., vol. 21,
     no. 4, pp. 551–558, Jul. 1986, doi: 10.1029/RS021i004p00551.
 """
@@ -191,7 +191,7 @@ eigenangle `ea₀` is referenced to the ground.
 - `fz` is the height gain for the vertical electric field component ``Ez``.
 - `fy` is the height gain for the transverse electric field component ``Ey``.
 - `fx` is the height gain for the horizontal electric field component ``Ex``.
-[^Pappert1983]
+[[Pappert1983](@cite)]
 
 !!! note
 
@@ -201,12 +201,12 @@ See also: [`excitationfactorconstants`](@ref)
 
 # References
 
-[^Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
+[Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
     Frequency/Very Low Frequency) long path pulse program for antennas of arbitrary
     elevation and orientation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891,
     Aug. 1983. [Online]. Available: http://www.dtic.mil/docs/citations/ADA133876.
 
-[^Pappert1986]: R. A. Pappert and J. A. Ferguson, “VLF/LF mode conversion model calculations
+[Pappert1986]: R. A. Pappert and J. A. Ferguson, “VLF/LF mode conversion model calculations
     for air to air transmissions in the earth-ionosphere waveguide,” Radio Sci., vol. 21,
     no. 4, pp. 551–558, Jul. 1986, doi: 10.1029/RS021i004p00551.
 """
@@ -269,12 +269,12 @@ and `rxterm` is the height-gain function ``f(zᵣ)`` appropriate for `rx.fieldco
 
 # References
 
-[^Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
+[Pappert1976]: R. A. Pappert and L. R. Shockey, “Simplified VLF/LF mode conversion program
     with allowance for elevated, arbitrarily oriented electric dipole antennas,” Naval
     Electronics Laboratory Center, San Diego, CA, Interim Report 771, Oct. 1976. [Online].
     Available: http://archive.org/details/DTIC_ADA033412.
 
-[^Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
+[Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
     GRNDMC and ARBNMC,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-514, Jan. 1980.
     [Online]. Available: http://www.dtic.mil/docs/citations/ADA082695.
 """
@@ -378,11 +378,11 @@ sampler `rx`.
 
 # References
 
-[^Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
+[Morfitt1980]: D. G. Morfitt, “‘Simplified’ VLF/LF mode conversion computer programs:
     GRNDMC and ARBNMC,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-514, Jan. 1980.
     [Online]. Available: http://www.dtic.mil/docs/citations/ADA082695.
 
-[^Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
+[Pappert1983]: R. A. Pappert, L. R. Hitney, and J. A. Ferguson, “ELF/VLF (Extremely Low
     Frequency/Very Low Frequency) long path pulse program for antennas of arbitrary
     elevation and orientation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891,
     Aug. 1983. [Online]. Available: http://www.dtic.mil/docs/citations/ADA133876.
