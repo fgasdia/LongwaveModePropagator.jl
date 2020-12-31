@@ -1,4 +1,4 @@
-push!(LOAD_PATH, "..")  # from docs/
+".." in LOAD_PATH || push!(LOAD_PATH, "..")  # from docs/
 
 using Documenter, DocumenterCitations
 using Literate
@@ -13,17 +13,23 @@ bib = CitationBibliography(bib_filepath)
 Generate examples
 ==#
 
-const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
-const OUTPUT_DIR   = joinpath(@__DIR__, "src", "generated")
+const ROOT_DIR = abspath(@__DIR__, "..")
+const EXAMPLES_DIR = joinpath(ROOT_DIR, "examples")
+const BUILD_DIR = joinpath(ROOT_DIR, "docs", "build")
+const OUTPUT_DIR = joinpath(ROOT_DIR, "docs", "src", "generated")
+
+# repo_root_url is only assigned with CI, so we have to specify it for local builds
+# can't use abspath on Windows (no colons) so we calculate relpath
+const REPO_ROOT_URL = relpath(ROOT_DIR, joinpath(BUILD_DIR, "generated"))
 
 examples = [
-    # "basic.jl",
-    # "io.jl",
-    # "meshgrid.jl",
-    # "meshgrid2.jl",
-    # "wavefieldintegration.jl",
-    # "integratedreflection.jl",
-    # "magneticfield.jl"
+    "basic.jl",
+    "io.jl",
+    "meshgrid.jl",
+    "meshgrid2.jl",
+    "wavefieldintegration.jl",
+    "integratedreflection.jl",
+    "magneticfield.jl"
 ]
 
 for example in examples
@@ -32,9 +38,8 @@ for example in examples
         Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
     else
         # local
-        root_dir = joinpath(@__DIR__, "..")
         Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true,
-                          repo_root_url=root_dir)
+                          repo_root_url=REPO_ROOT_URL)
     end
 end
 
@@ -43,13 +48,13 @@ Organize page hierarchies
 ==#
 
 example_pages = [
-    # "generated/basic.md",
-    # "generated/io.md",
-    # "generated/meshgrid.md",
-    # "generated/meshgrid2.md",
-    # "generated/wavefieldintegration.md",
-    # "generated/integratedreflection.md",
-    # "generated/magneticfield.md"
+    "generated/basic.md",
+    "generated/io.md",
+    "generated/meshgrid.md",
+    "generated/meshgrid2.md",
+    "generated/wavefieldintegration.md",
+    "generated/integratedreflection.md",
+    "generated/magneticfield.md"
 ]
 
 library_pages = [
@@ -59,7 +64,7 @@ library_pages = [
 
 pages = [
     "Home" => "index.md",
-    # "Examples" => example_pages,
+    "Examples" => example_pages,
     "Library" => library_pages,
     "References" => "references.md"
 ]

@@ -17,7 +17,8 @@
 
 using Dates, Printf
 using HDF5
-using Plots, DisplayAs
+using Plots
+using DisplayAs  #hide
 
 using LongwaveModePropagator
 using LongwaveModePropagator: buildrun, Progress, next!

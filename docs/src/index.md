@@ -3,8 +3,8 @@
 Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).
 
 LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
-The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere ([Budden1955a](@cite)) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide ([Budden1962](@cite)).
-It is similar to the Long Wavelength Propagation Capability ([Ferguson1998](@cite)), but aims to be more robust and adaptable.
+The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [[Budden1955a](@cite)] and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [[Budden1962](@cite)].
+It is similar to the Long Wavelength Propagation Capability [[Ferguson1998](@cite)], but aims to be more robust and adaptable.
 
 The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
 See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
