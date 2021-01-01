@@ -97,7 +97,7 @@ function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPPa
     # A principally TE mode will have `1 - R[1,1]*Rg[1,1]` very small and EyHy will be very
     # small, so we use the first equation below. Conversely, a principally TM mode will have
     # `1 - R[2,2]Rg[2,2]` very small and EyHy very large, resulting in the use of the second
-    # equation below. [^Ferguson1980] pg. 58 seems to suggest the use of the opposite, but
+    # equation below. [Ferguson1980] pg. 58 seems to suggest the use of the opposite, but
     # LWPC uses the form used here and this makes sense because there are more working
     # decimal places.
     if abs2(1 - R[1,1]*Rg[1,1]) < abs2(1 - R[2,2]*Rg[2,2])
@@ -174,7 +174,7 @@ function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LM
     T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]/(dFdθ*D₁₂)
     T₄ = R[1,2]/R[2,1]
 
-    # These are [^Pappert1983] terms divided by `-S`, the factor between Hy and Ez
+    # These are [Pappert1983] terms divided by `-S`, the factor between Hy and Ez
     λv = -S₀*T₁
     λb = T₃*T₄
     λe = T₁
@@ -239,7 +239,7 @@ function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=
         # f₂ = 1/(1im*k) df₁/dz
         fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
     else
-        # Flat earth, [^Pappert1983] pg. 12--13
+        # Flat earth, [Pappert1983] pg. 12--13
         expiz = cis(k*C*z)
         fz = expiz + Rg[1,1]/expiz
         fy = expiz + Rg[2,2]/expiz
@@ -293,7 +293,7 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     rxfield = fieldcomponent(rx)
 
     # Transmit antenna orientation with respect to propagation direction
-    # See [^Morfitt1980] pg. 22
+    # See [Morfitt1980] pg. 22
     Sγ, Cγ = sincos(inclination(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 

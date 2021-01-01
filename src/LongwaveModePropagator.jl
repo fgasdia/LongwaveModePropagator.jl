@@ -127,11 +127,11 @@ export LMPParams
 Functions can dispatch on subtypes of `ModeEquation`, although currently only
 `PhysicalModeEquation` is supported.
 
-Future work might include the `ModifiedModeEquation` of [^Morfitt1976].
+Future work might include the `ModifiedModeEquation` of [Morfitt1976].
 
 # References
 
-[^Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
+[Morfitt1976]: D. G. Morfitt and C. H. Shellman, “‘MODESRCH’, an improved computer program
     for obtaining ELF/VLF/LF mode constants in an Earth-ionosphere waveguide,” Naval
     Electronics Laboratory Center, San Diego, CA, NELC/IR-77T, Oct. 1976. [Online].
     Available: http://www.dtic.mil/docs/citations/ADA032573.

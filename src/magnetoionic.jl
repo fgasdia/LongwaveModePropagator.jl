@@ -58,7 +58,7 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     # Constitutive relations
     # (see Budden1955a, pg. 517, Budden1988 pg. 39, or [Ratcliffe1959])
     X = N(altitude)*e^2*invω*invmω/E0
-    Y = e*B*invmω  # [^Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
+    Y = e*B*invmω  # [Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
     Z = nu(altitude)*invω
     U = 1 - 1im*Z
 

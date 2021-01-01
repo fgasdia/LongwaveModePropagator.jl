@@ -248,7 +248,7 @@ function dRdz(R, p, z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
-    # the factor k/(2i) isn't explicitly in [^Budden1955a] because of his change of variable
+    # the factor k/(2i) isn't explicitly in [Budden1955a] because of his change of variable
     # ``s = kz``
     return k/2im*(W21 + W22*R - R*W11 - R*W12*R)
 end
