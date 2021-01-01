@@ -298,14 +298,14 @@ E, a, p = propagate(waveguide, tx, rx);
 
 img = plot(ranges/1000, a,
            xlabel="range (km)", ylabel="amplitude (dB)",
-           linewidth=1.5)
+           linewidth=1.5, legend=false)
 DisplayAs.PNG(img)  #hide
 
 # and phase.
 
 img = plot(ranges/1000, rad2deg.(p),
            xlabel="range (km)", ylabel="phase (deg)",
-           linewidth=1.5)
+           linewidth=1.5, legend=false)
 DisplayAs.PNG(img)  #hide
 
 # ## Propagating the fields: SegmentedWaveguide
@@ -338,14 +338,14 @@ E, a, p = propagate(waveguide, tx, rx);
 
 img = plot(ranges/1000, a,
            xlabel="range (km)", ylabel="amplitude (dB)",
-           linewidth=1.5)
+           linewidth=1.5, legend=false)
 DisplayAs.PNG(img)  #hide
 
 # and phase.
 
 img = plot(ranges/1000, rad2deg.(p),
            xlabel="range (km)", ylabel="phase (deg)",
-           linewidth=1.5)
+           linewidth=1.5, legend=false)
 DisplayAs.PNG(img)  #hide
 
 # Comparing to the plots for the `HomogeneousWaveguide` above, the results are
