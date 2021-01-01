@@ -28,7 +28,6 @@ jobs:
           - x64
         julia-threads:
           - "1"
-          - "2"
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
