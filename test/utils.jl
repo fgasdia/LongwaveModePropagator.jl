@@ -10,12 +10,12 @@ function readlog(file)
     lines = readlines(file)
     firstdataline = findfirst(startswith.(lines, "  dist   amplitude  phase")) + 1
     lastdataline = findfirst(startswith.(lines, "nc nrpt bearng")) - 1
-    skiplastlines = length(lines) - lastdataline + 1
+    numdatalines = lastdataline - firstdataline + 1
 
     # Read log file
-    raw = CSV.File(file; skipto=firstdataline, footerskip=skiplastlines,
+    raw = CSV.File(file; datarow=firstdataline, limit=numdatalines,
                    delim=' ', ignorerepeated=true, header=false,
-                   silencewarnings=true)
+                   silencewarnings=true, threaded=false)
 
     # Stack the columns together
     dist = vcat(raw.Column1, raw.Column4, raw.Column7)
