@@ -107,11 +107,6 @@ prints some explanation of the `bookerquartic` function even though it's not exp
 
 <a name="Ferguson1998"></a>J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. [Online]. Available: http://www.dtic.mil/docs/citations/ADA350375.
 
-## Citing
-
-We encourage you to cite this package if used in scientific work. See the Zenodo
-badge above or refer to [CITATION.bib](CITATION.bib).
-
 
 [gha-img]: https://github.com/fgasdia/LongwaveModePropagator.jl/workflows/CI/badge.svg
 [gha-url]: https://github.com/fgasdia/LongwaveModePropagator.jl/actions?query=workflow
