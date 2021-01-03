@@ -1,4 +1,4 @@
-# Longwave Mode Propagator
+# LongwaveModePropagator.jl
 
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://fgasdia.github.io/LongwaveModePropagator.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://fgasdia.github.io/LongwaveModePropagator.jl/dev)
