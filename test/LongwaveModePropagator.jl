@@ -8,21 +8,21 @@ function test_propagate(scenario)
     @test eltype(amp) == Float64
     @test eltype(phase) == Float64
 
-    coordgrid = LMP.defaultmesh(tx.frequency)
-    E2, amp2, phase2 = propagate(waveguide, tx, rx, coordgrid=coordgrid)
+    mesh = LMP.defaultmesh(tx.frequency)
+    E2, amp2, phase2 = propagate(waveguide, tx, rx, mesh=mesh)
     @test E2 ≈ E    rtol=1e-3
     @test amp2 ≈ amp    rtol=1e-3
     @test phase2 ≈ phase    rtol=1e-3
 
     me = PhysicalModeEquation(tx.frequency, waveguide)
-    modes = findmodes(me, coordgrid)
+    modes = findmodes(me, mesh)
     E3, amp3, phase3 = propagate(waveguide, tx, rx, modes=modes)
     @test E3 ≈ E2    rtol=1e-3
     @test amp3 ≈ amp2    rtol=1e-3
     @test phase3 ≈ phase2    rtol=1e-3
 
-    # coordgrid should be ignored
-    E4, amp4, phase4 = propagate(waveguide, tx, rx, modes=modes, coordgrid=[1.0])
+    # mesh should be ignored
+    E4, amp4, phase4 = propagate(waveguide, tx, rx, modes=modes, mesh=[1.0])
     @test E4 ≈ E3    rtol=1e-3
     @test amp4 ≈ amp3    rtol=1e-3
     @test phase4 ≈ phase3    rtol=1e-3
@@ -52,7 +52,7 @@ function test_propagate_segmented(scenario)
     @test eltype(amp) == Float64
     @test eltype(phase) == Float64
 
-    coordgrid = LMP.defaultmesh(tx.frequency)
+    mesh = LMP.defaultmesh(tx.frequency)
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
     @test E1 ≈ E    rtol=1e-3
     @test amp1 ≈ amp    rtol=1e-3

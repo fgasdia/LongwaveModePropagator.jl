@@ -352,15 +352,15 @@ function buildwaveguide(s::TableInput, i)
 end
 
 """
-    buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
-    buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
-    buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
+    buildrun(s::BasicInput; mesh=nothing, params=LMPParams())
+    buildrun(s::TableInput; mesh=nothing, params=LMPParams())
+    buildrun(s::BatchInput; mesh=nothing, params=LMPParams())
 
 Build LMP structs from an `Input` and run `LMP`.
 """
 buildrun
 
-function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
+function buildrun(s::BasicInput; mesh=nothing, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
@@ -380,7 +380,7 @@ function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx, coordgrid=coordgrid, params=params)
+    E, amp, phase = propagate(waveguide, tx, rx, mesh=mesh, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -397,7 +397,7 @@ function buildrun(s::BasicInput; coordgrid=nothing, params=LMPParams())
     return output
 end
 
-function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
+function buildrun(s::TableInput; mesh=nothing, params=LMPParams())
 
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
@@ -418,7 +418,7 @@ function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx, coordgrid=coordgrid, params=params)
+    E, amp, phase = propagate(waveguide, tx, rx, mesh=mesh, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -435,7 +435,7 @@ function buildrun(s::TableInput; coordgrid=nothing, params=LMPParams())
     return output
 end
 
-function buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
+function buildrun(s::BatchInput; mesh=nothing, params=LMPParams())
 
     batch = BatchOutput{BasicOutput}()
     batch.name = s.name
@@ -443,7 +443,7 @@ function buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
     batch.datetime = Dates.now()
 
     for i in eachindex(s.inputs)
-        output = buildrun(s.inputs[i], coordgrid=coordgrid, params=params)
+        output = buildrun(s.inputs[i], mesh=mesh, params=params)
         push!(batch.outputs, output)
     end
 
@@ -451,14 +451,14 @@ function buildrun(s::BatchInput; coordgrid=nothing, params=LMPParams())
 end
 
 """
-    buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing, params=LMPParams())
+    buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, params=LMPParams())
 
 Similar to `buildrun`, except it saves results into `outfile` as `s` is processed.
 
 If `append=true`, this function parses `outfile` for preexisting results and only runs the
 remaining scenarios in `s`. Otherwise, a new `BatchOutput` is created.
 """
-function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing,
+function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing,
     params=LMPParams())
 
     if append && isfile(outfile)
@@ -491,7 +491,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, coordgrid=nothing,
             continue
         end
 
-        output = buildrun(s.inputs[i], coordgrid=coordgrid, params=params)
+        output = buildrun(s.inputs[i], mesh=mesh, params=params)
         push!(batch.outputs, output)
 
         json_str = JSON3.write(batch)

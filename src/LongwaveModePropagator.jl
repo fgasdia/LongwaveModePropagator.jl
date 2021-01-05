@@ -170,7 +170,7 @@ include("IO.jl")
 
 """
     propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-              modes::Union{Nothing,Vector{EigenAngle}}=nothing, coordgrid=nothing,
+              modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing,
               params=LMPParams())
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx`.
@@ -178,24 +178,24 @@ Compute electric field `E`, `amplitude`, and `phase` at `rx`.
 Precomputed waveguide `modes` can optionally be provided as a `Vector{EigenAngle}`. By
 default modes are found with [`findmodes`](@ref).
 
-If `coordgrid = nothing`, use [`defaultmesh`](@ref) to generate `coordgrid` for the
+If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    modes::Union{Nothing,Vector{EigenAngle}}=nothing, coordgrid=nothing, params=LMPParams())
+    modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing, params=LMPParams())
 
     if isnothing(modes)
-        if isnothing(coordgrid)
-            coordgrid = defaultmesh(tx.frequency)
+        if isnothing(mesh)
+            mesh = defaultmesh(tx.frequency)
         else
-            if minimum(imag(coordgrid)) < deg2rad(-31)
+            if minimum(imag(mesh)) < deg2rad(-31)
                 @warn "imaginary component less than -0.5410 rad (-31°) may cause wave"*
                     "fields calculated with modified Hankel functions to overflow."
             end
         end
 
         modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-        modes = findmodes(modeequation, coordgrid, params=params)
+        modes = findmodes(modeequation, mesh, params=params)
     end
 
     E = Efield(modes, waveguide, tx, rx, params=params)
@@ -215,20 +215,20 @@ end
 
 """
     propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-              coordgrid=nothing, params=LMPParams())
+              mesh=nothing, params=LMPParams())
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx` through a `SegmentedWaveguide`.
 
-If `coordgrid = nothing`, use [`defaultmesh`](@ref) to generate `coordgrid` for the
+If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm.
 """
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-    coordgrid=nothing, params=LMPParams())
+    mesh=nothing, params=LMPParams())
 
-    if isnothing(coordgrid)
-        coordgrid = defaultmesh(tx.frequency)
+    if isnothing(mesh)
+        mesh = defaultmesh(tx.frequency)
     else
-        if minimum(imag(coordgrid)) < deg2rad(-31)
+        if minimum(imag(mesh)) < deg2rad(-31)
             @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields"*
                 "calculated with modified Hankel functions to overflow."
         end
@@ -246,7 +246,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(modeequation, coordgrid, params=params)
+        modes = findmodes(modeequation, mesh, params=params)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -279,14 +279,14 @@ end
 
 """
     propagate(file::AbstractString, outfile=missing; incrementalwrite=false, append=false,
-              coordgrid=nothing)
+              mesh=nothing)
 
 Run the model scenario described by `file` and save the results as `outfile`.
 
 If `outfile = missing`, the output file name will be `\$(file)_output.json`.
 """
 function propagate(file::AbstractString, outfile=missing; incrementalwrite=false,
-    append=false, coordgrid=nothing, params=LMPParams())
+    append=false, mesh=nothing, params=LMPParams())
 
     ispath(file) || error("$file is not a valid file name")
 
@@ -301,9 +301,9 @@ function propagate(file::AbstractString, outfile=missing; incrementalwrite=false
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for"*
                                                 "BatchInput files"))
-        output = buildrunsave(outfile, s, append=append, coordgrid=coordgrid, params=params)
+        output = buildrunsave(outfile, s, append=append, mesh=mesh, params=params)
     else
-        output = buildrun(s, coordgrid=coordgrid, params=params)
+        output = buildrun(s, mesh=mesh, params=params)
 
         json_str = JSON3.write(output)
 
