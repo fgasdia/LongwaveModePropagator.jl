@@ -250,3 +250,51 @@ Return the _signed_ gyrofrequency ``Ω = qB/m``.
 """
 gyrofrequency(q, m, B) = q*B/m
 gyrofrequency(s::Species, b::BField) = gyrofrequency(s.charge, s.mass, b.B)
+
+"""
+    magnetoionicparameters(z, frequency::Frequency, species::Species, bfield::BField)
+
+Compute the magnetoionic parameters `X`, `Y`, and `Z` for height `z`.
+
+```math
+X = N e² / (ϵ₀ m ω²)
+Y = e B / (m ω)
+Z = ν / ω
+```
+"""
+function magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
+    # Unpack
+    N = species.numberdensity
+    nu = species.collisionfrequency
+    e = species.charge
+    m = species.mass
+
+    ω = frequency.ω
+
+    B = bfield.B
+
+    X = N(z)*e^2/(E0*m*ω^2)
+    Y = e*B/(m*ω)
+    Z = nu(z)/ω
+
+    return X, Y, Z
+end
+
+"""
+    waitsparameter()
+
+Compute Wait's conductivity parameter `Wr`.
+
+```math
+ωᵣ = Xω²/ν = ωₚ²/ν
+```
+"""
+function waitsparameter(z, frequency::Frequency, bfield::BField, species::Species)
+    X, Y, Z = magnetoionicparameters(z, frequency, bfield, species)
+
+    # Unpack
+    ω = frequency.ω
+    nu = species.collisionfrequency
+
+    return X*ω^2/nu(z)
+end
