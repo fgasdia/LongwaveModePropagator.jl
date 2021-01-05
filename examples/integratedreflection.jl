@@ -230,7 +230,7 @@ tolerances = [1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
 tolerancestrings = string.(tolerances)
 
 solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
-solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
+solverstrings = string.(solvers)
 
 Rs, times = compute(scenarios, tolerances, solvers);
 
