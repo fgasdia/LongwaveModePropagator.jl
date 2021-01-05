@@ -31,8 +31,9 @@
 # reflection coefficient integration.
 #
 # In this example, we will compare solvers and tolerances from
-# DifferentialEquations to determine the most efficient
-# combination with reasonable robustness and accuracy.
+# DifferentialEquations to determine the most efficient combination with reasonable
+# robustness and accuracy.
+# We will begin by looking at the reflection coefficients as a function of height.
 #
 # ## Setup
 #
@@ -41,12 +42,106 @@
 using Statistics
 using Plots
 using DisplayAs  #hide
+using OrdinaryDiffEq
 
 using LongwaveModePropagator
-using LongwaveModePropagator: StaticArrays
-using LongwaveModePropagator: QE, ME, integratedreflection
-using LongwaveModePropagator: RK4, Tsit5, BS5, OwrenZen5, Vern6, Vern7, Vern8
+using LongwaveModePropagator: StaticArrays, QE, ME
+const LMP = LongwaveModePropagator
 
+## Plot defaults
+default(legendfontsize=11, guidefontsize=12, tickfontsize=10)
+
+# ## R(z)
+# 
+# Let's examine the four reflection coefficients for the ionosphere as a function
+# of height.
+# 
+# We will use a typical daytime ionosphere with a Wait and Spies (1964) profile
+# and a wave frequency of 24 kHz.
+# The background magnetic field will be vertical with a magnitude of 50,000 nT.
+# We also need to specify the wave angle of incidence on the ionosphere.
+# We'll use a real ``\theta = 75°``.
+
+species = Species(QE, ME, z->waitprofile(z, 75, 0.32), electroncollisionfrequency)
+frequency = Frequency(24e3)
+bfield = BField(50e-6, π/2, 0)
+ea = EigenAngle(deg2rad(75));
+
+# We start the integration at a ``great height''.
+# For longwaves, anything above the D-region is fine.
+# LongwaveModePropagator defaults to `topheight = 110e3`, or 110 km.
+
+topheight = 110e3
+Mtop = LMP.susceptibility(topheight, frequency, bfield, species)
+Rtop = LMP.bookerreflection(ea, Mtop)
+
+# The starting solution `Rtop` comes from a solution of the Booker quartic for the
+# wavefields at `topheight`.
+# 
+# We use OrdinaryDiffEq.jl to integrate `dRdz`.
+# Although it's not needed for computing the ionosphere reflection coefficient,
+# `dRdz` takes a `ModeEquation` argument, specifying a complete waveguide,
+# including `Ground`, for convenience.
+
+ground = GROUND[1]
+waveguide = HomogeneousWaveguide(bfield, species, ground)
+me = PhysicalModeEquation(ea, frequency, waveguide);
+
+# Then we simply define the `ODEProblem` and `solve`.
+
+prob = ODEProblem{false}(dRdz, Rtop, (topheight, 0.0), (me, LMPParams()))
+
+sol = solve(prob, RK4(), abstol=1e-9, reltol=1e-9);
+
+# Let's plot the reflection coefficients next to the electron density and collision
+# frequency curves.
+# Because the reflection coefficients are complex, we will plot their magnitude
+
+zs = topheight:-1000:0
+
+ne = species.numberdensity.(zs)
+nu = species.collisionfrequency.(zs)
+Wr = LMP.waitsparameter.(zs, (frequency,), (bfield,), (species,))
+
+altinterp = LMP.LinearInterpolation(reverse(Wr), reverse(zs))
+eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
+
+ne[end] = NaN  # otherwise Plots errors
+Wr[end] = NaN
+
+p1 = plot([ne nu Wr], zs/1000,
+          xlims=(10, 10^10), xaxis=(scale=:log10),
+          ylabel="Altitude (km)",
+          labels=["Nₑ (m⁻³)" "ν (s⁻¹)" "ωᵣ = ωₚ²/ν"], legend=:topleft,
+          linewidth=1.5)
+
+vline!(p1, [frequency.ω], linestyle=:dash, color="gray", label="")
+hline!(p1, [eqz/1000], linestyle=:dash, color="gray", label="")
+annotate!(p1, frequency.ω, 10, text(" ω", :left, 9))
+annotate!(p1, 70, eqz/1000-3, text("ωᵣ = ω", :left, 9))
+
+R11 = abs.(sol(zs, idxs=1))
+R21 = abs.(sol(zs, idxs=2))
+R12 = abs.(sol(zs, idxs=3))
+R22 = abs.(sol(zs, idxs=4))
+
+p2 = plot([R11 R21 R12 R22], zs/1000,
+          xlims=(0, 1),
+          yaxis=false, yformatter=_->"",
+          legend=:right, labels=["R₁₁" "R₂₁" "R₁₂" "R₂₂"],
+          linewidth=1.5)
+
+hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="")
+
+plot(p1, p2, layout=(1,2), size=(800, 400))
+
+# savefig("r_z.pdf") #hide
+
+# ## Generate random scenarios
+# 
+# Now that we've seen what the reflection coefficient functions look like,
+# we'll focus on finding an accurate but efficient solver.
+# 
 # We will evaluate the solutions across a range of different random ionospheres,
 # frequencies, and angles of incidence.
 # Each scenario is described by a `PhysicalModeEquation`.
@@ -79,15 +174,18 @@ end
 scenarios = generatescenarios(30);
 
 # ## Reference solutions
-#
+# 
 # To evaluate the accuracy of the reflection coefficients, we compare to a very
 # low tolerance Runge-Kutta Order 4 method. The DifferentialEquations.jl implementation
 # of `RK4` uses adaptive stepping.
+# 
+# The `integratedreflection` function does the integration process above for us
+# and returns the reflection coefficient at the ground.
 
 ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
 params = LMPParams(integrationparams=ip)
 
-Rrefs = [integratedreflection(scenario, params=params) for scenario in scenarios];
+Rrefs = [LMP.integratedreflection(scenario, params=params) for scenario in scenarios];
 
 # ## Evaluate solvers
 #
@@ -108,13 +206,13 @@ function compute(scenarios, tolerances, solvers)
 
             for i in eachindex(scenarios)
                 ## warmup
-                R = integratedreflection(scenarios[i], params=params)
+                R = LMP.integratedreflection(scenarios[i], params=params)
 
                 ## loop for average time
                 N = 25
                 t0 = time_ns()
                 for n = 1:N
-                    R = integratedreflection(scenarios[i], params=params)
+                    R = LMP.integratedreflection(scenarios[i], params=params)
                 end
                 ttotal = time_ns() - t0
 
