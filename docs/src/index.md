@@ -1,32 +1,34 @@
 # LongwaveModePropagator.jl
 
-Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).
+**Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).**
 
-LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
-The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [(Budden, 1955)](@ref Budden1955a) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [(Budden, 1962)](@ref Budden1962).
-It is similar to the Long Wavelength Propagation Capability [(Ferguson, 1998)](@ref Ferguson1998), but aims to be more robust and adaptable.
+Longwave Mode Propagator is a mode-theory propagation model written in the [Julia](https://julialang.org/) programming language.
+The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [(Budden, 1955)](#Budden1955a) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [(Budden, 1962)](#Budden1962).
+It is similar to the [Long Wavelength Propagation Capability](http://www.dtic.mil/docs/citations/ADA350375), but aims to be more robust and adaptable.
 
 The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
-See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
+See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia or for generating compatible files from Matlab and Python.
 
 ## Installation instructions
 
 1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
 2. From the Julia REPL, install LongwaveModePropagator.jl and its dependencies:
 
-    julia> ]
-    (v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
-    (v1.5) pkg> instantiate
+```
+julia> ]
+(@v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
+(@v1.5) pkg> instantiate
+```
 
-If you'll be working primarily in Julia, of course you probably want to `cd` to your working directory, `] activate` a new environment there, and then `add` LongwaveModePropagator.
+If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.
 
-Julia has an excellent built-in package manager (accessed by typing `]` from the REPL) that also keeps track of the versions of all dependencies within an environment.
+Julia has an excellent built-in package manager (accessed by typing `]` from the REPL) that keeps track of the versions of all dependencies within an environment.
 This means you can leave your code, come back to it two years later on a new computer, and as long as you have all the original files (including the `Project.toml` and `Manifest.toml` files), you can `instantiate` the exact environment you were last working with.
 To update the environment (while maintaining compatibility across all dependencies), simply
 `] up`.
 
-As with most Julia packages, LongwaveModePropagator.jl is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModePropagator).
-Please open Issues or Pull requests if you find any problems, are interested in new features, or you would like to contribute.
+As with most Julia packages, LongwaveModePropagator is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModePropagator).
+Please open [Issues](https://github.com/fgasdia/LongwaveModePropagator.jl/issues) if you find any problems or are interested in new features, or [Pull requests](https://github.com/fgasdia/LongwaveModePropagator.jl/pulls) if you would like to contribute.
 
 ## Running your first model
 
@@ -62,13 +64,16 @@ We can plot the results if we `] add Plots`:
 ```julia
 using Plots
 
-plot(rx.distance/1000, a, xlabel="distance (km)", ylabel="amplitude (dB)")
+plot(rx.distance/1000, a, xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)")
 ```
 
 ![](indexexample.png)
 
-Note that throughout the code SI units (MKS) and radians are used.
-The only notable exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile.
+!!! note
+
+    SI units (MKS) and _radians_ are used throughout LongwaveModePropagator.
+
+    The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often not specified and implicitly taken to be kilometers and inverse kilometers.
 
 Users are encouraged to browse the **Examples** section for more complex scenarios.
 
@@ -78,7 +83,7 @@ Julia is a relatively new general programming language that shines for technical
 It has similarities to Matlab and Python, but is high performance and attempts to solve the ["two language problem"](https://thebottomline.as.ucsb.edu/2018/10/julia-a-solution-to-the-two-language-programming-problem).
 In part, it achieves its high performance by compiling functions to efficient native code via LLVM.
 Julia is dynamically typed and uses multiple dispatch, so that the first time a given function is passed arguments of a certain type, the function is compiled for those types.
-In practice, this means that the first time a function is called, it takes longer than it will on subsequent calls because at the first call the function also had to be compiled.
+In practice, this means that the first time a function is called, it takes longer than it will on subsequent calls, because at the first call the function also had to be compiled.
 
 ### Finding help
 
@@ -87,17 +92,17 @@ It is very thorough and combines significant textual explanations with examples.
 
 Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible with `?`.
 The help functionality works "automatically", even for user-defined functions with docstrings.
-Most internal functions of LongwaveModePropagator.jl are documented, so e.g.
+Most internal functions of LongwaveModePropagator are documented, so e.g.
 ```julia
 ? LongwaveModePropagator.bookerquartic
 ```
-prints some explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) function even though it's not exported from the package.
+prints an explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) function even though it's not exported from the package.
 
 
 ## References
 
-[K. G. Budden](@id Budden1955a), “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: [10.1098/rspa.1955.0027](https://doi.org/10.1098/rspa.1955.0027).
+```@raw html
+<a name="Budden1955a"></a>K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: <a href="https://doi.org/10.1098/rspa.1955.0027">10.1098/rspa.1955.0027</a>.
 
-[K. G. Budden](@id Budden1962), “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: [10.1098/rspa.1962.0041](https://doi.org/10.1098/rspa.1962.0041).
-
-[J. A. Ferguson](@id Ferguson1998), “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. [Online]. Available: http://www.dtic.mil/docs/citations/ADA350375.
+<a name="Budden1962"></a>K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: <a href="https://doi.org/10.1098/rspa.1962.0041">10.1098/rspa.1962.0041</a>.
+```
