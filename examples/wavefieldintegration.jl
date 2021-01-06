@@ -18,12 +18,13 @@
 using CSV, Interpolations
 using Plots
 using DisplayAs  #hide
+using OrdinaryDiffEq
 
 using TimerOutputs
 
 using LongwaveModePropagator
-using LongwaveModePropagator: QE, ME, integratewavefields
-using LongwaveModePropagator: Tsit5, BS5, OwrenZen5, Vern6, Vern7, Vern8, Vern9
+using LongwaveModePropagator: QE, ME
+const LMP = LongwaveModePropagator
 
 # ## The ionosphere
 
@@ -121,8 +122,8 @@ nothing  #hide
 zs = 110e3:-50:0
 zskm = zs/1000
 
-e = integratewavefields(zs, ea, frequency, bfield, day, unscale=true)
-e_unscaled = integratewavefields(zs, ea, frequency, bfield, day, unscale=false)
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day, unscale=true)
+e_unscaled = LMP.integratewavefields(zs, ea, frequency, bfield, day, unscale=false)
 
 ex1 = getindex.(e, 1)
 ex1_unscaled = getindex.(e_unscaled, 1)
@@ -175,8 +176,8 @@ for s in eachindex(solvers)
     params = LMPParams(wavefieldintegrationparams=ip)
 
     ## make sure method is compiled
-    integratewavefields(zs, ea, frequency, bfield, day, params=params);
-    integratewavefields(zs, ea, frequency, bfield, night, params=params);
+    LMP.integratewavefields(zs, ea, frequency, bfield, day, params=params);
+    LMP.integratewavefields(zs, ea, frequency, bfield, night, params=params);
 
     solverstring = solverstrings[s]
     let day_e, night_e
@@ -184,11 +185,11 @@ for s in eachindex(solvers)
         for i = 1:25
             ## day ionosphere
             @timeit TO solverstring begin
-                day_e = integratewavefields(zs, ea, frequency, bfield, day, params=params)
+                day_e = LMP.integratewavefields(zs, ea, frequency, bfield, day, params=params)
             end
             ## night ionosphere
             @timeit TO solverstring begin
-                night_e = integratewavefields(zs, ea, frequency, bfield, night, params=params)
+                night_e = LMP.integratewavefields(zs, ea, frequency, bfield, night, params=params)
             end
         end
         push!(day_es, day_e)
@@ -241,7 +242,7 @@ TO
 zs = 110e3:-500:50e3
 zskm = zs/1000
 
-e = integratewavefields(zs, ea, frequency, bfield, day, unscale=true)
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day, unscale=true)
 
 ex1 = getindex.(e, 1)
 ey1 = getindex.(e, 2)
@@ -290,7 +291,7 @@ ground = GROUND[8]
 zs = 110e3:-50:70e3
 zskm = zs/1000
 
-e = integratewavefields(zs, ea, frequency, bfield, night)
+e = LMP.integratewavefields(zs, ea, frequency, bfield, night)
 
 ey1 = getindex.(e, 2)
 hx2 = getindex.(e, 7)
