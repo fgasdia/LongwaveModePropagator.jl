@@ -24,7 +24,7 @@ export propagate
 
 # EigenAngle.jl
 export EigenAngle
-export attenuation, phasevelocity, referencetoground
+export attenuation, phasevelocity, referencetoground, setea
 
 # Geophysics.jl
 export BField, Species, Fields, Ground, GROUND

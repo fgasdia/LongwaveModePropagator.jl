@@ -458,6 +458,7 @@ boundaryscalars(R, Rg, e, isotropic::Bool=false) =
     boundaryscalars(R, Rg, e[:,1], e[:,2], isotropic)
 
 """
+    fieldstrengths!(EH, zs, me::ModeEquation; params=LMPParams())
     fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
         species::Species, ground::Ground; params=LMPParams())
 
@@ -497,6 +498,26 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
     end
 
     return nothing
+end
+
+function fieldstrengths!(EH, zs, me::ModeEquation; params=LMPParams())
+    @unpack ea, frequency, waveguide = me
+    @unpack bfield, species, ground = waveguide
+
+    fieldstrengths!(EH, zs, ea, frequency, bfield, species, ground, params=params)
+end
+
+"""
+    fieldstrengths(zs, me::ModeEquation; params=LMPParams())
+
+Preallocate vector of wavefields `EH`, then call [`fieldstrengths!`](@ref) and return `EH`.
+
+Each element of `EH` is an `SVector` of ``ex, ey, ez, hx, hy, hz``.
+"""
+function fieldstrengths(zs, me::ModeEquation; params=LMPParams())
+    EH = Vector{SVector{6, ComplexF64}}(undef, length(zs))
+    fieldstrengths!(EH, zs, me, params=params)
+    return EH
 end
 
 """
