@@ -43,6 +43,7 @@ using Statistics
 using Plots
 using DisplayAs  #hide
 using OrdinaryDiffEq
+using Interpolations
 
 using LongwaveModePropagator
 using LongwaveModePropagator: StaticArrays, QE, ME
@@ -104,7 +105,7 @@ ne = species.numberdensity.(zs)
 nu = species.collisionfrequency.(zs)
 Wr = LMP.waitsparameter.(zs, (frequency,), (bfield,), (species,))
 
-altinterp = LMP.LinearInterpolation(reverse(Wr), reverse(zs))
+altinterp = LinearInterpolation(reverse(Wr), reverse(zs))
 eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
 
 ne[end] = NaN  # otherwise Plots errors
