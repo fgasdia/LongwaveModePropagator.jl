@@ -68,7 +68,7 @@ frequency = Frequency(24e3)
 bfield = BField(50e-6, π/2, 0)
 ea = EigenAngle(deg2rad(75));
 
-# We start the integration at a ``great height''.
+# We start the integration at a "great height".
 # For longwaves, anything above the D-region is fine.
 # LongwaveModePropagator defaults to `topheight = 110e3`, or 110 km.
 
