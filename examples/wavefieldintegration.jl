@@ -17,6 +17,7 @@
 
 using CSV, Interpolations
 using Plots
+using Plots.Measures
 using DisplayAs  #hide
 using OrdinaryDiffEq
 
@@ -251,7 +252,8 @@ hx2 = getindex.(e, 7)
 
 function plotfield(field; kwargs...)
     p = plot(real(field), zskm, color="black", linewidth=1.5, legend=false,
-             xlims=(-0.8, 0.8), label="real"; kwargs...)
+             xlims=(-0.8, 0.8), label="real",
+             framestyle=:grid; kwargs...)
     plot!(p, imag(field), zskm, color="black",
           linewidth=1.5, linestyle=:dash, label="imag")
     plot!(p, abs.(field), zskm, color="black", linewidth=3, label="abs")
@@ -259,13 +261,21 @@ function plotfield(field; kwargs...)
     return p
 end
 
-ex1p = plotfield(ex1, ylims=(49, 81), title="\$E_{x,1}\$");
-ey1p = plotfield(ey1, ylims=(49, 81), title="\$E_{y,1}\$");
-ex2p = plotfield(ex2, ylims=(49, 86), title="\$E_{x,2}\$");
-hx2p = plotfield(hx2, ylims=(49, 86), title="\$H_{x,2}\$");
-img = plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,700))
+fs = 10
+ex1p = plotfield(ex1, ylims=(49, 81), yaxis=false, yformatter=_->"")
+annotate!(ex1p, 0.2, 79, text("\$E_{x,1}\$", fs))
+ey1p = plotfield(ey1, ylims=(49, 81))
+annotate!(ey1p, 0.2, 79, text("\$E_{y,1}\$", fs))
+annotate!(ey1p, -0.98, 83, text("height (km)", fs))
+ex2p = plotfield(ex2, ylims=(49, 86), yaxis=false, yformatter=_->"")
+annotate!(ex2p, 0.3, 84, text("\$E_{x,2}\$", fs))
+hx2p = plotfield(hx2, ylims=(49, 86))
+annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center))
+img = plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm)
 DisplayAs.PNG(img)  #hide
+# savefig(img, "wavefields.pdf")  #hide
 
+# 
 # ![Pitteway1965_fig2](@__REPO_ROOT_URL__/examples/Pitteway1965_fig2.png)
 
 # The envelopes of the two are very similar.
@@ -301,4 +311,5 @@ hx2p = plotfield(hx2, ylims=(75, 102), title="\$H_{x,2}\$");
 img = plot(ey1p, hx2p, layout=(1,2), size=(400,500))
 DisplayAs.PNG(img)  #hide
 
+# 
 # ![Pitteway1965_fig3](@__REPO_ROOT_URL__/examples/Pitteway1965_fig3.png)
