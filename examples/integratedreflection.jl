@@ -134,10 +134,8 @@ p2 = plot([R11 R21 R12 R22], zs/1000,
 
 hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="")
 
-plot(p1, p2, layout=(1,2), size=(800, 400))
+img = plot(p1, p2, layout=(1,2), size=(800, 400))
 DisplayAs.PNG(img)  #hide
-
-# savefig("r_z.pdf") #hide
 
 # ## Generate random scenarios
 # 

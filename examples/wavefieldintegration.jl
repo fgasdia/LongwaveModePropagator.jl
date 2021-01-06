@@ -273,7 +273,6 @@ hx2p = plotfield(hx2, ylims=(49, 86))
 annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center))
 img = plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm)
 DisplayAs.PNG(img)  #hide
-# savefig(img, "wavefields.pdf")  #hide
 
 # 
 # ![Pitteway1965_fig2](@__REPO_ROOT_URL__/examples/Pitteway1965_fig2.png)
