@@ -1,3 +1,8 @@
+"""
+    Antenna
+
+Abstract supertype for all antenna-like types. 
+"""
 abstract type Antenna end
 
 """

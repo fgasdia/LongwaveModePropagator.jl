@@ -1,6 +1,7 @@
 # # Wavefield integration
 #
-# The process of mode conversion between two different segments of `HomogeneousWaveguide`'s
+# The process of mode conversion between two different segments of
+# [`HomogeneousWaveguide`](@ref)'s
 # requires the computation of electromagnetic wavefields from ground to a great
 # height in the ionosphere.
 #
@@ -26,13 +27,14 @@ using TimerOutputs
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
 const LMP = LongwaveModePropagator
+nothing  #hide
 
 # ## The ionosphere
 
 # Pitteway uses an ionosphere presented in
 # [Piggot et. al., 1965](https://doi.org/10.1098/rsta.1965.0005).
 #
-# ![](@__REPO_ROOT_URL__/examples/Piggott_ionosphere.png)
+# ![Piggott ionosphere](@__REPO_ROOT_URL__/examples/Piggott_ionosphere.png)
 #
 # He begins with the midday profile with a 16 kHz radio wave at an angle of incidence of
 # 40° from normal. We'll also assume the magnetic field has a strength of 50,000 nT
@@ -40,7 +42,7 @@ const LMP = LongwaveModePropagator
 # to Cambridge, UK, which, according to the
 # [Westinghouse VLF effective-conductivity map](https://apps.dtic.mil/sti/citations/AD0675771),
 # has a ground conductivity index of 8.
-# This can be specified using LongwaveModePropagator.jl as `GROUND[8]`.
+# This can be specified as `GROUND[8]`.
 
 ea = EigenAngle(deg2rad(40))
 frequency = Frequency(16e3)
@@ -82,7 +84,7 @@ nothing  #hide
 
 # ## Scaled, integrated wavefields
 #
-# We use the coordinate fraem where ``z`` is directed upward into the ionosphere, ``x`` is
+# We use the coordinate frame where ``z`` is directed upward into the ionosphere, ``x`` is
 # along the propagation direction, and ``y`` is perpendicular to complete the
 # right-handed system.
 # Where the ionosphere only varies in the ``z`` direction, the ``E_z``
@@ -151,13 +153,14 @@ DisplayAs.PNG(img)  #hide
 # Julia has a fantastic [DifferentialEquations suite](https://diffeq.sciml.ai/stable/)
 # for integrating many different forms of differential equations.
 # Although wavefields are only computed two times for every transition in a
-# `SegmentedWaveguide`, we would still like to choose an efficient solver that requires
+# [`SegmentedWaveguide`](@ref), we would still like to choose an efficient
+# solver that requires
 # relatively few function calls while still maintaining good accuracy.
 #
 # Let's try a few different solvers and compare their runtime for the
 # day and night ionospheres.
 #
-# We can pass `IntegrationParams` through the `LMPParams` struct.
+# We can pass [`IntegrationParams`](@ref) through the [`LMPParams`](@ref) struct.
 # Where necessary, we set the `lazy` interpolant option  of the solvers to `false`
 # because we discontinuously scale the fields in the middle of the integration and the
 # `lazy` option is not aware of this.
@@ -206,6 +209,7 @@ img = plot(real(day_e1s), zs/1000,
            label=permutedims(solverstrings), legend=:topleft)
 DisplayAs.PNG(img)  #hide
 
+# 
 # And at night...
 
 night_e1s = [getindex.(e, 1) for e in night_es]
@@ -214,18 +218,19 @@ img = plot(real(night_e1s), zs/1000,
            label=permutedims(solverstrings), legend=:topright)
 DisplayAs.PNG(img)  #hide
 
+# 
 # The times to run each...
 
 TO
 
-# The Tsit5, BS5, and 6th, 7th, and 8th order Vern methods all have similar performance.
+# The `Tsit5`, `BS5`, and 6th, 7th, and 8th order Vern methods all have similar performance.
 # In fact, rerunning these same tests multiple times can result in different solvers
 # being "fastest".
 #
-# The DifferentialEquations.jl [documents](https://diffeq.sciml.ai/stable/solvers/ode_solve/)
+# The DifferentialEquations [documents](https://diffeq.sciml.ai/stable/solvers/ode_solve/)
 # suggest that Verner's methods are preferred over the two lower order methods when solving
 # with the accuracy range `~1e-8-1e-12`. We use `Vern7(lazy=false)`as the default in
-# LongwaveModePropagator.jl. There is no direct MATLAB equivalent to `Vern7`; it
+# LongwaveModePropagator. There is no direct MATLAB equivalent to `Vern7`; it
 # plays a similar role as [`ode113`](https://www.mathworks.com/help/matlab/ref/ode113.html)
 # (Mathworks suggests `ode113` is better at solving problems with stringent error tolerance
 # than `ode45`). `Vern7` is usually more efficient than `ode113`.
@@ -273,7 +278,6 @@ hx2p = plotfield(hx2, ylims=(49, 86))
 annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center))
 img = plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm)
 DisplayAs.PNG(img)  #hide
-# savefig(img, "wavefields.pdf")  #hide
 
 # 
 # ![Pitteway1965_fig2](@__REPO_ROOT_URL__/examples/Pitteway1965_fig2.png)
@@ -312,4 +316,4 @@ img = plot(ey1p, hx2p, layout=(1,2), size=(400,500))
 DisplayAs.PNG(img)  #hide
 
 # 
-# ![Pitteway1965_fig3](@__REPO_ROOT_URL__/examples/Pitteway1965_fig3.png)
+# ![Pitteway1965_fig3](../../../examples/Pitteway1965_fig3.png)

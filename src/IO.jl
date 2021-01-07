@@ -10,6 +10,11 @@ function jsonsafe!(v)
     end
 end
 
+"""
+    Input
+
+Abstract supertype for structs carrying information to be input to the model.
+"""
 abstract type Input end
 
 """
@@ -137,6 +142,11 @@ end
 BatchInput() = BatchInput{Any}()
 StructTypes.StructType(::Type{<:BatchInput}) = StructTypes.Mutable()
 
+"""
+    Output
+
+Abstract supertype for structs containing information to be output from the model.
+"""
 abstract type Output end
 
 """
