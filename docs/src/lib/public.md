@@ -25,6 +25,7 @@ LMPParams
 ```@docs
 findmodes
 PhysicalModeEquation
+setea
 IntegrationParams
 ```
 
