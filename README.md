@@ -1,10 +1,12 @@
 # LongwaveModePropagator.jl
 
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://fgasdia.github.io/LongwaveModePropagator.jl/stable)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://fgasdia.github.io/LongwaveModePropagator.jl/dev)
-[![Build status][gha-img]][gha-url]
-
 **Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).**
+
+
+| **Documentation**                                                          | **Build Status**                    |
+|:--------------------------------------------------------------------------:|:-----------------------------------:|
+| [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url]  | [![Build status][gha-img]][gha-url] |
+
 
 LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
 The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [(Budden, 1955)](#Budden1955a) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [(Budden, 1962)](#Budden1962).
@@ -108,5 +110,9 @@ prints some explanation of the `bookerquartic` function even though it's not exp
 <a name="Ferguson1998"></a>J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. [Online]. Available: http://www.dtic.mil/docs/citations/ADA350375.
 
 
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://fgasdia.github.io/LongwaveModePropagator.jl/stable
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[docs-dev-url]: https://fgasdia.github.io/LongwaveModePropagator.jl/dev
 [gha-img]: https://github.com/fgasdia/LongwaveModePropagator.jl/workflows/CI/badge.svg
 [gha-url]: https://github.com/fgasdia/LongwaveModePropagator.jl/actions?query=workflow
