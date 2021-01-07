@@ -605,6 +605,7 @@ coordinate `zbl` in the bottom left and `ztr` in the top right with initial mesh
 `zbl` and `ztr` are located on the complex plane at the locations marked in the
 diagram below:
 
+```
        im
        |
 -re ---|------ ztr
@@ -613,7 +614,7 @@ diagram below:
        |   /
        |  /
        zbl
-
+```
 """
 function trianglemesh(zbl, ztr, Δr)
     rzbl, izbl = reim(zbl)
