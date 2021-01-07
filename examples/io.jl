@@ -27,7 +27,8 @@ nothing  #hide
 
 # ## Inputs
 #
-# There are two primary ways to define [`Input`](@ref)s, the abstract supertype for 
+# There are two primary ways to define [`LongwaveModePropagator.Input`](@ref)s,
+# the abstract supertype for 
 # inputing information to the model.
 #
 # ### [BasicInput](@id basicinput_io)
@@ -157,7 +158,7 @@ output = propagate(filename);
 
 # ## Outputs
 #
-# There are only two [`Output`](@ref) types:
+# There are only two [`LongwaveModePropagator.Output`](@ref) types:
 # [`BasicOutput`](@ref) and [`BatchOutput`](@ref).
 # Both `BasicInput`s and `TableInput`s create `BasicOutput`s, but the `BatchInput`
 # creates a `BatchOutput`.

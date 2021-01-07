@@ -154,7 +154,8 @@ DisplayAs.PNG(img)  #hide
 
 # 
 # Roots are frequently located closely to poles in the upper right of the domain for
-# a variety of ionospheres. To ensure they are captured, [`defaultmesh`](@ref)
+# a variety of ionospheres. To ensure they are captured,
+# [`LongwaveModePropagator.defaultmesh`](@ref)
 # uses a spacing of `Δr = deg2rad(0.5)` for most of the mesh,
 # but a spacing of `Δr = deg2rad(0.15)` for the region with real greater
 # than 80° and imaginary greater than -1°.

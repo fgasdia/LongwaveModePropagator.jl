@@ -88,7 +88,8 @@ y = -40:Δr:0
 mesh = x .+ im*y';
 
 # Now we simply iterate over each node of the mesh, evaluating the modal equation with
-# [`solvemodalequation`](@ref), explicitly imported from LongwaveModePropagator above.
+# [`LongwaveModePropagator.solvemodalequation`](@ref), explicitly imported from
+# LongwaveModePropagator above.
 # We use Julia's `Threads.@threads` multithreading capability to speed up the computation.
 
 function modeequationphase(me, mesh)
@@ -168,7 +169,8 @@ DisplayAs.PNG(img)  #hide
 # Therefore, to save compute time, we can exclude the lower right triangle of the domain
 # from the initial mesh.
 #
-# The function [`trianglemesh`](@ref) is built into LongwaveModePropagator for this purpose.
+# The function [`LongwaveModePropagator.trianglemesh`](@ref) is built into
+# LongwaveModePropagator for this purpose.
 # The inputs are specified by the complex bottom left corner `zbl`, the top right corner
 # `ztr`, and the mesh spacing `Δr` in _radians_.
 

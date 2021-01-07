@@ -79,7 +79,7 @@ Rtop = LMP.bookerreflection(ea, Mtop)
 # The starting solution `Rtop` comes from a solution of the Booker quartic for the
 # wavefields at `topheight`.
 # 
-# We use OrdinaryDiffEq.jl to integrate [`LMP.dRdz`](@ref).
+# We use OrdinaryDiffEq.jl to integrate [`LongwaveModePropagator.dRdz`](@ref).
 # Although it's not needed for computing the ionosphere reflection coefficient,
 # `dRdz` takes a `ModeEquation` argument, specifying a complete waveguide,
 # including `Ground`, for convenience.
@@ -179,7 +179,8 @@ scenarios = generatescenarios(30);
 # low tolerance Runge-Kutta Order 4 method. The DifferentialEquations implementation
 # of `RK4` uses adaptive stepping.
 # 
-# The [`LMP.integratedreflection`](@ref) function does the integration process above for us
+# The [`LongwaveModePropagator.integratedreflection`](@ref) function does the
+# integration process above for us
 # and returns the reflection coefficient at the ground.
 
 ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
