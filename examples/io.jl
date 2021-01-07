@@ -1,9 +1,9 @@
 # # File-based I/O
 #
-# LongwaveModePropagator.jl provides basic propagation capabilities
-# through input/output JSON files. Julia is still needed to run the
-# model, but scenarios can otherwise be defined and analyzed from
-# e.g. Matlab or Python.
+# LongwaveModePropagator provides basic propagation capabilities
+# interfacing through [JSON](https://www.json.org/json-en.html) files.
+# Julia is still needed to run the model, but scenarios can otherwise
+# be defined and analyzed from e.g. Matlab or Python.
 #
 # Examples of writing and reading compatible JSON files are provided below
 # for [Matlab](@ref matlab_json) and [Python](@ref python_json).
@@ -16,13 +16,22 @@ using Plots
 using DisplayAs  #hide
 
 using LongwaveModePropagator
+nothing #hide
+
+# Throughout the examples, we'll also define `LMP` as shorthand for
+# `LongwaveModePropagator` when accessing functions from the package that
+# aren't exported.
+
 const LMP = LongwaveModePropagator
 nothing  #hide
 
 # ## Inputs
 #
-# There are two primary ways to define `Input`s.
+# There are two primary ways to define [`Input`](@ref)s, the abstract supertype for 
+# inputing information to the model.
 #
+# ### [BasicInput](@id basicinput_io)
+# 
 # The first is known as a [`BasicInput`](@ref). It defines the ionosphere using
 # Wait and Spies ``h'`` and ``\beta`` parameters.
 #
@@ -42,9 +51,11 @@ nothing  #hide
 # - `frequency::Float64`: transmitter frequency in Hertz.
 # - `output_ranges::Vector{Float64}`: distances from the transmitter at which the field will be calculated.
 #
-# The fields that are vectors allow the definition of a `SegmentedWaveguide`.
+# The fields that are vectors allow the definition of a [`SegmentedWaveguide`](@ref)
+# where each element of the vector is its own [`HomogeneousWaveguide`](@ref) segment.
+# Single element vectors are treated as a single `HomogeneousWaveguide`.
 #
-# To show the equivalent JSON format, we'll build a simple, homoegenous ionosphere
+# To show the equivalent JSON format, we'll build a simple, homogeneous ionosphere
 # `BasicInput`. It's defined as a `mutable struct`, so it is simple to specify the
 # fields one by one.
 
@@ -64,6 +75,8 @@ input.ground_epsrs = [4]
 input.frequency = 24e3
 input.output_ranges = collect(0:100e3:1000e3)
 
+# Here it is formatted as JSON.
+
 json_str = JSON3.pretty(input)
 
 # Let's also save this to a file.
@@ -79,11 +92,13 @@ open(filename,"w") do f
 end
 nothing  #hide
 
-# The second input is the `TableInput`. This type defines the ionosphere using
-# a tabular input of number density and collision frequency over altitude.
+# ### [TableInput](@id tableinput_io)
+# 
+# The second input is the [`TableInput`](@ref). This type defines the ionosphere using
+# a tabular input of number density and collision frequency as a function of altitude.
 # These tables are then _linearly_ interpolated when integrating the ionosphere
 # reflection coefficient and wavefields (so it's better if these tables are fairly
-# dense).
+# densely sampled with respect to altitude).
 #
 # The fields of the `TableInput` are
 #
@@ -122,22 +137,29 @@ tinput.output_ranges = collect(0:100e3:1000e3)
 
 json_str = JSON3.pretty(tinput)
 
-# Both of these input types can be collected together in a `BatchInput` which has fields
-# for a `name`, `description`, `datetime`, and vector of inputs.
+# ### [BatchInput](@id batchinput_io)
+# 
+# Both the `BasicInput` and `TableInput` types can be collected together in a
+# [`BatchInput`](@ref) which has fields
+# for a `name`, `description`, `datetime`, and vector of `Inputs`.
 # This is useful for keeping a set of scenarios together.
-# See the "test/IO.jl" file for additional help on how these should be formatted.
+# See the [test/IO.jl](@__REPO_ROOT_URL__/test/IO.jl) file
+# for additional help on how these should be formatted.
+# 
+# ## Running the model from a JSON file
 #
 # To run the model, [`propagate`](@ref) accepts a filename input
-# (see the help for optional arguments), however, instead of returning a
-# tuple of complex electric field, amplitude, and phase, it returns an output
-# type. It also saves the output to a JSON file.
+# (see the help for optional arguments). However, instead of returning a
+# tuple of complex electric field, amplitude, and phase, it returns an `Output`
+# type. Additionally, it saves the output to a JSON file.
 
 output = propagate(filename);
 
 # ## Outputs
 #
-# There are only two `Output` types: [`BasicOutput`](@ref) and [`BatchOutput`](@ref).
-# Both `BasicInput` and `TableInput`s create `BasicOutput`s, but the `BatchInput`
+# There are only two [`Output`](@ref) types:
+# [`BasicOutput`](@ref) and [`BatchOutput`](@ref).
+# Both `BasicInput`s and `TableInput`s create `BasicOutput`s, but the `BatchInput`
 # creates a `BatchOutput`.
 #
 # The `BasicOutput` contains fields for
@@ -154,11 +176,14 @@ output = propagate(filename);
 
 output
 
+# Not surprisingly, a `BatchOutput` is simply a container holding a `Vector` of
+# `BasicOutput`s, as well as some additional metadata from the corresponding `BatchInput`.
+
 # ## [JSON I/O from Matlab](@id matlab_json)
 #
 # Here's an example of how to encode the above `BasicInput` to JSON and
-# decode the output using Matlab.
-# It's also in the file [io.m](@__REPO_ROOT_URL__/examples/io.m).
+# decode the output using [Matlab](https://www.mathworks.com/help/matlab/json-format.html).
+# It's also in the file [examples/io.m](@__REPO_ROOT_URL__/examples/io.m).
 #
 # ```matlab
 # % Matlab script
@@ -185,7 +210,8 @@ output
 # fclose(fid);
 # ```
 #
-# Matlab was used to generate the file `basic_matlab.json`.
+# Matlab was used to generate the file
+# [`basic_matlab.json`](@__REPO_ROOT_URL__/examples/basic_matlab.json).
 # We can confirm it's parsed correctly by using the internal
 # LongwaveModePropagator function [`LongwaveModePropagator.parse`](@ref), which attempts to parse
 # JSON files into recognized input and output formats.
@@ -213,6 +239,8 @@ matlab_output = propagate(joinpath(examples_dir, "basic_matlab.json"));
 # Reading the results file from Matlab is relatively simple.
 #
 # ```matlab
+# % Matlab script
+# 
 # filename = 'basic_matlab_output.json';
 #
 # text = fileread(filename);
@@ -222,7 +250,8 @@ matlab_output = propagate(joinpath(examples_dir, "basic_matlab.json"));
 #
 # ## [JSON I/O from Python](@id python_json)
 #
-# Here is similar code for Python, also available in the file
+# Here is similar code for [Python](https://docs.python.org/3/library/json.html),
+# also available in the file
 # [io.py](@__REPO_ROOT_URL__/examples/io.py).
 #
 # ```python
