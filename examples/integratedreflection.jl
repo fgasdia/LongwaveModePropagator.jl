@@ -1,6 +1,6 @@
 # # Solvers for ionosphere reflection coefficient
 #
-# LongwaveModePropagator.jl uses the technique presented by
+# LongwaveModePropagator uses the technique presented by
 # [Budden (1955)](https://doi.org/10.1098/rspa.1955.0027) to compute the reflection
 # coefficient of a horiontally stratified ionosphere consisting of an
 # anisotropic, collisional plasma.
@@ -27,7 +27,7 @@
 # that the differential equations solver be as efficient as possible to minimize
 # runtime.
 # The mode finder is responsible for more than 90% of the runtime of
-# LongwaveModePropagator.jl, and most of the mode finder runtime is the ionosphere
+# LongwaveModePropagator, and most of the mode finder runtime is the ionosphere
 # reflection coefficient integration.
 #
 # In this example, we will compare solvers and tolerances from
@@ -35,14 +35,14 @@
 # robustness and accuracy.
 # We will begin by looking at the reflection coefficients as a function of height.
 #
-# ## Setup
-#
 # First we load the packages we need.
 
 using Statistics
 using Plots
+using Plots.Measures
 using DisplayAs  #hide
 using OrdinaryDiffEq
+using Interpolations
 
 using LongwaveModePropagator
 using LongwaveModePropagator: StaticArrays, QE, ME
@@ -70,7 +70,7 @@ ea = EigenAngle(deg2rad(75));
 
 # We start the integration at a "great height".
 # For longwaves, anything above the D-region is fine.
-# LongwaveModePropagator defaults to `topheight = 110e3`, or 110 km.
+# LongwaveModePropagator defaults to a `topheight` of 110 km.
 
 topheight = 110e3
 Mtop = LMP.susceptibility(topheight, frequency, bfield, species)
@@ -79,7 +79,7 @@ Rtop = LMP.bookerreflection(ea, Mtop)
 # The starting solution `Rtop` comes from a solution of the Booker quartic for the
 # wavefields at `topheight`.
 # 
-# We use OrdinaryDiffEq.jl to integrate `dRdz`.
+# We use OrdinaryDiffEq.jl to integrate [`LMP.dRdz`](@ref).
 # Although it's not needed for computing the ionosphere reflection coefficient,
 # `dRdz` takes a `ModeEquation` argument, specifying a complete waveguide,
 # including `Ground`, for convenience.
@@ -90,13 +90,13 @@ me = PhysicalModeEquation(ea, frequency, waveguide);
 
 # Then we simply define the `ODEProblem` and `solve`.
 
-prob = ODEProblem{false}(dRdz, Rtop, (topheight, 0.0), (me, LMPParams()))
+prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), (me, LMPParams()))
 
 sol = solve(prob, RK4(), abstol=1e-9, reltol=1e-9);
 
 # Let's plot the reflection coefficients next to the electron density and collision
 # frequency curves.
-# Because the reflection coefficients are complex, we will plot their magnitude
+# Because the reflection coefficients are complex-valued, we will plot their magnitude.
 
 zs = topheight:-1000:0
 
@@ -104,7 +104,7 @@ ne = species.numberdensity.(zs)
 nu = species.collisionfrequency.(zs)
 Wr = LMP.waitsparameter.(zs, (frequency,), (bfield,), (species,))
 
-altinterp = LMP.LinearInterpolation(reverse(Wr), reverse(zs))
+altinterp = LinearInterpolation(reverse(Wr), reverse(zs))
 eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
 
 ne[end] = NaN  # otherwise Plots errors
@@ -144,7 +144,7 @@ DisplayAs.PNG(img)  #hide
 # 
 # We will evaluate the solutions across a range of different random ionospheres,
 # frequencies, and angles of incidence.
-# Each scenario is described by a `PhysicalModeEquation`.
+# Each scenario is described by a [`PhysicalModeEquation`](@ref).
 
 function generatescenarios(N)
     eas = EigenAngle.(complex.(rand(N)*π/2, rand(N)*deg2rad(-10)))
@@ -176,10 +176,10 @@ scenarios = generatescenarios(30);
 # ## Reference solutions
 # 
 # To evaluate the accuracy of the reflection coefficients, we compare to a very
-# low tolerance Runge-Kutta Order 4 method. The DifferentialEquations.jl implementation
+# low tolerance Runge-Kutta Order 4 method. The DifferentialEquations implementation
 # of `RK4` uses adaptive stepping.
 # 
-# The `integratedreflection` function does the integration process above for us
+# The [`LMP.integratedreflection`](@ref) function does the integration process above for us
 # and returns the reflection coefficient at the ground.
 
 ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
@@ -261,7 +261,7 @@ mean_times = dropdims(mean(times, dims=1), dims=1)
 
 img = heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
               clims=(0, 9),
-              xlabel="tolerance", ylabel="solver",
+              xlabel="tolerance", ylabel="solver", left_margin=5mm,
               colorbar_title="time (μs)", colorbar=true)
 DisplayAs.PNG(img)  #hide
 
