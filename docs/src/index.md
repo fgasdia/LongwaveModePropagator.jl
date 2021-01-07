@@ -20,7 +20,7 @@ julia> ]
 (@v1.5) pkg> instantiate
 ```
 
-If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.
+If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator (but note that the package is not in Julia's General registry and must be installed with the GitHub URL).
 
 Julia has an excellent built-in package manager (accessed by typing `]` from the REPL) that keeps track of the versions of all dependencies within an environment.
 This means you can leave your code, come back to it two years later on a new computer, and as long as you have all the original files (including the `Project.toml` and `Manifest.toml` files), you can `instantiate` the exact environment you were last working with.
@@ -103,6 +103,8 @@ prints an explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) func
 
 ```@raw html
 <a name="Budden1955a"></a>K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: <a href="https://doi.org/10.1098/rspa.1955.0027">10.1098/rspa.1955.0027</a>.
+```
 
+```@raw html
 <a name="Budden1962"></a>K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: <a href="https://doi.org/10.1098/rspa.1962.0041">10.1098/rspa.1962.0041</a>.
 ```
