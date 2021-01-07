@@ -1,14 +1,15 @@
 # # Mesh grid for mode finding - Part 2
 #
-# In [Mesh grid for mode finding - Part 1](@ref) we used `trianglemesh` to
+# In [Mesh grid for mode finding - Part 1](@ref) we used
+# [`LongwaveModePropagator.trianglemesh`](@ref) to
 # initialize the GRPF grid for mode finding several different ionospheres and transmit
 # frequencies.
 # In part 2 we'll look at where `grpf` can fail for certain scenarios.
 #
 # Naturally we want to be able to use the coarsest initial mesh grid as possible
 # because the reflection coefficient has to be integrated through the ionosphere
-# for every node of the grid and that is the most computationally expensive operation
-# of all of LongwaveModePropagator.jl.
+# for every node of the grid. This step is by far the most computationally
+# expensive operation of all of LongwaveModePropagator.
 #
 # First, let's load the packages needed in this example.
 
@@ -20,10 +21,8 @@ using RootsAndPoles
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh, defaultmesh
 
-## Using the GR backend for plotting
-gr(legend=false);
 
-# In the LongwaveModePropagator.jl tests suite, the `segmented_scenario` is known to
+# In the LongwaveModePropagator tests suite, the `segmented_scenario` is known to
 # miss roots if we use the same `trianglemesh` parameters (with `Δr = deg2rad(0.5)`)
 # as in part 1 of the example.
 #
@@ -61,10 +60,10 @@ img = heatmap(x, y, reshape(phase, length(x), length(y))',
               color=:twilight, clims=(-180, 180),
               xlims=(30, 90), ylims=(-10, 0),
               xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true, size=(600, 400),
               title=title)
 DisplayAs.PNG(img)  #hide
 
+# 
 # Let's run the `grpf` with `Δr = 0.5`.
 
 zbl = deg2rad(complex(30.0, -10.0))
@@ -93,8 +92,7 @@ twilightquads = [
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
@@ -132,8 +130,7 @@ polesdeg = rad2deg.(poles)
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
@@ -147,8 +144,7 @@ DisplayAs.PNG(img)  #hide
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(80, 90), ylims=(-2, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
@@ -156,11 +152,12 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 DisplayAs.PNG(img)  #hide
 
+# 
 # Roots are frequently located closely to poles in the upper right of the domain for
-# a variety of ionospheres. To ensure they are captured, the `defaultmesh` of
-# LongwaveModePropagator.jl uses a spacing of `Δr = 0.5` for most of the mesh,
-# but a spacing of `Δr = 0.15` for the region with real greater than 80° and imaginary
-# greater than -1°.
+# a variety of ionospheres. To ensure they are captured, [`defaultmesh`](@ref)
+# uses a spacing of `Δr = deg2rad(0.5)` for most of the mesh,
+# but a spacing of `Δr = deg2rad(0.15)` for the region with real greater
+# than 80° and imaginary greater than -1°.
 
 mesh = defaultmesh(frequency)
 meshdeg = rad2deg.(mesh)

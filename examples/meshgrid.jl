@@ -15,7 +15,7 @@
 # of the required initial sampling of an arbitrary function.
 # The GRPF algorithm is implemented in
 # [RootsAndPoles.jl](https://github.com/fgasdia/RootsAndPoles.jl) and used by
-# LongwaveModePropagator.jl to identify eigenangles of `HomogeneousWaveguide`'s.
+# LongwaveModePropagator to identify eigenangles of [`HomogeneousWaveguide`](@ref)'s.
 # Therefore, we must experimentally determine a sufficient initial mesh grid spacing to
 # identify roots of the mode equation.
 #
@@ -44,9 +44,6 @@ using RootsAndPoles
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
 
-## Using the GR backend for plotting
-gr(legend=false);
-
 # ## Exploring the mode equation phase
 #
 # The U.S. Navy's Long Wavelength Propagation Capability (LWPC) searches the region of the
@@ -58,8 +55,8 @@ gr(legend=false);
 # Let's begin by exploring the modal equation phase on a fine grid across the bottom
 # right complex quadrant.
 #
-# We'll define four different `PhysicalModeEquation`'s from
-# LongwaveModePropagator.jl that we'll use throughout this example.
+# We'll define four different [`PhysicalModeEquation`](@ref)'s that we'll use
+# throughout this example.
 
 lowfrequency = Frequency(10e3)
 midfrequency = Frequency(20e3)
@@ -83,7 +80,7 @@ day_high_title = "100 kHz\nh′: 75, β: 0.35"
 night_mid_title = "20 kHz\nh′: 85, β: 0.9"
 nothing  #hide
 
-# We define a dense rectangular mesh over which we evaluate the modal equatioin.
+# Here we define a dense rectangular mesh.
 
 Δr = 0.2
 x = 0:Δr:90
@@ -91,7 +88,7 @@ y = -40:Δr:0
 mesh = x .+ im*y';
 
 # Now we simply iterate over each node of the mesh, evaluating the modal equation with
-# `solvemodalequation` from LongwaveModePropagator.jl.
+# [`solvemodalequation`](@ref), explicitly imported from LongwaveModePropagator above.
 # We use Julia's `Threads.@threads` multithreading capability to speed up the computation.
 
 function modeequationphase(me, mesh)
@@ -110,14 +107,15 @@ phase = modeequationphase(day_mid_me, mesh);
 # This isn't a problem for plotting though!
 #
 # Plotting the results, we can see that there are clearly identifiable locations where
-# white, black, blue, and orange all meet.
+# white, black, blue, and orange, each representing a different quadrant of the
+# complex plane, all meet.
 # Each of these locations are either a root or pole in the daytime ionosphere.
 
 img = heatmap(x, y, reshape(phase, length(x), length(y))',
               color=:twilight, clims=(-180, 180),
               xlims=(0, 90), ylims=(-40, 0),
               xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true, size=(600, 400),
+              legend=true,
               title=day_mid_title)
 DisplayAs.PNG(img)  #hide
 
@@ -127,10 +125,11 @@ img = heatmap(x, y, reshape(phase, length(x), length(y))',
               color=:twilight, clims=(-180, 180),
               xlims=(30, 90), ylims=(-10, 0),
               xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true, size=(600, 400),
+              legend=true,
               title=day_mid_title)
 DisplayAs.PNG(img)  #hide
 
+# 
 # If we switch to a nighttime ionosphere with a high Wait β parameter, we see that the
 # roots move closer to the axes.
 # A perfectly reflecting conductor has eigenangles along the real and complex axes.
@@ -141,10 +140,11 @@ img = heatmap(x, y, reshape(phase, length(x), length(y))',
               color=:twilight, clims=(-180, 180),
               xlims=(0, 90), ylims=(-40, 0),
               xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true, size=(600, 400),
+              legend=true,
               title=night_mid_title)
 DisplayAs.PNG(img)  #hide
 
+# 
 # At lower frequencies, the roots/poles move further apart.
 
 phase = modeequationphase(day_low_me, mesh);
@@ -153,7 +153,7 @@ img = heatmap(x, y, reshape(phase, length(x), length(y))',
               color=:twilight, clims=(-180, 180),
               xlims=(0, 90), ylims=(-40, 0),
               xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true, size=(600, 400),
+              legend=true,
               title=day_low_title)
 DisplayAs.PNG(img)  #hide
 
@@ -162,15 +162,15 @@ DisplayAs.PNG(img)  #hide
 # The global complex roots and poles finding (GRPF) algorithm is most efficient when
 # the initial mesh grid consists of equilateral triangles.
 # Such a grid can be produced with the `rectangulardomain` function from
-# RootsAndPoles.jl, but as seen in the evaluation of the modal equation above, no
+# RootsAndPoles, but as seen in the evaluation of the modal equation above, no
 # roots or poles appear in the lower right diagonal half of the domain.
 # Even if they did, they would correspond to highly attenuated modes.
 # Therefore, to save compute time, we can exclude the lower right triangle of the domain
 # from the initial mesh.
 #
-# The function `trianglemesh` is built into LongwaveModePropagator.jl for this purpose.
+# The function [`trianglemesh`](@ref) is built into LongwaveModePropagator for this purpose.
 # The inputs are specified by the complex bottom left corner `zbl`, the top right corner
-# `ztr`, and the mesh spacing `Δr` in radians.
+# `ztr`, and the mesh spacing `Δr` in _radians_.
 
 zbl = deg2rad(complex(30.0, -10.0))
 ztr = deg2rad(complex(89.9, 0.0))
@@ -185,24 +185,29 @@ meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(450,375))
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false)
 plot!(img, [80, 90], [0, 0], color="red")
 plot!(img, [0, 90], [-90, 0], color="red")
 DisplayAs.PNG(img)  #hide
 
+# 
 # Now let's apply `grpf` to the modal equation on the triangle mesh.
 # `grpf` adaptively refines the mesh to obtain a more accurate estimate of the position
 # of the roots and poles.
 #
-# We will pass the `PlotData()` argument to obtain additional information on the
-# function phase for plotting.
+# [`LMPParams`](@ref) is a struct use for passing parameters across LongwaveModePropagator.
+# Default values are automatically inserted when instantiating the struct.
+# We'll extract the `grpfparams` field which contains a `GRPFParams` struct for passing
+# to `grpf`.
+# 
+# We will also pass RootsAndPoles' `PlotData()` argument to obtain additional
+# information on the function phase for plotting.
 
 params = LMPParams().grpfparams
 roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_mid_me),
                                                   mesh, PlotData(), params);
 
-# The `getplotdata` function, provided by RootsAndPoles.jl, is a convenience function
+# The `getplotdata` function, provided by RootsAndPoles, is a convenience function
 # for plotting a color-coded tesselation from `grpf` based on the phase of the function.
 
 z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
@@ -222,8 +227,7 @@ twilightquads = [
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_mid_title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
@@ -231,7 +235,8 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 DisplayAs.PNG(img)  #hide
 
-# In the plot, roots are marked with red circles and poles are marked with red triangles.
+# In the plot above, roots are marked with red circles and poles are marked
+# with red triangles.
 # The automatic refinement of the mesh is clearly visible.
 #
 # Here are similar plots for the other three scenarios.
@@ -247,8 +252,7 @@ zdeg = rad2deg.(z)
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_low_title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
@@ -270,8 +274,7 @@ zdeg = rad2deg.(z)
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_high_title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
@@ -280,7 +283,6 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
 DisplayAs.PNG(img)  #hide
 
 #
-
 ## Nighttime ionosphere, 20 kHz
 roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, night_mid_me),
                                                   mesh, PlotData(), params);
@@ -292,8 +294,7 @@ zdeg = rad2deg.(z)
 
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           size=(600,400),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=night_mid_title)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
