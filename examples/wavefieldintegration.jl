@@ -283,7 +283,7 @@ plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm)
 #md # ![](wavefields_fig2.png)
 
 # ```@raw html
-# <img src="@__REPO_ROOT_URL__/examples/Pitteway1965_fig2.png"/>
+# <img src="../../../examples/Pitteway1965_fig2.png"/>
 # ```
 
 # The envelopes of the two are very similar.
@@ -321,5 +321,5 @@ plot(ey1p, hx2p, layout=(1,2), size=(400,500))
 #md # ![](wavefields_fig3.png)
 
 # ```@raw html
-# <img src="@__REPO_ROOT_URL__/examples/Pitteway1965_fig3.png"/>
+# <img src="../../../examples/Pitteway1965_fig3.png"/>
 # ```
