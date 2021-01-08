@@ -7,7 +7,7 @@
 
 **Model the propagation of VLF radio waves in the [Earth-ionosphere waveguide](https://en.wikipedia.org/wiki/Earth%E2%80%93ionosphere_waveguide).**
 
-LongwaveModePropagator.jl is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
+LongwaveModePropagator is a mode theory propagation model written in the [Julia](https://julialang.org/) programming language.
 The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [(Budden, 1955)](#Budden1955a) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [(Budden, 1962)](#Budden1962).
 It is similar to the Long Wavelength Propagation Capability [(Ferguson, 1998)](#Ferguson1998), but aims to be more robust and adaptable.
 
@@ -17,7 +17,7 @@ See the **Examples** section of [the docs](https://fgasdia.github.io/LongwaveMod
 ## Installation instructions
 
 1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
-2. From the Julia REPL, install LongwaveModePropagator.jl and its dependencies
+2. From the Julia REPL, install LongwaveModePropagator and its dependencies
 
 ```
     julia> ]
@@ -32,7 +32,7 @@ This means you can leave your code, come back to it two years later on a new com
 To update the environment (while maintaining compatibility across all dependencies), simply
 `] up`.
 
-As with most Julia packages, LongwaveModePropagator.jl is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModeSolver).
+As with most Julia packages, LongwaveModePropagator is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModeSolver).
 Please open Issues or Pull requests if you find any problems, are interested in new features, or you would like to be a contributor.
 
 ## Running your first model
@@ -93,7 +93,7 @@ It is very thorough and combines significant text explanations with examples.
 
 Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible with `?`.
 `?` works "automatically", even for user-defined functions with docstrings.
-Most internal functions of LongwaveModePropagator.jl are documented, so e.g.
+Most internal functions of LongwaveModePropagator are documented, so e.g.
 ```julia
 ? LongwaveModePropagator.bookerquartic
 ```
