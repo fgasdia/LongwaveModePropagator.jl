@@ -19,7 +19,6 @@
 using CSV, Interpolations
 using Plots
 using Plots.Measures
-using DisplayAs  #hide
 using OrdinaryDiffEq
 
 using TimerOutputs
@@ -144,8 +143,9 @@ p2 = plot(real(hx2), zskm, title="\$H_{x,2}\$",
 plot!(p2, real(hx2_unscaled),
       zskm, linewidth=1.5);
 
-img = plot(p1, p2, layout=(1,2))
-DisplayAs.PNG(img)  #hide
+plot(p1, p2, layout=(1,2))
+#md savefig("wavefields_scaling.png"); nothing # hide
+#md # ![](wavefields_scaling.png)
 
 # ## Differential equations solver
 #
@@ -205,18 +205,20 @@ end
 
 day_e1s = [getindex.(e, 1) for e in day_es]
 
-img = plot(real(day_e1s), zs/1000,
-           label=permutedims(solverstrings), legend=:topleft)
-DisplayAs.PNG(img)  #hide
+plot(real(day_e1s), zs/1000,
+     label=permutedims(solverstrings), legend=:topleft)
+#md savefig("wavefields_day.png"); nothing # hide
+#md # ![](wavefields_day.png)
 
 # 
 # And at night...
 
 night_e1s = [getindex.(e, 1) for e in night_es]
 
-img = plot(real(night_e1s), zs/1000,
-           label=permutedims(solverstrings), legend=:topright)
-DisplayAs.PNG(img)  #hide
+plot(real(night_e1s), zs/1000,
+     label=permutedims(solverstrings), legend=:topright)
+#md savefig("wavefields_night.png"); nothing # hide
+#md # ![](wavefields_night.png)
 
 # 
 # The times to run each...
@@ -276,11 +278,13 @@ ex2p = plotfield(ex2, ylims=(49, 86), yaxis=false, yformatter=_->"")
 annotate!(ex2p, 0.3, 84, text("\$E_{x,2}\$", fs))
 hx2p = plotfield(hx2, ylims=(49, 86))
 annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center))
-img = plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm)
-DisplayAs.PNG(img)  #hide
+plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm)
+#md savefig("wavefields_fig2.png"); nothing # hide
+#md # ![](wavefields_fig2.png)
 
-# 
-# ![Pitteway1965_fig2](@__REPO_ROOT_URL__/examples/Pitteway1965_fig2.png)
+# ```@raw html
+# <img src="@__REPO_ROOT_URL__/examples/Pitteway1965_fig2.png"/>
+# ```
 
 # The envelopes of the two are very similar.
 # The precise position of the real and imaginary wave components are not important
@@ -312,8 +316,10 @@ hx2 = getindex.(e, 7)
 
 ey1p = plotfield(ey1, ylims=(75, 102), title="\$E_{y,1}\$");
 hx2p = plotfield(hx2, ylims=(75, 102), title="\$H_{x,2}\$");
-img = plot(ey1p, hx2p, layout=(1,2), size=(400,500))
-DisplayAs.PNG(img)  #hide
+plot(ey1p, hx2p, layout=(1,2), size=(400,500))
+#md savefig("wavefields_fig3.png"); nothing # hide
+#md # ![](wavefields_fig3.png)
 
-# 
-# ![Pitteway1965_fig3](../../../examples/Pitteway1965_fig3.png)
+# ```@raw html
+# <img src="@__REPO_ROOT_URL__/examples/Pitteway1965_fig3.png"/>
+# ```

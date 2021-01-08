@@ -37,8 +37,7 @@
 # First, import the necessary packages.
 
 using Plots
-using DisplayAs  #hide
-
+using Plots.Measures
 using RootsAndPoles
 
 using LongwaveModePropagator
@@ -112,51 +111,49 @@ phase = modeequationphase(day_mid_me, mesh);
 # complex plane, all meet.
 # Each of these locations are either a root or pole in the daytime ionosphere.
 
-img = heatmap(x, y, reshape(phase, length(x), length(y))',
-              color=:twilight, clims=(-180, 180),
-              xlims=(0, 90), ylims=(-40, 0),
-              xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true,
-              title=day_mid_title)
-DisplayAs.PNG(img)  #hide
+heatmap(x, y, reshape(phase, length(x), length(y))',
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-40, 0),
+        xlabel="real(θ)", ylabel="imag(θ)",
+        title=day_mid_title, right_margin=2mm)
+#md savefig("meshgrid_20kday.png"); nothing # hide
+#md # ![](meshgrid_20kday.png)
 
 # We can zoom in to the upper right corner of the plot to see the lowest order modes:
 
-img = heatmap(x, y, reshape(phase, length(x), length(y))',
-              color=:twilight, clims=(-180, 180),
-              xlims=(30, 90), ylims=(-10, 0),
-              xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true,
-              title=day_mid_title)
-DisplayAs.PNG(img)  #hide
+heatmap(x, y, reshape(phase, length(x), length(y))',
+        color=:twilight, clims=(-180, 180),
+        xlims=(30, 90), ylims=(-10, 0),
+        xlabel="real(θ)", ylabel="imag(θ)",
+        title=day_mid_title, right_margin=2mm)
+#md savefig("meshgrid_20kdayzoom.png"); nothing # hide
+#md # ![](meshgrid_20kdayzoom.png)
 
-# 
 # If we switch to a nighttime ionosphere with a high Wait β parameter, we see that the
 # roots move closer to the axes.
 # A perfectly reflecting conductor has eigenangles along the real and complex axes.
 
 phase = modeequationphase(night_mid_me, mesh);
 
-img = heatmap(x, y, reshape(phase, length(x), length(y))',
-              color=:twilight, clims=(-180, 180),
-              xlims=(0, 90), ylims=(-40, 0),
-              xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true,
-              title=night_mid_title)
-DisplayAs.PNG(img)  #hide
-
-# 
+heatmap(x, y, reshape(phase, length(x), length(y))',
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-40, 0),
+        xlabel="real(θ)", ylabel="imag(θ)",
+        title=night_mid_title, right_margin=2mm)
+#md savefig("meshgrid_20knight.png"); nothing # hide
+#md # ![](meshgrid_20knight.png)
+ 
 # At lower frequencies, the roots/poles move further apart.
 
 phase = modeequationphase(day_low_me, mesh);
 
-img = heatmap(x, y, reshape(phase, length(x), length(y))',
-              color=:twilight, clims=(-180, 180),
-              xlims=(0, 90), ylims=(-40, 0),
-              xlabel="real(θ)", ylabel="imag(θ)",
-              legend=true,
-              title=day_low_title)
-DisplayAs.PNG(img)  #hide
+heatmap(x, y, reshape(phase, length(x), length(y))',
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-40, 0),
+        xlabel="real(θ)", ylabel="imag(θ)",
+        title=day_low_title, right_margin=2mm)
+#md savefig("meshgrid_10kday.png"); nothing # hide
+#md # ![](meshgrid_10kday.png)
 
 # ## Global complex roots and poles finding
 #
@@ -187,10 +184,12 @@ meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)", legend=false)
+           xlabel="real(θ)", ylabel="imag(θ)",
+           legend=false, size=(450,375))
 plot!(img, [80, 90], [0, 0], color="red")
 plot!(img, [0, 90], [-90, 0], color="red")
-DisplayAs.PNG(img)  #hide
+#md savefig(img, "meshgrid_trianglemesh.png"); nothing # hide
+#md # ![](meshgrid_trianglemesh.png)
 
 # 
 # Now let's apply `grpf` to the modal equation on the triangle mesh.
@@ -235,7 +234,8 @@ plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
-DisplayAs.PNG(img)  #hide
+#md savefig(img, "meshgrid_20kdaymesh.png"); nothing # hide
+#md # ![](meshgrid_20kdaymesh.png)
 
 # In the plot above, roots are marked with red circles and poles are marked
 # with red triangles.
@@ -260,7 +260,8 @@ plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
-DisplayAs.PNG(img)  #hide
+#md savefig(img, "meshgrid_10kdaymesh.png"); nothing # hide
+#md # ![](meshgrid_10kdaymesh.png)
 
 # At 100 kHz, `grpf` requires more mesh refinements and takes considerably
 # more time to run.
@@ -282,7 +283,8 @@ plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
-DisplayAs.PNG(img)  #hide
+#md savefig(img, "meshgrid_100kdaymesh.png"); nothing # hide
+#md # ![](meshgrid_100kdaymesh.png)
 
 #
 ## Nighttime ionosphere, 20 kHz
@@ -302,6 +304,7 @@ plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
-DisplayAs.PNG(img)  #hide
+#md savefig(img, "meshgrid_20knightmesh.png"); nothing # hide
+#md # ![](meshgrid_20knightmesh.png)
 
 # The example continues in [Mesh grid for mode finding - Part 2](@ref).

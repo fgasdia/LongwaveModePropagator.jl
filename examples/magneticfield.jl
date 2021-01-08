@@ -18,7 +18,6 @@
 using Dates, Printf
 using HDF5
 using Plots
-using DisplayAs  #hide
 
 using LongwaveModePropagator
 using LongwaveModePropagator: buildrun, Progress, next!
@@ -196,11 +195,12 @@ labels[3:end] .= "      ".*labels[3:end]
 colors = [palette(:phase, length(B_AZS))...]
 pushfirst!(colors, RGB(0.0, 0, 0))
 
-img = plot(OUTPUT_RANGES/1000, agrid,
-           linewidth=1.5, palette=colors, colorbar=false,
-           xlabel="range (km)", ylabel="amplitude (dB)",
-           labels=permutedims(labels), legendtitle="  dip, az", legend=true)
-DisplayAs.PNG(img)  #hide
+plot(OUTPUT_RANGES/1000, agrid,
+     linewidth=1.5, palette=colors, colorbar=false,
+     xlabel="range (km)", ylabel="amplitude (dB)",
+     labels=permutedims(labels), legendtitle="  dip, az", legend=true)
+#md savefig("magneticfield_amplitude.png"); nothing # hide
+#md # ![](magneticfield_amplitude.png)
 
 # The amplitude corresponding to each magnetic field azimuth
 # (where 0° is along the propagation direction)
@@ -222,11 +222,12 @@ end
 
 adifference = agrid - lagrid
 
-img = plot(OUTPUT_RANGES/1000, adifference,
-           linewidth=1.5, palette=colors, colorbar=false,
-           xlabel="range (km)", ylabel="amplitude difference (dB)",
-           labels=permutedims(labels), legendtitle="  dip, az", legend=true)
-DisplayAs.PNG(img)  #hide
+plot(OUTPUT_RANGES/1000, adifference,
+     linewidth=1.5, palette=colors, colorbar=false,
+     xlabel="range (km)", ylabel="amplitude difference (dB)",
+     labels=permutedims(labels), legendtitle="  dip, az", legend=true)
+#md savefig("magneticfield_diff.png"); nothing # hide
+#md # ![](magneticfield_diff.png)
 
 # The two models are a very close match.
 # Where there are large differences they occur because of slight misalignment of

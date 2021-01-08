@@ -40,17 +40,12 @@
 using Statistics
 using Plots
 using Plots.Measures
-using DisplayAs  #hide
 using OrdinaryDiffEq
 using Interpolations
 
 using LongwaveModePropagator
 using LongwaveModePropagator: StaticArrays, QE, ME
 const LMP = LongwaveModePropagator
-
-## Plot defaults
-default(legendfontsize=11, guidefontsize=12, tickfontsize=10)
-nothing  #hide
 
 # ## R(z)
 # 
@@ -134,8 +129,9 @@ p2 = plot([R11 R21 R12 R22], zs/1000,
 
 hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="")
 
-img = plot(p1, p2, layout=(1,2), size=(800, 400))
-DisplayAs.PNG(img)  #hide
+plot(p1, p2, layout=(1,2), size=(800, 400))
+#md savefig("integratedreflection_xyz.png"); nothing # hide
+#md # ![](integratedreflection_xyz.png)
 
 # ## Generate random scenarios
 # 
@@ -229,7 +225,7 @@ tolerances = [1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
 tolerancestrings = string.(tolerances)
 
 solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
-solverstrings = string.(solvers)
+solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
 
 Rs, times = compute(scenarios, tolerances, solvers);
 
@@ -250,21 +246,23 @@ end
 Rerrs = differr(Rs, Rrefs)
 mean_Rerrs = dropdims(mean(Rerrs, dims=1), dims=1)
 
-img = heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
-              clims=(-8, -3),
-              xlabel="tolerance", ylabel="solver",
-              colorbar_title="log₁₀ max abs difference", colorbar=true)
-DisplayAs.PNG(img)  #hide
+heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
+        clims=(-8, -3),
+        xlabel="tolerance", ylabel="solver",
+        colorbar_title="log₁₀ max abs difference", colorbar=true)
+#md savefig("integratedreflection_difference.png"); nothing # hide
+#md # ![](integratedreflection_difference.png)
 
 # And the average runtimes are
 
 mean_times = dropdims(mean(times, dims=1), dims=1)
 
-img = heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
-              clims=(0, 9),
-              xlabel="tolerance", ylabel="solver", left_margin=5mm,
-              colorbar_title="time (μs)", colorbar=true)
-DisplayAs.PNG(img)  #hide
+heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
+        clims=(0, 9),
+        xlabel="tolerance", ylabel="solver", left_margin=5mm,
+        colorbar_title="time (μs)", colorbar=true)
+#md savefig("integratedreflection_time.png"); nothing # hide
+#md # ![](integratedreflection_time.png)
 
 # The best combination of runtime and accuracy occurs at roughly `Vern7` with a
 # tolerance of `1e-8`.

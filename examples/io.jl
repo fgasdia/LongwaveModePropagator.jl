@@ -12,8 +12,6 @@
 
 using Dates
 using JSON3
-using Plots
-using DisplayAs  #hide
 
 using LongwaveModePropagator
 nothing #hide
