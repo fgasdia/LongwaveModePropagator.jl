@@ -551,10 +551,13 @@ Mesh grids for `GRPF`
 ==#
 
 """
-    defaultmesh(frequency)
+    defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0))
 
 Generate vector of complex coordinates to be used by GRPF in the search for
 waveguide modes.
+
+`rmin` is the lower bound of the real axis and `imin` is the lower bound of the imaginary
+axis.
 
 At frequencies above 12 kHz the mesh spacing in the upper right corner of the domain
 with real values above 80° and imaginary values above -1° is ``0.15 π/180`` and is
@@ -565,11 +568,11 @@ from the mesh.
 
 See also: [`findmodes`](@ref)
 """
-function defaultmesh(frequency)
+function defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0))
 
     # TODO: get a better idea of frequency transition
     if frequency > 12000
-        zbl_coarse = complex(deg2rad(30.0), deg2rad(-10.0))
+        zbl_coarse = complex(rmin, imin)
         ztr_coarse = complex(deg2rad(89.9), 0.0)
         Δr_coarse = deg2rad(0.5)
 
@@ -585,7 +588,7 @@ function defaultmesh(frequency)
 
         append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
     else
-        zbl = complex(deg2rad(30.0), deg2rad(-10.0))
+        zbl = complex(rmin, imin)
         ztr = complex(deg2rad(89.9), 0.0)
         Δr = deg2rad(0.5)
 
