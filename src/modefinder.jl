@@ -561,8 +561,10 @@ waveguide modes.
 axis.
 
 At frequencies above 12 kHz the mesh spacing in the upper right corner of the domain
-with real values above 80° and imaginary values above -1° is ``0.15 π/180`` and is
-``0.5 π/180`` everywhere else.
+with real values above 80° and imaginary values above -1° is `Δr_fine` and is
+`Δr_coarse` everywhere else.
+
+At frequencies below 12 kHz the mesh spacing is always `Δr_coarse`.
 
 The lower right diagonal of the lower right quadrant of the complex plane is excluded
 from the mesh.
