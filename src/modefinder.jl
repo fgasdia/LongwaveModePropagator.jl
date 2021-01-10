@@ -551,7 +551,8 @@ Mesh grids for `GRPF`
 ==#
 
 """
-    defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0))
+    defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
+        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15))
 
 Generate vector of complex coordinates to be used by GRPF in the search for
 waveguide modes.
@@ -568,13 +569,13 @@ from the mesh.
 
 See also: [`findmodes`](@ref)
 """
-function defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0))
+function defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
+    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15))
 
     # TODO: get a better idea of frequency transition
     if frequency > 12000
         zbl_coarse = complex(rmin, imin)
         ztr_coarse = complex(deg2rad(89.9), 0.0)
-        Δr_coarse = deg2rad(0.5)
 
         mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
 
@@ -584,15 +585,13 @@ function defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0))
 
         zbl_fine = complex(rtransition, itransition)
         ztr_fine = complex(deg2rad(89.9), 0.0)
-        Δr_fine = deg2rad(0.15)
 
         append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
     else
         zbl = complex(rmin, imin)
         ztr = complex(deg2rad(89.9), 0.0)
-        Δr = deg2rad(0.5)
 
-        mesh = trianglemesh(zbl, ztr, Δr)
+        mesh = trianglemesh(zbl, ztr, Δr_coarse)
     end
 
     return mesh
