@@ -552,7 +552,8 @@ Mesh grids for `GRPF`
 
 """
     defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15))
+        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15),
+        rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
 
 Generate vector of complex coordinates to be used by GRPF in the search for
 waveguide modes.
@@ -561,8 +562,8 @@ waveguide modes.
 axis.
 
 At frequencies above 12 kHz the mesh spacing in the upper right corner of the domain
-with real values above 80° and imaginary values above -1° is `Δr_fine` and is
-`Δr_coarse` everywhere else.
+with real values above `rtransition` and imaginary values above `itransition` is
+`Δr_fine` and is `Δr_coarse` everywhere else.
 
 At frequencies below 12 kHz the mesh spacing is always `Δr_coarse`.
 
@@ -571,8 +572,10 @@ from the mesh.
 
 See also: [`findmodes`](@ref)
 """
-function defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15))
+function defaultmesh(frequency;
+    rmin=deg2rad(30.0), imin=deg2rad(-10.0),
+    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15),
+    rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
 
     # TODO: get a better idea of frequency transition
     if frequency > 12000
@@ -581,8 +584,6 @@ function defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
 
         mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
 
-        rtransition = deg2rad(80.0)
-        itransition = deg2rad(-1.0)
         filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
 
         zbl_fine = complex(rtransition, itransition)
