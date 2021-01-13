@@ -281,7 +281,7 @@ function magnetoionicparameters(z, frequency::Frequency, bfield::BField, species
 end
 
 """
-    waitsparameter()
+    waitsparameter(z, frequency::Frequency, bfield::BField, species::Species)
 
 Compute Wait's conductivity parameter `Wr`.
 
