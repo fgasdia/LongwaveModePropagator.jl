@@ -22,7 +22,6 @@ See the **Examples** section of [the docs](https://fgasdia.github.io/LongwaveMod
 ```
     julia> ]
     (v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
-    (v1.5) pkg> instantiate
 ```
 
 If you'll be working primarily in Julia, of course you probably want to `cd` to your working directory, `] activate` a new environment there, and then `add` LongwaveModePropagator.
