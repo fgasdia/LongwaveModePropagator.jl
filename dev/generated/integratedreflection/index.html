@@ -54,7 +54,7 @@ p2 = plot([R11 R21 R12 R22], zs/1000,
 
 hline!(p2, [eqz/1000], linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;)
 
-plot(p1, p2, layout=(1,2), size=(800, 400))</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+plot(p1, p2, layout=(1,2), size=(800, 400), left_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -139,7 +139,8 @@ mean_Rerrs = dropdims(mean(Rerrs, dims=1), dims=1)
 heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
         clims=(-8, -3),
         xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;,
-        colorbar_title=&quot;log₁₀ max abs difference&quot;, colorbar=true)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+        colorbar_title=&quot;log₁₀ max abs difference&quot;, colorbar=true,
+        bottom_margin=2mm, left_margin=4mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -148,10 +149,11 @@ GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in ro
 
 heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
         clims=(0, 9),
-        xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;, left_margin=5mm,
-        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+        xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;,
+        colorbar_title=&quot;time (μs)&quot;, colorbar=true,
+        bottom_margin=2mm, left_margin=4mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best combination of runtime and accuracy occurs at roughly <code>Vern7</code> with a tolerance of <code>1e-8</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not usually required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../wavefieldintegration/">« Wavefield integration</a><a class="docs-footer-nextpage" href="../magneticfield/">Magnetic field direction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 11 January 2021 05:32">Monday 11 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best combination of runtime and accuracy occurs at roughly <code>Vern7</code> with a tolerance of <code>1e-8</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not usually required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../wavefieldintegration/">« Wavefield integration</a><a class="docs-footer-nextpage" href="../magneticfield/">Magnetic field direction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Saturday 16 January 2021 07:33">Saturday 16 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

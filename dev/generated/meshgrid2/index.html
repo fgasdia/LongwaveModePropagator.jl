@@ -26,8 +26,9 @@ heatmap(x, y, reshape(phase, length(x), length(y))&#39;,
         color=:twilight, clims=(-180, 180),
         xlims=(30, 90), ylims=(-10, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-        title=title, right_margin=2mm)</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
-└ @ DiffEqBase ~/.julia/packages/DiffEqBase/znIav/src/integrator_interface.jl:348
+        title=title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:348
 /home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
@@ -60,7 +61,8 @@ twilightquads = [
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=title)
+           title=title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -84,7 +86,8 @@ polesdeg = rad2deg.(poles)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=title)
+           title=title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -96,7 +99,8 @@ GKS: Open failed in routine OPEN_WS
 GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_20knightfinemesh.png" alt/></p><p>This higher resolution initial grid has identified 22 roots and 21 poles. Zooming in on the upper right region, we can see that the previously missing roots and poles are very closely spaced.</p><pre><code class="language-julia">img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(80, 90), ylims=(-2, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=title)
+           title=title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -110,11 +114,12 @@ meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-           size=(450,375), legend=false)
+           size=(450,375), legend=false,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, [30, 90], [0, 0], color=&quot;red&quot;)
 plot!(img, [80, 90], [-10, 0], color=&quot;red&quot;)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_defaultmesh.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid/">« Mesh grid for mode finding - Part 1</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 11 January 2021 05:32">Monday 11 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_defaultmesh.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid/">« Mesh grid for mode finding - Part 1</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Saturday 16 January 2021 07:33">Saturday 16 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

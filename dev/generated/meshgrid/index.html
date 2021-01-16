@@ -39,7 +39,8 @@ phase = modeequationphase(day_mid_me, mesh);</code></pre><p>If an instability oc
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-        title=day_mid_title, right_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+        title=day_mid_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -48,7 +49,8 @@ GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in ro
         color=:twilight, clims=(-180, 180),
         xlims=(30, 90), ylims=(-10, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-        title=day_mid_title, right_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+        title=day_mid_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -59,8 +61,9 @@ heatmap(x, y, reshape(phase, length(x), length(y))&#39;,
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-        title=night_mid_title, right_margin=2mm)</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
-└ @ DiffEqBase ~/.julia/packages/DiffEqBase/znIav/src/integrator_interface.jl:348
+        title=night_mid_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:348
 /home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
@@ -72,7 +75,8 @@ heatmap(x, y, reshape(phase, length(x), length(y))&#39;,
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-        title=day_low_title, right_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+        title=day_low_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -86,7 +90,8 @@ mesh = trianglemesh(zbl, ztr, Δr);</code></pre><p>We convert back to degrees ju
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-           legend=false, size=(450,375))
+           legend=false, size=(450,375),
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, [80, 90], [0, 0], color=&quot;red&quot;)
 plot!(img, [0, 90], [-90, 0], color=&quot;red&quot;)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
@@ -113,7 +118,8 @@ twilightquads = [
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=day_mid_title)
+           title=day_mid_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -134,7 +140,8 @@ zdeg = rad2deg.(z)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=day_low_title)
+           title=day_low_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -155,7 +162,8 @@ zdeg = rad2deg.(z)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=day_high_title)
+           title=day_high_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -176,7 +184,8 @@ zdeg = rad2deg.(z)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=night_mid_title)
+           title=night_mid_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
@@ -185,4 +194,4 @@ connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid_20knightmesh.png" alt/></p><p>The example continues in <a href="../meshgrid2/#Mesh-grid-for-mode-finding-Part-2">Mesh grid for mode finding - Part 2</a>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« File-based I/O</a><a class="docs-footer-nextpage" href="../meshgrid2/">Mesh grid for mode finding - Part 2 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 11 January 2021 05:32">Monday 11 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid_20knightmesh.png" alt/></p><p>The example continues in <a href="../meshgrid2/#Mesh-grid-for-mode-finding-Part-2">Mesh grid for mode finding - Part 2</a>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« File-based I/O</a><a class="docs-footer-nextpage" href="../meshgrid2/">Mesh grid for mode finding - Part 2 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Saturday 16 January 2021 07:33">Saturday 16 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
