@@ -109,12 +109,12 @@ p1 = plot([ne nu Wr], zs/1000,
           xlims=(10, 10^10), xaxis=(scale=:log10),
           ylabel="Altitude (km)",
           labels=["Nₑ (m⁻³)" "ν (s⁻¹)" "ωᵣ = ωₚ²/ν"], legend=:topleft,
-          linewidth=1.5)
+          linewidth=1.5);
 
-vline!(p1, [frequency.ω], linestyle=:dash, color="gray", label="")
-hline!(p1, [eqz/1000], linestyle=:dash, color="gray", label="")
-annotate!(p1, frequency.ω, 10, text(" ω", :left, 9))
-annotate!(p1, 70, eqz/1000-3, text("ωᵣ = ω", :left, 9))
+vline!(p1, [frequency.ω], linestyle=:dash, color="gray", label="");
+hline!(p1, [eqz/1000], linestyle=:dash, color="gray", label="");
+annotate!(p1, frequency.ω, 10, text(" ω", :left, 9));
+annotate!(p1, 70, eqz/1000-3, text("ωᵣ = ω", :left, 9));
 
 R11 = abs.(sol(zs, idxs=1))
 R21 = abs.(sol(zs, idxs=2))
@@ -125,11 +125,11 @@ p2 = plot([R11 R21 R12 R22], zs/1000,
           xlims=(0, 1),
           yaxis=false, yformatter=_->"",
           legend=:right, labels=["R₁₁" "R₂₁" "R₁₂" "R₂₂"],
-          linewidth=1.5)
+          linewidth=1.5);
 
-hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="")
+hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="");
 
-plot(p1, p2, layout=(1,2), size=(800, 400), left_margin=2mm)
+plot(p1, p2, layout=(1,2), size=(800, 400), left_margin=5mm);
 #md savefig("integratedreflection_xyz.png"); nothing # hide
 #md # ![](integratedreflection_xyz.png)
 
@@ -250,7 +250,7 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
         clims=(-8, -3),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="log₁₀ max abs difference", colorbar=true,
-        bottom_margin=2mm, left_margin=4mm)
+        bottom_margin=5mm, left_margin=9mm);
 #md savefig("integratedreflection_difference.png"); nothing # hide
 #md # ![](integratedreflection_difference.png)
 
@@ -262,7 +262,7 @@ heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
         clims=(0, 9),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="time (μs)", colorbar=true,
-        bottom_margin=2mm, left_margin=4mm)
+        bottom_margin=5mm, left_margin=9mm);
 #md savefig("integratedreflection_time.png"); nothing # hide
 #md # ![](integratedreflection_time.png)
 

@@ -199,7 +199,7 @@ plot(OUTPUT_RANGES/1000, agrid,
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true,
-     bottom_margin=2mm, left_margin=2mm)
+     bottom_margin=5mm, left_margin=7mm);
 #md savefig("magneticfield_amplitude.png"); nothing # hide
 #md # ![](magneticfield_amplitude.png)
 
@@ -227,7 +227,7 @@ plot(OUTPUT_RANGES/1000, adifference,
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude difference (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true,
-     bottom_margin=2mm, left_margin=2mm)
+     bottom_margin=5mm, left_margin=7mm);
 #md savefig("magneticfield_diff.png"); nothing # hide
 #md # ![](magneticfield_diff.png)
 

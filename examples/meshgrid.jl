@@ -116,7 +116,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_mid_title,
-        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
+        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);
 #md savefig("meshgrid_20kday.png"); nothing # hide
 #md # ![](meshgrid_20kday.png)
 
@@ -127,7 +127,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         xlims=(30, 90), ylims=(-10, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_mid_title,
-        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
+        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);
 #md savefig("meshgrid_20kdayzoom.png"); nothing # hide
 #md # ![](meshgrid_20kdayzoom.png)
 
@@ -142,7 +142,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
         title=night_mid_title,
-        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
+        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);
 #md savefig("meshgrid_20knight.png"); nothing # hide
 #md # ![](meshgrid_20knight.png)
  
@@ -155,7 +155,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_low_title,
-        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
+        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);
 #md savefig("meshgrid_10kday.png"); nothing # hide
 #md # ![](meshgrid_10kday.png)
 
@@ -190,9 +190,9 @@ img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
            legend=false, size=(450,375),
-           bottom_margin=2mm, left_margin=2mm)
-plot!(img, [80, 90], [0, 0], color="red")
-plot!(img, [0, 90], [-90, 0], color="red")
+           bottom_margin=5mm, left_margin=7mm);
+plot!(img, [80, 90], [0, 0], color="red");
+plot!(img, [0, 90], [-90, 0], color="red");
 #md savefig(img, "meshgrid_trianglemesh.png"); nothing # hide
 #md # ![](meshgrid_trianglemesh.png)
 
@@ -235,11 +235,11 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_mid_title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5)
+      seriestype=:scatter, markershape=:utriangle, markersize=5);
 #md savefig(img, "meshgrid_20kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_20kdaymesh.png)
 
@@ -262,11 +262,11 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_low_title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5)
+      seriestype=:scatter, markershape=:utriangle, markersize=5);
 #md savefig(img, "meshgrid_10kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_10kdaymesh.png)
 
@@ -286,11 +286,11 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_high_title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5)
+      seriestype=:scatter, markershape=:utriangle, markersize=5);
 #md savefig(img, "meshgrid_100kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_100kdaymesh.png)
 
@@ -308,11 +308,11 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=night_mid_title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5)
+      seriestype=:scatter, markershape=:utriangle, markersize=5);
 #md savefig(img, "meshgrid_20knightmesh.png"); nothing # hide
 #md # ![](meshgrid_20knightmesh.png)
 

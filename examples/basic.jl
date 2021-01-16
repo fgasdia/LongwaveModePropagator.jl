@@ -311,7 +311,7 @@ E, a, p = propagate(waveguide, tx, rx);
 plot(ranges/1000, a,
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false,
-     bottom_margin=2mm, left_margin=2mm)
+     bottom_margin=5mm, left_margin=5mm);
 #md savefig("basic_homogeneousamplitude.png"); nothing # hide
 #md # ![](basic_homogeneousamplitude.png)
 
@@ -320,8 +320,8 @@ plot(ranges/1000, a,
 plot(ranges/1000, rad2deg.(p),
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false,
-     bottom_margin=2mm, left_margin=2mm)
-#md savefig(img, "basic_homogeneousphase.png"); nothing # hide
+     bottom_margin=5mm, left_margin=5mm);
+#md savefig("basic_homogeneousphase.png"); nothing # hide
 #md # ![](basic_homogeneousphase.png)
 
 # ## Propagating the fields: SegmentedWaveguide
@@ -357,7 +357,7 @@ E, a, p = propagate(waveguide, tx, rx);
 plot(ranges/1000, a,
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false,
-     bottom_margin=2mm, left_margin=2mm)
+     bottom_margin=5mm, left_margin=5mm)
 #md savefig("basic_segmentedamplitude.png"); nothing # hide
 #md # ![](basic_segmentedamplitude.png)
 
@@ -366,7 +366,7 @@ plot(ranges/1000, a,
 plot(ranges/1000, rad2deg.(p),
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false,
-     bottom_margin=2mm, left_margin=2mm)
+     bottom_margin=5mm, left_margin=5mm)
 #md savefig("basic_segmentedphase.png"); nothing # hide
 #md # ![](basic_segmentedphase.png)
 
