@@ -21,6 +21,7 @@
 # Let's load the necessary packages.
 
 using Plots
+using Plots.Measures
 
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
@@ -309,16 +310,17 @@ E, a, p = propagate(waveguide, tx, rx);
 
 plot(ranges/1000, a,
      xlabel="range (km)", ylabel="amplitude (dB)",
-     linewidth=1.5, legend=false)
+     linewidth=1.5, legend=false,
+     bottom_margin=2mm, left_margin=2mm)
 #md savefig("basic_homogeneousamplitude.png"); nothing # hide
 #md # ![](basic_homogeneousamplitude.png)
 
 # and phase.
 
-img = plot(ranges/1000, rad2deg.(p),
-           xlabel="range (km)", ylabel="phase (deg)",
-           linewidth=1.5, legend=false)
-plot!(img, display_type=:inline)  #hide
+plot(ranges/1000, rad2deg.(p),
+     xlabel="range (km)", ylabel="phase (deg)",
+     linewidth=1.5, legend=false,
+     bottom_margin=2mm, left_margin=2mm)
 #md savefig(img, "basic_homogeneousphase.png"); nothing # hide
 #md # ![](basic_homogeneousphase.png)
 
@@ -354,7 +356,8 @@ E, a, p = propagate(waveguide, tx, rx);
 
 plot(ranges/1000, a,
      xlabel="range (km)", ylabel="amplitude (dB)",
-     linewidth=1.5, legend=false)
+     linewidth=1.5, legend=false,
+     bottom_margin=2mm, left_margin=2mm)
 #md savefig("basic_segmentedamplitude.png"); nothing # hide
 #md # ![](basic_segmentedamplitude.png)
 
@@ -362,7 +365,8 @@ plot(ranges/1000, a,
 
 plot(ranges/1000, rad2deg.(p),
      xlabel="range (km)", ylabel="phase (deg)",
-     linewidth=1.5, legend=false)
+     linewidth=1.5, legend=false,
+     bottom_margin=2mm, left_margin=2mm)
 #md savefig("basic_segmentedphase.png"); nothing # hide
 #md # ![](basic_segmentedphase.png)
 

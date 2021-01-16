@@ -115,7 +115,8 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
-        title=day_mid_title, right_margin=2mm)
+        title=day_mid_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
 #md savefig("meshgrid_20kday.png"); nothing # hide
 #md # ![](meshgrid_20kday.png)
 
@@ -125,7 +126,8 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         color=:twilight, clims=(-180, 180),
         xlims=(30, 90), ylims=(-10, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
-        title=day_mid_title, right_margin=2mm)
+        title=day_mid_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
 #md savefig("meshgrid_20kdayzoom.png"); nothing # hide
 #md # ![](meshgrid_20kdayzoom.png)
 
@@ -139,7 +141,8 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
-        title=night_mid_title, right_margin=2mm)
+        title=night_mid_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
 #md savefig("meshgrid_20knight.png"); nothing # hide
 #md # ![](meshgrid_20knight.png)
  
@@ -151,7 +154,8 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
-        title=day_low_title, right_margin=2mm)
+        title=day_low_title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
 #md savefig("meshgrid_10kday.png"); nothing # hide
 #md # ![](meshgrid_10kday.png)
 
@@ -185,7 +189,8 @@ meshdeg = rad2deg.(mesh)
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
-           legend=false, size=(450,375))
+           legend=false, size=(450,375),
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, [80, 90], [0, 0], color="red")
 plot!(img, [0, 90], [-90, 0], color="red")
 #md savefig(img, "meshgrid_trianglemesh.png"); nothing # hide
@@ -229,7 +234,8 @@ twilightquads = [
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=day_mid_title)
+           title=day_mid_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -255,7 +261,8 @@ zdeg = rad2deg.(z)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=day_low_title)
+           title=day_low_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -278,7 +285,8 @@ zdeg = rad2deg.(z)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=day_high_title)
+           title=day_high_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -299,7 +307,8 @@ zdeg = rad2deg.(z)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=night_mid_title)
+           title=night_mid_title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",

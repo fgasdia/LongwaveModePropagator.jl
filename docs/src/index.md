@@ -17,15 +17,13 @@ See the **Examples** section of these docs for examples of building scenarios an
 ```
 julia> ]
 (@v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
-(@v1.5) pkg> instantiate
 ```
 
 If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator (but note that the package is not in Julia's General registry and must be installed with the GitHub URL).
 
 Julia has an excellent built-in package manager (accessed by typing `]` from the REPL) that keeps track of the versions of all dependencies within an environment.
 This means you can leave your code, come back to it two years later on a new computer, and as long as you have all the original files (including the `Project.toml` and `Manifest.toml` files), you can `instantiate` the exact environment you were last working with.
-To update the environment (while maintaining compatibility across all dependencies), simply
-`] up`.
+To update the environment (while maintaining compatibility across all dependencies), simply `] up`.
 
 As with most Julia packages, LongwaveModePropagator is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModePropagator).
 Please open [Issues](https://github.com/fgasdia/LongwaveModePropagator.jl/issues) if you find any problems or are interested in new features, or [Pull requests](https://github.com/fgasdia/LongwaveModePropagator.jl/pulls) if you would like to contribute.

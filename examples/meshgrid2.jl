@@ -59,7 +59,8 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         color=:twilight, clims=(-180, 180),
         xlims=(30, 90), ylims=(-10, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
-        title=title, right_margin=2mm)
+        title=title,
+        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)
 #md savefig("meshgrid2_20knight.png"); nothing # hide
 #md # ![](meshgrid2_20knight.png)
 
@@ -93,7 +94,8 @@ twilightquads = [
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=title)
+           title=title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -132,7 +134,8 @@ polesdeg = rad2deg.(poles)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=title)
+           title=title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -147,7 +150,8 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(80, 90), ylims=(-2, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=title)
+           title=title,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5)
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -168,7 +172,8 @@ meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
-           size=(450,375), legend=false)
+           size=(450,375), legend=false,
+           bottom_margin=2mm, left_margin=2mm)
 plot!(img, [30, 90], [0, 0], color="red")
 plot!(img, [80, 90], [-10, 0], color="red")
 #md savefig(img, "meshgrid2_defaultmesh.png"); nothing # hide
