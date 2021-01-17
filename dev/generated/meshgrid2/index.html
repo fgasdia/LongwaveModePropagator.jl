@@ -27,7 +27,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))&#39;,
         xlims=(30, 90), ylims=(-10, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
         title=title,
-        right_margin=2mm, bottom_margin=2mm, left_margin=2mm)</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
+        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
 └ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:348
 /home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
@@ -62,11 +62,11 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
            title=title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+      seriestype=:scatter, markershape=:utriangle, markersize=5);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -87,11 +87,11 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
            title=title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+      seriestype=:scatter, markershape=:utriangle, markersize=5);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -100,26 +100,26 @@ GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in ro
            xlims=(80, 90), ylims=(-2, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
            title=title,
-           bottom_margin=2mm, left_margin=2mm)
+           bottom_margin=5mm, left_margin=7mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markersize=5)
+      seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+      seriestype=:scatter, markershape=:utriangle, markersize=5);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_20knightfinemeshzoom.png" alt/></p><p>Roots are frequently located closely to poles in the upper right of the domain for a variety of ionospheres. To ensure they are captured, <a href="../../lib/internals/#LongwaveModePropagator.defaultmesh-Tuple{Any}"><code>LongwaveModePropagator.defaultmesh</code></a> uses a spacing of <code>Δr = deg2rad(0.5)</code> for most of the mesh, but a spacing of <code>Δr = deg2rad(0.15)</code> for the region with real greater than 80° and imaginary greater than -1°.</p><pre><code class="language-julia">mesh = defaultmesh(frequency)
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_20knightfinemeshzoom.png" alt/></p><p>Roots are frequently located closely to poles in the upper right of the domain for a variety of ionospheres. To ensure they are captured, <a href="../../lib/internals/#LongwaveModePropagator.defaultmesh-Tuple{Any}"><code>LongwaveModePropagator.defaultmesh</code></a> uses a spacing of <code>Δr = deg2rad(0.5)</code> for most of the mesh, but a spacing of <code>Δr = deg2rad(0.15)</code> for the region with real greater than 75° and imaginary greater than -1.5°.</p><pre><code class="language-julia">mesh = defaultmesh(frequency)
 meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
            size=(450,375), legend=false,
-           bottom_margin=2mm, left_margin=2mm)
-plot!(img, [30, 90], [0, 0], color=&quot;red&quot;)
-plot!(img, [80, 90], [-10, 0], color=&quot;red&quot;)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
+           bottom_margin=5mm, left_margin=7mm);
+plot!(img, [30, 90], [0, 0], color=&quot;red&quot;);
+plot!(img, [80, 90], [-10, 0], color=&quot;red&quot;);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_defaultmesh.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid/">« Mesh grid for mode finding - Part 1</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Saturday 16 January 2021 07:33">Saturday 16 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../meshgrid2_defaultmesh.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid/">« Mesh grid for mode finding - Part 1</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 17 January 2021 03:26">Sunday 17 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
