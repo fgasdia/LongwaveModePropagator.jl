@@ -59,12 +59,7 @@ p2 = plot(real(hx2), zskm, title=&quot;\$H_{x,2}\$&quot;,
 plot!(p2, real(hx2_unscaled),
       zskm, linewidth=1.5);
 
-plot(p1, p2, layout=(1,2), left_margin=5mm);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
-connect: Connection refused
-GKS: can&#39;t connect to GKS socket application
-
-GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../wavefields_scaling.png" alt/></p><h2 id="Differential-equations-solver"><a class="docs-heading-anchor" href="#Differential-equations-solver">Differential equations solver</a><a id="Differential-equations-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Differential-equations-solver" title="Permalink"></a></h2><p>Pitteway (1965) used a basic form of a Runge-Kutta integrator with fixed step size. Julia has a fantastic <a href="https://diffeq.sciml.ai/stable/">DifferentialEquations suite</a> for integrating many different forms of differential equations. Although wavefields are only computed two times for every transition in a <a href="../../lib/public/#LongwaveModePropagator.SegmentedWaveguide"><code>SegmentedWaveguide</code></a>, we would still like to choose an efficient solver that requires relatively few function calls while still maintaining good accuracy.</p><p>Let&#39;s try a few different solvers and compare their runtime for the day and night ionospheres.</p><p>We can pass <a href="../../lib/public/#LongwaveModePropagator.IntegrationParams"><code>IntegrationParams</code></a> through the <a href="../../lib/public/#LongwaveModePropagator.LMPParams"><code>LMPParams</code></a> struct. Where necessary, we set the <code>lazy</code> interpolant option  of the solvers to <code>false</code> because we discontinuously scale the fields in the middle of the integration and the <code>lazy</code> option is not aware of this.</p><pre><code class="language-julia">TO = TimerOutput()
+plot(p1, p2, layout=(1,2), left_margin=5mm);</code></pre><p><img src="../wavefields_scaling.png" alt/></p><h2 id="Differential-equations-solver"><a class="docs-heading-anchor" href="#Differential-equations-solver">Differential equations solver</a><a id="Differential-equations-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Differential-equations-solver" title="Permalink"></a></h2><p>Pitteway (1965) used a basic form of a Runge-Kutta integrator with fixed step size. Julia has a fantastic <a href="https://diffeq.sciml.ai/stable/">DifferentialEquations suite</a> for integrating many different forms of differential equations. Although wavefields are only computed two times for every transition in a <a href="../../lib/public/#LongwaveModePropagator.SegmentedWaveguide"><code>SegmentedWaveguide</code></a>, we would still like to choose an efficient solver that requires relatively few function calls while still maintaining good accuracy.</p><p>Let&#39;s try a few different solvers and compare their runtime for the day and night ionospheres.</p><p>We can pass <a href="../../lib/public/#LongwaveModePropagator.IntegrationParams"><code>IntegrationParams</code></a> through the <a href="../../lib/public/#LongwaveModePropagator.LMPParams"><code>LMPParams</code></a> struct. Where necessary, we set the <code>lazy</code> interpolant option  of the solvers to <code>false</code> because we discontinuously scale the fields in the middle of the integration and the <code>lazy</code> option is not aware of this.</p><pre><code class="language-julia">TO = TimerOutput()
 
 zs = 110e3:-50:0
 solvers = [Tsit5(), BS5(lazy=false), OwrenZen5(),
@@ -102,34 +97,24 @@ end</code></pre><p>A quick plot to ensure none of the methods have problems.</p>
 
 plot(real(day_e1s), zs/1000,
      label=permutedims(solverstrings), legend=:topleft,
-     left_margin=5mm);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
-connect: Connection refused
-GKS: can&#39;t connect to GKS socket application
-
-GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../wavefields_day.png" alt/></p><p>And at night...</p><pre><code class="language-julia">night_e1s = [getindex.(e, 1) for e in night_es]
+     left_margin=5mm);</code></pre><p><img src="../wavefields_day.png" alt/></p><p>And at night...</p><pre><code class="language-julia">night_e1s = [getindex.(e, 1) for e in night_es]
 
 plot(real(night_e1s), zs/1000,
      label=permutedims(solverstrings), legend=:topright,
-     left_margin=5mm);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
-connect: Connection refused
-GKS: can&#39;t connect to GKS socket application
-
-GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../wavefields_night.png" alt/></p><p>The times to run each...</p><pre><code class="language-julia">TO</code></pre><pre class="documenter-example-output"> ───────────────────────────────────────────────────────────────────────
+     left_margin=5mm);</code></pre><p><img src="../wavefields_night.png" alt/></p><p>The times to run each...</p><pre><code class="language-julia">TO</code></pre><pre class="documenter-example-output"> ───────────────────────────────────────────────────────────────────────
                                 Time                   Allocations      
                         ──────────────────────   ───────────────────────
-    Tot / % measured:        67.8s / 5.06%           9.86GiB / 28.9%    
+    Tot / % measured:        72.6s / 5.71%           9.86GiB / 28.9%    
 
  Section        ncalls     time   %tot     avg     alloc   %tot      avg
  ───────────────────────────────────────────────────────────────────────
- Vern9(false)       50    682ms  19.9%  13.6ms    585MiB  20.0%  11.7MiB
- OwrenZen5()        50    588ms  17.2%  11.8ms    478MiB  16.4%  9.57MiB
- Vern7(false)       50    525ms  15.3%  10.5ms    443MiB  15.2%  8.86MiB
- BS5(false)         50    434ms  12.6%  8.67ms    338MiB  11.6%  6.76MiB
- Vern6(false)       50    419ms  12.2%  8.38ms    363MiB  12.5%  7.27MiB
- Vern8(false)       50    392ms  11.4%  7.85ms    404MiB  13.9%  8.09MiB
- Tsit5()            50    388ms  11.3%  7.77ms    305MiB  10.5%  6.10MiB
+ OwrenZen5()        50    946ms  22.8%  18.9ms    479MiB  16.4%  9.57MiB
+ Vern9(false)       50    767ms  18.5%  15.3ms    585MiB  20.0%  11.7MiB
+ Vern7(false)       50    542ms  13.1%  10.8ms    443MiB  15.2%  8.86MiB
+ Vern8(false)       50    537ms  13.0%  10.7ms    404MiB  13.9%  8.09MiB
+ BS5(false)         50    497ms  12.0%  9.95ms    338MiB  11.6%  6.76MiB
+ Vern6(false)       50    431ms  10.4%  8.61ms    363MiB  12.5%  7.27MiB
+ Tsit5()            50    427ms  10.3%  8.54ms    305MiB  10.5%  6.10MiB
  ───────────────────────────────────────────────────────────────────────</pre><p>The <code>Tsit5</code>, <code>BS5</code>, and 6th, 7th, and 8th order Vern methods all have similar performance. In fact, rerunning these same tests multiple times can result in different solvers being &quot;fastest&quot;.</p><p>The DifferentialEquations <a href="https://diffeq.sciml.ai/stable/solvers/ode_solve/">documents</a> suggest that Verner&#39;s methods are preferred over the two lower order methods when solving with the accuracy range <code>~1e-8-1e-12</code>. We use <code>Vern7(lazy=false)</code>as the default in LongwaveModePropagator. There is no direct MATLAB equivalent to <code>Vern7</code>; it plays a similar role as <a href="https://www.mathworks.com/help/matlab/ref/ode113.html"><code>ode113</code></a> (Mathworks suggests <code>ode113</code> is better at solving problems with stringent error tolerance than <code>ode45</code>). <code>Vern7</code> is usually more efficient than <code>ode113</code>.</p><p>Why not a strict <code>RK4</code> or a more basic method? I tried them and they produce some discontinuities around the reflection height. It is admittedly difficult to tell if this is a true failure of the methods at this height or a problem related to the scaling and saving callbacks that occur during the integration. In any case, none of the methods tested above exhibit that issue.</p><h2 id="Pitteway-figure-2"><a class="docs-heading-anchor" href="#Pitteway-figure-2">Pitteway figure 2</a><a id="Pitteway-figure-2-1"></a><a class="docs-heading-anchor-permalink" href="#Pitteway-figure-2" title="Permalink"></a></h2><p>Let&#39;s reproduce the wavefields in figure 2 of Pitteway (1965).</p><pre><code class="language-julia">zs = 110e3:-500:50e3
 zskm = zs/1000
 
@@ -161,12 +146,7 @@ ex2p = plotfield(ex2, ylims=(49, 86), yaxis=false, yformatter=_-&gt;&quot;&quot;
 annotate!(ex2p, 0.3, 84, text(&quot;\$E_{x,2}\$&quot;, fs));
 hx2p = plotfield(hx2, ylims=(49, 86));
 annotate!(hx2p, 0.35, 84, text(&quot;\$H_{x,2}\$&quot;, fs, :center));
-plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm);</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
-connect: Connection refused
-GKS: can&#39;t connect to GKS socket application
-
-GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../wavefields_fig2.png" alt/></p><p>@raw html &lt;img src=&quot;../../examples/Pitteway1965_fig2.png&quot;/&gt;</p><pre><code class="language-none"></code></pre><p>The envelopes of the two are very similar. The precise position of the real and imaginary wave components are not important because they each represent an instant in time and change based on the starting height of the integration.</p><h2 id="Pitteway-figure-3"><a class="docs-heading-anchor" href="#Pitteway-figure-3">Pitteway figure 3</a><a id="Pitteway-figure-3-1"></a><a class="docs-heading-anchor-permalink" href="#Pitteway-figure-3" title="Permalink"></a></h2><p>Figure 3 of Pitteway (1965) uses a different scenario. A wave of frequency 202 kHz is at normal incidence through the nighttime ionosphere presented in Piggott (1965).</p><p>First let&#39;s set up the new scenario.</p><pre><code class="language-julia">ea = EigenAngle(0)
+plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm);</code></pre><p><img src="../wavefields_fig2.png" alt/></p><p>@raw html &lt;img src=&quot;../../examples/Pitteway1965_fig2.png&quot;/&gt;</p><pre><code class="language-none"></code></pre><p>The envelopes of the two are very similar. The precise position of the real and imaginary wave components are not important because they each represent an instant in time and change based on the starting height of the integration.</p><h2 id="Pitteway-figure-3"><a class="docs-heading-anchor" href="#Pitteway-figure-3">Pitteway figure 3</a><a id="Pitteway-figure-3-1"></a><a class="docs-heading-anchor-permalink" href="#Pitteway-figure-3" title="Permalink"></a></h2><p>Figure 3 of Pitteway (1965) uses a different scenario. A wave of frequency 202 kHz is at normal incidence through the nighttime ionosphere presented in Piggott (1965).</p><p>First let&#39;s set up the new scenario.</p><pre><code class="language-julia">ea = EigenAngle(0)
 frequency = Frequency(202e3)
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]</code></pre><pre class="documenter-example-output">Ground(15, 0.03)</pre><p>Now integrating the wavefields.</p><pre><code class="language-julia">zs = 110e3:-50:70e3
@@ -179,9 +159,4 @@ hx2 = getindex.(e, 7)
 
 ey1p = plotfield(ey1, ylims=(75, 102), title=&quot;\$E_{y,1}\$&quot;);
 hx2p = plotfield(hx2, ylims=(75, 102), title=&quot;\$H_{x,2}\$&quot;);
-plot(ey1p, hx2p, layout=(1,2), size=(400,500));</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/RlE5Y/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
-connect: Connection refused
-GKS: can&#39;t connect to GKS socket application
-
-GKS: Open failed in routine OPEN_WS
-GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../wavefields_fig3.png" alt/></p><p>@raw html &lt;img src=&quot;../../examples/Pitteway1965_fig3.png&quot;/&gt;</p><pre><code class="language-none"></code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../integratedreflection/">Solvers for ionosphere reflection coefficient »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 17 January 2021 03:26">Sunday 17 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(ey1p, hx2p, layout=(1,2), size=(400,500), left_margin=5mm);</code></pre><p><img src="../wavefields_fig3.png" alt/></p><p>@raw html &lt;img src=&quot;../../examples/Pitteway1965_fig3.png&quot;/&gt;</p><pre><code class="language-none"></code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../integratedreflection/">Solvers for ionosphere reflection coefficient »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 17 January 2021 07:39">Sunday 17 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
