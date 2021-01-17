@@ -33,7 +33,9 @@ nothing  #hide
 # Pitteway uses an ionosphere presented in
 # [Piggot et. al., 1965](https://doi.org/10.1098/rsta.1965.0005).
 #
-# ![Piggott ionosphere](@__REPO_ROOT_URL__/examples/Piggott_ionosphere.png)
+#md ```@raw html
+#md <img src="../../examples/Piggott_ionosphere.png"/>
+#md ```
 #
 # He begins with the midday profile with a 16 kHz radio wave at an angle of incidence of
 # 40° from normal. We'll also assume the magnetic field has a strength of 50,000 nT
@@ -284,9 +286,9 @@ plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm);
 #md savefig("wavefields_fig2.png"); nothing # hide
 #md # ![](wavefields_fig2.png)
 
-# ```@raw html
-# <img src="../../../examples/Pitteway1965_fig2.png"/>
-# ```
+#md ```@raw html
+#md <img src="../../examples/Pitteway1965_fig2.png"/>
+#md ```
 
 # The envelopes of the two are very similar.
 # The precise position of the real and imaginary wave components are not important
@@ -321,7 +323,7 @@ hx2p = plotfield(hx2, ylims=(75, 102), title="\$H_{x,2}\$");
 plot(ey1p, hx2p, layout=(1,2), size=(400,500));
 #md savefig("wavefields_fig3.png"); nothing # hide
 #md # ![](wavefields_fig3.png)
-
-# ```@raw html
-# <img src="../../../examples/Pitteway1965_fig3.png"/>
-# ```
+# 
+#md ```@raw html
+#md <img src="../../examples/Pitteway1965_fig3.png"/>
+#md ```
