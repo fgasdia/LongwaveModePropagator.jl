@@ -165,7 +165,7 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
 # [`LongwaveModePropagator.defaultmesh`](@ref)
 # uses a spacing of `Δr = deg2rad(0.5)` for most of the mesh,
 # but a spacing of `Δr = deg2rad(0.15)` for the region with real greater
-# than 80° and imaginary greater than -1°.
+# than 75° and imaginary greater than -1.5°.
 
 mesh = defaultmesh(frequency)
 meshdeg = rad2deg.(mesh)
