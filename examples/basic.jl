@@ -22,6 +22,7 @@
 
 using Plots
 using Plots.Measures
+ENV["GKSwstype"] = "nul"  #hide  to avoid GKS error on docs build ("nul" for headless systems)
 
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
