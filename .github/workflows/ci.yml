@@ -2,40 +2,45 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - master
+    branches: [master]
   push:
-    branches:
-      - master
-    tags: '*'
+    branches: [master]
+    tags: ["*"]
 
 jobs:
   test:
-    name: Julia ${{ matrix.julia-version }} - ${{ matrix.os }} - ${{ matrix.julia-arch }} - threads ${{ matrix.julia-threads }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - threads ${{ matrix.threads }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     env:
-      JULIA_NUM_THREADS: ${{ matrix.julia-threads }}
+      JULIA_NUM_THREADS: ${{ matrix.threads }}
     strategy:
       fail-fast: false
       matrix:
-        julia-version:
-          - "1.5" # minimum Julia version the package supports.
-          - "1" # Leave this line unchanged. '1' will automatically expand to the latest stable 1.x release of Julia.
+        version:
+          - 1.5 # minimum Julia version the package supports.
+          - 1 # automatically expands to the latest stable 1.x release of Julia.
+          - nightly
         os:
           - ubuntu-latest
-          - windows-latest
-        julia-arch:
+        arch:
           - x64
-        julia-threads:
-          - "1"
+        threads:
+          - 1
+        include:
+          # test macOS and Windows with latest Julia only
+          - os: macOS-latest
+            arch: x64
+            verion: 1
+          - os: windows-latest
+            arch: x64
+            version: 1
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
         with:
-          version: ${{ matrix.julia-version }}
-          arch: ${{ matrix.julia-arch }}
-      - name: Cache artifacts
-        uses: actions/cache@v1
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
         with:
@@ -54,7 +59,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
         with:
-          version: "1.5"
+          version: '1'
       - name: Install dependencies
         run: |
           julia --project=docs -e '
