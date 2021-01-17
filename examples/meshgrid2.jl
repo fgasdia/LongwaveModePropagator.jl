@@ -151,7 +151,7 @@ img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, line
            xlims=(80, 90), ylims=(-2, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title,
-           bottom_margin=5mm, left_margin=7mm);
+           bottom_margin=5mm, left_margin=9mm);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
@@ -173,7 +173,7 @@ meshdeg = rad2deg.(mesh)
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(450,375), legend=false,
-           bottom_margin=5mm, left_margin=7mm);
+           bottom_margin=5mm, left_margin=9mm);
 plot!(img, [30, 90], [0, 0], color="red");
 plot!(img, [80, 90], [-10, 0], color="red");
 #md savefig(img, "meshgrid2_defaultmesh.png"); nothing # hide

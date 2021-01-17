@@ -320,7 +320,7 @@ hx2 = getindex.(e, 7)
 
 ey1p = plotfield(ey1, ylims=(75, 102), title="\$E_{y,1}\$");
 hx2p = plotfield(hx2, ylims=(75, 102), title="\$H_{x,2}\$");
-plot(ey1p, hx2p, layout=(1,2), size=(400,500));
+plot(ey1p, hx2p, layout=(1,2), size=(400,500), left_margin=5mm);
 #md savefig("wavefields_fig3.png"); nothing # hide
 #md # ![](wavefields_fig3.png)
 # 

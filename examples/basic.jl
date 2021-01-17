@@ -321,7 +321,7 @@ plot(ranges/1000, a,
 plot(ranges/1000, rad2deg.(p),
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false,
-     bottom_margin=5mm, left_margin=5mm);
+     bottom_margin=5mm, left_margin=7mm);
 #md savefig("basic_homogeneousphase.png"); nothing # hide
 #md # ![](basic_homogeneousphase.png)
 
@@ -367,7 +367,7 @@ plot(ranges/1000, a,
 plot(ranges/1000, rad2deg.(p),
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false,
-     bottom_margin=5mm, left_margin=5mm)
+     bottom_margin=5mm, left_margin=7mm)
 #md savefig("basic_segmentedphase.png"); nothing # hide
 #md # ![](basic_segmentedphase.png)
 
