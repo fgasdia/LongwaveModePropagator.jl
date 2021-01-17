@@ -18,6 +18,7 @@
 using Dates, Printf
 using HDF5
 using Plots
+using Plots.Measures
 
 using LongwaveModePropagator
 using LongwaveModePropagator: buildrun, Progress, next!
