@@ -27,7 +27,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))&#39;,
         xlims=(30, 90), ylims=(-10, 0),
         xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
         title=title,
-        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
+        right_margin=2mm)</code></pre><pre class="documenter-example-output">┌ Warning: Instability detected. Aborting
 └ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:348</pre><p><img src="../meshgrid2_20knight.png" alt/></p><p>Let&#39;s run the <code>grpf</code> with <code>Δr = 0.5</code>.</p><pre><code class="language-julia">zbl = deg2rad(complex(30.0, -10.0))
 ztr = deg2rad(complex(89.9, 0.0))
 Δr = deg2rad(0.5)
@@ -55,12 +55,11 @@ twilightquads = [
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=title,
-           bottom_margin=5mm, left_margin=7mm);
+           title=title);
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5);</code></pre><p><img src="../meshgrid2_20knightmesh.png" alt/></p><p>Upon inspection, it is clear that there is a root/pole visible at the upper right corner of the domain in the fine mesh above that is not identified by <code>grpf</code>. In fact, the algorithm did not even try to refine the mesh in this region. That is because the root and pole pair are too closely spaced for the algorithm to know they are there. The discretized Cauchy <a href="https://en.wikipedia.org/wiki/Argument_principle">argument principle</a> (DCAP), upon which GRPF is based, can only identify the presence of roots and poles if there are an unequal number of them. If the complex phase change around a tessellation contour is equal to 0, there may be no roots or poles in the contoured region, or there may be an equal number of roots and poles.</p><p>This run identified 20 roots and 19 poles. Let&#39;s run <code>grpf</code> again with a finer resolution of <code>Δr = 0.2</code>.</p><pre><code class="language-julia">Δr = deg2rad(0.2)
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid2_20knightmesh.png" alt/></p><p>Upon inspection, it is clear that there is a root/pole visible at the upper right corner of the domain in the fine mesh above that is not identified by <code>grpf</code>. In fact, the algorithm did not even try to refine the mesh in this region. That is because the root and pole pair are too closely spaced for the algorithm to know they are there. The discretized Cauchy <a href="https://en.wikipedia.org/wiki/Argument_principle">argument principle</a> (DCAP), upon which GRPF is based, can only identify the presence of roots and poles if there are an unequal number of them. If the complex phase change around a tessellation contour is equal to 0, there may be no roots or poles in the contoured region, or there may be an equal number of roots and poles.</p><p>This run identified 20 roots and 19 poles. Let&#39;s run <code>grpf</code> again with a finer resolution of <code>Δr = 0.2</code>.</p><pre><code class="language-julia">Δr = deg2rad(0.2)
 
 mesh = trianglemesh(zbl, ztr, Δr)
 
@@ -75,25 +74,22 @@ polesdeg = rad2deg.(poles)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=title,
-           bottom_margin=5mm, left_margin=7mm);
+           title=title);
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5);</code></pre><p><img src="../meshgrid2_20knightfinemesh.png" alt/></p><p>This higher resolution initial grid has identified 22 roots and 21 poles. Zooming in on the upper right region, we can see that the previously missing roots and poles are very closely spaced.</p><pre><code class="language-julia">img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid2_20knightfinemesh.png" alt/></p><p>This higher resolution initial grid has identified 22 roots and 21 poles. Zooming in on the upper right region, we can see that the previously missing roots and poles are very closely spaced.</p><pre><code class="language-julia">img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(80, 90), ylims=(-2, 0),
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=title,
-           bottom_margin=5mm, left_margin=9mm);
+           title=title);
 plot!(img, real(rootsdeg), imag(rootsdeg), color=&quot;red&quot;,
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5);</code></pre><p><img src="../meshgrid2_20knightfinemeshzoom.png" alt/></p><p>Roots are frequently located closely to poles in the upper right of the domain for a variety of ionospheres. To ensure they are captured, <a href="../../lib/internals/#LongwaveModePropagator.defaultmesh-Tuple{Any}"><code>LongwaveModePropagator.defaultmesh</code></a> uses a spacing of <code>Δr = deg2rad(0.5)</code> for most of the mesh, but a spacing of <code>Δr = deg2rad(0.15)</code> for the region with real greater than 75° and imaginary greater than -1.5°.</p><pre><code class="language-julia">mesh = defaultmesh(frequency)
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid2_20knightfinemeshzoom.png" alt/></p><p>Roots are frequently located closely to poles in the upper right of the domain for a variety of ionospheres. To ensure they are captured, <a href="../../lib/internals/#LongwaveModePropagator.defaultmesh-Tuple{Any}"><code>LongwaveModePropagator.defaultmesh</code></a> uses a spacing of <code>Δr = deg2rad(0.5)</code> for most of the mesh, but a spacing of <code>Δr = deg2rad(0.15)</code> for the region with real greater than 75° and imaginary greater than -1.5°.</p><pre><code class="language-julia">mesh = defaultmesh(frequency)
 meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
-           size=(450,375), legend=false,
-           bottom_margin=5mm, left_margin=9mm);
+           size=(450,375), legend=false);
 plot!(img, [30, 90], [0, 0], color=&quot;red&quot;);
-plot!(img, [80, 90], [-10, 0], color=&quot;red&quot;);</code></pre><p><img src="../meshgrid2_defaultmesh.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid/">« Mesh grid for mode finding - Part 1</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 18 January 2021 03:42">Monday 18 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(img, [80, 90], [-10, 0], color=&quot;red&quot;)</code></pre><p><img src="../meshgrid2_defaultmesh.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid/">« Mesh grid for mode finding - Part 1</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 18 January 2021 04:28">Monday 18 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
