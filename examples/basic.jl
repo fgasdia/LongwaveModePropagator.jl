@@ -21,7 +21,7 @@
 # Let's load the necessary packages.
 
 using Plots
-ENV["GKSwstype"] = "nul"  #hide  to avoid GKS error on docs build ("nul" for headless systems)
+ENV["GKSwstype"] = "nul"  #src  to avoid GKS error on docs build ("nul" for headless systems)
 
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
