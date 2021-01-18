@@ -39,13 +39,13 @@
 
 using Statistics
 using Plots
-using Plots.Measures
 using OrdinaryDiffEq
 using Interpolations
 
 using LongwaveModePropagator
 using LongwaveModePropagator: StaticArrays, QE, ME
 const LMP = LongwaveModePropagator
+nothing  #hide
 
 # ## R(z)
 # 
@@ -129,7 +129,7 @@ p2 = plot([R11 R21 R12 R22], zs/1000,
 
 hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="");
 
-plot(p1, p2, layout=(1,2), size=(800, 400), left_margin=7mm);
+plot(p1, p2, layout=(1,2), size=(800, 400))
 #md savefig("integratedreflection_xyz.png"); nothing # hide
 #md # ![](integratedreflection_xyz.png)
 
@@ -249,8 +249,7 @@ mean_Rerrs = dropdims(mean(Rerrs, dims=1), dims=1)
 heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
         clims=(-8, -3),
         xlabel="tolerance", ylabel="solver",
-        colorbar_title="log₁₀ max abs difference", colorbar=true,
-        bottom_margin=5mm, left_margin=11mm);
+        colorbar_title="log₁₀ max abs difference", colorbar=true)
 #md savefig("integratedreflection_difference.png"); nothing # hide
 #md # ![](integratedreflection_difference.png)
 
@@ -261,8 +260,7 @@ mean_times = dropdims(mean(times, dims=1), dims=1)
 heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
         clims=(0, 9),
         xlabel="tolerance", ylabel="solver",
-        colorbar_title="time (μs)", colorbar=true,
-        bottom_margin=5mm, left_margin=11mm);
+        colorbar_title="time (μs)", colorbar=true)
 #md savefig("integratedreflection_time.png"); nothing # hide
 #md # ![](integratedreflection_time.png)
 

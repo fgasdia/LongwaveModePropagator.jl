@@ -145,7 +145,7 @@ p2 = plot(real(hx2), zskm, title="\$H_{x,2}\$",
 plot!(p2, real(hx2_unscaled),
       zskm, linewidth=1.5);
 
-plot(p1, p2, layout=(1,2), left_margin=5mm);
+plot(p1, p2, layout=(1,2))
 #md savefig("wavefields_scaling.png"); nothing # hide
 #md # ![](wavefields_scaling.png)
 
@@ -208,8 +208,7 @@ end
 day_e1s = [getindex.(e, 1) for e in day_es]
 
 plot(real(day_e1s), zs/1000,
-     label=permutedims(solverstrings), legend=:topleft,
-     left_margin=5mm);
+     label=permutedims(solverstrings), legend=:topleft)
 #md savefig("wavefields_day.png"); nothing # hide
 #md # ![](wavefields_day.png)
 
@@ -219,8 +218,7 @@ plot(real(day_e1s), zs/1000,
 night_e1s = [getindex.(e, 1) for e in night_es]
 
 plot(real(night_e1s), zs/1000,
-     label=permutedims(solverstrings), legend=:topright,
-     left_margin=5mm);
+     label=permutedims(solverstrings), legend=:topright)
 #md savefig("wavefields_night.png"); nothing # hide
 #md # ![](wavefields_night.png)
 
@@ -320,7 +318,7 @@ hx2 = getindex.(e, 7)
 
 ey1p = plotfield(ey1, ylims=(75, 102), title="\$E_{y,1}\$");
 hx2p = plotfield(hx2, ylims=(75, 102), title="\$H_{x,2}\$");
-plot(ey1p, hx2p, layout=(1,2), size=(400,500), left_margin=5mm);
+plot(ey1p, hx2p, layout=(1,2), size=(400,500))
 #md savefig("wavefields_fig3.png"); nothing # hide
 #md # ![](wavefields_fig3.png)
 # 
