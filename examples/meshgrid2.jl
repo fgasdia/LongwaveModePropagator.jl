@@ -60,7 +60,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
         xlims=(30, 90), ylims=(-10, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
         title=title,
-        right_margin=2mm, bottom_margin=5mm, left_margin=7mm);
+        right_margin=2mm)
 #md savefig("meshgrid2_20knight.png"); nothing # hide
 #md # ![](meshgrid2_20knight.png)
 
@@ -94,12 +94,11 @@ twilightquads = [
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=title,
-           bottom_margin=5mm, left_margin=7mm);
+           title=title);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5);
+      seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid2_20knightmesh.png"); nothing # hide
 #md # ![](meshgrid2_20knightmesh.png)
 
@@ -134,12 +133,11 @@ polesdeg = rad2deg.(poles)
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=title,
-           bottom_margin=5mm, left_margin=7mm);
+           title=title);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5);
+      seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid2_20knightfinemesh.png"); nothing # hide
 #md # ![](meshgrid2_20knightfinemesh.png)
 
@@ -150,12 +148,11 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
 img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(80, 90), ylims=(-2, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=title,
-           bottom_margin=5mm, left_margin=9mm);
+           title=title);
 plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg), color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5);
+      seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid2_20knightfinemeshzoom.png"); nothing # hide
 #md # ![](meshgrid2_20knightfinemeshzoom.png)
 
@@ -172,9 +169,8 @@ meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
-           size=(450,375), legend=false,
-           bottom_margin=5mm, left_margin=9mm);
+           size=(450,375), legend=false);
 plot!(img, [30, 90], [0, 0], color="red");
-plot!(img, [80, 90], [-10, 0], color="red");
+plot!(img, [80, 90], [-10, 0], color="red")
 #md savefig(img, "meshgrid2_defaultmesh.png"); nothing # hide
 #md # ![](meshgrid2_defaultmesh.png)

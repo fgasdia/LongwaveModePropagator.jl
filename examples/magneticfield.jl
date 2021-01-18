@@ -18,7 +18,6 @@
 using Dates, Printf
 using HDF5
 using Plots
-using Plots.Measures
 
 using LongwaveModePropagator
 using LongwaveModePropagator: buildrun, Progress, next!
@@ -199,8 +198,7 @@ pushfirst!(colors, RGB(0.0, 0, 0))
 plot(OUTPUT_RANGES/1000, agrid,
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude (dB)",
-     labels=permutedims(labels), legendtitle="  dip, az", legend=true,
-     bottom_margin=5mm, left_margin=7mm);
+     labels=permutedims(labels), legendtitle="  dip, az", legend=true)
 #md savefig("magneticfield_amplitude.png"); nothing # hide
 #md # ![](magneticfield_amplitude.png)
 
@@ -227,8 +225,7 @@ adifference = agrid - lagrid
 plot(OUTPUT_RANGES/1000, adifference,
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude difference (dB)",
-     labels=permutedims(labels), legendtitle="  dip, az", legend=true,
-     bottom_margin=5mm, left_margin=7mm);
+     labels=permutedims(labels), legendtitle="  dip, az", legend=true)
 #md savefig("magneticfield_diff.png"); nothing # hide
 #md # ![](magneticfield_diff.png)
 
