@@ -34,7 +34,7 @@ nothing  #hide
 # [Piggot et. al., 1965](https://doi.org/10.1098/rsta.1965.0005).
 #
 # ```@raw html
-# <img src="../images/Piggott_ionosphere.png"/>
+# <img src="../../images/Piggott_ionosphere.png"/>
 # ```
 #
 # He begins with the midday profile with a 16 kHz radio wave at an angle of incidence of
@@ -285,7 +285,7 @@ plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm);
 #md # ![](wavefields_fig2.png)
 
 # ```@raw html
-# <img src="../images/Pitteway1965_fig2.png"/>
+# <img src="../../images/Pitteway1965_fig2.png"/>
 # ```
 
 # The envelopes of the two are very similar.
@@ -323,5 +323,5 @@ plot(ey1p, hx2p, layout=(1,2), size=(400,500))
 #md # ![](wavefields_fig3.png)
 # 
 # ```@raw html
-# <img src="../images/Pitteway1965_fig3.png"/>
+# <img src="../../images/Pitteway1965_fig3.png"/>
 # ```
