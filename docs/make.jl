@@ -1,5 +1,7 @@
 using Documenter
 using Literate
+using Plots
+ENV["GKSwstype"] = "nul"  # to avoid GKS error on docs build ("nul" for headless systems)
 
 using LongwaveModePropagator
 using LongwaveModePropagator.Fields
