@@ -599,7 +599,7 @@ function defaultmesh(frequency;
 
     return mesh
 end
-defaultmesh(f::Frequency) = defaultmesh(f.f)
+defaultmesh(f::Frequency; kw...) = defaultmesh(f.f; kw...)
 
 """
     trianglemesh(zbl, ztr, Δr)
