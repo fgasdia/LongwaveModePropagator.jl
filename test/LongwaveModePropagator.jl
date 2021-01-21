@@ -66,6 +66,34 @@ function test_propagate_segmented(scenario)
     @test !isapprox(phase3, phase, rtol=1e-3)
 end
 
+function test_mcranges_segmented(scenario)
+    # Test that single receiver location has correct phase without continuous Range
+    # This also confirms that results are correct if mode conversion occurs at a
+    # segment_range that is not also an output_range
+
+    @unpack tx, rx, bfield, species, ground, distances = scenario
+
+    waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i], ground[i],
+                                                         distances[i]) for i in 1:2])
+
+    Eref, ampref, phaseref = propagate(waveguide, tx, rx, unwrap=false)
+
+    E1, a1, p1 = propagate(waveguide, tx, GroundSampler(600e3, Fields.Ez))
+    E2, a2, p2 = propagate(waveguide, tx, GroundSampler(1400e3, Fields.Ez))
+    E3, a3, p3 = propagate(waveguide, tx, GroundSampler(1800e3, Fields.Ez))
+
+    m1 = findfirst(isequal(600e3), rx.distance)
+    m2 = findfirst(isequal(1400e3), rx.distance)
+    m3 = findfirst(isequal(1800e3), rx.distance)
+
+    @test a1 ≈ ampref[m1] atol=0.01
+    @test a2 ≈ ampref[m2] atol=0.01
+    @test a3 ≈ ampref[m3] atol=0.01
+    @test p1 ≈ phaseref[m1] atol=1e-3
+    @test p2 ≈ phaseref[m2] atol=1e-3
+    @test p3 ≈ phaseref[m3] atol=1e-3
+end
+
 @testset "LongwaveModePropagator.jl" begin
     @info "Testing LongwaveModePropagator"
 
