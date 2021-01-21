@@ -182,7 +182,8 @@ If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing, params=LMPParams())
+    modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing, unwrap=true,
+    params=LMPParams())
 
     if isnothing(modes)
         if isnothing(mesh)
@@ -208,7 +209,9 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
         phase[i] = angle(e)  # ranges between -π:π rad
     end
 
-    unwrap!(phase)
+    if unwrap
+        unwrap!(phase)
+    end
 
     return E, amplitude, phase
 end
@@ -223,7 +226,7 @@ If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm.
 """
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-    mesh=nothing, params=LMPParams())
+    mesh=nothing, unwrap=true, params=LMPParams())
 
     if isnothing(mesh)
         mesh = defaultmesh(tx.frequency)
@@ -272,7 +275,9 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         phase[i] = angle(e)  # ranges between -π:π rad
     end
 
-    unwrap!(phase)
+    if unwrap
+        unwrap!(phase)
+    end
 
     return E, amplitude, phase
 end
@@ -286,7 +291,7 @@ Run the model scenario described by `file` and save the results as `outfile`.
 If `outfile = missing`, the output file name will be `\$(file)_output.json`.
 """
 function propagate(file::AbstractString, outfile=missing; incrementalwrite=false,
-    append=false, mesh=nothing, params=LMPParams())
+    append=false, mesh=nothing, unwrap=true, params=LMPParams())
 
     ispath(file) || error("$file is not a valid file name")
 
@@ -301,9 +306,9 @@ function propagate(file::AbstractString, outfile=missing; incrementalwrite=false
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for"*
                                                 "BatchInput files"))
-        output = buildrunsave(outfile, s, append=append, mesh=mesh, params=params)
+        output = buildrunsave(outfile, s, append=append, mesh=mesh, unwrap=unwrap, params=params)
     else
-        output = buildrun(s, mesh=mesh, params=params)
+        output = buildrun(s, mesh=mesh, unwrap=unwrap, params=params)
 
         json_str = JSON3.write(output)
 
