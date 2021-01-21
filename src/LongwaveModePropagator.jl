@@ -201,13 +201,7 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
 
     E = Efield(modes, waveguide, tx, rx, params=params)
 
-    amplitude = Vector{Float64}(undef, length(E))
-    phase = similar(amplitude)
-    @inbounds for i in eachindex(E)
-        e = E[i]
-        amplitude[i] = 10log10(abs2(e))  # == 20log10(abs(E))
-        phase[i] = angle(e)  # ranges between -π:π rad
-    end
+    amplitude, phase = amplitudephase(E)
 
     if unwrap
         unwrap!(phase)
@@ -267,13 +261,15 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
     E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx, params=params)
 
-    amplitude = Vector{Float64}(undef, length(E))
-    phase = similar(amplitude)
-    @inbounds for i in eachindex(E)
-        e = E[i]
-        amplitude[i] = 10log10(abs2(e))  # == 20log10(abs(E))
-        phase[i] = angle(e)  # ranges between -π:π rad
+    # Efield for SegmentedWaveguides doesn't have a specialized form for AbstractSamplers
+    # of Number type, but for consistency we will return scalar E.
+    # Although now this function is technically type unstable, it has a practically
+    # unmeasurable affect on the total runtime.
+    if length(E) == 1
+        E = only(E)
     end
+
+    amplitude, phase = amplitudephase(E)
 
     if unwrap
         unwrap!(phase)
