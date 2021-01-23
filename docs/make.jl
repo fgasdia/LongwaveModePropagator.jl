@@ -24,9 +24,10 @@ examples = [
     "io.jl",
     "meshgrid.jl",
     "meshgrid2.jl",
-    "wavefieldintegration.jl",
     "integratedreflection.jl",
-    "magneticfield.jl"
+    "wavefieldintegration.jl",
+    "magneticfield.jl",
+    "interpretinghpbeta.jl"
 ]
 
 for example in examples
@@ -49,9 +50,10 @@ example_pages = Any[
     "generated/io.md",
     "generated/meshgrid.md",
     "generated/meshgrid2.md",
-    "generated/wavefieldintegration.md",
     "generated/integratedreflection.md",
-    "generated/magneticfield.md"
+    "generated/wavefieldintegration.md",
+    "generated/magneticfield.md",
+    "generated/interpretinghpbeta.md"
 ]
 
 library_pages = Any[
