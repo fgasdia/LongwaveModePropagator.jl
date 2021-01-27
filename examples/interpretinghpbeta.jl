@@ -26,7 +26,7 @@
 # effective collision frequency.
 # The height at which ``\omega_r = \omega``, the angular radio wave frequency is
 # approximately the wave reflection height. This statement is equivalent to ``X = Z`` from
-# magnetoionic theory ([Ratcliffe (1959)](https://books.google.com/books/about/The_magneto_ionic_theory_and_its_applica.html?id=lRQvAAAAIAAJ))
+# magnetoionic theory ([Ratcliffe (1959)](https://books.google.com/books/about/The_magneto_ionic_theory_and_its_applica.html?id=lRQvAAAAIAAJ)).
 # 
 # Citing laboratory and some observational experiments, Wait assumes an analytical
 # collision frequency profile
@@ -37,7 +37,7 @@
 # the approximation
 # ```math
 # \omega_r = (2.5\times 10^5)\exp(0.3(z - 70)).
-# ````
+# ```
 # To fit measurements made at other times and locations, he parameterizes the function
 # as
 # ```math
@@ -194,5 +194,4 @@ plot!(p, size=(600,400),
 # This makes sense because in both cases the waveguide "height" in wavelengths is
 # increassing.
 
-# [^1]: As a government technical report and not a journal paper curated by a publishing
-# company, it is difficult to track how many times it has been cited by others.
+# [^1]: As a government technical report and not a journal paper curated by a publishing company, it is difficult to track how many times it has been cited by others.
