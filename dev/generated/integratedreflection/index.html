@@ -81,7 +81,8 @@ end
 scenarios = generatescenarios(30);</code></pre><h2 id="Reference-solutions"><a class="docs-heading-anchor" href="#Reference-solutions">Reference solutions</a><a id="Reference-solutions-1"></a><a class="docs-heading-anchor-permalink" href="#Reference-solutions" title="Permalink"></a></h2><p>To evaluate the accuracy of the reflection coefficients, we compare to a very low tolerance Runge-Kutta Order 4 method. The DifferentialEquations implementation of <code>RK4</code> uses adaptive stepping.</p><p>The <a href="../../lib/internals/#LongwaveModePropagator.integratedreflection-Tuple{PhysicalModeEquation,LongwaveModePropagator.Dθ}"><code>LongwaveModePropagator.integratedreflection</code></a> function does the integration process above for us and returns the reflection coefficient at the ground.</p><pre><code class="language-julia">ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
 params = LMPParams(integrationparams=ip)
 
-Rrefs = [LMP.integratedreflection(scenario, params=params) for scenario in scenarios];</code></pre><h2 id="Evaluate-solvers"><a class="docs-heading-anchor" href="#Evaluate-solvers">Evaluate solvers</a><a id="Evaluate-solvers-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluate-solvers" title="Permalink"></a></h2><p>Now let&#39;s compute and time the results a set of different methods for a range of tolerances. We repeat the integration <code>N = 25</code> times for each combination of parameters to get a more accurate average time.</p><pre><code class="language-julia">function compute(scenarios, tolerances, solvers)
+Rrefs = [LMP.integratedreflection(scenario, params=params) for scenario in scenarios];</code></pre><pre class="documenter-example-output">┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328</pre><h2 id="Evaluate-solvers"><a class="docs-heading-anchor" href="#Evaluate-solvers">Evaluate solvers</a><a id="Evaluate-solvers-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluate-solvers" title="Permalink"></a></h2><p>Now let&#39;s compute and time the results a set of different methods for a range of tolerances. We repeat the integration <code>N = 25</code> times for each combination of parameters to get a more accurate average time.</p><pre><code class="language-julia">function compute(scenarios, tolerances, solvers)
     dims = length(scenarios), length(tolerances), length(solvers)
     Rs = Array{StaticArrays.SMatrix{2,2,ComplexF64,4}}(undef, dims...)
     times = Array{Float64}(undef, dims...)
@@ -117,7 +118,58 @@ tolerancestrings = string.(tolerances)
 solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
 solverstrings = replace.(string.(solvers), &quot;OrdinaryDiffEq.&quot;=&gt;&quot;&quot;)
 
-Rs, times = compute(scenarios, tolerances, solvers);</code></pre><p>We&#39;ll measure the error in the reflection coefficient matrices as the maximum absolute difference of the four elements of the matrix compared to the reference reflection coefficient matrix.</p><pre><code class="language-julia">function differr(a, ref)
+Rs, times = compute(scenarios, tolerances, solvers);</code></pre><pre class="documenter-example-output">┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328
+┌ Warning: Interrupted. Larger maxiters is needed.
+└ @ DiffEqBase ~/.julia/packages/DiffEqBase/ORQhu/src/integrator_interface.jl:328</pre><p>We&#39;ll measure the error in the reflection coefficient matrices as the maximum absolute difference of the four elements of the matrix compared to the reference reflection coefficient matrix.</p><pre><code class="language-julia">function differr(a, ref)
     differences = a .- ref
     aerror = similar(a, Float64)
     for i in eachindex(differences)
@@ -138,4 +190,4 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
 heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
         clims=(0, 9),
         xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;,
-        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best combination of runtime and accuracy occurs at roughly <code>Vern7</code> with a tolerance of <code>1e-8</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not usually required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 27 January 2021 05:25">Wednesday 27 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best combination of runtime and accuracy occurs at roughly <code>Vern7</code> with a tolerance of <code>1e-8</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not usually required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 27 January 2021 07:13">Wednesday 27 January 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
