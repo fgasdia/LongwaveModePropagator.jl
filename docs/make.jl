@@ -87,4 +87,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/fgasdia/LongwaveModePropagator.jl.git",
+    devbranch = "main",
 )
