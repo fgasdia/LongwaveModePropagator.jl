@@ -73,6 +73,7 @@ ground = GROUND[5]
 
 tx = Transmitter(20e3)
 rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
+nothing  #hide
 
 # ## Varying h′
 # 
@@ -92,16 +93,16 @@ end
 hprimes = 72:1:78
 amps = varyhp(hprimes)
 
-p = plot()
+p = plot();
 function buildplots(p, amps)
     cmap = palette(:amp, length(hprimes)+1) # +1 allows us to use a darker lightest color
 
     for i in eachindex(hprimes)
         plot!(p, rx.distance/1000, amps[i],
-              label=hprimes[i], color=cmap[i+1])
+              label=hprimes[i], color=cmap[i+1]);
     end
 end
-buildplots(p, amps)
+buildplots(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="h′")
 #md savefig("interpreting_hprimes.png"); nothing # hide
@@ -128,16 +129,16 @@ end
 betas = [0.3, 0.4, 0.5, 0.7, 0.9, 2.0]
 amps = varybeta(betas)
 
-p = plot()
+p = plot();
 function buildplots(p, amps)
     cmap = palette(:amp, length(betas)+1)
 
     for i in eachindex(betas)
         plot!(p, rx.distance/1000, amps[i],
-              label=betas[i], color=cmap[i+1])
+              label=betas[i], color=cmap[i+1]);
     end
 end
-buildplots(p, amps)
+buildplots(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="β")
 #md savefig("interpreting_hprimes.png"); nothing # hide
@@ -168,11 +169,8 @@ end
 freqs = 5e3:5e3:50e3
 amps = varyfreq(freqs)
 
-p = plot()
+p = plot();
 function buildplots(p, amps)
-    # cdivs = [1, 2, 2, 3, 3, 3, 3, 4, 4, 4]
-    # Ndiv = 6
-    # d = floor(Int, 100/Ndiv)
     pal = palette(:rainbow, 7)
     cmap = [pal[1]; range(pal[2], pal[3], length=2); range(pal[4], pal[5], length=4);
             range(pal[6], pal[7], length=3)]
@@ -181,10 +179,10 @@ function buildplots(p, amps)
         fkHz = trunc(Int, freqs[i]/1000)
         λkm = trunc(LMP.C0/freqs[i]/1000, digits=1)
         plot!(p, rx.distance/1000, amps[i] .+ (10*i),
-              label=string(fkHz, ",  ", λkm), color=cmap[i])
+              label=string(fkHz, ",  ", λkm), color=cmap[i]);
     end
 end
-buildplots(p, amps)
+buildplots(p, amps);
 plot!(p, size=(600,400),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="f kHz, λ km")
 #md savefig("interpreting_frequencies.png"); nothing # hide
