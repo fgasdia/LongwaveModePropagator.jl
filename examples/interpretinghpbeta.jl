@@ -105,8 +105,8 @@ end
 buildplots(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="h′")
-#md savefig("interpreting_hprimes.png"); nothing # hide
-#md ![](interpreting_hprimes.png)
+#md savefig(p, "interpreting_hprimes.png"); nothing # hide
+#md # ![](interpreting_hprimes.png)
 
 # As h′ increases, the field strength modal interference pattern is displaced outwardly
 # away from the transmitter.
@@ -141,8 +141,8 @@ end
 buildplots(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="β")
-#md savefig("interpreting_hprimes.png"); nothing # hide
-#md ![](interpreting_hprimes.png)
+#md savefig(p, "interpreting_hprimes.png"); nothing # hide
+#md # ![](interpreting_hprimes.png)
 
 # Broadly, the signal increases with increasing β.
 # Morfitt (1977) also suggests that an increase in β leads to the signal levels varying
@@ -185,8 +185,8 @@ end
 buildplots(p, amps);
 plot!(p, size=(600,400),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="f kHz, λ km")
-#md savefig("interpreting_frequencies.png"); nothing # hide
-#md ![](interpreting_frequencies.png)
+#md savefig(p, "interpreting_frequencies.png"); nothing # hide
+#md # ![](interpreting_frequencies.png)
 
 # The effect of increasing frequency is similar to increasing h′.
 # This makes sense because in both cases the waveguide "height" in wavelengths is
