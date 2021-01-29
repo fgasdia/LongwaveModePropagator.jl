@@ -12,7 +12,7 @@ The model is largely based on the work of K. G. Budden, who developed both a con
 It is similar to the Long Wavelength Propagation Capability [(Ferguson, 1998)](#Ferguson1998), but aims to be more robust and adaptable.
 
 The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
-See the **Examples** section of [the docs](https://fgasdia.github.io/LongwaveModePropagator.jl/stable) for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
+See the **Examples** section of [the docs](https://fgasdia.github.io/LongwaveModePropagator.jl/dev) for examples of building scenarios and running the model from within Julia and for generating compatible files from Matlab and Python.
 
 ## Installation instructions
 
