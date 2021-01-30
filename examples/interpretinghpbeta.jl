@@ -141,8 +141,8 @@ end
 buildplots(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="β")
-#md savefig(p, "interpreting_hprimes.png"); nothing # hide
-#md # ![](interpreting_hprimes.png)
+#md savefig(p, "interpreting_betas.png"); nothing # hide
+#md # ![](interpreting_betas.png)
 
 # Broadly, the signal increases with increasing β.
 # Morfitt (1977) also suggests that an increase in β leads to the signal levels varying
