@@ -4,25 +4,25 @@
 
 Longwave Mode Propagator is a mode-theory propagation model written in the [Julia](https://julialang.org/) programming language.
 The model is largely based on the work of K. G. Budden, who developed both a convenient means of calculating an effective reflection coefficient for the anisotropic ionosphere [(Budden, 1955)](#Budden1955a) and a general method for calculating the electric field produced by a source dipole in the Earth-ionosphere waveguide [(Budden, 1962)](#Budden1962).
-It is similar to the [Long Wavelength Propagation Capability](http://www.dtic.mil/docs/citations/ADA350375), but aims to be more robust and adaptable.
+It is similar to the [Long Wavelength Propagation Capability (LWPC)](http://www.dtic.mil/docs/citations/ADA350375), but aims to be more robust and adaptable.
 
 The package is most easily used when interfacing with it from Julia, but it can also run simple cases by reading in JSON files and writing the results back to JSON.
-See the **Examples** section of these docs for examples of building scenarios and running the model from within Julia or for generating compatible files from Matlab and Python.
+See the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/generated/basic/) section of these docs for examples of building scenarios and running the model from within Julia or for generating compatible files from Matlab and Python.
 
 ## Installation instructions
 
 1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
-2. From the Julia REPL, install LongwaveModePropagator.jl and its dependencies:
+2. From the Julia REPL, install LongwaveModePropagator.
 
 ```
 julia> ]
-(@v1.5) pkg> add https://github.com/fgasdia/LongwaveModePropagator
+(@v1.5) pkg> add LongwaveModePropagator
 ```
 
-If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator (but note that the package is not in Julia's General registry and must be installed with the GitHub URL).
+If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.
 
 Julia has an excellent built-in package manager (accessed by typing `]` from the REPL) that keeps track of the versions of all dependencies within an environment.
-This means you can leave your code, come back to it two years later on a new computer, and as long as you have all the original files (including the `Project.toml` and `Manifest.toml` files), you can `instantiate` the exact environment you were last working with.
+This means you can leave your code, come back to it two years later on a new computer, and as long as you have the original `Project.toml` and `Manifest.toml` files, you can `instantiate` the exact environment you were last working with.
 To update the environment (while maintaining compatibility across all dependencies), simply `] up`.
 
 As with most Julia packages, LongwaveModePropagator is released under the MIT license and all source code is [hosted on GitHub](https://github.com/fgasdia/LongwaveModePropagator).
@@ -71,9 +71,9 @@ plot(rx.distance/1000, a, xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)")
 
     SI units (MKS) and _radians_ are used throughout LongwaveModePropagator.
 
-    The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often not specified and implicitly taken to be kilometers and inverse kilometers.
+    The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often implicitly taken to be kilometers and inverse kilometers.
 
-Users are encouraged to browse the **Examples** section for more complex scenarios.
+Users are encouraged to browse the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/generated/basic/) section for more complex scenarios.
 
 ## New to Julia?
 

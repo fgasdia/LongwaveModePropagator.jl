@@ -1,6 +1,7 @@
 # # Interpreting h′ and β
 # 
-# This example looks at the influence of h′, β, and radio frequency on amplitude curves.
+# This example looks at the influence of h′, β, electron collision frequency,
+# and transmitter frequency on amplitude curves.
 # 
 # ## Background
 # 
@@ -63,7 +64,7 @@
 # ``N(z) = N_0\exp(bz)`` and ``\nu(z) = \nu_0\exp(-az)`` where ``\beta = a + b`` and
 # ``a = 0.15``. 
 
-using Plots
+using Printf, Plots
 using LongwaveModePropagator
 const LMP = LongwaveModePropagator
 
@@ -191,5 +192,87 @@ plot!(p, size=(600,400),
 # The effect of increasing frequency is similar to increasing h′.
 # This makes sense because in both cases the waveguide "height" in wavelengths is
 # increassing.
+
+# ## Collision frequency
+# 
+# So far all of the profiles generated above have used the electron collision frequency
+# from Morfitt and Shellman (1976).
+# Let's look at the effect of different collision frequency profiles.
+# 
+# First we'll plot the collision frequency profiles themselves.
+
+collisionfrequency(z, ν₀, a) = ν₀*exp(-a*z/1000)  # 1/1000 converts `z` to km
+
+alt = 40e3:500:110e3
+params = [(1.816e11, 0.18),
+          (1.816e11/5, 0.15), (1.816e11, 0.15), (1.816e11*5, 0.15),
+          (1.816e11, 0.12)]
+
+p = plot();
+function buildplots(p, params)
+    cmap = palette(:rainbow, length(params))
+
+    for i in eachindex(params)
+        v₀label = params[i][1]/1.816
+        plot!(p, collisionfrequency.(alt, params[i]...), alt/1000,
+              label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
+    end
+end
+buildplots(p, params);
+plot!(p, size=(600,400), xscale=:log10,
+      xlabel="ν (s⁻¹)", ylabel="Altitude (km)", legendtitle="1.816 ν₀, a")
+#md savefig(p, "interpreting_collisionprofile.png"); nothing # hide
+#md # ![](interpreting_collisionprofile.png)
+
+# Typical daytime electron density profile.
+
+function varycollisionfreq(params, hp, β)
+    amps = Vector{Vector{Float64}}(undef, length(params))
+    for i in eachindex(params)
+        electrons = Species(LMP.QE, LMP.ME,
+            z->waitprofile(z, hp, β), z->collisionfrequency(z, params[i]...))
+        waveguide = HomogeneousWaveguide(bfield, electrons, ground)
+        E, a, p = propagate(waveguide, tx, rx)
+        amps[i] = a
+    end
+    return amps
+end
+amps = varycollisionfreq(params, 75, 0.35)
+
+p = plot();
+function buildplots(p, amps)
+    cmap = palette(:rainbow, length(params))
+
+    for i in eachindex(params)
+        v₀label = params[i][1]/1.816
+        plot!(p, rx.distance/1000, amps[i],
+              label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
+    end
+end
+buildplots(p, amps);
+plot!(p, size=(600,400), ylims=(22, 95),
+      xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
+#md savefig(p, "interpreting_collisionday.png"); nothing # hide
+#md # ![](interpreting_collisionday.png)
+
+# Typical nighttime electron density profile.
+
+amps = varycollisionfreq(params, 82, 0.55)
+
+p = plot();
+function buildplots(p, amps)
+    cmap = palette(:rainbow, length(params))
+
+    for i in eachindex(params)
+        v₀label = params[i][1]/1.816
+        plot!(p, rx.distance/1000, amps[i],
+              label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
+    end
+end
+buildplots(p, amps);
+plot!(p, size=(600,400), ylims=(22, 95),
+      xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
+#md savefig(p, "interpreting_collisionnight.png"); nothing # hide
+#md # ![](interpreting_collisionnight.png)
 
 # [^1]: As a government technical report and not a journal paper curated by a publishing company, it is difficult to track how many times it has been cited by others.
