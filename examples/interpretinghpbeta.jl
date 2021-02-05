@@ -64,7 +64,7 @@
 # ``N(z) = N_0\exp(bz)`` and ``\nu(z) = \nu_0\exp(-az)`` where ``\beta = a + b`` and
 # ``a = 0.15``. 
 
-using Printf, Plots
+using Printf, Plots, Interpolations
 using LongwaveModePropagator
 const LMP = LongwaveModePropagator
 
@@ -204,8 +204,20 @@ plot!(p, size=(600,400),
 # Let's look at the effect of different collision frequency profiles.
 # 
 # First we'll plot the collision frequency profiles themselves.
+# On the plots we'll also mark the approximate reflection height for `tx.frequency` where
+# ``\omega_r = \omega`` for a typical daytime electron density profile.
 
 collisionfrequency(z, ν₀, a) = ν₀*exp(-a*z/1000)  # 1/1000 converts `z` to km
+
+function reflectionheight(params, hp, β)
+    species = Species(LMP.QE, LMP.ME,
+        z->waitprofile(z, hp, β), z->collisionfrequency(z, params...))
+    ωr = LMP.waitsparameter.(alt, (tx.frequency,), (bfield,), (species,))
+    itp = LinearInterpolation(ωr, alt)
+    eqz = itp(tx.frequency.ω)
+
+    return eqz
+end
 
 alt = 40e3:500:110e3
 params = [(1.816e11, 0.18),
@@ -213,16 +225,20 @@ params = [(1.816e11, 0.18),
           (1.816e11, 0.12)]
 
 p = plot();
-function buildplots(p, params)
+function buildplots(p, params, hp, β)
     cmap = palette(:rainbow, length(params))
 
     for i in eachindex(params)
+        eqz = reflectionheight(params[i], hp, β)
+
         v₀label = params[i][1]/1.816
         plot!(p, collisionfrequency.(alt, params[i]...), alt/1000,
               label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
+        hline!(p, [eqz/1000], linestyle=:dash, color=cmap[i], linewidth=0.6, label=nothing)
     end
 end
-buildplots(p, params);
+buildplots(p, params, 75, 0.35);
+annotate!(p, [(1e3, 64, text("ωᵣ = ω", 10))])
 plot!(p, size=(600,400), xscale=:log10,
       xlabel="ν (s⁻¹)", ylabel="Altitude (km)", legendtitle="1.816 ν₀, a")
 #md savefig(p, "interpreting_collisionprofile.png"); nothing # hide
