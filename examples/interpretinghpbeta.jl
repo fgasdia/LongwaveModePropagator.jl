@@ -73,7 +73,7 @@ bfield = BField(50e-6, π/2, 0)
 ground = GROUND[5]
 
 tx = Transmitter(20e3)
-rx = GroundSampler(0:5e3:2000e3, Fields.Ez)
+rx = GroundSampler(0:5e3:3000e3, Fields.Ez)
 nothing  #hide
 
 # ## Varying h′
@@ -145,8 +145,12 @@ plot!(p, size=(600,400), ylims=(22, 95),
 #md savefig(p, "interpreting_betas.png"); nothing # hide
 #md # ![](interpreting_betas.png)
 
-# Broadly, the signal increases with increasing β.
-# Morfitt (1977) also suggests that an increase in β leads to the signal levels varying
+# The signal roughly increases with increasing β.
+# Higher β profiles more closely represent a sharp reflecting boundary.
+# 
+# It may be more accurate to say that higher β ionospheres lead to more extreme amplitudes -
+# higher highs and lower lows.
+# Morfitt (1977) describes this as an increase in β leads to the signal levels varying
 # over a wider range in the regions of strong modal interference.
 
 # ## Varying frequency
