@@ -69,11 +69,11 @@ using LongwaveModePropagator
 const LMP = LongwaveModePropagator
 
 ## Constant values
-bfield = BField(50e-6, π/2, 0)
-ground = GROUND[5]
+const BFIELD = BField(50e-6, π/2, 0)
+const GND = GROUND[5]
 
-tx = Transmitter(20e3)
-rx = GroundSampler(0:5e3:3000e3, Fields.Ez)
+const TX = Transmitter(20e3)
+const RX = GroundSampler(0:5e3:3000e3, Fields.Ez)
 nothing  #hide
 
 # ## Varying h′
@@ -84,8 +84,8 @@ function varyhp(hprimes)
     amps = Vector{Vector{Float64}}(undef, length(hprimes))
     for i in eachindex(hprimes)
         electrons = Species(LMP.QE, LMP.ME, z->waitprofile(z, hprimes[i], 0.4), electroncollisionfrequency)
-        waveguide = HomogeneousWaveguide(bfield, electrons, ground)
-        E, a, p = propagate(waveguide, tx, rx)
+        waveguide = HomogeneousWaveguide(BFIELD, electrons, GND)
+        E, a, p = propagate(waveguide, TX, RX)
         amps[i] = a
     end
     return amps
@@ -95,15 +95,15 @@ hprimes = 72:1:78
 amps = varyhp(hprimes)
 
 p = plot();
-function buildplots(p, amps)
+function buildplots!(p, amps)
     cmap = palette(:amp, length(hprimes)+1) # +1 allows us to use a darker lightest color
 
     for i in eachindex(hprimes)
-        plot!(p, rx.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i],
               label=hprimes[i], color=cmap[i+1]);
     end
 end
-buildplots(p, amps);
+buildplots!(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="h′")
 #md savefig(p, "interpreting_hprimes.png"); nothing # hide
@@ -120,8 +120,8 @@ function varybeta(betas)
     amps = Vector{Vector{Float64}}(undef, length(betas))
     for i in eachindex(betas)
         electrons = Species(LMP.QE, LMP.ME, z->waitprofile(z, 78, betas[i]), electroncollisionfrequency)
-        waveguide = HomogeneousWaveguide(bfield, electrons, ground)
-        E, a, p = propagate(waveguide, tx, rx)
+        waveguide = HomogeneousWaveguide(BFIELD, electrons, GND)
+        E, a, p = propagate(waveguide, TX, RX)
         amps[i] = a
     end
     return amps
@@ -131,15 +131,15 @@ betas = [0.3, 0.4, 0.5, 0.7, 0.9, 2.0]
 amps = varybeta(betas)
 
 p = plot();
-function buildplots(p, amps)
+function buildplots!(p, amps)
     cmap = palette(:amp, length(betas)+1)
 
     for i in eachindex(betas)
-        plot!(p, rx.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i],
               label=betas[i], color=cmap[i+1]);
     end
 end
-buildplots(p, amps);
+buildplots!(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="β")
 #md savefig(p, "interpreting_betas.png"); nothing # hide
@@ -160,12 +160,12 @@ plot!(p, size=(600,400), ylims=(22, 95),
 
 function varyfreq(freqs)
     electrons = Species(LMP.QE, LMP.ME, z->waitprofile(z, 75, 0.35), electroncollisionfrequency)
-    waveguide = HomogeneousWaveguide(bfield, electrons, ground)
+    waveguide = HomogeneousWaveguide(BFIELD, electrons, GND)
 
     amps = Vector{Vector{Float64}}(undef, length(freqs))
     for i in eachindex(freqs)
         tx = Transmitter(freqs[i])
-        E, a, p = propagate(waveguide, tx, rx)
+        E, a, p = propagate(waveguide, tx, RX)
         amps[i] = a
     end
     return amps
@@ -175,7 +175,7 @@ freqs = 5e3:5e3:50e3
 amps = varyfreq(freqs)
 
 p = plot();
-function buildplots(p, amps)
+function buildplots!(p, amps)
     pal = palette(:rainbow, 7)
     cmap = [pal[1]; range(pal[2], pal[3], length=2); range(pal[4], pal[5], length=4);
             range(pal[6], pal[7], length=3)]
@@ -183,11 +183,11 @@ function buildplots(p, amps)
     for i in eachindex(freqs)
         fkHz = trunc(Int, freqs[i]/1000)
         λkm = trunc(LMP.C0/freqs[i]/1000, digits=1)
-        plot!(p, rx.distance/1000, amps[i] .+ (10*i),
+        plot!(p, RX.distance/1000, amps[i] .+ (10*i),
               label=string(fkHz, ",  ", λkm), color=cmap[i]);
     end
 end
-buildplots(p, amps);
+buildplots!(p, amps);
 plot!(p, size=(600,400),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="f kHz, λ km")
 #md savefig(p, "interpreting_frequencies.png"); nothing # hide
@@ -204,7 +204,7 @@ plot!(p, size=(600,400),
 # Let's look at the effect of different collision frequency profiles.
 # 
 # First we'll plot the collision frequency profiles themselves.
-# On the plots we'll also mark the approximate reflection height for `tx.frequency` where
+# On the plots we'll also mark the approximate reflection height for `TX.frequency` where
 # ``\omega_r = \omega`` for a typical daytime electron density profile.
 
 collisionfrequency(z, ν₀, a) = ν₀*exp(-a*z/1000)  # 1/1000 converts `z` to km
@@ -212,9 +212,9 @@ collisionfrequency(z, ν₀, a) = ν₀*exp(-a*z/1000)  # 1/1000 converts `z` to
 function reflectionheight(params, hp, β)
     species = Species(LMP.QE, LMP.ME,
         z->waitprofile(z, hp, β), z->collisionfrequency(z, params...))
-    ωr = LMP.waitsparameter.(alt, (tx.frequency,), (bfield,), (species,))
+    ωr = LMP.waitsparameter.(alt, (TX.frequency,), (BFIELD,), (species,))
     itp = LinearInterpolation(ωr, alt)
-    eqz = itp(tx.frequency.ω)
+    eqz = itp(TX.frequency.ω)
 
     return eqz
 end
@@ -225,7 +225,7 @@ params = [(1.816e11, 0.18),
           (1.816e11, 0.12)]
 
 p = plot();
-function buildplots(p, params, hp, β)
+function buildplots!(p, params, hp, β)
     cmap = palette(:rainbow, length(params))
 
     for i in eachindex(params)
@@ -237,7 +237,7 @@ function buildplots(p, params, hp, β)
         hline!(p, [eqz/1000], linestyle=:dash, color=cmap[i], linewidth=0.6, label=nothing)
     end
 end
-buildplots(p, params, 75, 0.35);
+buildplots!(p, params, 75, 0.35);
 annotate!(p, [(1e3, 64, text("ωᵣ = ω", 10))])
 plot!(p, size=(600,400), xscale=:log10,
       xlabel="ν (s⁻¹)", ylabel="Altitude (km)", legendtitle="1.816 ν₀, a")
@@ -251,8 +251,8 @@ function varycollisionfreq(params, hp, β)
     for i in eachindex(params)
         electrons = Species(LMP.QE, LMP.ME,
             z->waitprofile(z, hp, β), z->collisionfrequency(z, params[i]...))
-        waveguide = HomogeneousWaveguide(bfield, electrons, ground)
-        E, a, p = propagate(waveguide, tx, rx)
+        waveguide = HomogeneousWaveguide(BFIELD, electrons, GND)
+        E, a, p = propagate(waveguide, TX, RX)
         amps[i] = a
     end
     return amps
@@ -260,16 +260,16 @@ end
 amps = varycollisionfreq(params, 75, 0.35)
 
 p = plot();
-function buildplots(p, amps)
+function buildplots!(p, amps)
     cmap = palette(:rainbow, length(params))
 
     for i in eachindex(params)
         v₀label = params[i][1]/1.816
-        plot!(p, rx.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i],
               label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
     end
 end
-buildplots(p, amps);
+buildplots!(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
 #md savefig(p, "interpreting_collisionday.png"); nothing # hide
@@ -280,16 +280,16 @@ plot!(p, size=(600,400), ylims=(22, 95),
 amps = varycollisionfreq(params, 82, 0.55)
 
 p = plot();
-function buildplots(p, amps)
+function buildplots!(p, amps)
     cmap = palette(:rainbow, length(params))
 
     for i in eachindex(params)
         v₀label = params[i][1]/1.816
-        plot!(p, rx.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i],
               label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
     end
 end
-buildplots(p, amps);
+buildplots!(p, amps);
 plot!(p, size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
 #md savefig(p, "interpreting_collisionnight.png"); nothing # hide
