@@ -1,7 +1,7 @@
 # # Magnetic field direction
 #
 # In this example we'll look at the influence of the magnetic field direction on
-# a nighttime ionosphere propagation path.
+# a nighttime and daytime ionosphere propagation path.
 # Results will be compared to LWPC.
 #
 # ## Generate scenarios
@@ -36,7 +36,7 @@ nothing  #hide
 # to also write the `BatchInput` to a file.
 # That's not necessary here.
 
-function generate()
+function generate(hp, β)
     batch = BatchInput{BasicInput}()
     batch.name = "Magnetic field tests"
     batch.description = "Varying magnetic field directions: vertical, N, E, S, W."
@@ -46,8 +46,8 @@ function generate()
     frequency = 24e3
     output_ranges = collect(OUTPUT_RANGES)
     segment_ranges = [0.0]
-    hprime = [82.0]
-    beta = [0.6]
+    hprime = [hp]
+    beta = [β]
 
     ## Ocean
     ground_epsr = [81]
@@ -89,7 +89,7 @@ function generate()
     return batch
 end
 
-batch = generate();
+batch = generate(82.0, 0.6);
 
 # ## Run the model
 #
@@ -235,3 +235,23 @@ plot(OUTPUT_RANGES/1000, adifference,
 # The 315°/225° line has the worst match, although it is not clear if there is
 # a particular cause for this outside of the general differences between the
 # two models.
+
+# ## Daytime ionosphere
+# 
+# Does magnetic field direction have a different level of influence with daytime ionospheres?
+
+lmpfile = joinpath(examples_dir, "bfields_daytime_lmp.h5")
+runlmp(generate(72.0, 0.3), lmpfile)
+
+agrid, pgrid = h5open(lmpfile, "r") do o
+    agrid, pgrid = process(o)
+end
+
+plot(OUTPUT_RANGES/1000, agrid,
+     linewidth=1.5, palette=colors, colorbar=false,
+     xlabel="range (km)", ylabel="amplitude (dB)",
+     labels=permutedims(labels), legendtitle="  dip, az", legend=true)
+#md savefig("magneticfield_daytime_amplitude.png"); nothing # hide
+#md # ![](magneticfield_daytime_amplitude.png)
+
+# At these lower reflection altitudes the effect of Earth's magnetic field is decreased. 
