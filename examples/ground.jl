@@ -58,7 +58,7 @@ amps = varyground(DAY)
 
 p = plot()
 buildplots!(p, amps)
-plot!(p, size=(600,400), ylims=(22, 95), title="Day",
+plot!(p, size=(600,400), ylims=(0, 95), title="Day", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
 #md savefig(p, "ground_day.png"); nothing # hide
 #md # ![](ground_day.png
@@ -69,14 +69,15 @@ amps = varyground(NIGHT)
 
 p = plot()
 buildplots!(p, amps)
-plot!(p, size=(600,400), ylims=(22, 95), title="Night",
+plot!(p, size=(600,400), ylims=(0, 95), title="Night", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
 #md savefig(p, "ground_night.png"); nothing # hide
 #md # ![](ground_night.png
 
-# Low ground conductivity can have a significant influence on the signal propagation.
+# Low ground conductivity can have a significant influence on the signal propagation -
+# there is strong attenuation.
 # These low conductivities can be found in areas of sea or polar ice and industrial or
 # city areas.
 # 
-# The influence of ground conductivity on the received signal is independent of the
-# ionosphere and has equal impact on the day and night scenarios.
+# The influence of ground conductivity on the received signal has similar impact on
+# the day and night scenarios.
