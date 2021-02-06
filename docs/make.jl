@@ -27,7 +27,8 @@ examples = [
     "integratedreflection.jl",
     "wavefieldintegration.jl",
     "magneticfield.jl",
-    "interpretinghpbeta.jl"
+    "interpretinghpbeta.jl",
+    "ground.jl"
 ]
 
 for example in examples
@@ -53,7 +54,8 @@ example_pages = Any[
     "generated/integratedreflection.md",
     "generated/wavefieldintegration.md",
     "generated/magneticfield.md",
-    "generated/interpretinghpbeta.md"
+    "generated/interpretinghpbeta.md",
+    "generated/ground.md"
 ]
 
 library_pages = Any[
