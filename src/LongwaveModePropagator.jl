@@ -238,6 +238,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
     adjwavefields_vec = Vector{Wavefields{heighttype}}(undef, J)
 
     # Calculate wavefields and adjoint wavefields for each segment of waveguide
+    pm = Progress(J+1, 5)  # reserving 1 for Efield calculation
     for j in 1:J
         wvg = waveguide[j]
 
@@ -257,9 +258,11 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
         wavefields_vec[j] = wavefields
         adjwavefields_vec[j] = adjwavefields
+        next!(pm)
     end
 
     E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx, params=params)
+    next!(pm)
 
     # Efield for SegmentedWaveguides doesn't have a specialized form for AbstractSamplers
     # of Number type, but for consistency we will return scalar E.
