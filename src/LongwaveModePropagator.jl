@@ -212,15 +212,17 @@ end
 
 """
     propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-              mesh=nothing, params=LMPParams())
+              mesh=nothing, params=LMPParams(), display_progress=true)
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx` through a `SegmentedWaveguide`.
 
 If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm.
+
+Set `display_progress=false` to disable the ProgressMeter.
 """
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
-    mesh=nothing, unwrap=true, params=LMPParams())
+    mesh=nothing, unwrap=true, params=LMPParams(), display_progress=true)
 
     if isnothing(mesh)
         mesh = defaultmesh(tx.frequency)
@@ -238,7 +240,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
     adjwavefields_vec = Vector{Wavefields{heighttype}}(undef, J)
 
     # Calculate wavefields and adjoint wavefields for each segment of waveguide
-    pm = Progress(J+1, 5)  # reserving 1 for Efield calculation
+    pm = Progress(J+1; dt=5, enabled=display_progress)  # reserving 1 for Efield calculation
     for j in 1:J
         wvg = waveguide[j]
 
