@@ -25,7 +25,7 @@ const verticalB_scenario = (
     ea=EigenAngle(1.5 - 0.1im),
     bfield=BField(50e-6, π/2, 0),
     species=Species(QE, ME,
-                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
@@ -36,7 +36,7 @@ const isotropicB_resonant_scenario = (
     ea=EigenAngle(1.453098822238508 - 0.042008075239068944im),  # resonant
     bfield=BField(50e-6, 0, π/2),
     species=Species(QE, ME,
-                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
@@ -47,7 +47,7 @@ const resonant_scenario = (
     ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
-                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
@@ -58,7 +58,7 @@ const resonant_elevatedrx_scenario = (
     ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
-                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
@@ -69,7 +69,7 @@ const resonant_horizontal_scenario = (
     ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
-                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(15, 0.001),
     tx=Transmitter(24e3),
@@ -80,7 +80,7 @@ const nonresonant_scenario = (
     ea=EigenAngle(1.5 - 0.1im),
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
-                    z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                    z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                     electroncollisionfrequency),
     ground=Ground(5, 0.00005),
     tx=Transmitter(24e3),
@@ -102,10 +102,10 @@ const segmented_scenario = (
     ea=EigenAngle(1.5 - 0.1),
     bfield=[BField(50e-6, deg2rad(68), deg2rad(111)), BField(50e-6, deg2rad(68), deg2rad(111))],
     species=[Species(QE, ME,
-                     z->waitprofile(z, 75, 0.32, cutoff_low=40e3),
+                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
                      electroncollisionfrequency),
              Species(QE, ME,
-                     z->waitprofile(z, 80, 0.45, cutoff_low=40e3),
+                     z->waitprofile(z, 80, 0.45; cutoff_low=40e3),
                      electroncollisionfrequency)],
     ground=[Ground(15, 0.001), Ground(15, 0.001)],
     tx=Transmitter(24e3),
@@ -113,8 +113,8 @@ const segmented_scenario = (
     distances=[0.0, 1000e3],
 )
 
-const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89), length=30) for i =
-            range(deg2rad(-10), deg2rad(0), length=11)]
+const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89); length=30) for i =
+            range(deg2rad(-10), deg2rad(0); length=11)]
 
 maxabsdiff(a, b) = maximum(abs.(a - b))
 meanabsdiff(a, b) = mean(abs.(a - b))

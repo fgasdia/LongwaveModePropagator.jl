@@ -15,7 +15,7 @@ function test_modeconversion_segmented(scenario)
         wvg = waveguide[i]
         adjwvg = LMP.adjoint(wvg)
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
-        modes = findmodes(modeequation, mesh, params=params)
+        modes = findmodes(modeequation, mesh; params=params)
 
         wavefields = LMP.Wavefields(params.wavefieldheights, modes)
         adjwavefields = LMP.Wavefields(params.wavefieldheights, modes)

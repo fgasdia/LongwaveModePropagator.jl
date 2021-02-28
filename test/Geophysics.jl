@@ -58,9 +58,9 @@ function test_waitprofile()
     end
 
     # Check if zero below cutoff height
-    @test waitprofile(30e3, 60, 0.35, cutoff_low=40e3) == 0
-    @test waitprofile(30e3, 60, 0.35, cutoff_low=40e3) isa Float64
-    @test waitprofile(30_000, 60, 0.35, cutoff_low=40e3) isa Float64
+    @test waitprofile(30e3, 60, 0.35; cutoff_low=40e3) == 0
+    @test waitprofile(30e3, 60, 0.35; cutoff_low=40e3) isa Float64
+    @test waitprofile(30_000, 60, 0.35; cutoff_low=40e3) isa Float64
 
     # Check default threshold
     @test waitprofile(110e3, 70, 0.5) == 1e12

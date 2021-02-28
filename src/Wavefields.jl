@@ -355,14 +355,14 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     species::Species; params=LMPParams(), unscale=true)
     # TODO: version that updates output `e` in place
 
-    issorted(zs, rev=true) ||
+    issorted(zs; rev=true) ||
         throw(ArgumentError("`zs` should go from top to bottom of the ionosphere."))
 
     @unpack wavefieldintegrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = wavefieldintegrationparams
 
     # Initial conditions
-    Mtop = susceptibility(first(zs), frequency, bfield, species, params=params)
+    Mtop = susceptibility(first(zs), frequency, bfield, species; params=params)
     Ttop = tmatrix(ea, Mtop)
     e0 = bookerwavefields(Ttop)
 
@@ -372,17 +372,17 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
 
     # saved_positions=(true, true) because we discontinuously modify `u`.
     # This is independent of `saveat` and `save_everystep`
-    cb = DiscreteCallback(scalingcondition, scale!, save_positions=(true, true))
+    cb = DiscreteCallback(scalingcondition, scale!; save_positions=(true, true))
 
     saved_values = SavedValues(Float64, ScaleRecord)
-    scb = SavingCallback(savevalues, saved_values, save_everystep=false, saveat=zs, tdir=-1)
+    scb = SavingCallback(savevalues, saved_values; save_everystep=false, saveat=zs, tdir=-1)
 
     p = WavefieldIntegrationParams(params.topheight, ea, frequency, bfield, species, params)
 
     # WARNING: Without `lazy=false` (necessary since we're using DiscreteCallback) don't
     # use continuous solution output! Also, we're only saving at zs.
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
-    sol = solve(prob, solver, callback=CallbackSet(cb, scb),
+    sol = solve(prob, solver; callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
                 dt=dt, force_dtmin=force_dtmin, maxiters=maxiters,
                 atol=tolerance, rtol=tolerance)
@@ -475,14 +475,14 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
     zs[end] == 0 || @warn "Waveguide math assumes fields and reflection coefficients are
         calculated at the ground (`z = 0`)."
 
-    e = integratewavefields(zs, ea, frequency, bfield, species, params=params)
+    e = integratewavefields(zs, ea, frequency, bfield, species; params=params)
     R = bookerreflection(ea, e[end])
     Rg = fresnelreflection(ea, ground, frequency)
     b1, b2 = boundaryscalars(R, Rg, e[end], isisotropic(bfield))
 
     S = ea.sinθ
     @inbounds for i in eachindex(EH)
-        M = susceptibility(zs[i], frequency, bfield, species, params=params)
+        M = susceptibility(zs[i], frequency, bfield, species; params=params)
 
         # Scale to waveguide boundary conditions
         w = e[i][:,1]*b1 + e[i][:,2]*b2
@@ -504,7 +504,7 @@ function fieldstrengths!(EH, zs, me::ModeEquation; params=LMPParams())
     @unpack ea, frequency, waveguide = me
     @unpack bfield, species, ground = waveguide
 
-    fieldstrengths!(EH, zs, ea, frequency, bfield, species, ground, params=params)
+    fieldstrengths!(EH, zs, ea, frequency, bfield, species, ground; params=params)
 end
 
 """
@@ -516,7 +516,7 @@ Each element of `EH` is an `SVector` of ``ex, ey, ez, hx, hy, hz``.
 """
 function fieldstrengths(zs, me::ModeEquation; params=LMPParams())
     EH = Vector{SVector{6, ComplexF64}}(undef, length(zs))
-    fieldstrengths!(EH, zs, me, params=params)
+    fieldstrengths!(EH, zs, me; params=params)
     return EH
 end
 
@@ -557,9 +557,9 @@ function calculate_wavefields!(wavefields, adjoint_wavefields, frequency, wavegu
 
     for m in eachindex(modes)
         fieldstrengths!(view(wavefields,:,m), zs, modes[m], frequency, bfield, species,
-                        ground, params=params)
+                        ground; params=params)
         fieldstrengths!(view(adjoint_wavefields,:,m), zs, adjoint_modes[m], frequency,
-                        adjoint_bfield, species, ground, params=params)
+                        adjoint_bfield, species, ground; params=params)
     end
 
     return nothing

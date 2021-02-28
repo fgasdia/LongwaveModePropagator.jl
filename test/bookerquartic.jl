@@ -13,13 +13,13 @@ function test_bookerquarticM(scenario)
              M[2,1]             1-q[i]^2-S²+M[2,2]  M[2,3];
              S*q[i]+M[3,1]      M[3,2]              C²+M[3,3]]
 
-        @test LMP.isroot(det(G), atol=1e-5)  # real barely fails 1e-6 for resonant_scenario
+        @test LMP.isroot(det(G); atol=1e-5)  # real barely fails 1e-6 for resonant_scenario
     end
 
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(q)
         booker = B[5]*q[i]^4 + B[4]*q[i]^3 + B[3]*q[i]^2 + B[2]*q[i] + B[1]
-        @test LMP.isroot(booker, atol=1e-6)
+        @test LMP.isroot(booker; atol=1e-6)
     end
 end
 
@@ -38,16 +38,16 @@ function test_bookerquarticT(scenario)
         G = [1-q[i]^2+M[1,1]    M[1,2]              S*q[i]+M[1,3];
              M[2,1]             1-q[i]^2-S²+M[2,2]  M[2,3];
              S*q[i]+M[3,1]      M[3,2]              C²+M[3,3]]
-        @test LMP.isroot(det(G), atol=1e-6)
+        @test LMP.isroot(det(G); atol=1e-6)
     end
 
     # eigvals is >20 times slower than bookerquartic
-    @test sort(eigvals(Array(T)), by=LMP.upgoing) ≈ sort(q, by=LMP.upgoing)
+    @test sort(eigvals(Array(T)); by=LMP.upgoing) ≈ sort(q; by=LMP.upgoing)
 
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(q)
         booker = B[5]*q[i]^4 + B[4]*q[i]^3 + B[3]*q[i]^2 + B[2]*q[i] + B[1]
-        @test LMP.isroot(booker, atol=1e-6)
+        @test LMP.isroot(booker; atol=1e-6)
     end
 end
 
@@ -60,8 +60,8 @@ function test_bookerquartics(scenario)
     qM, BM = LMP.bookerquartic(ea, M)
     qT, BT = LMP.bookerquartic(T)
 
-    sort!(qM, by=LMP.upgoing)
-    sort!(qT, by=LMP.upgoing)
+    sort!(qM; by=LMP.upgoing)
+    sort!(qT; by=LMP.upgoing)
 
     @test qM ≈ qT
 end
@@ -73,10 +73,10 @@ function test_bookerquarticM_deriv(scenario)
 
     for i = 1:4
         qfcn(θ) = (ea = EigenAngle(θ); (q, B) = LMP.bookerquartic(ea, M);
-            sort!(q, by=LMP.upgoing); q[i])
+            sort!(q; by=LMP.upgoing); q[i])
         dqref = FiniteDiff.finite_difference_derivative(qfcn, θs, Val{:central})
         dq(θ) = (ea = EigenAngle(θ); (q, B) = LMP.bookerquartic(ea, M);
-            sort!(q, by=LMP.upgoing); LMP.dbookerquartic(ea, M, q, B)[i])
+            sort!(q; by=LMP.upgoing); LMP.dbookerquartic(ea, M, q, B)[i])
 
         @test maxabsdiff(dq.(θs), dqref) < 1e-6
     end

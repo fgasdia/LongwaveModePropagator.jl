@@ -53,9 +53,9 @@ struct SegmentedWaveguide{T<:Vector{<:Waveguide}} <: Waveguide
 end
 
 Base.length(w::SegmentedWaveguide) = length(w.v)
-Base.sort!(w::SegmentedWaveguide) = sort!(w.v, by=x->getfield(x, :distance))
+Base.sort!(w::SegmentedWaveguide) = sort!(w.v; by=x->getfield(x, :distance))
 Base.sort(w::SegmentedWaveguide) = SegmentedWaveguide(sort!(copy(w.v)))
-Base.issorted(w::SegmentedWaveguide) = issorted(w.v, by=x->getfield(x, :distance))
+Base.issorted(w::SegmentedWaveguide) = issorted(w.v; by=x->getfield(x, :distance))
 Base.size(w::SegmentedWaveguide) = size(w.v)
 Base.getindex(w::SegmentedWaveguide, i::Int) = w.v[i]
 Base.setindex(w::SegmentedWaveguide, x, i::Int) = (w.v[i] = x)

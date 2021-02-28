@@ -339,7 +339,7 @@ Return `HomogeneousWaveguide` from the `i`th entry in each field of `s`.
 """
 function buildwaveguide(s::BasicInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
-    species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i],
+    species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i];
                                                cutoff_low=40e3),
                       electroncollisionfrequency)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
@@ -354,8 +354,8 @@ interpolation over `density` and `collision_frequency`.
 """
 function buildwaveguide(s::TableInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
-    density_itp = LinearInterpolation(s.altitude, s.density[i], extrapolation_bc=Line())
-    collision_itp = LinearInterpolation(s.altitude, s.collision_frequency[i], extrapolation_bc=Line())
+    density_itp = LinearInterpolation(s.altitude, s.density[i]; extrapolation_bc=Line())
+    collision_itp = LinearInterpolation(s.altitude, s.collision_frequency[i]; extrapolation_bc=Line())
     species = Species(QE, ME, density_itp, collision_itp)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -374,7 +374,7 @@ function buildrun(s::BasicInput; mesh=nothing, unwrap=true, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
-        species = Species(QE, ME, z -> waitprofile(z, only(s.hprimes), only(s.betas),
+        species = Species(QE, ME, z -> waitprofile(z, only(s.hprimes), only(s.betas);
                                                    cutoff_low=40e3),
                           electroncollisionfrequency)
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
@@ -390,7 +390,7 @@ function buildrun(s::BasicInput; mesh=nothing, unwrap=true, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx, mesh=mesh, unwrap=unwrap, params=params)
+    E, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -412,8 +412,8 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
-        density_itp = LinearInterpolation(s.altitude, only(s.density), extrapolation_bc=Line())
-        collision_itp = LinearInterpolation(s.altitude, only(s.collision_frequency), extrapolation_bc=Line())
+        density_itp = LinearInterpolation(s.altitude, only(s.density); extrapolation_bc=Line())
+        collision_itp = LinearInterpolation(s.altitude, only(s.collision_frequency); extrapolation_bc=Line())
         species = Species(QE, ME, density_itp, collision_itp)
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
@@ -428,7 +428,7 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx, mesh=mesh, unwrap=unwrap, params=params)
+    E, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -453,7 +453,7 @@ function buildrun(s::BatchInput; mesh=nothing, unwrap=true, params=LMPParams())
     batch.datetime = Dates.now()
 
     for i in eachindex(s.inputs)
-        output = buildrun(s.inputs[i], mesh=mesh, unwrap=unwrap, params=params)
+        output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params=params)
         push!(batch.outputs, output)
     end
 
@@ -501,7 +501,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
             continue
         end
 
-        output = buildrun(s.inputs[i], mesh=mesh, unwrap=unwrap, params=params)
+        output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params=params)
         push!(batch.outputs, output)
 
         json_str = JSON3.write(batch)

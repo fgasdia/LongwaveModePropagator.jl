@@ -153,7 +153,7 @@ factor for electric fields can be found as:
 function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LMPParams())
     S = ea.sinθ
     sqrtS = sqrt(S)
-    S₀ = referencetoground(ea.sinθ, params=params)
+    S₀ = referencetoground(ea.sinθ; params=params)
 
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0, Rg = efconstants
 
@@ -282,7 +282,7 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     @unpack ea, frequency, waveguide = modeequation
     @unpack ground = waveguide
 
-    ea₀ = referencetoground(ea, params=params)
+    ea₀ = referencetoground(ea; params=params)
     S₀ = ea₀.sinθ
 
     frequency == tx.frequency ||
@@ -301,20 +301,20 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     t2 = Sγ*Sϕ
     t3 = Sγ*Cϕ
 
-    dFdθ, R, Rg = solvedmodalequation(modeequation, params=params)
-    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground, params=params)
+    dFdθ, R, Rg = solvedmodalequation(modeequation; params=params)
+    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants, params=params)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants; params=params)
 
     # Transmitter term
-    fzt, fyt, fxt = heightgains(zt, ea₀, frequency, efconstants, params=params)
+    fzt, fyt, fxt = heightgains(zt, ea₀, frequency, efconstants; params=params)
     txterm = λv*fzt*t1 + λb*fyt*t2 + λe*fxt*t3
 
     # Receiver term
     if zr == zt
         fzr, fyr, fxr = fzt, fyt, fxt
     else
-        fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants, params=params)
+        fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants; params=params)
     end
 
     # TODO: Handle multiple fields - maybe just always return all 3?
@@ -335,7 +335,7 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     @unpack ea, frequency, waveguide = modeequation
     @unpack ground = waveguide
-    ea₀ = referencetoground(ea, params=params)
+    ea₀ = referencetoground(ea; params=params)
     S₀ = ea₀.sinθ
 
     frequency == tx.frequency ||
@@ -343,14 +343,14 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     rxfield = fieldcomponent(rx)
 
-    dFdθ, R, Rg = solvedmodalequation(modeequation, params=params)
-    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground, params=params)
+    dFdθ, R, Rg = solvedmodalequation(modeequation; params=params)
+    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants, params=params)
+    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants; params=params)
 
     # Transmitter term
     # TODO: specialized heightgains for z = 0
-    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants, params=params)
+    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants; params=params)
     txterm = λv*fz
 
     # Receiver term
@@ -399,9 +399,9 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
 
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
-        txterm, rxterm = modeterms(modeequation, tx, rx, params=params)
+        txterm, rxterm = modeterms(modeequation, tx, rx; params=params)
 
-        S₀ = referencetoground(ea.sinθ, params=params)
+        S₀ = referencetoground(ea.sinθ; params=params)
         expterm = -k*(S₀ - 1)
         txrxterm = txterm*rxterm
 
@@ -456,7 +456,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
         txterm, rxterm = modeterms(modeequation, tx, rx, params=params)
 
-        S₀ = referencetoground(ea.sinθ, params=params)
+        S₀ = referencetoground(ea.sinθ; params=params)
         expterm = -k*(S₀ - 1)
         txrxterm = txterm*rxterm
 
@@ -525,7 +525,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
         if j > 1
             adjwavefields = adjwavefields_vec[j]
             prevwavefields = wavefields_vec[j-1]
-            conversioncoeffs = modeconversion(prevwavefields, wavefields, adjwavefields,
+            conversioncoeffs = modeconversion(prevwavefields, wavefields, adjwavefields;
                                               params=params)
         end
 
@@ -533,7 +533,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
         # segment
         for n = 1:N
             modeequation = PhysicalModeEquation(eas[n], frequency, wvg)
-            txterm, rxterm = modeterms(modeequation, tx, rx, params=params)
+            txterm, rxterm = modeterms(modeequation, tx, rx; params=params)
             if j == 1
                 # Transmitter exists only in the transmitter slab (obviously)
                 xmtrfields[n] = txterm
@@ -556,7 +556,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
 
             totalfield = zero(eltype(E))
             for n = 1:N
-                S₀ = referencetoground(eas[n].sinθ, params=params)
+                S₀ = referencetoground(eas[n].sinθ; params=params)
                 totalfield += rcvrfields[n]*cis(-k*x*(S₀ - 1))*factor
             end
 
@@ -573,7 +573,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
 
             resize!(previous_xmtrfields, N)
             for n = 1:N
-                S₀ = referencetoground(eas[n].sinθ, params=params)
+                S₀ = referencetoground(eas[n].sinθ; params=params)
 
                 # Excitation factors at end of slab
                 xmtrfields[n] *= cis(-k*x*(S₀ - 1))
