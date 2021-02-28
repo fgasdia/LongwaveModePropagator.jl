@@ -126,26 +126,26 @@ nothing  #hide
 zs = 110e3:-50:0
 zskm = zs/1000
 
-e = LMP.integratewavefields(zs, ea, frequency, bfield, day, unscale=true)
-e_unscaled = LMP.integratewavefields(zs, ea, frequency, bfield, day, unscale=false)
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=true)
+e_unscaled = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=false)
 
 ex1 = getindex.(e, 1)
 ex1_unscaled = getindex.(e_unscaled, 1)
 hx2 = getindex.(e, 7)
 hx2_unscaled = getindex.(e_unscaled, 7)
 
-p1 = plot(real(ex1), zskm, title="\$E_{x,1}\$",
+p1 = plot(real(ex1), zskm; title="\$E_{x,1}\$",
           ylims=(0, 90), xlims=(-1.2, 1.2), linewidth=1.5, ylabel="altitude (km)",
           label="corrected", legend=:topleft);
 plot!(p1, real(ex1_unscaled),
-      zskm, linewidth=1.5, label="scaled only");
+      zskm; linewidth=1.5, label="scaled only");
 
-p2 = plot(real(hx2), zskm, title="\$H_{x,2}\$",
+p2 = plot(real(hx2), zskm; title="\$H_{x,2}\$",
           ylims=(0, 90), xlims=(-1.2, 1.2), linewidth=1.5, legend=false);
 plot!(p2, real(hx2_unscaled),
-      zskm, linewidth=1.5);
+      zskm; linewidth=1.5);
 
-plot(p1, p2, layout=(1,2))
+plot(p1, p2; layout=(1,2))
 #md savefig("wavefields_scaling.png"); nothing # hide
 #md # ![](wavefields_scaling.png)
 
@@ -182,8 +182,8 @@ for s in eachindex(solvers)
     params = LMPParams(wavefieldintegrationparams=ip)
 
     ## make sure method is compiled
-    LMP.integratewavefields(zs, ea, frequency, bfield, day, params=params);
-    LMP.integratewavefields(zs, ea, frequency, bfield, night, params=params);
+    LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params);
+    LMP.integratewavefields(zs, ea, frequency, bfield, night; params=params);
 
     solverstring = solverstrings[s]
     let day_e, night_e
@@ -191,11 +191,11 @@ for s in eachindex(solvers)
         for i = 1:25
             ## day ionosphere
             @timeit TO solverstring begin
-                day_e = LMP.integratewavefields(zs, ea, frequency, bfield, day, params=params)
+                day_e = LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params)
             end
             ## night ionosphere
             @timeit TO solverstring begin
-                night_e = LMP.integratewavefields(zs, ea, frequency, bfield, night, params=params)
+                night_e = LMP.integratewavefields(zs, ea, frequency, bfield, night; params=params)
             end
         end
         push!(day_es, day_e)
@@ -207,7 +207,7 @@ end
 
 day_e1s = [getindex.(e, 1) for e in day_es]
 
-plot(real(day_e1s), zs/1000,
+plot(real(day_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topleft)
 #md savefig("wavefields_day.png"); nothing # hide
 #md # ![](wavefields_day.png)
@@ -217,7 +217,7 @@ plot(real(day_e1s), zs/1000,
 
 night_e1s = [getindex.(e, 1) for e in night_es]
 
-plot(real(night_e1s), zs/1000,
+plot(real(night_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topright)
 #md savefig("wavefields_night.png"); nothing # hide
 #md # ![](wavefields_night.png)
@@ -252,7 +252,7 @@ TO
 zs = 110e3:-500:50e3
 zskm = zs/1000
 
-e = LMP.integratewavefields(zs, ea, frequency, bfield, day, unscale=true)
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=true)
 
 ex1 = getindex.(e, 1)
 ey1 = getindex.(e, 2)
@@ -260,27 +260,27 @@ ex2 = getindex.(e, 5)
 hx2 = getindex.(e, 7)
 
 function plotfield(field; kwargs...)
-    p = plot(real(field), zskm, color="black", linewidth=1.5, legend=false,
+    p = plot(real(field), zskm; color="black", linewidth=1.5, legend=false,
              xlims=(-0.8, 0.8), label="real",
              framestyle=:grid; kwargs...)
-    plot!(p, imag(field), zskm, color="black",
+    plot!(p, imag(field), zskm; color="black",
           linewidth=1.5, linestyle=:dash, label="imag")
-    plot!(p, abs.(field), zskm, color="black", linewidth=3, label="abs")
-    plot!(p, -abs.(field), zskm, color="black", linewidth=3, label="")
+    plot!(p, abs.(field), zskm; color="black", linewidth=3, label="abs")
+    plot!(p, -abs.(field), zskm; color="black", linewidth=3, label="")
     return p
 end
 
 fs = 10
-ex1p = plotfield(ex1, ylims=(49, 81), yaxis=false, yformatter=_->"");
+ex1p = plotfield(ex1; ylims=(49, 81), yaxis=false, yformatter=_->"");
 annotate!(ex1p, 0.2, 79, text("\$E_{x,1}\$", fs));
-ey1p = plotfield(ey1, ylims=(49, 81));
+ey1p = plotfield(ey1; ylims=(49, 81));
 annotate!(ey1p, 0.2, 79, text("\$E_{y,1}\$", fs));
 annotate!(ey1p, -0.98, 83, text("height (km)", fs));
-ex2p = plotfield(ex2, ylims=(49, 86), yaxis=false, yformatter=_->"");
+ex2p = plotfield(ex2; ylims=(49, 86), yaxis=false, yformatter=_->"");
 annotate!(ex2p, 0.3, 84, text("\$E_{x,2}\$", fs));
-hx2p = plotfield(hx2, ylims=(49, 86));
+hx2p = plotfield(hx2; ylims=(49, 86));
 annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center));
-plot(ex1p, ey1p, ex2p, hx2p, layout=(2,2), size=(400,600), top_margin=5mm);
+plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm);
 #md savefig("wavefields_fig2.png"); nothing # hide
 #md # ![](wavefields_fig2.png)
 
@@ -316,9 +316,9 @@ e = LMP.integratewavefields(zs, ea, frequency, bfield, night)
 ey1 = getindex.(e, 2)
 hx2 = getindex.(e, 7)
 
-ey1p = plotfield(ey1, ylims=(75, 102), title="\$E_{y,1}\$");
-hx2p = plotfield(hx2, ylims=(75, 102), title="\$H_{x,2}\$");
-plot(ey1p, hx2p, layout=(1,2), size=(400,500))
+ey1p = plotfield(ey1; ylims=(75, 102), title="\$E_{y,1}\$");
+hx2p = plotfield(hx2; ylims=(75, 102), title="\$H_{x,2}\$");
+plot(ey1p, hx2p; layout=(1,2), size=(400,500))
 #md savefig("wavefields_fig3.png"); nothing # hide
 #md # ![](wavefields_fig3.png)
 # 

@@ -195,7 +195,7 @@ labels[3:end] .= "      ".*labels[3:end]
 colors = [palette(:phase, length(B_AZS))...]
 pushfirst!(colors, RGB(0.0, 0, 0))
 
-plot(OUTPUT_RANGES/1000, agrid,
+plot(OUTPUT_RANGES/1000, agrid;
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true)
@@ -222,7 +222,7 @@ end
 
 adifference = agrid - lagrid
 
-plot(OUTPUT_RANGES/1000, adifference,
+plot(OUTPUT_RANGES/1000, adifference;
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude difference (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true)
@@ -247,7 +247,7 @@ agrid, pgrid = h5open(lmpfile, "r") do o
     agrid, pgrid = process(o)
 end
 
-plot(OUTPUT_RANGES/1000, agrid,
+plot(OUTPUT_RANGES/1000, agrid;
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true)

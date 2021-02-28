@@ -55,7 +55,7 @@ end
 
 phase = modeequationphase(me, mesh);
 
-heatmap(x, y, reshape(phase, length(x), length(y))',
+heatmap(x, y, reshape(phase, length(x), length(y))';
         color=:twilight, clims=(-180, 180),
         xlims=(30, 90), ylims=(-10, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
@@ -91,13 +91,13 @@ twilightquads = [
     RGB(0.0, 0.0, 0.0)
 ]
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid2_20knightmesh.png"); nothing # hide
 #md # ![](meshgrid2_20knightmesh.png)
@@ -130,13 +130,13 @@ zdeg = rad2deg.(z)
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid2_20knightfinemesh.png"); nothing # hide
 #md # ![](meshgrid2_20knightfinemesh.png)
@@ -145,13 +145,13 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
 # Zooming in on the upper right region, we can see that the previously
 # missing roots and poles are very closely spaced.
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(80, 90), ylims=(-2, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid2_20knightfinemeshzoom.png"); nothing # hide
 #md # ![](meshgrid2_20knightfinemeshzoom.png)
@@ -167,10 +167,10 @@ plot!(img, real(polesdeg), imag(polesdeg), color="red",
 mesh = defaultmesh(frequency)
 meshdeg = rad2deg.(mesh)
 
-img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
+img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(450,375), legend=false);
-plot!(img, [30, 90], [0, 0], color="red");
-plot!(img, [80, 90], [-10, 0], color="red")
+plot!(img, [30, 90], [0, 0]; color="red");
+plot!(img, [80, 90], [-10, 0]; color="red")
 #md savefig(img, "meshgrid2_defaultmesh.png"); nothing # hide
 #md # ![](meshgrid2_defaultmesh.png)
