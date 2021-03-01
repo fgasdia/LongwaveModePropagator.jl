@@ -248,9 +248,9 @@ version = "1.2.0"
 
 [[JSON3]]
 deps = ["Dates", "Mmap", "Parsers", "StructTypes", "UUIDs"]
-git-tree-sha1 = "7fb482aece0faf6529f2e796d60fdeb2ddd117a6"
+git-tree-sha1 = "62d4063c67d7c84d5788107878bb925ceaadd252"
 uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-version = "1.7.0"
+version = "1.7.1"
 
 [[LabelledArrays]]
 deps = ["ArrayInterface", "LinearAlgebra", "MacroTools", "StaticArrays"]

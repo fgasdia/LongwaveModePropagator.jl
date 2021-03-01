@@ -87,7 +87,7 @@ me = PhysicalModeEquation(ea, frequency, waveguide);
 
 prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), (me, LMPParams()))
 
-sol = solve(prob, RK4(), abstol=1e-9, reltol=1e-9);
+sol = solve(prob, RK4(); abstol=1e-9, reltol=1e-9);
 
 # Let's plot the reflection coefficients next to the electron density and collision
 # frequency curves.
@@ -105,31 +105,31 @@ eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
 ne[end] = NaN  # otherwise Plots errors
 Wr[end] = NaN
 
-p1 = plot([ne nu Wr], zs/1000,
+p1 = plot([ne nu Wr], zs/1000;
           xlims=(10, 10^10), xaxis=(scale=:log10),
           ylabel="Altitude (km)",
           labels=["Nₑ (m⁻³)" "ν (s⁻¹)" "ωᵣ = ωₚ²/ν"], legend=:topleft,
           linewidth=1.5);
 
-vline!(p1, [frequency.ω], linestyle=:dash, color="gray", label="");
-hline!(p1, [eqz/1000], linestyle=:dash, color="gray", label="");
+vline!(p1, [frequency.ω]; linestyle=:dash, color="gray", label="");
+hline!(p1, [eqz/1000]; linestyle=:dash, color="gray", label="");
 annotate!(p1, frequency.ω, 10, text(" ω", :left, 9));
 annotate!(p1, 70, eqz/1000-3, text("ωᵣ = ω", :left, 9));
 
-R11 = abs.(sol(zs, idxs=1))
-R21 = abs.(sol(zs, idxs=2))
-R12 = abs.(sol(zs, idxs=3))
-R22 = abs.(sol(zs, idxs=4))
+R11 = abs.(sol(zs; idxs=1))
+R21 = abs.(sol(zs; idxs=2))
+R12 = abs.(sol(zs; idxs=3))
+R22 = abs.(sol(zs; idxs=4))
 
-p2 = plot([R11 R21 R12 R22], zs/1000,
+p2 = plot([R11 R21 R12 R22], zs/1000;
           xlims=(0, 1),
           yaxis=false, yformatter=_->"",
           legend=:right, labels=["R₁₁" "R₂₁" "R₁₂" "R₂₂"],
           linewidth=1.5);
 
-hline!(p2, [eqz/1000], linestyle=:dash, color="gray", label="");
+hline!(p2, [eqz/1000]; linestyle=:dash, color="gray", label="");
 
-plot(p1, p2, layout=(1,2), size=(800, 400))
+plot(p1, p2; layout=(1,2), size=(800, 400))
 #md savefig("integratedreflection_xyz.png"); nothing # hide
 #md # ![](integratedreflection_xyz.png)
 
@@ -182,7 +182,7 @@ scenarios = generatescenarios(30);
 ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
 params = LMPParams(integrationparams=ip)
 
-Rrefs = [LMP.integratedreflection(scenario, params=params) for scenario in scenarios];
+Rrefs = [LMP.integratedreflection(scenario; params=params) for scenario in scenarios];
 
 # ## Evaluate solvers
 #
@@ -203,13 +203,13 @@ function compute(scenarios, tolerances, solvers)
 
             for i in eachindex(scenarios)
                 ## warmup
-                R = LMP.integratedreflection(scenarios[i], params=params)
+                R = LMP.integratedreflection(scenarios[i]; params=params)
 
                 ## loop for average time
                 N = 25
                 t0 = time_ns()
                 for n = 1:N
-                    R = LMP.integratedreflection(scenarios[i], params=params)
+                    R = LMP.integratedreflection(scenarios[i]; params=params)
                 end
                 ttotal = time_ns() - t0
 
@@ -244,9 +244,9 @@ function differr(a, ref)
 end
 
 Rerrs = differr(Rs, Rrefs)
-mean_Rerrs = dropdims(mean(Rerrs, dims=1), dims=1)
+mean_Rerrs = dropdims(mean(Rerrs; dims=1); dims=1)
 
-heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
+heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
         clims=(-8, -3),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="log₁₀ max abs difference", colorbar=true)
@@ -255,9 +255,9 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
 
 # And the average runtimes are
 
-mean_times = dropdims(mean(times, dims=1), dims=1)
+mean_times = dropdims(mean(times; dims=1); dims=1)
 
-heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
+heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6;
         clims=(0, 9),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="time (μs)", colorbar=true)

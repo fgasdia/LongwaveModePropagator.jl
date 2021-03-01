@@ -50,7 +50,7 @@ setea(ea, modeequation::PhysicalModeEquation) =
 
 Return `true` if `x` is approximately equal to 0 with the absolute tolerance `atol`.
 """
-isroot(x; atol=1e-2, kws...) = isapprox(x, 0, atol=atol, kws...)
+isroot(x; atol=1e-2, kws...) = isapprox(x, 0; atol=atol, kws...)
 
 """
     filterroots!(roots, frequency, waveguide; atol=0.1)
@@ -66,7 +66,7 @@ filterroots!
 
 function filterroots!(roots, frequency, waveguide; atol=0.1)
     modeequation = PhysicalModeEquation(frequency, waveguide)
-    return filterroots!(roots, modeequation, atol=atol)
+    return filterroots!(roots, modeequation; atol=atol)
 end
 
 function filterroots!(roots, modeequation::PhysicalModeEquation; atol=0.1)
@@ -74,7 +74,7 @@ function filterroots!(roots, modeequation::PhysicalModeEquation; atol=0.1)
     while i <= length(roots)
         modeequation = setea(EigenAngle(roots[i]), modeequation)
         f = solvemodalequation(modeequation)
-        isroot(f, atol=atol) ? (i += 1) : deleteat!(roots, i)
+        isroot(f; atol=atol) ? (i += 1) : deleteat!(roots, i)
     end
     return roots
 end
@@ -244,7 +244,7 @@ function dRdz(R, p, z)
 
     k = frequency.k
 
-    M = susceptibility(z, modeequation, params=params)
+    M = susceptibility(z, modeequation; params=params)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -267,7 +267,7 @@ function dRdθdz(RdRdθ, p, z)
 
     k = frequency.k
 
-    M = susceptibility(z, modeequation, params=params)
+    M = susceptibility(z, modeequation; params=params)
     T = tmatrix(ea, M)
     dT = dtmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
@@ -295,13 +295,13 @@ function integratedreflection(modeequation::PhysicalModeEquation; params=LMPPara
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
-    Mtop = susceptibility(topheight, modeequation, params=params)
+    Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop = bookerreflection(modeequation.ea, Mtop)
 
     prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
 
     # WARNING: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
                 force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
@@ -320,7 +320,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
-    Mtop = susceptibility(topheight, modeequation, params=params)
+    Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
     RdRdθtop = vcat(Rtop, dRdθtop)
 
@@ -328,7 +328,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
                              (modeequation, params))
 
     # WARNING: When save_on=false, don't try interpolating the solution!
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
                 force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
@@ -450,7 +450,7 @@ determinental modal equation associated with `modeequation`.
 See also: [`solvedmodalequation`](@ref)
 """
 function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
-    R = integratedreflection(modeequation, params=params)
+    R = integratedreflection(modeequation; params=params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
@@ -465,7 +465,7 @@ Set `θ` for `modeequation` and then solve the modal equation.
 function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation, params=params)
+    solvemodalequation(modeequation; params=params)
 end
 
 """
@@ -475,7 +475,7 @@ Compute the derivative of the modal equation with respect to ``θ`` returned as 
 `(dF, R, Rg)` for the ionosphere and ground reflection coefficients.
 """
 function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
-    RdR = integratedreflection(modeequation, Dθ(), params=params)
+    RdR = integratedreflection(modeequation, Dθ(); params=params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
@@ -493,7 +493,7 @@ to `θ`.
 """
 function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvedmodalequation(modeequation, params=params)
+    solvedmodalequation(modeequation; params=params)
 end
 
 """
@@ -528,7 +528,7 @@ function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPPar
     # is possible multiple identical modes will be identified. Checks for valid and
     # redundant modes help ensure valid eigenangles are returned from this function.
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation, params=params),
+    roots, poles = grpf(θ->solvemodalequation(θ, modeequation; params=params),
                         origcoords, grpfparams)
 
     # Scale tolerance for filtering
@@ -537,11 +537,11 @@ function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPPar
 
     # Ensure roots are valid solutions to the modal equation
     filtertolerance = exp10(-ndigits+1)  # +3 from the grpfparams.tolerannce
-    filterroots!(roots, modeequation, atol=filtertolerance)
+    filterroots!(roots, modeequation; atol=filtertolerance)
 
     # Remove any redundant modes
-    sort!(roots, by=reim, rev=true)
-    unique!(z->round(z, digits=ndigits), roots)
+    sort!(roots; by=reim, rev=true)
+    unique!(z->round(z; digits=ndigits), roots)
 
     return EigenAngle.(roots)
 end

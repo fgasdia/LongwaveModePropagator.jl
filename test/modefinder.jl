@@ -20,9 +20,9 @@ function test_roots(scenario)
 
     # isroot Real and Complex
     @test LMP.isroot(x)
-    @test LMP.isroot(x, atol=1e-6) == false
+    @test LMP.isroot(x; atol=1e-6) == false
     @test LMP.isroot(z)
-    @test LMP.isroot(z, atol=1e-6) == false
+    @test LMP.isroot(z; atol=1e-6) == false
 
     z2 = complex(1, 0)
     z3 = complex(0, 1)
@@ -48,8 +48,8 @@ function test_roots(scenario)
     roots2 = copy(roots)
     roots2[1] = EigenAngle(roots2[1].θ + 0.001)
     f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
-    @test LMP.isroot(f, atol=0.5)  # NOTE: atol is for value of modal equation, not θ
-    @test LMP.filterroots!(roots2, me, atol=0.5) == roots2
+    @test LMP.isroot(f; atol=0.5)  # NOTE: atol is for value of modal equation, not θ
+    @test LMP.filterroots!(roots2, me; atol=0.5) == roots2
     @test LMP.filterroots!(roots2, me) == roots[2:end]
 end
 
@@ -93,11 +93,11 @@ function test_dRdz(scenario)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(ea, tx.frequency, waveguide)
 
-    Mtop = LMP.susceptibility(params.topheight, me, params=params)
+    Mtop = LMP.susceptibility(params.topheight, me; params=params)
     Rtop = LMP.bookerreflection(ea, Mtop)
 
     # sharply bounded R from bookerreflection satisfies dR/dz = 0
-    @test isapprox(LMP.dRdz(Rtop, (me, params), params.topheight), zeros(2, 2), atol=1e-15)
+    @test isapprox(LMP.dRdz(Rtop, (me, params), params.topheight), zeros(2, 2); atol=1e-15)
 end
 
 function test_dRdθdz(scenario)
@@ -145,8 +145,8 @@ function test_integratedreflection_deriv(scenario)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(freq, waveguide)
 
-    Rref(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, params=params))
-    RdR(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, LMP.Dθ(), params=params))
+    Rref(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me; params=params))
+    RdR(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, LMP.Dθ(); params=params))
 
     Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(Rs)
@@ -169,8 +169,8 @@ function test_integratedreflection_deriv(scenario)
         dRr = getindex.(dRrefs, i)
 
         # maxabsdiff criteria doesn't capture range of R and dR so rtol is used
-        @test isapprox(R, Rr, rtol=1e-5)
-        @test isapprox(dR, dRr, rtol=1e-3)
+        @test isapprox(R, Rr; rtol=1e-5)
+        @test isapprox(dR, dRr; rtol=1e-3)
     end
 end
 
@@ -181,7 +181,7 @@ function test_fresnelreflection(scenario)
     pec_ground = LMP.Ground(1, 1e12)
     vertical_ea = LMP.EigenAngle(π/2)
     Rg = LMP.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
-    @test isapprox(abs.(Rg), I, atol=1e-7)
+    @test isapprox(abs.(Rg), I; atol=1e-7)
 
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(ea, tx.frequency, waveguide)
@@ -217,12 +217,12 @@ function test_modalequation_resonant(scenario)
 
     R = @SMatrix [1 0; 0 1]
     Rg = @SMatrix [1 0; 0 -1]
-    @test isapprox(LMP.modalequation(R, Rg), 0, atol=1e-15)
+    @test isapprox(LMP.modalequation(R, Rg), 0; atol=1e-15)
 
     R = LMP.integratedreflection(me)
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
     f = LMP.modalequation(R, Rg)
-    @test LMP.isroot(f, atol=1e-4)  # this test is a little cyclic
+    @test LMP.isroot(f; atol=1e-4)  # this test is a little cyclic
 
     @test f == LMP.solvemodalequation(me)
 
@@ -246,7 +246,7 @@ function test_modalequation_deriv(scenario)
         dFs[i] = dFdθ
     end
 
-    @test isapprox(dFs, dFref, rtol=1e-3)
+    @test isapprox(dFs, dFref; rtol=1e-3)
 end
 
 function test_findmodes(scenario)
@@ -258,10 +258,10 @@ function test_findmodes(scenario)
 
     # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
     params = LMPParams()
-    modes = findmodes(modeequation, origcoords, params=params)
+    modes = findmodes(modeequation, origcoords; params=params)
 
     for m in modes
-        f = LMP.solvemodalequation(m, modeequation, params=params)
+        f = LMP.solvemodalequation(m, modeequation; params=params)
         LMP.isroot(f) || return f
         @test LMP.isroot(f)
     end

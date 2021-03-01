@@ -111,7 +111,7 @@ phase = modeequationphase(day_mid_me, mesh);
 # complex plane, all meet.
 # Each of these locations are either a root or pole in the daytime ionosphere.
 
-heatmap(x, y, reshape(phase, length(x), length(y))',
+heatmap(x, y, reshape(phase, length(x), length(y))';
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
@@ -122,7 +122,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
 
 # We can zoom in to the upper right corner of the plot to see the lowest order modes:
 
-heatmap(x, y, reshape(phase, length(x), length(y))',
+heatmap(x, y, reshape(phase, length(x), length(y))';
         color=:twilight, clims=(-180, 180),
         xlims=(30, 90), ylims=(-10, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
@@ -137,7 +137,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
 
 phase = modeequationphase(night_mid_me, mesh);
 
-heatmap(x, y, reshape(phase, length(x), length(y))',
+heatmap(x, y, reshape(phase, length(x), length(y))';
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
@@ -150,7 +150,7 @@ heatmap(x, y, reshape(phase, length(x), length(y))',
 
 phase = modeequationphase(day_low_me, mesh);
 
-heatmap(x, y, reshape(phase, length(x), length(y))',
+heatmap(x, y, reshape(phase, length(x), length(y))';
         color=:twilight, clims=(-180, 180),
         xlims=(0, 90), ylims=(-40, 0),
         xlabel="real(θ)", ylabel="imag(θ)",
@@ -186,12 +186,12 @@ mesh = trianglemesh(zbl, ztr, Δr);
 
 meshdeg = rad2deg.(mesh)
 
-img = plot(real(meshdeg), imag(meshdeg), seriestype=:scatter,
+img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
            legend=false, size=(450,375));
-plot!(img, [80, 90], [0, 0], color="red");
-plot!(img, [0, 90], [-90, 0], color="red")
+plot!(img, [80, 90], [0, 0]; color="red");
+plot!(img, [0, 90], [-90, 0]; color="red")
 #md savefig(img, "meshgrid_trianglemesh.png"); nothing # hide
 #md # ![](meshgrid_trianglemesh.png)
 
@@ -230,13 +230,13 @@ twilightquads = [
     RGB(0.0, 0.0, 0.0)
 ]
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_mid_title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid_20kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_20kdaymesh.png)
@@ -256,13 +256,13 @@ rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
 zdeg = rad2deg.(z)
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_low_title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid_10kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_10kdaymesh.png)
@@ -279,13 +279,13 @@ rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
 zdeg = rad2deg.(z)
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_high_title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid_100kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_100kdaymesh.png)
@@ -300,13 +300,13 @@ rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
 zdeg = rad2deg.(z)
 
-img = plot(real(zdeg), imag(zdeg), group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
            xlims=(30, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=night_mid_title);
-plot!(img, real(rootsdeg), imag(rootsdeg), color="red",
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg), color="red",
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid_20knightmesh.png"); nothing # hide
 #md # ![](meshgrid_20knightmesh.png)

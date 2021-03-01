@@ -307,7 +307,7 @@ E, a, p = propagate(waveguide, tx, rx);
 
 # Here are quick plots of the amplitude
 
-plot(ranges/1000, a,
+plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false)
 #md savefig("basic_homogeneousamplitude.png"); nothing # hide
@@ -315,7 +315,7 @@ plot(ranges/1000, a,
 
 # and phase.
 
-plot(ranges/1000, rad2deg.(p),
+plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false)
 #md savefig("basic_homogeneousphase.png"); nothing # hide
@@ -351,7 +351,7 @@ E, a, p = propagate(waveguide, tx, rx);
 
 # Here are quick plots of the amplitude
 
-plot(ranges/1000, a,
+plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false)
 #md savefig("basic_segmentedamplitude.png"); nothing # hide
@@ -359,7 +359,7 @@ plot(ranges/1000, a,
 
 # and phase.
 
-plot(ranges/1000, rad2deg.(p),
+plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false)
 #md savefig("basic_segmentedphase.png"); nothing # hide

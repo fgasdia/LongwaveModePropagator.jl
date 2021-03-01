@@ -73,7 +73,7 @@ function test_integratewavefields_homogeneous(scenario)
     ionobottom = params.curvatureheight
     zs = 200e3:-500:ionobottom
 
-    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species; params=params)
 
     # Normalize fields so component 2 (Ey) = 1, as is used in Booker Quartic
     e1 = [s[:,1]/s[2,1] for s in e]
@@ -83,11 +83,11 @@ function test_integratewavefields_homogeneous(scenario)
     e2 = reshape(reinterpret(ComplexF64, e2), 4, :)
 
     # Booker solution - single solution for entire homogeneous iono
-    M = LMP.susceptibility(ionobottom, tx.frequency, bfield, species, params=params)
+    M = LMP.susceptibility(ionobottom, tx.frequency, bfield, species; params=params)
     booker = LMP.bookerwavefields(ea, M)
 
-    @test isapprox(e1[:,end], booker[:,1], atol=1e-6)
-    @test isapprox(e2[:,end], booker[:,2], atol=1e-6)
+    @test isapprox(e1[:,end], booker[:,1]; atol=1e-6)
+    @test isapprox(e2[:,end], booker[:,2]; atol=1e-6)
 end
 
 function test_wavefieldreflection(scenario)
@@ -100,7 +100,7 @@ function test_wavefieldreflection(scenario)
 
     zs = params.wavefieldheights
 
-    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species; params=params)
     wavefieldRs = [LMP.bookerreflection(ea, s) for s in e]
 
     @unpack tolerance, solver = params.integrationparams
@@ -108,7 +108,7 @@ function test_wavefieldreflection(scenario)
     Mtop = LMP.susceptibility(first(zs), tx.frequency, waveguide)
     Rtop = LMP.bookerreflection(ea, Mtop)
     prob = ODEProblem{false}(LMP.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
-    sol = solve(prob, solver, abstol=tolerance, reltol=tolerance,
+    sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
                 saveat=zs, save_everystep=false)
 
     @test isapprox(wavefieldRs, sol.u, rtol=1e-3)
@@ -121,7 +121,7 @@ function test_wavefieldreflection_resonant(scenario)
     ztop = params.topheight
     zs = ztop:-100:0.0
 
-    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species; params=params)
     R = LMP.bookerreflection(ea, e[end])
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
 
@@ -141,7 +141,7 @@ function test_boundaryscalars(scenario)
     ztop = params.topheight
     zs = ztop:-100:0.0
 
-    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species, params=params)
+    e = LMP.integratewavefields(zs, ea, tx.frequency, bfield, species; params=params)
     R = LMP.bookerreflection(ea, e[end])
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
 

@@ -115,7 +115,7 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     curvatureheight::Float64 = 50e3  # m
     grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
     integrationparams::IntegrationParams{T} = IntegrationParams()
-    wavefieldheights::H = range(topheight, 0, length=513)
+    wavefieldheights::H = range(topheight, 0; length=513)
     wavefieldintegrationparams::IntegrationParams{T2} =
         IntegrationParams(solver=Vern7(lazy=false))
 end
@@ -196,10 +196,10 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
         end
 
         modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-        modes = findmodes(modeequation, mesh, params=params)
+        modes = findmodes(modeequation, mesh; params=params)
     end
 
-    E = Efield(modes, waveguide, tx, rx, params=params)
+    E = Efield(modes, waveguide, tx, rx; params=params)
 
     amplitude, phase = amplitudephase(E)
 
@@ -246,7 +246,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(modeequation, mesh, params=params)
+        modes = findmodes(modeequation, mesh; params=params)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -255,7 +255,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         wavefields = Wavefields(params.wavefieldheights, modes)
         adjwavefields = Wavefields(params.wavefieldheights, modes)
 
-        calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg,
+        calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg;
                               params=params)
 
         wavefields_vec[j] = wavefields
@@ -263,7 +263,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         next!(pm)
     end
 
-    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx, params=params)
+    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=params)
     next!(pm)
 
     # Efield for SegmentedWaveguides doesn't have a specialized form for AbstractSamplers
@@ -307,9 +307,9 @@ function propagate(file::AbstractString, outfile=missing; incrementalwrite=false
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for"*
                                                 "BatchInput files"))
-        output = buildrunsave(outfile, s, append=append, mesh=mesh, unwrap=unwrap, params=params)
+        output = buildrunsave(outfile, s; append=append, mesh=mesh, unwrap=unwrap, params=params)
     else
-        output = buildrun(s, mesh=mesh, unwrap=unwrap, params=params)
+        output = buildrun(s; mesh=mesh, unwrap=unwrap, params=params)
 
         json_str = JSON3.write(output)
 

@@ -117,9 +117,9 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
 end
 
 susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
-    susceptibility(altitude, me.frequency, me.waveguide, params=params)
+    susceptibility(altitude, me.frequency, me.waveguide; params=params)
 
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibility(altitude, frequency, w.bfield, w.species, params=params)
+    susceptibility(altitude, frequency, w.bfield, w.species; params=params)
 
 # TODO: Use a function approximation of susceptibility for each HomogeneousWaveguide?

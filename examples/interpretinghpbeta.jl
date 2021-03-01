@@ -99,12 +99,12 @@ function buildplots!(p, amps)
     cmap = palette(:amp, length(hprimes)+1) # +1 allows us to use a darker lightest color
 
     for i in eachindex(hprimes)
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=hprimes[i], color=cmap[i+1]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="h′")
 #md savefig(p, "interpreting_hprimes.png"); nothing # hide
 #md # ![](interpreting_hprimes.png)
@@ -135,12 +135,12 @@ function buildplots!(p, amps)
     cmap = palette(:amp, length(betas)+1)
 
     for i in eachindex(betas)
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=betas[i], color=cmap[i+1]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="β")
 #md savefig(p, "interpreting_betas.png"); nothing # hide
 #md # ![](interpreting_betas.png)
@@ -177,18 +177,18 @@ amps = varyfreq(freqs)
 p = plot();
 function buildplots!(p, amps)
     pal = palette(:rainbow, 7)
-    cmap = [pal[1]; range(pal[2], pal[3], length=2); range(pal[4], pal[5], length=4);
-            range(pal[6], pal[7], length=3)]
+    cmap = [pal[1]; range(pal[2], pal[3]; length=2); range(pal[4], pal[5]; length=4);
+            range(pal[6], pal[7]; length=3)]
 
     for i in eachindex(freqs)
         fkHz = trunc(Int, freqs[i]/1000)
-        λkm = trunc(LMP.C0/freqs[i]/1000, digits=1)
-        plot!(p, RX.distance/1000, amps[i] .+ (10*i),
+        λkm = trunc(LMP.C0/freqs[i]/1000; digits=1)
+        plot!(p, RX.distance/1000, amps[i] .+ (10*i);
               label=string(fkHz, ",  ", λkm), color=cmap[i]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400),
+plot!(p; size=(600,400),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="f kHz, λ km")
 #md savefig(p, "interpreting_frequencies.png"); nothing # hide
 #md # ![](interpreting_frequencies.png)
@@ -232,14 +232,14 @@ function buildplots!(p, params, hp, β)
         eqz = reflectionheight(params[i], hp, β)
 
         v₀label = params[i][1]/1.816
-        plot!(p, collisionfrequency.(alt, params[i]...), alt/1000,
+        plot!(p, collisionfrequency.(alt, params[i]...), alt/1000;
               label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
-        hline!(p, [eqz/1000], linestyle=:dash, color=cmap[i], linewidth=0.6, label=nothing)
+        hline!(p, [eqz/1000]; linestyle=:dash, color=cmap[i], linewidth=0.6, label=nothing)
     end
 end
 buildplots!(p, params, 75, 0.35);
 annotate!(p, [(1e3, 64, text("ωᵣ = ω", 10))])
-plot!(p, size=(600,400), xscale=:log10,
+plot!(p; size=(600,400), xscale=:log10,
       xlabel="ν (s⁻¹)", ylabel="Altitude (km)", legendtitle="1.816 ν₀, a")
 #md savefig(p, "interpreting_collisionprofile.png"); nothing # hide
 #md # ![](interpreting_collisionprofile.png)
@@ -265,12 +265,12 @@ function buildplots!(p, amps)
 
     for i in eachindex(params)
         v₀label = params[i][1]/1.816
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
 #md savefig(p, "interpreting_collisionday.png"); nothing # hide
 #md # ![](interpreting_collisionday.png)
@@ -285,12 +285,12 @@ function buildplots!(p, amps)
 
     for i in eachindex(params)
         v₀label = params[i][1]/1.816
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=@sprintf("%.0e, %.2f", v₀label, params[i][2]), color=cmap[i]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
 #md savefig(p, "interpreting_collisionnight.png"); nothing # hide
 #md # ![](interpreting_collisionnight.png)

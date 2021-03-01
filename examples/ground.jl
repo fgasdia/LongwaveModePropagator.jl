@@ -47,7 +47,7 @@ function buildplots!(p, amps)
     cmap = palette(:thermal, length(GROUND)+1)  # +1 so we don't get to yellow
 
     for i = 1:length(GROUND)
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=@sprintf("%d, %.1g", GROUND[i].ϵᵣ, GROUND[i].σ), color=cmap[i]);
     end
 end
@@ -58,7 +58,7 @@ amps = varyground(DAY)
 
 p = plot()
 buildplots!(p, amps)
-plot!(p, size=(600,400), ylims=(0, 95), title="Day", legend=(0.85, 1.02),
+plot!(p; size=(600,400), ylims=(0, 95), title="Day", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
 #md savefig(p, "ground_day.png"); nothing # hide
 #md # ![](ground_day.png
@@ -69,7 +69,7 @@ amps = varyground(NIGHT)
 
 p = plot()
 buildplots!(p, amps)
-plot!(p, size=(600,400), ylims=(0, 95), title="Night", legend=(0.85, 1.02),
+plot!(p; size=(600,400), ylims=(0, 95), title="Night", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
 #md savefig(p, "ground_night.png"); nothing # hide
 #md # ![](ground_night.png
