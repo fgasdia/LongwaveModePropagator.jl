@@ -27,12 +27,12 @@ function buildplots!(p, amps)
     cmap = palette(:amp, length(hprimes)+1) # +1 allows us to use a darker lightest color
 
     for i in eachindex(hprimes)
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=hprimes[i], color=cmap[i+1]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel=&quot;Range (km)&quot;, ylabel=&quot;Amplitude (dB)&quot;, legendtitle=&quot;h′&quot;)</code></pre><p><img src="../interpreting_hprimes.png" alt/></p><p>As h′ increases, the field strength modal interference pattern is displaced outwardly away from the transmitter.</p><h2 id="Varying-β"><a class="docs-heading-anchor" href="#Varying-β">Varying β</a><a id="Varying-β-1"></a><a class="docs-heading-anchor-permalink" href="#Varying-β" title="Permalink"></a></h2><p>Now we&#39;ll fix h′ at 78 km and vary β.</p><pre><code class="language-julia">function varybeta(betas)
     amps = Vector{Vector{Float64}}(undef, length(betas))
     for i in eachindex(betas)
@@ -52,12 +52,12 @@ function buildplots!(p, amps)
     cmap = palette(:amp, length(betas)+1)
 
     for i in eachindex(betas)
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=betas[i], color=cmap[i+1]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel=&quot;Range (km)&quot;, ylabel=&quot;Amplitude (dB)&quot;, legendtitle=&quot;β&quot;)</code></pre><p><img src="../interpreting_betas.png" alt/></p><p>The signal roughly increases with increasing β. Higher β profiles more closely represent a sharp reflecting boundary.</p><p>It may be more accurate to say that higher β ionospheres lead to more extreme amplitudes - higher highs and lower lows. Morfitt (1977) describes this as an increase in β leads to the signal levels varying over a wider range in the regions of strong modal interference.</p><h2 id="Varying-frequency"><a class="docs-heading-anchor" href="#Varying-frequency">Varying frequency</a><a id="Varying-frequency-1"></a><a class="docs-heading-anchor-permalink" href="#Varying-frequency" title="Permalink"></a></h2><p>In this section we&#39;ll look at an ionosphere described with typical daytime Wait profile parameters, but we&#39;ll vary the radio frequency from 5 kHz to 50 kHz.</p><pre><code class="language-julia">function varyfreq(freqs)
     electrons = Species(LMP.QE, LMP.ME, z-&gt;waitprofile(z, 75, 0.35), electroncollisionfrequency)
     waveguide = HomogeneousWaveguide(BFIELD, electrons, GND)
@@ -77,18 +77,18 @@ amps = varyfreq(freqs)
 p = plot();
 function buildplots!(p, amps)
     pal = palette(:rainbow, 7)
-    cmap = [pal[1]; range(pal[2], pal[3], length=2); range(pal[4], pal[5], length=4);
-            range(pal[6], pal[7], length=3)]
+    cmap = [pal[1]; range(pal[2], pal[3]; length=2); range(pal[4], pal[5]; length=4);
+            range(pal[6], pal[7]; length=3)]
 
     for i in eachindex(freqs)
         fkHz = trunc(Int, freqs[i]/1000)
-        λkm = trunc(LMP.C0/freqs[i]/1000, digits=1)
-        plot!(p, RX.distance/1000, amps[i] .+ (10*i),
+        λkm = trunc(LMP.C0/freqs[i]/1000; digits=1)
+        plot!(p, RX.distance/1000, amps[i] .+ (10*i);
               label=string(fkHz, &quot;,  &quot;, λkm), color=cmap[i]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400),
+plot!(p; size=(600,400),
       xlabel=&quot;Range (km)&quot;, ylabel=&quot;Amplitude (dB)&quot;, legendtitle=&quot;f kHz, λ km&quot;)</code></pre><p><img src="../interpreting_frequencies.png" alt/></p><p>The effect of increasing frequency is similar to increasing h′. This makes sense because in both cases the waveguide &quot;height&quot; in wavelengths is increassing.</p><h2 id="Collision-frequency"><a class="docs-heading-anchor" href="#Collision-frequency">Collision frequency</a><a id="Collision-frequency-1"></a><a class="docs-heading-anchor-permalink" href="#Collision-frequency" title="Permalink"></a></h2><p>So far all of the profiles generated above have used the electron collision frequency from Morfitt and Shellman (1976). Let&#39;s look at the effect of different collision frequency profiles.</p><p>First we&#39;ll plot the collision frequency profiles themselves. On the plots we&#39;ll also mark the approximate reflection height for <code>TX.frequency</code> where <span>$\omega_r = \omega$</span> for a typical daytime electron density profile.</p><pre><code class="language-julia">collisionfrequency(z, ν₀, a) = ν₀*exp(-a*z/1000)  # 1/1000 converts `z` to km
 
 function reflectionheight(params, hp, β)
@@ -114,14 +114,14 @@ function buildplots!(p, params, hp, β)
         eqz = reflectionheight(params[i], hp, β)
 
         v₀label = params[i][1]/1.816
-        plot!(p, collisionfrequency.(alt, params[i]...), alt/1000,
+        plot!(p, collisionfrequency.(alt, params[i]...), alt/1000;
               label=@sprintf(&quot;%.0e, %.2f&quot;, v₀label, params[i][2]), color=cmap[i]);
-        hline!(p, [eqz/1000], linestyle=:dash, color=cmap[i], linewidth=0.6, label=nothing)
+        hline!(p, [eqz/1000]; linestyle=:dash, color=cmap[i], linewidth=0.6, label=nothing)
     end
 end
 buildplots!(p, params, 75, 0.35);
 annotate!(p, [(1e3, 64, text(&quot;ωᵣ = ω&quot;, 10))])
-plot!(p, size=(600,400), xscale=:log10,
+plot!(p; size=(600,400), xscale=:log10,
       xlabel=&quot;ν (s⁻¹)&quot;, ylabel=&quot;Altitude (km)&quot;, legendtitle=&quot;1.816 ν₀, a&quot;)</code></pre><p><img src="../interpreting_collisionprofile.png" alt/></p><p>Typical daytime electron density profile.</p><pre><code class="language-julia">function varycollisionfreq(params, hp, β)
     amps = Vector{Vector{Float64}}(undef, length(params))
     for i in eachindex(params)
@@ -141,12 +141,12 @@ function buildplots!(p, amps)
 
     for i in eachindex(params)
         v₀label = params[i][1]/1.816
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=@sprintf(&quot;%.0e, %.2f&quot;, v₀label, params[i][2]), color=cmap[i]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
+plot!(p; size=(600,400), ylims=(22, 95),
       xlabel=&quot;Range (km)&quot;, ylabel=&quot;Amplitude (dB)&quot;, legendtitle=&quot;1.816 ν₀, a&quot;)</code></pre><p><img src="../interpreting_collisionday.png" alt/></p><p>Typical nighttime electron density profile.</p><pre><code class="language-julia">amps = varycollisionfreq(params, 82, 0.55)
 
 p = plot();
@@ -155,10 +155,10 @@ function buildplots!(p, amps)
 
     for i in eachindex(params)
         v₀label = params[i][1]/1.816
-        plot!(p, RX.distance/1000, amps[i],
+        plot!(p, RX.distance/1000, amps[i];
               label=@sprintf(&quot;%.0e, %.2f&quot;, v₀label, params[i][2]), color=cmap[i]);
     end
 end
 buildplots!(p, amps);
-plot!(p, size=(600,400), ylims=(22, 95),
-      xlabel=&quot;Range (km)&quot;, ylabel=&quot;Amplitude (dB)&quot;, legendtitle=&quot;1.816 ν₀, a&quot;)</code></pre><p><img src="../interpreting_collisionnight.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>As a government technical report and not a journal paper curated by a publishing company, it is difficult to track how many times it has been cited by others.</li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../magneticfield/">« Magnetic field direction</a><a class="docs-footer-nextpage" href="../ground/">Ground »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 28 February 2021 05:46">Sunday 28 February 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(p; size=(600,400), ylims=(22, 95),
+      xlabel=&quot;Range (km)&quot;, ylabel=&quot;Amplitude (dB)&quot;, legendtitle=&quot;1.816 ν₀, a&quot;)</code></pre><p><img src="../interpreting_collisionnight.png" alt/></p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>As a government technical report and not a journal paper curated by a publishing company, it is difficult to track how many times it has been cited by others.</li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../magneticfield/">« Magnetic field direction</a><a class="docs-footer-nextpage" href="../ground/">Ground »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 1 March 2021 03:28">Monday 1 March 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

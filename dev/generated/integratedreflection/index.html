@@ -17,7 +17,7 @@ Rtop = LMP.bookerreflection(ea, Mtop)</code></pre><pre class="documenter-example
 waveguide = HomogeneousWaveguide(bfield, species, ground)
 me = PhysicalModeEquation(ea, frequency, waveguide);</code></pre><p>Then we simply define the <code>ODEProblem</code> and <code>solve</code>.</p><pre><code class="language-julia">prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), (me, LMPParams()))
 
-sol = solve(prob, RK4(), abstol=1e-9, reltol=1e-9);</code></pre><p>Let&#39;s plot the reflection coefficients next to the electron density and collision frequency curves. Because the reflection coefficients are complex-valued, we will plot their magnitude.</p><pre><code class="language-julia">zs = topheight:-1000:0
+sol = solve(prob, RK4(); abstol=1e-9, reltol=1e-9);</code></pre><p>Let&#39;s plot the reflection coefficients next to the electron density and collision frequency curves. Because the reflection coefficients are complex-valued, we will plot their magnitude.</p><pre><code class="language-julia">zs = topheight:-1000:0
 
 ne = species.numberdensity.(zs)
 nu = species.collisionfrequency.(zs)
@@ -29,31 +29,31 @@ eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
 ne[end] = NaN  # otherwise Plots errors
 Wr[end] = NaN
 
-p1 = plot([ne nu Wr], zs/1000,
+p1 = plot([ne nu Wr], zs/1000;
           xlims=(10, 10^10), xaxis=(scale=:log10),
           ylabel=&quot;Altitude (km)&quot;,
           labels=[&quot;Nₑ (m⁻³)&quot; &quot;ν (s⁻¹)&quot; &quot;ωᵣ = ωₚ²/ν&quot;], legend=:topleft,
           linewidth=1.5);
 
-vline!(p1, [frequency.ω], linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
-hline!(p1, [eqz/1000], linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
+vline!(p1, [frequency.ω]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
+hline!(p1, [eqz/1000]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
 annotate!(p1, frequency.ω, 10, text(&quot; ω&quot;, :left, 9));
 annotate!(p1, 70, eqz/1000-3, text(&quot;ωᵣ = ω&quot;, :left, 9));
 
-R11 = abs.(sol(zs, idxs=1))
-R21 = abs.(sol(zs, idxs=2))
-R12 = abs.(sol(zs, idxs=3))
-R22 = abs.(sol(zs, idxs=4))
+R11 = abs.(sol(zs; idxs=1))
+R21 = abs.(sol(zs; idxs=2))
+R12 = abs.(sol(zs; idxs=3))
+R22 = abs.(sol(zs; idxs=4))
 
-p2 = plot([R11 R21 R12 R22], zs/1000,
+p2 = plot([R11 R21 R12 R22], zs/1000;
           xlims=(0, 1),
           yaxis=false, yformatter=_-&gt;&quot;&quot;,
           legend=:right, labels=[&quot;R₁₁&quot; &quot;R₂₁&quot; &quot;R₁₂&quot; &quot;R₂₂&quot;],
           linewidth=1.5);
 
-hline!(p2, [eqz/1000], linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
+hline!(p2, [eqz/1000]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
 
-plot(p1, p2, layout=(1,2), size=(800, 400))</code></pre><p><img src="../integratedreflection_xyz.png" alt/></p><h2 id="Generate-random-scenarios"><a class="docs-heading-anchor" href="#Generate-random-scenarios">Generate random scenarios</a><a id="Generate-random-scenarios-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-random-scenarios" title="Permalink"></a></h2><p>Now that we&#39;ve seen what the reflection coefficient functions look like, we&#39;ll focus on finding an accurate but efficient solver.</p><p>We will evaluate the solutions across a range of different random ionospheres, frequencies, and angles of incidence. Each scenario is described by a <a href="../../lib/public/#LongwaveModePropagator.PhysicalModeEquation"><code>PhysicalModeEquation</code></a>.</p><pre><code class="language-julia">function generatescenarios(N)
+plot(p1, p2; layout=(1,2), size=(800, 400))</code></pre><p><img src="../integratedreflection_xyz.png" alt/></p><h2 id="Generate-random-scenarios"><a class="docs-heading-anchor" href="#Generate-random-scenarios">Generate random scenarios</a><a id="Generate-random-scenarios-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-random-scenarios" title="Permalink"></a></h2><p>Now that we&#39;ve seen what the reflection coefficient functions look like, we&#39;ll focus on finding an accurate but efficient solver.</p><p>We will evaluate the solutions across a range of different random ionospheres, frequencies, and angles of incidence. Each scenario is described by a <a href="../../lib/public/#LongwaveModePropagator.PhysicalModeEquation"><code>PhysicalModeEquation</code></a>.</p><pre><code class="language-julia">function generatescenarios(N)
     eas = EigenAngle.(complex.(rand(N)*π/2, rand(N)*deg2rad(-10)))
     frequencies = Frequency.(abs.(randn(N)*60e3))
 
@@ -81,8 +81,7 @@ end
 scenarios = generatescenarios(30);</code></pre><h2 id="Reference-solutions"><a class="docs-heading-anchor" href="#Reference-solutions">Reference solutions</a><a id="Reference-solutions-1"></a><a class="docs-heading-anchor-permalink" href="#Reference-solutions" title="Permalink"></a></h2><p>To evaluate the accuracy of the reflection coefficients, we compare to a very low tolerance Runge-Kutta Order 4 method. The DifferentialEquations implementation of <code>RK4</code> uses adaptive stepping.</p><p>The <a href="../../lib/internals/#LongwaveModePropagator.integratedreflection-Tuple{PhysicalModeEquation,LongwaveModePropagator.Dθ}"><code>LongwaveModePropagator.integratedreflection</code></a> function does the integration process above for us and returns the reflection coefficient at the ground.</p><pre><code class="language-julia">ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
 params = LMPParams(integrationparams=ip)
 
-Rrefs = [LMP.integratedreflection(scenario, params=params) for scenario in scenarios];</code></pre><pre class="documenter-example-output">┌ Warning: dt &lt;= dtmin. Aborting. There is either an error in your model specification or the true solution is unstable.
-└ @ SciMLBase ~/.julia/packages/SciMLBase/sRVBG/src/integrator_interface.jl:342</pre><h2 id="Evaluate-solvers"><a class="docs-heading-anchor" href="#Evaluate-solvers">Evaluate solvers</a><a id="Evaluate-solvers-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluate-solvers" title="Permalink"></a></h2><p>Now let&#39;s compute and time the results a set of different methods for a range of tolerances. We repeat the integration <code>N = 25</code> times for each combination of parameters to get a more accurate average time.</p><pre><code class="language-julia">function compute(scenarios, tolerances, solvers)
+Rrefs = [LMP.integratedreflection(scenario; params=params) for scenario in scenarios];</code></pre><h2 id="Evaluate-solvers"><a class="docs-heading-anchor" href="#Evaluate-solvers">Evaluate solvers</a><a id="Evaluate-solvers-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluate-solvers" title="Permalink"></a></h2><p>Now let&#39;s compute and time the results a set of different methods for a range of tolerances. We repeat the integration <code>N = 25</code> times for each combination of parameters to get a more accurate average time.</p><pre><code class="language-julia">function compute(scenarios, tolerances, solvers)
     dims = length(scenarios), length(tolerances), length(solvers)
     Rs = Array{StaticArrays.SMatrix{2,2,ComplexF64,4}}(undef, dims...)
     times = Array{Float64}(undef, dims...)
@@ -94,13 +93,13 @@ Rrefs = [LMP.integratedreflection(scenario, params=params) for scenario in scena
 
             for i in eachindex(scenarios)
                 # warmup
-                R = LMP.integratedreflection(scenarios[i], params=params)
+                R = LMP.integratedreflection(scenarios[i]; params=params)
 
                 # loop for average time
                 N = 25
                 t0 = time_ns()
                 for n = 1:N
-                    R = LMP.integratedreflection(scenarios[i], params=params)
+                    R = LMP.integratedreflection(scenarios[i]; params=params)
                 end
                 ttotal = time_ns() - t0
 
@@ -129,14 +128,14 @@ Rs, times = compute(scenarios, tolerances, solvers);</code></pre><p>We&#39;ll me
 end
 
 Rerrs = differr(Rs, Rrefs)
-mean_Rerrs = dropdims(mean(Rerrs, dims=1), dims=1)
+mean_Rerrs = dropdims(mean(Rerrs; dims=1); dims=1)
 
-heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs)),
+heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
         clims=(-8, -3),
         xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;,
-        colorbar_title=&quot;log₁₀ max abs difference&quot;, colorbar=true)</code></pre><p><img src="../integratedreflection_difference.png" alt/></p><p>And the average runtimes are</p><pre><code class="language-julia">mean_times = dropdims(mean(times, dims=1), dims=1)
+        colorbar_title=&quot;log₁₀ max abs difference&quot;, colorbar=true)</code></pre><p><img src="../integratedreflection_difference.png" alt/></p><p>And the average runtimes are</p><pre><code class="language-julia">mean_times = dropdims(mean(times; dims=1); dims=1)
 
-heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6,
+heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6;
         clims=(0, 9),
         xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;,
-        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best combination of runtime and accuracy occurs at roughly <code>Vern7</code> with a tolerance of <code>1e-8</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not usually required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Sunday 28 February 2021 05:46">Sunday 28 February 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best combination of runtime and accuracy occurs at roughly <code>Vern7</code> with a tolerance of <code>1e-8</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not usually required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Monday 1 March 2021 03:28">Monday 1 March 2021</span>. Using Julia version 1.5.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
