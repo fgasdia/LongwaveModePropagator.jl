@@ -47,7 +47,9 @@ end
 @testset "modesum.jl" begin
     @info "Testing modesum"
 
-    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
+        multiplespecies_scenario)
+        
         test_modeterms(scn)
         test_Efield(scn)
     end

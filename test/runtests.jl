@@ -32,6 +32,22 @@ const verticalB_scenario = (
     rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
 )
 
+const multiplespecies_scenario = (
+    ea=EigenAngle(1.5 - 0.1im),
+    bfield=BField(50e-6, π/2, 0),
+    species=(
+        Species(QE, ME,
+                z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
+                electroncollisionfrequency),
+        Species(abs(QE), 58000*ME,  # used by LWPC
+                z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
+                ioncollisionfrequency)
+    ),
+    ground=Ground(15, 0.001),
+    tx=Transmitter(24e3),
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
+)
+
 const isotropicB_resonant_scenario = (
     ea=EigenAngle(1.453098822238508 - 0.042008075239068944im),  # resonant
     bfield=BField(50e-6, 0, π/2),
