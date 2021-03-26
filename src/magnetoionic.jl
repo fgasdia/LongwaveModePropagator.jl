@@ -40,50 +40,40 @@ correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where 
 [Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
     ionosphere," Cambridge University Press, 1959.
 """
-susceptibility
-
 function susceptibility(altitude, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     x², y², z² = x^2, y^2, z^2
     ω = frequency.ω
-
-    e, m = species.charge, species.mass
-    N, nu = species.numberdensity, species.collisionfrequency
-
     invω = inv(ω)
-    invmω = invω/m  # == inv(m*ω)
 
     # Constitutive relations
     # (see Budden1955a, pg. 517, Budden1988 pg. 39, or [Ratcliffe1959])
-    X = N(altitude)*e^2*invω*invmω/E0
-    Y = e*B*invmω  # [Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
-    Z = nu(altitude)*invω
-    U = 1 - 1im*Z
+    U²D = zero(ComplexF64)
+    Y²D = zero(ComplexF64)
+    UYD = zero(ComplexF64)
+    for i in eachindex(species)
+        e, m = species[i].charge, species[i].mass
+        N, nu = species[i].numberdensity, species[i].collisionfrequency
 
-    # TODO: Support multiple species, e.g.
-    # U²D = zero()
-    # Y²D = zero()
-    # UYD = zero()
-    # for i = 1:length(species)
-    #     U²D += U^2*D
-    #     UYD += Y*U*D
-    #     Y²D += Y^2*D
-    # end
+        invmω = invω/m  # == inv(m*ω)
 
-    # Precompute variables
-    # These are formulated such that application to multiple species is trivial. Direction
-    # cosines are applied last
-    U² = U^2
-    Y² = Y^2
+        X = N(altitude)*e^2*invω*invmω/E0
+        Y = e*B*invmω  # [Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
+        Z = nu(altitude)*invω
+        U = 1 - 1im*Z
 
-    D = -X/(U*(U² - Y²))
+        U² = U^2
+        Y² = Y^2
+        
+        D = -X/(U*(U² - Y²))
 
-    U²D = U²*D
-    Y²D = Y²*D
-    UYD = U*Y*D
-
+        U²D += U²*D
+        Y²D += Y²*D
+        UYD += Y*U*D
+    end
+    
     # Leverage partial symmetry of M to reduce computations
     izUYD = 1im*z*UYD
     xyY²D = x*y*Y²D

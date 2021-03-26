@@ -29,6 +29,9 @@ struct Species{F, G}
     numberdensity::F  # m⁻³
     collisionfrequency::G  # s⁻¹
 end
+Base.eachindex(s::Species) = 1
+Base.length(s::Species) = 1
+Base.getindex(s::Species, i) = i == 1 ? s : throw(BoundsError)
 
 ########
 
