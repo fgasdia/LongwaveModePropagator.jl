@@ -1,4 +1,4 @@
-# # Interpreting h′ and β
+# # [Interpreting h′ and β](@id interpreting-hpbeta)
 # 
 # This example looks at the influence of h′, β, electron collision frequency,
 # and transmitter frequency on amplitude curves.
