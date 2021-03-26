@@ -255,7 +255,7 @@ gyrofrequency(q, m, B) = q*B/m
 gyrofrequency(s::Species, b::BField) = gyrofrequency(s.charge, s.mass, b.B)
 
 """
-    magnetoionicparameters(z, frequency::Frequency, species::Species, bfield::BField)
+    magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
 
 Compute the magnetoionic parameters `X`, `Y`, and `Z` for height `z`.
 
@@ -264,21 +264,43 @@ X = N e² / (ϵ₀ m ω²)
 Y = e B / (m ω)
 Z = ν / ω
 ```
+
+# References
+
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955, pp. 517.
+
+[Budden1988]: K. G. Budden, “The propagation of radio waves: the theory of radio
+    waves of low power in the ionosphere and magnetosphere,” First paperback edition.
+    New York: Cambridge University Press, 1988, pp. 39.
+
+[Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
+    ionosphere," Cambridge University Press, 1959.
 """
 function magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
-    # Unpack
-    N = species.numberdensity
-    nu = species.collisionfrequency
-    e = species.charge
     m = species.mass
-
     ω = frequency.ω
 
+    invω = inv(ω)
+    invE0ω = invω/E0
+
+    X, Y, Z = _magnetoionicparameters(z, invω, invE0ω, bfield, species)
+
+    return X, Y, Z
+end
+
+# Specialized for performance of `susceptibility`
+function _magnetoionicparameters(z, invω, invE0ω, bfield, species)
+    N, nu = species.numberdensity, species.collisionfrequency
+    e, m = species.charge, species.mass
     B = bfield.B
 
-    X = N(z)*e^2/(E0*m*ω^2)
-    Y = e*B/(m*ω)
-    Z = nu(z)/ω
+    invmω = invω/m
+
+    X = N(z)*e^2*invE0ω*invmω  # = N(z)*e^2/(E0*m*ω^2)
+    Y = e*B*invmω  # = e*B/(m*ω)  # [Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
+    Z = nu(z)*invω  # = nu(z)/ω
 
     return X, Y, Z
 end
@@ -295,7 +317,6 @@ Compute Wait's conductivity parameter `Wr`.
 function waitsparameter(z, frequency::Frequency, bfield::BField, species::Species)
     X, Y, Z = magnetoionicparameters(z, frequency, bfield, species)
 
-    # Unpack
     ω = frequency.ω
     nu = species.collisionfrequency
 

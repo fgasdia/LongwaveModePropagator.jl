@@ -14,45 +14,6 @@ function test_physicalmodeequation(scenario)
     @test LMP.setea(ea.θ, me2) == me
 end
 
-function test_roots(scenario)
-    x = 0.0005
-    z = complex(x, -x)
-
-    # isroot Real and Complex
-    @test LMP.isroot(x)
-    @test LMP.isroot(x; atol=1e-6) == false
-    @test LMP.isroot(z)
-    @test LMP.isroot(z; atol=1e-6) == false
-
-    z2 = complex(1, 0)
-    z3 = complex(0, 1)
-    @test LMP.isroot(z2) == false
-    @test LMP.isroot(z3) == false
-
-    # filterroots! setup
-    @unpack ea, tx, bfield, species, ground = scenario
-    waveguide = HomogeneousWaveguide(bfield, species, ground)
-    me = PhysicalModeEquation(tx.frequency, waveguide)
-
-    # nothing filtered
-    roots = copy(TEST_MODES[scenario])
-    @test LMP.filterroots!(roots, me) == roots
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
-
-    # filter bad root
-    push!(roots, EigenAngle(complex(1.5, -0.5)))
-    @test LMP.filterroots!(roots, me) == TEST_MODES[scenario]
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_MODES[scenario]
-
-    # filter (or not) with different tolerance
-    roots2 = copy(roots)
-    roots2[1] = EigenAngle(roots2[1].θ + 0.001)
-    f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
-    @test LMP.isroot(f; atol=0.5)  # NOTE: atol is for value of modal equation, not θ
-    @test LMP.filterroots!(roots2, me; atol=0.5) == roots2
-    @test LMP.filterroots!(roots2, me) == roots[2:end]
-end
-
 function test_wmatrix(scenario)
     @unpack ea, tx, bfield, species = scenario
 
@@ -269,6 +230,47 @@ function test_findmodes(scenario)
     # return modes
 end
 
+# TEST_MODES must be filled
+
+function test_roots(scenario)
+    x = 0.0005
+    z = complex(x, -x)
+
+    # isroot Real and Complex
+    @test LMP.isroot(x)
+    @test LMP.isroot(x; atol=1e-6) == false
+    @test LMP.isroot(z)
+    @test LMP.isroot(z; atol=1e-6) == false
+
+    z2 = complex(1, 0)
+    z3 = complex(0, 1)
+    @test LMP.isroot(z2) == false
+    @test LMP.isroot(z3) == false
+
+    # filterroots! setup
+    @unpack ea, tx, bfield, species, ground = scenario
+    waveguide = HomogeneousWaveguide(bfield, species, ground)
+    me = PhysicalModeEquation(tx.frequency, waveguide)
+
+    # nothing filtered
+    roots = copy(TEST_MODES[scenario])
+    @test LMP.filterroots!(roots, me) == roots
+    @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
+
+    # filter bad root
+    push!(roots, EigenAngle(complex(1.5, -0.5)))
+    @test LMP.filterroots!(roots, me) == TEST_MODES[scenario]
+    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_MODES[scenario]
+
+    # filter (or not) with different tolerance
+    roots2 = copy(roots)
+    roots2[1] = EigenAngle(roots2[1].θ + 0.001)
+    f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
+    @test LMP.isroot(f; atol=0.5)  # NOTE: atol is for value of modal equation, not θ
+    @test LMP.filterroots!(roots2, me; atol=0.5) == roots2
+    @test LMP.filterroots!(roots2, me) == roots[2:end]
+end
+
 # function evalroot(root, scenario)
 #     @unpack tx, bfield, species, ground = scenario
 #     waveguide = HomogeneousWaveguide(bfield, species, ground)
@@ -281,7 +283,9 @@ end
 @testset "modefinder.jl" begin
     @info "Testing modefinder"
 
-    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
+        multiplespecies_scenario)
+        
         test_physicalmodeequation(scn)  # just test with one scenario?
 
         test_wmatrix(scn)
@@ -302,7 +306,8 @@ end
 
     # Fill in TEST_MODES
     @info "  Mode finding..."
-    for scenario in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+    for scenario in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
+        multiplespecies_scenario)
         if !haskey(TEST_MODES, scenario)
             TEST_MODES[scenario] = findroots(scenario)
         end

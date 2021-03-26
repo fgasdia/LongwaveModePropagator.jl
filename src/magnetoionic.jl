@@ -11,6 +11,9 @@ Functions related to calculating physical parameters of the ionospheric plasma
 Compute the ionosphere susceptibility tensor `M` as a `SMatrix{3,3}` using
 `species.numberdensity` and `species.collisionfrequency` at `altitude`.
 
+Multiple species can be passed as an iterable. Use a `tuple` of `Species`, rather than a
+`Vector`, for better performance.
+
 If `params.earthcurvature == true`, `M` includes a first order correction for earth
 curvature by means of a fictitious refractive index [Pappert1967].
 
@@ -46,24 +49,23 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
     x², y², z² = x^2, y^2, z^2
     ω = frequency.ω
-    invω = inv(ω)
 
-    # Constitutive relations
-    # (see Budden1955a, pg. 517, Budden1988 pg. 39, or [Ratcliffe1959])
+    # Precompute constants (if multiple species)
+    invω = inv(ω)
+    invE0ω = invω/E0
+
+    #== TODO:
+    The zero type should be inferred instead of hard coded, but it's difficult to consider
+    multiple species. There is an `@inferred` test in case a common test scenario violates
+    this assumption of Float64 return type of species N or nu
+    ==#
     U²D = zero(ComplexF64)
     Y²D = zero(ComplexF64)
     UYD = zero(ComplexF64)
-    for i in eachindex(species)
-        e, m = species[i].charge, species[i].mass
-        N, nu = species[i].numberdensity, species[i].collisionfrequency
+    @inbounds for i in eachindex(species)
+        X, Y, Z = _magnetoionicparameters(altitude, invω, invE0ω, bfield, species[i])
 
-        invmω = invω/m  # == inv(m*ω)
-
-        X = N(altitude)*e^2*invω*invmω/E0
-        Y = e*B*invmω  # [Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
-        Z = nu(altitude)*invω
         U = 1 - 1im*Z
-
         U² = U^2
         Y² = Y^2
         
@@ -71,7 +73,7 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
 
         U²D += U²*D
         Y²D += Y²*D
-        UYD += Y*U*D
+        UYD += U*Y*D
     end
     
     # Leverage partial symmetry of M to reduce computations

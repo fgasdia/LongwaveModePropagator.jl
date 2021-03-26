@@ -3,7 +3,6 @@ function test_HomogeneousWaveguide(scenario)
 
     distance = 1000e3
     waveguide = HomogeneousWaveguide(bfield, species, ground, distance)
-    @test isbits(waveguide)
 
     adjwaveguide = LMP.adjoint(waveguide)
     oB = waveguide.bfield
@@ -20,7 +19,8 @@ end
 @testset "Waveguides.jl" begin
     @info "Testing Waveguides"
 
-    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
+        multiplespecies_scenario)
         test_HomogeneousWaveguide(scn)
     end
 end
