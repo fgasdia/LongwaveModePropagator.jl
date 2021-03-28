@@ -9,7 +9,6 @@ using StaticArrays: promote_tuple_eltype, convert_ntuple
 using OrdinaryDiffEq, DiffEqCallbacks
 using Parameters
 using ProgressMeter
-using BetterExp  # TEMP faster exp() until merged into Base
 using JSON3, StructTypes
 using Interpolations
 
