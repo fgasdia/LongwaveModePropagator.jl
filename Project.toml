@@ -4,9 +4,9 @@ authors = ["Forrest Gasdia <EP-Guy@users.noreply.github.com>"]
 version = "0.1.0"
 
 [deps]
-BetterExp = "7cffe744-45fd-4178-b173-cf893948b8b7"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
+FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -21,8 +21,8 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 
 [compat]
-BetterExp = "0.1"
 DiffEqCallbacks = "2"
+FunctionWrappers = "1.1"
 Interpolations = "0.12,0.13"
 JSON3 = "1"
 ModifiedHankelFunctionsOfOrderOneThird = "1"

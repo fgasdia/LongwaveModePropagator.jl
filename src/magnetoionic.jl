@@ -47,7 +47,6 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     @unpack earthradius, earthcurvature, curvatureheight = params
 
     B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
-    x², y², z² = x^2, y^2, z^2
     ω = frequency.ω
 
     # Precompute constants (if multiple species)
@@ -55,9 +54,8 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     invE0ω = invω/E0
 
     #== TODO:
-    The zero type should be inferred instead of hard coded, but it's difficult to consider
-    multiple species. There is an `@inferred` test in case a common test scenario violates
-    this assumption of Float64 return type of species N or nu
+    The zero type should be inferred instead of hard coded, but because we species N and nu
+    are FunctionWrappers, we know the types will be ComplexF64.
     ==#
     U²D = zero(ComplexF64)
     Y²D = zero(ComplexF64)
@@ -85,15 +83,15 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     yzY²D = y*z*Y²D
 
     # Elements of `M`
-    M11 = U²D - x²*Y²D
+    M11 = U²D - x^2*Y²D
     M21 = izUYD - xyY²D
     M31 = -iyUYD - xzY²D
     M12 = -izUYD - xyY²D
-    M22 = U²D - y²*Y²D
+    M22 = U²D - y^2*Y²D
     M32 = ixUYD - yzY²D
     M13 = iyUYD - xzY²D
     M23 = -ixUYD - yzY²D
-    M33 = U²D - z²*Y²D
+    M33 = U²D - z^2*Y²D
 
     if earthcurvature
         curvaturecorrection = 2/earthradius*(curvatureheight - altitude)

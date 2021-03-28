@@ -10,7 +10,7 @@ const ME = 9.1093837015e-31  # mₑ, mass of an electron, kg
 ########
 
 """
-    Species{F, G}
+    Species
 
 Ionosphere constituent `Species`.
 
@@ -18,20 +18,41 @@ Ionosphere constituent `Species`.
 
 - `charge::Float64`: signed species charged in Coulombs.
 - `mass::Float64`: species mass in kilograms.
-- `numberdensity::F`: a callable that returns number density in number per cubic meter as a
+- `numberdensity`: a callable that returns number density in number per cubic meter as a
     function of height in meters.
-- `collisionfrequency::G`: a callable that returns the collision frequency in collisions per
+- `collisionfrequency`: a callable that returns the collision frequency in collisions per
     second as a function of height in meters.
+
+!!! note
+    `numberdensity` and `collisionfrequency` will be converted to `FunctionerWrapper` types
+    that tell the compiler that these functions will always return values of type `Float64`.
+    A limited test is run to check if this is true, but otherwise it is up to the user
+    to ensure these functions return only values of type `Float64`.
 """
-struct Species{F, G}
+struct Species
     charge::Float64  # C
     mass::Float64  # kg
-    numberdensity::F  # m⁻³
-    collisionfrequency::G  # s⁻¹
+    numberdensity::FunctionWrapper{Float64,Tuple{Float64}}  # m⁻³
+    collisionfrequency::FunctionWrapper{Float64,Tuple{Float64}}  # s⁻¹
+
+    function Species(charge, mass, numberdensity, collisionfrequency)
+        _checkFloat64(numberdensity, 0:1e3:110e3)
+        _checkFloat64(collisionfrequency, 0:1e3:110e3)
+        new(charge, mass,
+            FunctionWrapper{Float64,Tuple{Float64}}(numberdensity),
+            FunctionWrapper{Float64,Tuple{Float64}}(collisionfrequency))
+    end
 end
 Base.eachindex(s::Species) = 1
 Base.length(s::Species) = 1
 Base.getindex(s::Species, i) = i == 1 ? s : throw(BoundsError)
+
+function _checkFloat64(f, x)
+    for i in eachindex(x)
+        v = f(x[i])
+        v isa Float64 || throw(TypeError(Symbol(f), Float64, v))
+    end
+end
 
 ########
 
@@ -291,7 +312,7 @@ function magnetoionicparameters(z, frequency::Frequency, bfield::BField, species
 end
 
 # Specialized for performance of `susceptibility`
-function _magnetoionicparameters(z, invω, invE0ω, bfield, species)
+@inline function _magnetoionicparameters(z, invω, invE0ω, bfield, species)
     N, nu = species.numberdensity, species.collisionfrequency
     e, m = species.charge, species.mass
     B = bfield.B
