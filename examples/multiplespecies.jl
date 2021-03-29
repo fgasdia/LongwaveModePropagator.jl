@@ -49,10 +49,12 @@ QE
 
 Ne(z) = waitprofile(z, 75, 0.32)
 Np(z) = 2e6*exp(1e-4*z)
+nothing  #hide
 
 # We define density of the negative ions to conserve charge neutrality. 
 
 Nn(z) = Np(z) - Ne(z)
+nothing  #hide
 
 # For plotting, we'll replace densities below 1 m⁻³ with `NaN`.
 
@@ -80,6 +82,7 @@ plot!(xlabel="Collision frequency (s⁻¹)", ylabel="Altitude (km)", xscale=:log
 electrons = Species(QE, ME, Ne, electroncollisionfrequency)
 posions = Species(abs(QE), 58000*ME, Np, ioncollisionfrequency)
 negions = Species(QE, 58000*ME, Nn, ioncollisionfrequency)
+nothing  #hide
 
 # We'll compare an electrons-only and electrons-ions ionosphere.
 
