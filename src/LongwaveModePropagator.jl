@@ -11,6 +11,7 @@ using Parameters
 using ProgressMeter
 using JSON3, StructTypes
 using Interpolations
+import FunctionWrappers: FunctionWrapper
 
 using PolynomialRoots: roots!
 

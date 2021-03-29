@@ -28,6 +28,7 @@ examples = [
     "wavefieldintegration.jl",
     "magneticfield.jl",
     "interpretinghpbeta.jl",
+    "multiplespecies.jl",
     "ground.jl"
 ]
 
@@ -55,6 +56,7 @@ example_pages = Any[
     "generated/wavefieldintegration.md",
     "generated/magneticfield.md",
     "generated/interpretinghpbeta.md",
+    "generated/multiplespecies.md",
     "generated/ground.md"
 ]
 

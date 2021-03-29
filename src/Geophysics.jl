@@ -10,7 +10,7 @@ const ME = 9.1093837015e-31  # mₑ, mass of an electron, kg
 ########
 
 """
-    Species{F, G}
+    Species
 
 Ionosphere constituent `Species`.
 
@@ -18,16 +18,40 @@ Ionosphere constituent `Species`.
 
 - `charge::Float64`: signed species charged in Coulombs.
 - `mass::Float64`: species mass in kilograms.
-- `numberdensity::F`: a callable that returns number density in number per cubic meter as a
+- `numberdensity`: a callable that returns number density in number per cubic meter as a
     function of height in meters.
-- `collisionfrequency::G`: a callable that returns the collision frequency in collisions per
+- `collisionfrequency`: a callable that returns the collision frequency in collisions per
     second as a function of height in meters.
+
+!!! note
+    `numberdensity` and `collisionfrequency` will be converted to `FunctionerWrapper` types
+    that tell the compiler that these functions will always return values of type `Float64`.
+    A limited test is run to check if this is true, but otherwise it is up to the user
+    to ensure these functions return only values of type `Float64`.
 """
-struct Species{F, G}
+struct Species
     charge::Float64  # C
     mass::Float64  # kg
-    numberdensity::F  # m⁻³
-    collisionfrequency::G  # s⁻¹
+    numberdensity::FunctionWrapper{Float64,Tuple{Float64}}  # m⁻³
+    collisionfrequency::FunctionWrapper{Float64,Tuple{Float64}}  # s⁻¹
+
+    function Species(charge, mass, numberdensity, collisionfrequency)
+        _checkFloat64(numberdensity, 0:1e3:110e3)
+        _checkFloat64(collisionfrequency, 0:1e3:110e3)
+        new(charge, mass,
+            FunctionWrapper{Float64,Tuple{Float64}}(numberdensity),
+            FunctionWrapper{Float64,Tuple{Float64}}(collisionfrequency))
+    end
+end
+Base.eachindex(s::Species) = 1
+Base.length(s::Species) = 1
+Base.getindex(s::Species, i) = i == 1 ? s : throw(BoundsError)
+
+function _checkFloat64(f, x)
+    for i in eachindex(x)
+        v = f(x[i])
+        v isa Float64 || throw(TypeError(Symbol(f), Float64, v))
+    end
 end
 
 ########
@@ -252,7 +276,7 @@ gyrofrequency(q, m, B) = q*B/m
 gyrofrequency(s::Species, b::BField) = gyrofrequency(s.charge, s.mass, b.B)
 
 """
-    magnetoionicparameters(z, frequency::Frequency, species::Species, bfield::BField)
+    magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
 
 Compute the magnetoionic parameters `X`, `Y`, and `Z` for height `z`.
 
@@ -261,21 +285,43 @@ X = N e² / (ϵ₀ m ω²)
 Y = e B / (m ω)
 Z = ν / ω
 ```
+
+# References
+
+[Budden1955a]: K. G. Budden, “The numerical solution of differential equations governing
+    reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
+    no. 1171, pp. 516–537, Feb. 1955, pp. 517.
+
+[Budden1988]: K. G. Budden, “The propagation of radio waves: the theory of radio
+    waves of low power in the ionosphere and magnetosphere,” First paperback edition.
+    New York: Cambridge University Press, 1988, pp. 39.
+
+[Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
+    ionosphere," Cambridge University Press, 1959.
 """
 function magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
-    # Unpack
-    N = species.numberdensity
-    nu = species.collisionfrequency
-    e = species.charge
     m = species.mass
-
     ω = frequency.ω
 
+    invω = inv(ω)
+    invE0ω = invω/E0
+
+    X, Y, Z = _magnetoionicparameters(z, invω, invE0ω, bfield, species)
+
+    return X, Y, Z
+end
+
+# Specialized for performance of `susceptibility`
+@inline function _magnetoionicparameters(z, invω, invE0ω, bfield, species)
+    N, nu = species.numberdensity, species.collisionfrequency
+    e, m = species.charge, species.mass
     B = bfield.B
 
-    X = N(z)*e^2/(E0*m*ω^2)
-    Y = e*B/(m*ω)
-    Z = nu(z)/ω
+    invmω = invω/m
+
+    X = N(z)*e^2*invE0ω*invmω  # = N(z)*e^2/(E0*m*ω^2)
+    Y = e*B*invmω  # = e*B/(m*ω)  # [Ratcliffe1959] pg. 182 specifies that sign of `e` is included here
+    Z = nu(z)*invω  # = nu(z)/ω
 
     return X, Y, Z
 end
@@ -292,7 +338,6 @@ Compute Wait's conductivity parameter `Wr`.
 function waitsparameter(z, frequency::Frequency, bfield::BField, species::Species)
     X, Y, Z = magnetoionicparameters(z, frequency, bfield, species)
 
-    # Unpack
     ω = frequency.ω
     nu = species.collisionfrequency
 

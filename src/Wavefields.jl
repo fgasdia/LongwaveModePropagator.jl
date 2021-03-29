@@ -67,7 +67,7 @@ function Base.isvalid(A::Wavefields)
 end
 
 """
-    WavefieldIntegrationParams{F,G,T,T2,H}
+    WavefieldIntegrationParams{S,T,T2,H}
 
 Parameters passed to Pitteway integration of wavefields [Pitteway1965].
 
@@ -81,10 +81,10 @@ Parameters passed to Pitteway integration of wavefields [Pitteway1965].
 - `ea::EigenAngle`: wavefield eigenangle.
 - `frequency::Frequency`: electromagentic wave frequency in Hz.
 - `bfield::BField`: Earth's magnetic field in Tesla.
-- `species::Species{F,G}`: species in the ionosphere.
+- `species::S`: species in the ionosphere.
 - `params::LMPParams{T,T2,H}`: module-wide parameters.
 """
-struct WavefieldIntegrationParams{F,G,T,T2,H}
+struct WavefieldIntegrationParams{S,T,T2,H}
     z::Float64
     bottomz::Float64
     ortho_scalar::ComplexF64
@@ -93,7 +93,7 @@ struct WavefieldIntegrationParams{F,G,T,T2,H}
     ea::EigenAngle
     frequency::Frequency
     bfield::BField
-    species::Species{F,G}
+    species::S
     params::LMPParams{T,T2,H}
 end
 
@@ -110,10 +110,10 @@ Automatically set values are:
 - `e1_scalar = one(Float64)`
 - `e2_scalar = one(Float64)`
 """
-function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::Species{F,G},
-    params::LMPParams{T,T2,H}) where {F,G,T,T2,H}
-    return WavefieldIntegrationParams{F,G,T,T2,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
-        one(Float64), one(Float64), ea, frequency, bfield, species, params)
+function WavefieldIntegrationParams(topheight, ea, frequency, bfield, species::S,
+    params::LMPParams{T,T2,H}) where {S,T,T2,H}
+    return WavefieldIntegrationParams{S,T,T2,H}(topheight, BOTTOMHEIGHT, zero(ComplexF64),
+        1.0, 1.0, ea, frequency, bfield, species, params)
 end
 
 """
@@ -345,14 +345,14 @@ savevalues(u, t, integrator) = ScaleRecord(integrator.p.z,
 
 """
     integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-        species::Species; params=LMPParams())
+        species; params=LMPParams())
 
 Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`.
 
 `params.integrationparams` is not used by this function.
 """
 function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species; params=LMPParams(), unscale=true)
+    species; params=LMPParams(), unscale=true)
     # TODO: version that updates output `e` in place
 
     issorted(zs; rev=true) ||
@@ -460,7 +460,7 @@ boundaryscalars(R, Rg, e, isotropic::Bool=false) =
 """
     fieldstrengths!(EH, zs, me::ModeEquation; params=LMPParams())
     fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-        species::Species, ground::Ground; params=LMPParams())
+        species, ground::Ground; params=LMPParams())
 
 Compute ``(Ex, Ey, Ez, Hx, Hy, Hz)ᵀ`` wavefields vectors as elements of `EH` by fullwave
 integration at each height in `zs`.
@@ -469,7 +469,7 @@ The wavefields are scaled to satisfy the waveguide boundary conditions, which is
 at solutions of the mode equation.
 """
 function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
-    species::Species, ground::Ground; params=LMPParams())
+    species, ground::Ground; params=LMPParams())
 
     @assert length(EH) == length(zs)
     zs[end] == 0 || @warn "Waveguide math assumes fields and reflection coefficients are
