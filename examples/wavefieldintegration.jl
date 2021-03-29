@@ -146,7 +146,7 @@ plot!(p2, real(hx2_unscaled),
       zskm; linewidth=1.5);
 
 plot(p1, p2; layout=(1,2))
-#md savefig("wavefields_scaling.png"); nothing # hide
+#md savefig("wavefields_scaling.png"); nothing #hide
 #md # ![](wavefields_scaling.png)
 
 # ## Differential equations solver
@@ -209,7 +209,7 @@ day_e1s = [getindex.(e, 1) for e in day_es]
 
 plot(real(day_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topleft)
-#md savefig("wavefields_day.png"); nothing # hide
+#md savefig("wavefields_day.png"); nothing #hide
 #md # ![](wavefields_day.png)
 
 # 
@@ -219,7 +219,7 @@ night_e1s = [getindex.(e, 1) for e in night_es]
 
 plot(real(night_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topright)
-#md savefig("wavefields_night.png"); nothing # hide
+#md savefig("wavefields_night.png"); nothing #hide
 #md # ![](wavefields_night.png)
 
 # 
@@ -280,8 +280,8 @@ ex2p = plotfield(ex2; ylims=(49, 86), yaxis=false, yformatter=_->"");
 annotate!(ex2p, 0.3, 84, text("\$E_{x,2}\$", fs));
 hx2p = plotfield(hx2; ylims=(49, 86));
 annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center));
-plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm);
-#md savefig("wavefields_fig2.png"); nothing # hide
+plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)
+#md savefig("wavefields_fig2.png"); nothing #hide
 #md # ![](wavefields_fig2.png)
 
 # ```@raw html
@@ -305,6 +305,7 @@ ea = EigenAngle(0)
 frequency = Frequency(202e3)
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]
+nothing  #hide
 
 #  Now integrating the wavefields.
 
@@ -319,9 +320,9 @@ hx2 = getindex.(e, 7)
 ey1p = plotfield(ey1; ylims=(75, 102), title="\$E_{y,1}\$");
 hx2p = plotfield(hx2; ylims=(75, 102), title="\$H_{x,2}\$");
 plot(ey1p, hx2p; layout=(1,2), size=(400,500))
-#md savefig("wavefields_fig3.png"); nothing # hide
+#md savefig("wavefields_fig3.png"); nothing #hide
 #md # ![](wavefields_fig3.png)
-# 
+
 # ```@raw html
 # <img src="../../images/Pitteway1965_fig3.png"/>
 # ```
