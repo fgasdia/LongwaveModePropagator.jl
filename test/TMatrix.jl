@@ -17,7 +17,8 @@ end
 @testset "TMatrix.jl" begin
     @info "Testing TMatrix"
 
-    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
+        multiplespecies_scenario)
         test_tmatrix_deriv(scn)
     end
 end

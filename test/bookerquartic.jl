@@ -263,7 +263,8 @@ end
 @testset "bookerquartic.jl" begin
     @info "Testing bookerquartic"
 
-    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario)
+    for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
+        multiplespecies_scenario)
         test_bookerquarticM(scn)
         test_bookerquarticT(scn)
         test_bookerquartics(scn)

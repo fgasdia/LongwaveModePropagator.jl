@@ -8,3 +8,4 @@ generated/
 *.bak
 *.asv
 *.pdf
+.vscode/

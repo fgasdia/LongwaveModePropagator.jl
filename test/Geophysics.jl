@@ -1,7 +1,6 @@
 function test_Species()
-    electrons = Species(QE, ME,
-                        z -> waitprofile(z, 75, 0.32), electroncollisionfrequency)
-    @test isbits(electrons)
+    @test_throws TypeError Species(QE, ME, z->12, electroncollisionfrequency)
+    @test_throws TypeError Species(QE, ME, z -> waitprofile(z, 75, 0.32), z->12)
 end
 
 function test_BField()
