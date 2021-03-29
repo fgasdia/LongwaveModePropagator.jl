@@ -9,3 +9,4 @@ generated/
 *.asv
 *.pdf
 .vscode/
+Manifest.toml
