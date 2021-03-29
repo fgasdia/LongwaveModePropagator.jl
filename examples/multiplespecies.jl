@@ -1,6 +1,6 @@
 # # Multiple ionospheric species
 # 
-# This example demonstrates an ionosphere with multiple constituents -- not only electrons,
+# This example demonstrates an ionosphere with multiple constituents---not only electrons,
 # but ions as well.
 # 
 # ## Background
@@ -9,8 +9,8 @@
 # the propagation of VLF waves depends on the number density and collision frequency of
 # charged species. Together, these two quantities describe the conductivity profile of the
 # ionosphere. Not only electrons, but massive ions, influence the conductivity of the
-# D-region. The effect of multiple species are combined simply by summing the susceptibility
-# tensor elements for each species' density and collision frequency. 
+# D-region. The influence of multiple species are combined by summing the susceptibility
+# tensors for each species. 
 # 
 # ## Implementation
 # 
@@ -18,23 +18,15 @@
 # In all of the other examples, the only ionospheric constituent is electrons, but they
 # are represented as a [`Species`](@ref) type.
 # LongwaveModePropagator let's you define multiple ionospheric `Species` and pass them as a
-# `tuple` to most functions that take the argument `species`.
+# `Tuple` or `Vector` to most functions that take the argument `species`.
 # 
-# !!! note
-#   Multiple species should be passed as a `tuple` of `Species` for performance.
-#   Although multiple species can also be passed as a `Vector`, the type will be
-#   `Vector{Species}`. This is not a concrete type (because `Species` are parameterized on
-#   their `numberdensity` and `collisionfrequency` functions) and the compiler will not emit
-#   performant code.
-
-
 # Let's compare electrons-only and multiple-species ionospheres.
 
 using Plots
 using LongwaveModePropagator
 
-# The [`Species`](@ref) type defines the `charge`, `mass`, the `numberdensity` as a function
-# of altitude, and the neutral `collisionfrequency` as a function of altitude.
+# The [`Species`](@ref) type defines `charge`, `mass`, `numberdensity` as a function
+# of altitude, and neutral `collisionfrequency` as a function of altitude.
 # 
 # We'll import the internally defined electron charge `QE` and mass `ME` for convenience.
 
@@ -48,11 +40,12 @@ QE
 # density, [`electroncollisionfrequency`](@ref) for the electron-neutral collision frequency,
 # and [`ioncollisionfrequency`](@ref) for the ion-neutral collision frequency.
 # 
-# LWPC supports built-in electrons, a positive ion, and a negative ion.
+# The Long Wavelength Propagation Capability (LWPC) supports built-in electrons, a positive
+# ion, and a negative ion.
 # Each of the ions have a mass of 58,000 electrons (approximately the mass of O₂).
 # 
-# Here we'll use the `waitprofile` for the electrons, but make up a not-very-realistic
-# exponential profile for the positive ion.
+# Here we'll use `waitprofile` for the electron number density profile, but make up a
+# not-very-realistic exponential profile for the positive ion.
 
 Ne(z) = waitprofile(z, 75, 0.32)
 Np(z) = 2e6*exp(1e-4*z)
@@ -61,7 +54,7 @@ Np(z) = 2e6*exp(1e-4*z)
 
 Nn(z) = Np(z) - Ne(z)
 
-# For plotting, we'll replace densities below 1 with `NaN`.
+# For plotting, we'll replace densities below 1 m⁻³ with `NaN`.
 
 mask(x) = x < 1 ? NaN : x
 
@@ -104,10 +97,12 @@ Eei, aei, pei  = propagate(eiwvg, tx, rx)
 
 p1 = plot(rx.distance/1000, ae, label="electrons", ylabel="Amplitude (dB μV/m)")
 plot!(p1, rx.distance/1000, aei, label="electrons & ions")
-p2 = plot(rx.distance/1000, aei-ae, xlabel="Range (km)", ylabel="Δ", legend=false)
+p2 = plot(rx.distance/1000, aei-ae,
+    ylims=(-0.5, 0.5), xlabel="Range (km)", ylabel="Δ", legend=false)
 plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
 #md savefig("multiplespecies_amplitude.png"); nothing # hide
 #md # ![](multiplespecies_amplitude.png)
 
-
-# NOTE ABOUT TIMING (BOTH BETWEEN E AND EI AND VECTOR VS TUPLE)
+# The influence here is minor; the difference is hardly above the noise floor of many VLF
+# receivers.
+# Also, running with 3 species increases the runtime over 1 species by ~50%.
