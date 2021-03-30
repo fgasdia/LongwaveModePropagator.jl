@@ -1,7 +1,7 @@
 name = "LongwaveModePropagator"
 uuid = "38c6559a-e0a7-48c6-827d-3f02e2d19cec"
 authors = ["Forrest Gasdia <EP-Guy@users.noreply.github.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
