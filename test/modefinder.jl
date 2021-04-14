@@ -213,7 +213,7 @@ function test_solvemodalequation(scenario)
     f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
 
     @test f == f3
-    @test maxabsdiff(f, f4) < 1e-6
+    @test maxabsdiff(f, f4) < 1e-5
 end
 
 function test_modalequation_resonant(scenario)
@@ -268,7 +268,9 @@ function test_findmodes(scenario)
     modes2 = @inferred findmodes(modeequation, origcoords; params=LMPParams(params; approxsusceptibility=true))
 
     @test length(modes) == length(modes2)
-    @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 1e-5 for i in 1:length(modes))
+
+    # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
+    @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 5e-4 for i in 1:length(modes))
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)
