@@ -58,7 +58,21 @@ function test_dRdz(scenario)
     Rtop = LMP.bookerreflection(ea, Mtop)
 
     # sharply bounded R from bookerreflection satisfies dR/dz = 0
-    @test isapprox(LMP.dRdz(Rtop, (me, params), params.topheight), zeros(2, 2); atol=1e-15)
+    @test isapprox(LMP.dRdz(Rtop, me, params.topheight), zeros(2, 2); atol=1e-15)
+
+    # Compare default and optional argument
+    M = LMP.susceptibility(72e3, me; params=params)
+    R = LMP.bookerreflection(ea, M)
+    dR1 = @inferred LMP.dRdz(R, me, 72e3)
+
+    Mfcn = z -> LMP.susceptibility(z, me; params=params)
+    dR2 = @inferred LMP.dRdz(R, me, 72e3, Mfcn)
+
+    Mfcn2 = LMP.susceptibilityspline(me; params=params)
+    dR3 = @inferred LMP.dRdz(R, me, 72e3, Mfcn2)
+
+    @test dR1 == dR2  # identical functions Mfcn
+    @test isapprox(dR1, dR3, atol=1e-12)  # interpolating spline
 end
 
 function test_dRdθdz(scenario)

@@ -218,10 +218,10 @@ function dwmatrix(ea::EigenAngle, T, dT)
 end
 
 """
-    dRdz(R, p, z)
+    dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
 
-Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`. `p` is a
-tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
+Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
+`susceptibilityfcn` is a function returning the ionosphere susceptibility at height `z`.  
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
 a horizontally stratified ionosphere [Budden1955a], the differential of the
@@ -238,13 +238,12 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, p, z)
-    modeequation, params = p
+function dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
     @unpack ea, frequency = modeequation
 
     k = frequency.k
 
-    M = susceptibility(z, modeequation; params=params)
+    M = susceptibilityfcn(z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -292,13 +291,19 @@ Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` 
 `params.integrationparams` are passed to `DifferentialEquations.jl`.
 """
 function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
-    @unpack topheight, integrationparams = params
+    @unpack topheight, approxsusceptibility, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop = bookerreflection(modeequation.ea, Mtop)
 
-    prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
+    if approxsusceptibility
+        Mfcn = susceptibilityspline(modeequation; params=params)
+    else
+        Mfcn = z -> susceptibility(z, modeequation; params=params)
+    end
+
+    prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, Mfcn))
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
