@@ -103,6 +103,17 @@ const nonresonant_scenario = (
     rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
 )
 
+const interp_scenario = (
+    ea=EigenAngle(1.5 - 0.1im),
+    bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
+    species=Species(QE, ME,
+        LinearInterpolation(0:500:110e3, waitprofile.(0:500:110e3, (75,), (0.32,); cutoff_low=40e3); extrapolation_bc=Line()),
+        LinearInterpolation(0:500:110e3, electroncollisionfrequency.(0:500:110e3); extrapolation_bc=Line())),
+    ground=Ground(5, 0.00005),
+    tx=Transmitter(24e3),
+    rx=GroundSampler(0:5e3:2000e3, Fields.Ez)
+)
+
 const homogeneousiono_scenario = (
     ea=EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),

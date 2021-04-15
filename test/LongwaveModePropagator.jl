@@ -101,7 +101,7 @@ end
 
     # Just to save time, running with only one scenario
     @info "    Homogeneous ionospheres..."
-    for scn in (resonant_scenario,)
+    for scn in (resonant_scenario, interp_scenario)
         test_propagate(scn)
     end
 
