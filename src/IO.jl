@@ -452,7 +452,7 @@ function buildrun(s::BatchInput; mesh=nothing, unwrap=true, params=LMPParams())
     batch.description = s.description
     batch.datetime = Dates.now()
 
-    for i in eachindex(s.inputs)
+    @progress name = "Batch inputs" for i in eachindex(s.inputs)
         output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params=params)
         push!(batch.outputs, output)
     end
@@ -484,8 +484,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
     end
 
     skip = false
-    p = Progress(length(s.inputs), 5)
-    for i in eachindex(s.inputs)
+    @progress name="Batch inputs" for i in eachindex(s.inputs)
         name = s.inputs[i].name
 
         # Check if this case has already been run (useful for append)
@@ -497,7 +496,6 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
         end
         if skip
             skip = false
-            next!(p)
             continue
         end
 
@@ -509,8 +507,6 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
         open(outfile, "w") do f
             write(f, json_str)
         end
-
-        next!(p)
     end
 
     return batch
