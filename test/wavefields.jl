@@ -107,7 +107,7 @@ function test_wavefieldreflection(scenario)
 
     Mtop = LMP.susceptibility(first(zs), tx.frequency, waveguide)
     Rtop = LMP.bookerreflection(ea, Mtop)
-    prob = ODEProblem{false}(LMP.dRdz, Rtop, (first(zs), last(zs)), (modeequation, params))
+    prob = ODEProblem{false}(LMP.dRdz, Rtop, (first(zs), last(zs)), modeequation)
     sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
                 saveat=zs, save_everystep=false)
 

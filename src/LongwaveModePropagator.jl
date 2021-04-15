@@ -86,6 +86,10 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 - `curvatureheight::Float64 = 50e3`: reference height for Earth curvature in meters. At this
     height, the index of refraction is 1, and is therefore the reference height for
     eigenangles.
+- `approxsusceptibility::Bool = false`: use a cubic interpolating spline representation of
+    [`susceptibility`](@ref) during the integration of [`dRdz`](@ref).
+- `susceptibilitysplinestep::Float64 = 10.0`: altitude step in meters used to build the
+    cubic spline representation of [`susceptibility`](@ref) if `approxsusceptibility == true`.
 - `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
     complex root-finding algorithm.
 - `integrationparams::IntegrationParams{T} =
@@ -113,6 +117,8 @@ p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
     curvatureheight::Float64 = 50e3  # m
+    approxsusceptibility::Bool = false
+    susceptibilitysplinestep::Float64 = 10.0
     grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=513)

@@ -218,10 +218,10 @@ function dwmatrix(ea::EigenAngle, T, dT)
 end
 
 """
-    dRdz(R, p, z)
+    dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
 
-Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`. `p` is a
-tuple containing instances `(PhysicalModeEquation(), LMPParams())`.
+Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
+`susceptibilityfcn` is a function returning the ionosphere susceptibility at height `z`.  
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
 a horizontally stratified ionosphere [Budden1955a], the differential of the
@@ -238,13 +238,12 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, p, z)
-    modeequation, params = p
+function dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
     @unpack ea, frequency = modeequation
 
     k = frequency.k
 
-    M = susceptibility(z, modeequation; params=params)
+    M = susceptibilityfcn(z)
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -284,21 +283,26 @@ function dRdθdz(RdRdθ, p, z)
 end
 
 """
-    integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
+    integratedreflection(modeequation::PhysicalModeEquation;
+        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
 
 Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` from
 `params.topheight`, returning the ionosphere reflection coefficient `R` at the ground.
+`susceptibilityfcn` is a function returning the ionosphere susceptibility tensor as a
+function of altitude `z` in meters.
 
 `params.integrationparams` are passed to `DifferentialEquations.jl`.
 """
-function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
+function integratedreflection(modeequation::PhysicalModeEquation;
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop = bookerreflection(modeequation.ea, Mtop)
 
-    prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), (modeequation, params))
+    prob = ODEProblem{false}((R,p,z)->dRdz(R,p,z,susceptibilityfcn), Rtop, (topheight, BOTTOMHEIGHT), modeequation)
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
@@ -351,7 +355,6 @@ ground.
 fresnelreflection
 
 function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
-
     C, S² = ea.cosθ, ea.sin²θ
     ω = frequency.ω
 
@@ -442,15 +445,19 @@ function dmodalequation(R, dR, Rg, dRg)
 end
 
 """
-    solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
+    solvemodalequation(modeequation::PhysicalModeEquation;
+        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
 
 Compute the ionosphere and ground reflection coefficients and return the value of the
-determinental modal equation associated with `modeequation`.
+determinental modal equation associated with `modeequation`. `susceptibilityfcn` is a
+function that returns the ionosphere susceptibility as a function of altitude `z` in meters.
 
 See also: [`solvedmodalequation`](@ref)
 """
-function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
-    R = integratedreflection(modeequation; params=params)
+function solvemodalequation(modeequation::PhysicalModeEquation;
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+
+    R = integratedreflection(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
@@ -458,14 +465,17 @@ function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams
 end
 
 """
-    solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
+    solvemodalequation(θ, modeequation::PhysicalModeEquation;
+        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
 
 Set `θ` for `modeequation` and then solve the modal equation.
 """
-function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
+function solvemodalequation(θ, modeequation::PhysicalModeEquation;
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+
     # Convenience function for `grpf`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation; params=params)
+    solvemodalequation(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
 end
 
 """
@@ -518,7 +528,7 @@ component. For example, if `grpfparams.tolerance = 1e-5`, then either the real o
 component of each mode must be separated by at least 1e-3 from every other mode.
 """
 function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
-    @unpack grpfparams = params
+    @unpack approxsusceptibility, grpfparams = params
 
     if isnothing(origcoords)
         origcoords = defaultmesh(modeequation.frequency)
@@ -528,8 +538,14 @@ function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPPar
     # is possible multiple identical modes will be identified. Checks for valid and
     # redundant modes help ensure valid eigenangles are returned from this function.
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation; params=params),
-                        origcoords, grpfparams)
+    if approxsusceptibility
+        susceptibilityfcn = susceptibilityspline(modeequation; params=params)
+    else
+        susceptibilityfcn = z -> susceptibility(z, modeequation; params=params)
+    end
+
+    roots, poles = grpf(θ->solvemodalequation(θ, modeequation;
+        params=params, susceptibilityfcn=susceptibilityfcn), origcoords, grpfparams)
 
     # Scale tolerance for filtering
     # if tolerance is 1e-8, this rounds to 6 decimal places

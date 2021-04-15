@@ -58,7 +58,21 @@ function test_dRdz(scenario)
     Rtop = LMP.bookerreflection(ea, Mtop)
 
     # sharply bounded R from bookerreflection satisfies dR/dz = 0
-    @test isapprox(LMP.dRdz(Rtop, (me, params), params.topheight), zeros(2, 2); atol=1e-15)
+    @test isapprox(LMP.dRdz(Rtop, me, params.topheight), zeros(2, 2); atol=1e-15)
+
+    # Compare default and optional argument
+    M = LMP.susceptibility(72e3, me; params=params)
+    R = LMP.bookerreflection(ea, M)
+    dR1 = @inferred LMP.dRdz(R, me, 72e3)
+
+    Mfcn = z -> LMP.susceptibility(z, me; params=params)
+    dR2 = @inferred LMP.dRdz(R, me, 72e3, Mfcn)
+
+    Mfcn2 = LMP.susceptibilityspline(me; params=params)
+    dR3 = @inferred LMP.dRdz(R, me, 72e3, Mfcn2)
+
+    @test dR1 == dR2  # identical functions Mfcn
+    @test isapprox(dR1, dR3, atol=1e-12)  # interpolating spline
 end
 
 function test_dRdθdz(scenario)
@@ -73,7 +87,7 @@ function test_dRdθdz(scenario)
 
     for i = 1:4
         dRfcn(θ) = (ea = EigenAngle(θ); Rtop = LMP.bookerreflection(ea, Mtop);
-            me = LMP.setea(ea, me); LMP.dRdz(Rtop, (me, params), z)[i])
+            me = LMP.setea(ea, me); LMP.dRdz(Rtop, me, z)[i])
         dRdθref = FiniteDiff.finite_difference_derivative(dRfcn, θs, Val{:central})
         dRdθtmp(θ) = (ea = EigenAngle(θ); me = LMP.setea(ea, me);
             (Rtop, dRdθtop) = LMP.bookerreflection(ea, Mtop, LMP.Dθ());
@@ -96,6 +110,16 @@ function test_integratedreflection_vertical(scenario)
     R = LMP.integratedreflection(me)
 
     @test R[1,2] ≈ R[2,1]
+
+    # Let's also check with interpolation susceptibilityfcn here
+    Mfcn = z -> LMP.susceptibility(z, me)
+    R2 = @inferred LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
+    
+    Mfcn2 = LMP.susceptibilityspline(me)
+    R3 = @inferred LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
+    
+    @test R2 == R
+    @test maxabsdiff(R, R3) < 1e-6
 end
 
 function test_integratedreflection_deriv(scenario)
@@ -171,6 +195,27 @@ function test_fresnelreflection_deriv(scenario)
     @test Rg1 == Rg2
 end
 
+function test_solvemodalequation(scenario)
+    @unpack ea, tx, bfield, species, ground = scenario
+    waveguide = HomogeneousWaveguide(bfield, species, ground)
+    me = PhysicalModeEquation(ea, tx.frequency, waveguide)
+
+    f = LMP.solvemodalequation(me)
+    me2 = PhysicalModeEquation(EigenAngle(0.0+0.0im), tx.frequency, waveguide)
+    f2 = LMP.solvemodalequation(ea.θ, me2)
+    @test f == f2
+
+    # Test with specified susceptibilityfcn
+    Mfcn = z -> LMP.susceptibility(z, me)
+    f3 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn)
+
+    Mfcn2 = LMP.susceptibilityspline(me)
+    f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
+
+    @test f == f3
+    @test maxabsdiff(f, f4) < 1e-5
+end
+
 function test_modalequation_resonant(scenario)
     @unpack ea, tx, bfield, species, ground = scenario
     waveguide = HomogeneousWaveguide(bfield, species, ground)
@@ -219,7 +264,13 @@ function test_findmodes(scenario)
 
     # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
     params = LMPParams()
-    modes = findmodes(modeequation, origcoords; params=params)
+    modes = @inferred findmodes(modeequation, origcoords; params=params)
+    modes2 = @inferred findmodes(modeequation, origcoords; params=LMPParams(params; approxsusceptibility=true))
+
+    @test length(modes) == length(modes2)
+
+    # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
+    @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 5e-4 for i in 1:length(modes))
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)
@@ -230,7 +281,8 @@ function test_findmodes(scenario)
     # return modes
 end
 
-# TEST_MODES must be filled
+########
+# `TEST_MODES` must be filled for tests below!
 
 function test_roots(scenario)
     x = 0.0005
@@ -299,6 +351,7 @@ end
         test_fresnelreflection(scn)
         test_fresnelreflection_deriv(scn)
 
+        test_solvemodalequation(scn)
         test_modalequation_deriv(scn)
 
         test_findmodes(scn)
