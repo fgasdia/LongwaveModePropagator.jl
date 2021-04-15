@@ -369,3 +369,26 @@ plot(ranges/1000, rad2deg.(p);
 # Comparing to the plots for the `HomogeneousWaveguide` above, the results are
 # the same for the first 1000 km and differ for the second 1000 km where there
 # is a different ionosphere in the `SegmentedWaveguide` scenario.
+# 
+# ## `LMPParams`
+# 
+# Many functions within the LongwaveModePropagator package take an optional `params`
+# argument [`LMPParams`](@ref). `LMPParams` is a keyword-compatible `struct` defined with
+# the `@with_kw` argument from the [Parameters.jl](https://github.com/mauro3/Parameters.jl)
+# package. An instance of `LMPParams` contains model parameters and switches used throughout
+# the package.
+# 
+# The default values are obtained by invoking
+
+LMPParams()
+
+# A single value can be specified as a keyword argument while keeping all other values as
+# their defaults
+
+LMPParams(approxsusceptibility=true)
+
+# An instance of `LMPParams` can be passed as the `params` argument of [`propagate`](@ref)
+# or [`findmodes`](@ref). 
+# 
+# See the [Parameters.jl](https://github.com/mauro3/Parameters.jl) README for other ways of
+# interacting with [`LMPParams`](@ref).

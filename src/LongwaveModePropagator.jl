@@ -111,6 +111,8 @@ p = LMPParams()
 p2 = LMPParams(earth_radius=6370e3)
 p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
 ```
+
+See also: [`IntegrationParams`](@ref)
 """
 @with_kw struct LMPParams{T,T2,H<:AbstractRange{Float64}}
     topheight::Float64 = 110e3
