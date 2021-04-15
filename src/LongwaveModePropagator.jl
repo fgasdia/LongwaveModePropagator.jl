@@ -7,16 +7,14 @@ using Dates, LinearAlgebra
 using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using OrdinaryDiffEq, DiffEqCallbacks
-using Parameters
+using Parameters, ProgressLogging
 using JSON3, StructTypes
 using Interpolations
 import FunctionWrappers: FunctionWrapper
 
 using PolynomialRoots: roots!
 
-using RootsAndPoles
-using Romberg
-using ModifiedHankelFunctionsOfOrderOneThird
+using RootsAndPoles, Romberg, ModifiedHankelFunctionsOfOrderOneThird
 
 # LongwaveModePropagator.jl
 export propagate
