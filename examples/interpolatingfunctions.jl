@@ -30,10 +30,13 @@
 # [PCHIP](https://blogs.mathworks.com/cleve/2012/07/16/splines-and-pchips/) interpolator,
 # so I must load `pchip` from my _private_ repository Interp.jl.
 
+using Printf
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME
+using Plots, Distances
+
 using Interpolations, NormalHermiteSplines
 using Interp
-
-using Plots
 
 # Here's the discrete profile data. Some interpolators will benefit from random sample
 # points, but real density data will almost always be on a grid.
@@ -48,43 +51,101 @@ cubic_itp = CubicSplineInterpolation(zs, Ne)
 
 spline = prepare(collect(zs), RK_H1())
 spline = construct(spline, Ne)
-hermite_itp(z) = evaluate(spline, z)
+hermite_itp(z) = evaluate(spline, collect(z))
 
 pchip_itp = pchip(zs, Ne)
 
 
 # (a spline built with RK_H0 kernel is a continuous function,
-    #  a spline built with RK_H1 kernel is a continuously differentiable function,
-    #  a spline built with RK_H2 kernel is a twice continuously differentiable function).
+#  a spline built with RK_H1 kernel is a continuously differentiable function,
+#  a spline built with RK_H2 kernel is a twice continuously differentiable function).
 
 zs_fine = 0:5:110e3
 Ne_fine = waitprofile.(zs_fine, 75, 0.32; cutoff_low=40e3)
 
-# To plot correctly with log10 xscale, set NaN to NaN
+linear_fine = linear_itp.(zs_fine)
+cubic_fine = cubic_itp.(zs_fine)
+hermite_fine = hermite_itp(zs_fine)
+pchip_fine = pchip_itp.(zs_fine)
 
-cl(x) = replace(v->v <= 0.1 ? NaN : v), x)
+# The profiles are compared using percentage difference relative to the true profile.
 
-plot(cl([Ne_fine linear_itp.(zs_fine) cubic_itp.(zs_fine) hermite_itp.(zs_fine) pchip_itp.(zs_fine)]),
-    zs_fine/1000, xscale=:log10, labels=["Truth" "Linear" "Cubic" "Hermite" "PCHIP"])
+cmp(a,b) = (a .- b)./b.*100
 
+dNe = cmp(Ne_fine, Ne_fine)
+dlinear = cmp(linear_fine, Ne_fine)
+dcubic = cmp(cubic_fine, Ne_fine)
+dhermite = cmp(hermite_fine, Ne_fine)
+dpchip = cmp(pchip_fine, Ne_fine)
+
+# To plot densities with a log scale, we set values less than 0.1 to NaN.
+
+cl(x) = replace(v->v <= 0.1 ? NaN : v, x)
+lc(x) = replace(x, NaN => 0)
+
+p1 = plot(cl([Ne_fine linear_fine cubic_fine hermite_fine pchip_fine]),
+    zs_fine/1000, xscale=:log10, xlabel="Ne (m⁻³)", ylabel="Altitude (km)",
+    legend=:topleft, labels=["Truth" "Linear" "Cubic" "Hermite" "PCHIP"])
+p2 = plot(lc([dNe dlinear dcubic dhermite dpchip]),
+    zs_fine/1000, xlabel="% difference", legend=false, xlims=(-100, 100))
+p3 = plot(lc([dNe dlinear dcubic dhermite dpchip]),
+    zs_fine/1000, xlabel="% difference", legend=false, xlims=(-0.1, 0.1))
+plot(p1, p2, p3, layout=(1,3), size=(800,400))
+#md savefig("interpolatingfunctions_profiles.png"); nothing # hide
+#md # ![](interpolatingfunctions_profiles.png)
+    
+# Unsurprisingly, the error is highest at the cutoff altitude of 40 km where the densities
+# below are 0.
+# The linear interpolation has positive-biased errors at all other heights because linear
+# interpolation does not accurately capture the true exponential profile.
+# To avoid this, the interpolator could have been constructed with a finer initial grid, but
+# that is not always possible.
+# 
+# The total RMS differences between each interpolator and the truth are:
+
+interpolators = 
+
+for (n, v) in ("linear"=>linear_fine, "cubic"=>cubic_fine, "hermite"=>hermite_fine, "pchip"=>pchip_fine)
+    @printf("%s: %.3e\n",n, rmsd(v, Ne_fine))
+end
 
 # ## Propagation results
 # 
-# and performance... (table?)
+# Let's compare propagation results and performance with each of these interpolators.
+
 
 # Here are the `Species` for each interpolator.
+# They will all use the analytic [`electroncollisionfrequency`](@ref).
 
-linear_species = Species(QE, ME, linear_itp, electroncollisionfrequency)
-cubic_species = Species(QE, ME, cubic_itp, electroncollisionfrequency)
-hermite_species = Species(QE, ME, hermite, electroncollisionfrequency)
-pchip_species = Species(QE, ME, pchip_itp, electroncollisionfrequency)
+interpolators = (
+    "truth" => z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
+    "linear"=> linear_itp,
+    "cubic" => cubic_itp,
+    "hermite" => hermite_itp,
+    "pchip" => pchip_itp
+)
 
-bfield = BField(50e-6, deg2rad(68), deg2rad(111))
-ground=Ground(5, 0.00005)
+function propagateitp(interpolators)
+    bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+    ground = Ground(5, 0.00005)
 
-tx = Transmitter(24e3)
-rx = GroundSampler(0:5e3:3000e3, Fields.Ez)
+    tx = Transmitter(24e3)
+    rx = GroundSampler(0:5e3:3000e3, Fields.Ez)
 
-waveguide = HomogeneousWaveguide(bfield, species, ground)
+    results = Dict{String,NTuple{3,Float64}}()
+    for (n, itp) in interpolators
+        species = Species(QE, ME, itp, electroncollisionfrequency)
+        waveguide = HomogeneousWaveguide(bfield, electrons, ground)
+        E, amp, phase = propagate(waveguide, tx, rx)
+    end
+    return results
+end
 
-E, amp, phase = propagate(waveguide, tx, rx)
+
+# Timing can vary when run by github actions build, but normalized results from a local run are here:
+
+p1 = plot(rx.distance/1000, ae, label="electrons", ylabel="Amplitude (dB μV/m)")
+plot!(p1, rx.distance/1000, aei, label="electrons & ions")
+p2 = plot(rx.distance/1000, aei-ae,
+    ylims=(-0.5, 0.5), xlabel="Range (km)", ylabel="Δ", legend=false)
+plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
