@@ -95,9 +95,9 @@ nothing  #hide
 # 
 # The second input is the [`TableInput`](@ref). This type defines the ionosphere using
 # a tabular input of number density and collision frequency as a function of altitude.
-# These tables are then _linearly_ interpolated when integrating the ionosphere
-# reflection coefficient and wavefields (so it's better if these tables are fairly
-# densely sampled with respect to altitude).
+# These tables are then cubic spline interpolated when integrating the ionosphere
+# reflection coefficient and wavefields.
+# See also [interpolating functions](@ref interpolating-functions).
 #
 # The fields of the `TableInput` are
 #

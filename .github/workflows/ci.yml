@@ -64,6 +64,7 @@ jobs:
         run: |
           julia --project=docs -e '
             using Pkg
+            Pkg.add(PackageSpec(url="https://github.com/fgasdia/Interp.jl"))
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
       - name: Build and deploy
