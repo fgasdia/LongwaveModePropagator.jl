@@ -1,4 +1,4 @@
-# # Density and collision frequency as interpolating functions
+# # [Density and collision frequency as interpolating functions](@id interpolating-functions)
 # 
 # The ionospheric [`Species`](@ref) type used when defining a [`HomogeneousWaveguide`](@ref)
 # requires `numberdensity` and `collisionfrequency` fields to be callable functions of
