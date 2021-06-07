@@ -128,7 +128,7 @@ function test_wavefieldreflection_resonant(scenario)
     # Ensure we are close to mode resonance with R
     f = LMP.modalequation(R, Rg)
 
-    @test LMP.isroot(f)
+    @test isroot(f)
 end
 
 function test_boundaryscalars(scenario)

@@ -228,7 +228,7 @@ function test_modalequation_resonant(scenario)
     R = LMP.integratedreflection(me)
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
     f = LMP.modalequation(R, Rg)
-    @test LMP.isroot(f; atol=1e-4)  # this test is a little cyclic
+    @test isroot(f; atol=1e-4)  # this test is a little cyclic
 
     @test f == LMP.solvemodalequation(me)
 
@@ -274,8 +274,8 @@ function test_findmodes(scenario)
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)
-        LMP.isroot(f) || return f
-        @test LMP.isroot(f)
+        isroot(f) || return f
+        @test isroot(f)
     end
 
     # return modes
@@ -289,15 +289,15 @@ function test_roots(scenario)
     z = complex(x, -x)
 
     # isroot Real and Complex
-    @test LMP.isroot(x)
-    @test LMP.isroot(x; atol=1e-6) == false
-    @test LMP.isroot(z)
-    @test LMP.isroot(z; atol=1e-6) == false
+    @test isroot(x)
+    @test isroot(x; atol=1e-6) == false
+    @test isroot(z)
+    @test isroot(z; atol=1e-6) == false
 
     z2 = complex(1, 0)
     z3 = complex(0, 1)
-    @test LMP.isroot(z2) == false
-    @test LMP.isroot(z3) == false
+    @test isroot(z2) == false
+    @test isroot(z3) == false
 end
 
 # function evalroot(root, scenario)
