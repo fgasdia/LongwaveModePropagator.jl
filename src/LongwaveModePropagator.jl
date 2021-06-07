@@ -60,7 +60,7 @@ coefficient matrix in `modefinder.jl`.
 - `maxiters::Int = 100_000`: maximum number of iterations before stopping.
 """
 @with_kw struct IntegrationParams{T}
-    tolerance::Float64 = 1e-8
+    tolerance::Float64 = 1e-5
     solver::T = Vern7()
     dt::Float64 = 1.0
     force_dtmin::Bool = false
