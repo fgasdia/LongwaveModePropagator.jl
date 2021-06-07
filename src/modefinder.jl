@@ -45,39 +45,6 @@ Return `modeequation` with eigenangle `ea`.
 setea(ea, modeequation::PhysicalModeEquation) =
     PhysicalModeEquation(EigenAngle(ea), modeequation.frequency, modeequation.waveguide)
 
-"""
-    isroot(x; atol=1e-2)
-
-Return `true` if `x` is approximately equal to 0 with the absolute tolerance `atol`.
-"""
-isroot(x; atol=1e-2, kws...) = isapprox(x, 0; atol=atol, kws...)
-
-"""
-    filterroots!(roots, frequency, waveguide; atol=0.1)
-    filterroots!(roots, modeequation; atol=0.1)
-
-Remove elements from `roots` if they are not valid roots of the physical modal equation.
-
-Although the default `atol` for this function is larger than for `isroot`(@ref), the
-modal equation is very sensitive to θ, and thus is much larger than 0.1 if θ is off
-from an eigenangle even slightly.
-"""
-filterroots!
-
-function filterroots!(roots, frequency, waveguide; atol=0.1)
-    modeequation = PhysicalModeEquation(frequency, waveguide)
-    return filterroots!(roots, modeequation; atol=atol)
-end
-
-function filterroots!(roots, modeequation::PhysicalModeEquation; atol=0.1)
-    i = 1
-    while i <= length(roots)
-        modeequation = setea(EigenAngle(roots[i]), modeequation)
-        f = solvemodalequation(modeequation)
-        isroot(f; atol=atol) ? (i += 1) : deleteat!(roots, i)
-    end
-    return roots
-end
 
 ##########
 # Reflection coefficients
@@ -544,16 +511,12 @@ function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPPar
         susceptibilityfcn = z -> susceptibility(z, modeequation; params=params)
     end
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation;
+    roots, _ = grpf(θ->solvemodalequation(θ, modeequation;
         params=params, susceptibilityfcn=susceptibilityfcn), origcoords, grpfparams)
 
     # Scale tolerance for filtering
-    # if tolerance is 1e-8, this rounds to 6 decimal places
-    ndigits = round(Int, abs(log10(grpfparams.tolerance)+2), RoundDown)
-
-    # Ensure roots are valid solutions to the modal equation
-    filtertolerance = exp10(-ndigits+1)  # +3 from the grpfparams.tolerannce
-    filterroots!(roots, modeequation; atol=filtertolerance)
+    # if tolerance is 1e-8, this rounds to 7 decimal places
+    ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
 
     # Remove any redundant modes
     sort!(roots; by=reim, rev=true)

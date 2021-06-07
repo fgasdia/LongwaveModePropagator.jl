@@ -298,29 +298,6 @@ function test_roots(scenario)
     z3 = complex(0, 1)
     @test LMP.isroot(z2) == false
     @test LMP.isroot(z3) == false
-
-    # filterroots! setup
-    @unpack ea, tx, bfield, species, ground = scenario
-    waveguide = HomogeneousWaveguide(bfield, species, ground)
-    me = PhysicalModeEquation(tx.frequency, waveguide)
-
-    # nothing filtered
-    roots = copy(TEST_MODES[scenario])
-    @test LMP.filterroots!(roots, me) == roots
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
-
-    # filter bad root
-    push!(roots, EigenAngle(complex(1.5, -0.5)))
-    @test LMP.filterroots!(roots, me) == TEST_MODES[scenario]
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_MODES[scenario]
-
-    # filter (or not) with different tolerance
-    roots2 = copy(roots)
-    roots2[1] = EigenAngle(roots2[1].θ + 0.001)
-    f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
-    @test LMP.isroot(f; atol=0.5)  # NOTE: atol is for value of modal equation, not θ
-    @test LMP.filterroots!(roots2, me; atol=0.5) == roots2
-    @test LMP.filterroots!(roots2, me) == roots[2:end]
 end
 
 # function evalroot(root, scenario)
