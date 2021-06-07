@@ -52,7 +52,7 @@ coefficient matrix in `modefinder.jl`.
 
 # Fields
 
-- `tolerance::Float64 = 1e-8`: integration `atol` and `rtol`.
+- `tolerance::Float64 = 1e-5`: integration `atol` and `rtol`.
 - `solver::T = Vern7()`: a `DifferentialEquations.jl` solver.
 - `dt::Float64 = 1.0`: height step in meters (many methods use a variable step size).
 - `force_dtmin::Bool = false`: if true, continue integration when solver reaches minimum

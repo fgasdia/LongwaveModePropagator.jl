@@ -126,20 +126,23 @@ function test_integratedreflection_deriv(scenario)
     @unpack tx, ground, bfield, species = scenario
     freq = tx.frequency
 
-    params = LMPParams()
+    # 1e-10 is hardcoded in Dθ form of `integratedreflection`
+    # This function is a test of the Dθ form - the lower default tolerance in the non-Dθ
+    # form would cause tests to fail if not lowered to the same threshold
+    ip = IntegrationParams(tolerance=1e-10)
+    params = LMPParams(integrationparams=ip)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(freq, waveguide)
 
-    Rref(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me; params=params))
-    RdR(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, LMP.Dθ(); params=params))
+    Rref(θ) = LMP.integratedreflection(LMP.setea(θ, me); params=params)
+    RdR(θ) = LMP.integratedreflection(LMP.setea(θ, me), LMP.Dθ(); params=params)
 
     Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(Rs)
     Rrefs = similar(Rs)
     dRrefs = similar(Rs)
-    # XXX: why are there occasional mismatches between R and Rr if this is threaded
-    # with Threads.@threads()?
-    for i in eachindex(θs)
+    
+    Threads.@threads for i in eachindex(θs)
         v = RdR(θs[i])
         Rs[i] = v[SVector(1,2),:]
         dRs[i] = v[SVector(3,4),:]
@@ -213,7 +216,7 @@ function test_solvemodalequation(scenario)
     f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
 
     @test f == f3
-    @test maxabsdiff(f, f4) < 1e-5
+    @test maxabsdiff(f, f4) < 1e-3
 end
 
 function test_modalequation_resonant(scenario)
@@ -243,7 +246,13 @@ function test_modalequation_deriv(scenario)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     modeequation = PhysicalModeEquation(ea, freq, waveguide)
 
-    dFref = FiniteDiff.finite_difference_derivative(θ->LMP.solvemodalequation(θ, modeequation),
+    # `solvedmodalequation` calls the `Dθ` form of `integratedreflection`, which uses a
+    # hard coded tolerance of 1e-10. Tests will fail if comparing to the lower default
+    # tolerance used by `solvemodalequation`
+    ip = IntegrationParams(tolerance=1e-10)
+    params = LMPParams(integrationparams=ip)
+
+    dFref = FiniteDiff.finite_difference_derivative(θ->LMP.solvemodalequation(θ, modeequation; params=params),
         θs, Val{:central})
 
     dFs = Vector{ComplexF64}(undef, length(θs))

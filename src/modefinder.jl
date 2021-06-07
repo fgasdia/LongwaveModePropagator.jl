@@ -286,10 +286,18 @@ end
 
 Compute ``R`` and ``dR/dθ`` as an `SMatrix{4,2}` with ``R`` in rows (1, 2) and ``dR/dθ`` in
 rows (3, 4).
+
+The `params.integrationparams.tolerance` is hardcoded to `1e-10` in this version of the
+function.
 """
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
+    @unpack solver, dt, force_dtmin, maxiters = integrationparams
+
+    # Tolerance is overridden for this `::Dθ` form.
+    # Using an identical accuracy appears to result in relatively less accurate solutions
+    # compared to the non-Dθ form.
+    tolerance = 1e-10
 
     Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
