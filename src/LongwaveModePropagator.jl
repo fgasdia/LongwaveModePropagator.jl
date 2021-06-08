@@ -90,13 +90,13 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 - `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
     complex root-finding algorithm.
 - `integrationparams::IntegrationParams{T} =
-    IntegrationParams(solver=Vern7(), tolerance=1e-8)`:
+    IntegrationParams(solver=Vern7(), tolerance=1e-5)`:
     parameters passed to `DifferentialEquations.jl` for integration of the ionosphere
     reflection coefficient.
 - `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
     wavefields will be integrated.
 - `wavefieldintegrationparams::IntegrationParams{T2} =
-    IntegrationParams(solver=Vern7(lazy=false), tolerance=1e-8)`:
+    IntegrationParams(solver=Tsit5(), tolerance=1e-6)`:
     parameters passed to `DifferentialEquations.jl` for integration of the wavefields
     used in mode conversion. The solver cannot be lazy.
 
@@ -122,7 +122,7 @@ See also: [`IntegrationParams`](@ref)
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=513)
     wavefieldintegrationparams::IntegrationParams{T2} =
-        IntegrationParams(solver=Vern7(lazy=false))
+        IntegrationParams(solver=Tsit5(), tolerance=1e-6)
 end
 export LMPParams
 
