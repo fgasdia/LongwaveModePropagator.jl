@@ -77,7 +77,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 
 - `topheight::Float64 = 110e3`: starting height for integration of the ionosphere reflection
     coefficient.
-- `earthradius::Float64 = 6369`: Earth radius in meters.
+- `earthradius::Float64 = 6369e3`: Earth radius in meters.
 - `earthcurvature::Bool = true`: toggle inclusion of Earth curvature in calculations. This
     is not supported by all functions.
 - `curvatureheight::Float64 = 50e3`: reference height for Earth curvature in meters. At this
