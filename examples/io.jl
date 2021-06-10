@@ -29,9 +29,9 @@ nothing  #hide
 # the abstract supertype for 
 # inputing information to the model.
 #
-# ### [BasicInput](@id basicinput_io)
+# ### [ExponentialInput](@id basicinput_io)
 # 
-# The first is known as a [`BasicInput`](@ref). It defines the ionosphere using
+# The first is known as a [`ExponentialInput`](@ref). It defines the ionosphere using
 # Wait and Spies ``h'`` and ``\beta`` parameters.
 #
 # It contains the fields
@@ -55,12 +55,12 @@ nothing  #hide
 # Single element vectors are treated as a single `HomogeneousWaveguide`.
 #
 # To show the equivalent JSON format, we'll build a simple, homogeneous ionosphere
-# `BasicInput`. It's defined as a `mutable struct`, so it is simple to specify the
+# `ExponentialInput`. It's defined as a `mutable struct`, so it is simple to specify the
 # fields one by one.
 
-input = BasicInput()
+input = ExponentialInput()
 input.name = "basic"
-input.description = "Test BasicInput"
+input.description = "Test ExponentialInput"
 input.datetime = DateTime("2020-12-29T05:00:00.000")  # usually `Dates.now()`
 
 input.segment_ranges = [0.0]
@@ -138,7 +138,7 @@ json_str = JSON3.pretty(tinput)
 
 # ### [BatchInput](@id batchinput_io)
 # 
-# Both the `BasicInput` and `TableInput` types can be collected together in a
+# Both the `ExponentialInput` and `TableInput` types can be collected together in a
 # [`BatchInput`](@ref) which has fields
 # for a `name`, `description`, `datetime`, and vector of `Inputs`.
 # This is useful for keeping a set of scenarios together.
@@ -158,7 +158,7 @@ output = propagate(filename);
 #
 # There are only two [`LongwaveModePropagator.Output`](@ref) types:
 # [`BasicOutput`](@ref) and [`BatchOutput`](@ref).
-# Both `BasicInput`s and `TableInput`s create `BasicOutput`s, but the `BatchInput`
+# Both `ExponentialInput`s and `TableInput`s create `BasicOutput`s, but the `BatchInput`
 # creates a `BatchOutput`.
 #
 # The `BasicOutput` contains fields for
@@ -180,7 +180,7 @@ output
 
 # ## [JSON I/O from Matlab](@id matlab_json)
 #
-# Here's an example of how to encode the above `BasicInput` to JSON and
+# Here's an example of how to encode the above `ExponentialInput` to JSON and
 # decode the output using [Matlab](https://www.mathworks.com/help/matlab/json-format.html).
 # It's also in the file [examples/io.m](@__REPO_ROOT_URL__/examples/io.m).
 #
@@ -188,7 +188,7 @@ output
 # % Matlab script
 #
 # input.name = "basic";
-# input.description = "Test BasicInput";
+# input.description = "Test ExponentialInput";
 # input.datetime = '2020-12-28T21:06:50.501';
 #
 # input.segment_ranges = {0.0};
@@ -263,7 +263,7 @@ matlab_output = propagate(joinpath(examples_dir, "basic_matlab.json"));
 # input = dict()
 #
 # input['name'] = "basic"
-# input['description'] = "Test BasicInput"
+# input['description'] = "Test ExponentialInput"
 # input['datetime'] = datetime.datetime.now().isoformat()[:-3]
 #
 # input['segment_ranges'] = [0.0]

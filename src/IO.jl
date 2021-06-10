@@ -18,7 +18,11 @@ Abstract supertype for structs carrying information to be input to the model.
 abstract type Input end
 
 """
-    BasicInput
+    ExponentialInput
+
+Type for Wait and Spies (1964) exponential ionosphere profiles defined by [`waitprofile`](@ref).
+The [`electroncollisionfrequency`](@ref) is used for the electron-neutral collision frequency
+profile.
 
 # Fields
 
@@ -42,7 +46,7 @@ abstract type Input end
 - `output_ranges::Vector{Float64}`: distances from the transmitter at which the field will
     be calculated.
 """
-mutable struct BasicInput <: Input
+mutable struct ExponentialInput <: Input
     name::String
     description::String
     datetime::DateTime
@@ -59,13 +63,13 @@ mutable struct BasicInput <: Input
     frequency::Float64
     output_ranges::Vector{Float64}
 
-    function BasicInput()
+    function ExponentialInput()
         s = new()
         setfield!(s, :frequency, NaN)
         return s
     end
 end
-StructTypes.StructType(::Type{BasicInput}) = StructTypes.Mutable()
+StructTypes.StructType(::Type{ExponentialInput}) = StructTypes.Mutable()
 
 """
     TableInput <: Input
@@ -233,7 +237,7 @@ Check if field lengths of input `s` match their number of segments.
 """
 validlengths
 
-function validlengths(s::BasicInput)
+function validlengths(s::ExponentialInput)
     numsegments = length(s.segment_ranges)
     checkfields = (:hprimes, :betas, :b_mags, :b_dips, :b_azs, :ground_sigmas,
         :ground_epsrs)
@@ -278,8 +282,8 @@ Parse a JSON file compatible with `Input` or `Output` types.
 """
 function parse(file)
     # More to less specific
-    types = (BasicInput, TableInput,
-        BatchInput{BasicInput}, BatchInput{TableInput}, BatchInput{Any},
+    types = (ExponentialInput, TableInput,
+        BatchInput{ExponentialInput}, BatchInput{TableInput}, BatchInput{Any},
         BasicOutput, BatchOutput{BasicOutput}, BatchOutput{Any})
 
     matched = false
@@ -333,11 +337,11 @@ function parse(file, t::Type{<:Output})
 end
 
 """
-    buildwaveguide(s::BasicInput, i)
+    buildwaveguide(s::ExponentialInput, i)
 
 Return `HomogeneousWaveguide` from the `i`th entry in each field of `s`.
 """
-function buildwaveguide(s::BasicInput, i)
+function buildwaveguide(s::ExponentialInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
     species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i];
                                                cutoff_low=40e3),
@@ -362,7 +366,7 @@ function buildwaveguide(s::TableInput, i)
 end
 
 """
-    buildrun(s::BasicInput; mesh=nothing, unwrap=true, params=LMPParams())
+    buildrun(s::ExponentialInput; mesh=nothing, unwrap=true, params=LMPParams())
     buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
     buildrun(s::BatchInput; mesh=nothing, unwrap=true, params=LMPParams())
 
@@ -370,7 +374,7 @@ Build LMP structs from an `Input` and run `LMP`.
 """
 buildrun
 
-function buildrun(s::BasicInput; mesh=nothing, unwrap=true, params=LMPParams())
+function buildrun(s::ExponentialInput; mesh=nothing, unwrap=true, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))

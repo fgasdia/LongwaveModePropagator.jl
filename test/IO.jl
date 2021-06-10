@@ -15,9 +15,9 @@ function generate_basic()
     # Outputs
     output_ranges = collect(0:20e3:2000e3)
 
-    input = BasicInput()
+    input = ExponentialInput()
     input.name = "basic"
-    input.description = "Test BasicInput"
+    input.description = "Test ExponentialInput"
     input.datetime = Dates.now()
 
     input.segment_ranges = segment_ranges
@@ -183,17 +183,17 @@ function generate_batchbasic()
     # Outputs
     output_ranges = collect(0:20e3:2000e3)
 
-    binput = BatchInput{BasicInput}()
+    binput = BatchInput{ExponentialInput}()
     binput.name = "batchbasic"
-    binput.description = "Test BatchInput with BasicInput"
+    binput.description = "Test BatchInput with ExponentialInput"
     binput.datetime = Dates.now()
 
-    inputs = Vector{BasicInput}(undef, N)
+    inputs = Vector{ExponentialInput}(undef, N)
     for i in eachindex(inputs)
-        input = BasicInput()
+        input = ExponentialInput()
 
         input.name = "$i"
-        input.description = "BasicInput $i"
+        input.description = "ExponentialInput $i"
         input.datetime = binput.datetime
         input.segment_ranges = segment_ranges
         input.hprimes = hprimes[:,i]
@@ -222,7 +222,7 @@ end
 
 function read_basic()
     open("basic.json","r") do f
-        v = JSON3.read(f, BasicInput)
+        v = JSON3.read(f, ExponentialInput)
         return v
     end
 end
@@ -236,7 +236,7 @@ end
 
 function read_batchbasic()
     open("batchbasic.json","r") do f
-        v = JSON3.read(f, BatchInput{BasicInput})
+        v = JSON3.read(f, BatchInput{ExponentialInput})
         return v
     end
 end
@@ -244,7 +244,7 @@ end
 function read_corrupted_basic()
     # missing the ground_sigmas field
     open("corrupted_basic.json","r") do f
-        v = JSON3.read(f, BasicInput)
+        v = JSON3.read(f, ExponentialInput)
         return v
     end
 end
@@ -297,8 +297,8 @@ end
     @test LMP.iscomplete(read_basic())
     @test LMP.validlengths(read_basic())
     @test LMP.iscomplete(read_corrupted_basic()) == false
-    @test LMP.parse("basic.json") isa BasicInput
-    @test LMP.parse("basic.json", BasicInput) isa BasicInput
+    @test LMP.parse("basic.json") isa ExponentialInput
+    @test LMP.parse("basic.json", ExponentialInput) isa ExponentialInput
 
     @test LMP.iscomplete(read_table())
     @test LMP.validlengths(read_table())
@@ -307,7 +307,7 @@ end
 
     @test LMP.iscomplete(read_batchbasic())
     @test LMP.validlengths(read_batchbasic())
-    @test LMP.parse("batchbasic.json") isa BatchInput{BasicInput}
+    @test LMP.parse("batchbasic.json") isa BatchInput{ExponentialInput}
 
     @info "  Running:"
     @info "    Segmented Wait ionospheres..."
