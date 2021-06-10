@@ -491,16 +491,10 @@ Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
 the GRPF algorithm searches for roots of `modeequation`. If `origcoords == nothing`,
 it is computed with [`defaultmesh`](@ref).
 
-Roots found by the GRPF algorithm are confirmed to a tolerance of approximately 3 orders
-of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
-For example, if `grpfparams.tolerance = 1e-5`, then the value of the modal equation for each
-root must be less than `1e-2`. Typically the values of each component are close to
-`grpfparams.tolerance`.
-
-There is also a check for redundant modes that requires modes to be separated by at least
-2 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
+There is a check for redundant modes that requires modes to be separated by at least
+1 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
 component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
-component of each mode must be separated by at least 1e-3 from every other mode.
+component of each mode must be separated by at least 1e-4 from every other mode.
 """
 function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
     @unpack approxsusceptibility, grpfparams = params
