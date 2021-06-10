@@ -161,7 +161,7 @@ plot!(img, real(polesdeg), imag(polesdeg); color="red",
 # a variety of ionospheres. To ensure they are captured,
 # [`LongwaveModePropagator.defaultmesh`](@ref)
 # uses a spacing of `Δr = deg2rad(0.5)` for most of the mesh,
-# but a spacing of `Δr = deg2rad(0.15)` for the region with real greater
+# but a spacing of `Δr = deg2rad(0.1)` for the region with real greater
 # than 75° and imaginary greater than -1.5°.
 
 mesh = defaultmesh(frequency)
