@@ -126,20 +126,23 @@ function test_integratedreflection_deriv(scenario)
     @unpack tx, ground, bfield, species = scenario
     freq = tx.frequency
 
-    params = LMPParams()
+    # 1e-10 is hardcoded in Dθ form of `integratedreflection`
+    # This function is a test of the Dθ form - the lower default tolerance in the non-Dθ
+    # form would cause tests to fail if not lowered to the same threshold
+    ip = IntegrationParams(tolerance=1e-10)
+    params = LMPParams(integrationparams=ip)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(freq, waveguide)
 
-    Rref(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me; params=params))
-    RdR(θ) = (me = LMP.setea(θ, me); LMP.integratedreflection(me, LMP.Dθ(); params=params))
+    Rref(θ) = LMP.integratedreflection(LMP.setea(θ, me); params=params)
+    RdR(θ) = LMP.integratedreflection(LMP.setea(θ, me), LMP.Dθ(); params=params)
 
     Rs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(Rs)
     Rrefs = similar(Rs)
     dRrefs = similar(Rs)
-    # XXX: why are there occasional mismatches between R and Rr if this is threaded
-    # with Threads.@threads()?
-    for i in eachindex(θs)
+    
+    Threads.@threads for i in eachindex(θs)
         v = RdR(θs[i])
         Rs[i] = v[SVector(1,2),:]
         dRs[i] = v[SVector(3,4),:]
@@ -213,7 +216,7 @@ function test_solvemodalequation(scenario)
     f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
 
     @test f == f3
-    @test maxabsdiff(f, f4) < 1e-5
+    @test maxabsdiff(f, f4) < 1e-3
 end
 
 function test_modalequation_resonant(scenario)
@@ -228,7 +231,7 @@ function test_modalequation_resonant(scenario)
     R = LMP.integratedreflection(me)
     Rg = LMP.fresnelreflection(ea, ground, tx.frequency)
     f = LMP.modalequation(R, Rg)
-    @test LMP.isroot(f; atol=1e-4)  # this test is a little cyclic
+    @test isroot(f; atol=1e-4)  # this test is a little cyclic
 
     @test f == LMP.solvemodalequation(me)
 
@@ -243,7 +246,13 @@ function test_modalequation_deriv(scenario)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     modeequation = PhysicalModeEquation(ea, freq, waveguide)
 
-    dFref = FiniteDiff.finite_difference_derivative(θ->LMP.solvemodalequation(θ, modeequation),
+    # `solvedmodalequation` calls the `Dθ` form of `integratedreflection`, which uses a
+    # hard coded tolerance of 1e-10. Tests will fail if comparing to the lower default
+    # tolerance used by `solvemodalequation`
+    ip = IntegrationParams(tolerance=1e-10)
+    params = LMPParams(integrationparams=ip)
+
+    dFref = FiniteDiff.finite_difference_derivative(θ->LMP.solvemodalequation(θ, modeequation; params=params),
         θs, Val{:central})
 
     dFs = Vector{ComplexF64}(undef, length(θs))
@@ -274,8 +283,8 @@ function test_findmodes(scenario)
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)
-        LMP.isroot(f) || return f
-        @test LMP.isroot(f)
+        isroot(f) || return f
+        @test isroot(f)
     end
 
     # return modes
@@ -289,38 +298,15 @@ function test_roots(scenario)
     z = complex(x, -x)
 
     # isroot Real and Complex
-    @test LMP.isroot(x)
-    @test LMP.isroot(x; atol=1e-6) == false
-    @test LMP.isroot(z)
-    @test LMP.isroot(z; atol=1e-6) == false
+    @test isroot(x)
+    @test isroot(x; atol=1e-6) == false
+    @test isroot(z)
+    @test isroot(z; atol=1e-6) == false
 
     z2 = complex(1, 0)
     z3 = complex(0, 1)
-    @test LMP.isroot(z2) == false
-    @test LMP.isroot(z3) == false
-
-    # filterroots! setup
-    @unpack ea, tx, bfield, species, ground = scenario
-    waveguide = HomogeneousWaveguide(bfield, species, ground)
-    me = PhysicalModeEquation(tx.frequency, waveguide)
-
-    # nothing filtered
-    roots = copy(TEST_MODES[scenario])
-    @test LMP.filterroots!(roots, me) == roots
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == roots
-
-    # filter bad root
-    push!(roots, EigenAngle(complex(1.5, -0.5)))
-    @test LMP.filterroots!(roots, me) == TEST_MODES[scenario]
-    @test LMP.filterroots!(roots, tx.frequency, waveguide) == TEST_MODES[scenario]
-
-    # filter (or not) with different tolerance
-    roots2 = copy(roots)
-    roots2[1] = EigenAngle(roots2[1].θ + 0.001)
-    f = LMP.solvemodalequation(LMP.setea(roots2[1], me))
-    @test LMP.isroot(f; atol=0.5)  # NOTE: atol is for value of modal equation, not θ
-    @test LMP.filterroots!(roots2, me; atol=0.5) == roots2
-    @test LMP.filterroots!(roots2, me) == roots[2:end]
+    @test isroot(z2) == false
+    @test isroot(z3) == false
 end
 
 # function evalroot(root, scenario)

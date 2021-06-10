@@ -148,6 +148,7 @@ plot!(p2, real(hx2_unscaled),
 plot(p1, p2; layout=(1,2))
 #md savefig("wavefields_scaling.png"); nothing #hide
 #md # ![](wavefields_scaling.png)
+# 
 
 # ## Differential equations solver
 #
@@ -178,7 +179,7 @@ solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
 day_es = []
 night_es = []
 for s in eachindex(solvers)
-    ip = IntegrationParams(solver=solvers[s], tolerance=1e-8)
+    ip = IntegrationParams(solver=solvers[s], tolerance=1e-6)
     params = LMPParams(wavefieldintegrationparams=ip)
 
     ## make sure method is compiled
@@ -187,8 +188,8 @@ for s in eachindex(solvers)
 
     solverstring = solverstrings[s]
     let day_e, night_e
-        ## repeat 25 times to average calls
-        for i = 1:25
+        ## repeat 200 times to average calls
+        for i = 1:200
             ## day ionosphere
             @timeit TO solverstring begin
                 day_e = LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params)
@@ -231,13 +232,8 @@ TO
 # In fact, rerunning these same tests multiple times can result in different solvers
 # being "fastest".
 #
-# The DifferentialEquations [documents](https://diffeq.sciml.ai/stable/solvers/ode_solve/)
-# suggest that Verner's methods are preferred over the two lower order methods when solving
-# with the accuracy range `~1e-8-1e-12`. We use `Vern7(lazy=false)`as the default in
-# LongwaveModePropagator. There is no direct MATLAB equivalent to `Vern7`; it
-# plays a similar role as [`ode113`](https://www.mathworks.com/help/matlab/ref/ode113.html)
-# (Mathworks suggests `ode113` is better at solving problems with stringent error tolerance
-# than `ode45`). `Vern7` is usually more efficient than `ode113`.
+# We use `Tsit5()`as the default in LongwaveModePropagator, which is similar to MATLAB's
+# `ode45`, but usually more efficient.
 #
 # Why not a strict `RK4` or a more basic method? I tried them and they produce some
 # discontinuities around the reflection height. It is admittedly difficult to tell
@@ -283,6 +279,7 @@ annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center));
 plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)
 #md savefig("wavefields_fig2.png"); nothing #hide
 #md # ![](wavefields_fig2.png)
+# 
 
 # ```@raw html
 # <img src="../../images/Pitteway1965_fig2.png"/>
@@ -322,6 +319,7 @@ hx2p = plotfield(hx2; ylims=(75, 102), title="\$H_{x,2}\$");
 plot(ey1p, hx2p; layout=(1,2), size=(400,500))
 #md savefig("wavefields_fig3.png"); nothing #hide
 #md # ![](wavefields_fig3.png)
+# 
 
 # ```@raw html
 # <img src="../../images/Pitteway1965_fig3.png"/>

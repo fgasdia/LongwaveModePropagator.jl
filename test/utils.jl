@@ -47,3 +47,10 @@ function readlog(file)
 
     return dist, amplitude, phase
 end
+
+"""
+    isroot(x; atol=1e-2)
+
+Return `true` if `x` is approximately equal to 0 with the absolute tolerance `atol`.
+"""
+isroot(x; atol=1e-2, kws...) = isapprox(x, 0; atol=atol, kws...)

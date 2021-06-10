@@ -45,39 +45,6 @@ Return `modeequation` with eigenangle `ea`.
 setea(ea, modeequation::PhysicalModeEquation) =
     PhysicalModeEquation(EigenAngle(ea), modeequation.frequency, modeequation.waveguide)
 
-"""
-    isroot(x; atol=1e-2)
-
-Return `true` if `x` is approximately equal to 0 with the absolute tolerance `atol`.
-"""
-isroot(x; atol=1e-2, kws...) = isapprox(x, 0; atol=atol, kws...)
-
-"""
-    filterroots!(roots, frequency, waveguide; atol=0.1)
-    filterroots!(roots, modeequation; atol=0.1)
-
-Remove elements from `roots` if they are not valid roots of the physical modal equation.
-
-Although the default `atol` for this function is larger than for `isroot`(@ref), the
-modal equation is very sensitive to θ, and thus is much larger than 0.1 if θ is off
-from an eigenangle even slightly.
-"""
-filterroots!
-
-function filterroots!(roots, frequency, waveguide; atol=0.1)
-    modeequation = PhysicalModeEquation(frequency, waveguide)
-    return filterroots!(roots, modeequation; atol=atol)
-end
-
-function filterroots!(roots, modeequation::PhysicalModeEquation; atol=0.1)
-    i = 1
-    while i <= length(roots)
-        modeequation = setea(EigenAngle(roots[i]), modeequation)
-        f = solvemodalequation(modeequation)
-        isroot(f; atol=atol) ? (i += 1) : deleteat!(roots, i)
-    end
-    return roots
-end
 
 ##########
 # Reflection coefficients
@@ -319,10 +286,18 @@ end
 
 Compute ``R`` and ``dR/dθ`` as an `SMatrix{4,2}` with ``R`` in rows (1, 2) and ``dR/dθ`` in
 rows (3, 4).
+
+The `params.integrationparams.tolerance` is hardcoded to `1e-10` in this version of the
+function.
 """
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
+    @unpack solver, dt, force_dtmin, maxiters = integrationparams
+
+    # Tolerance is overridden for this `::Dθ` form.
+    # Using an identical accuracy appears to result in relatively less accurate solutions
+    # compared to the non-Dθ form.
+    tolerance = 1e-10
 
     Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
@@ -507,31 +482,25 @@ function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPP
 end
 
 """
-    findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
+    findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
 
 Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
-`origcoords`.
+`mesh`.
 
-`origcoords` should be an array of complex numbers that make up the original grid over which
-the GRPF algorithm searches for roots of `modeequation`. If `origcoords == nothing`,
+`mesh` should be an array of complex numbers that make up the original grid over which
+the GRPF algorithm searches for roots of `modeequation`. If `mesh === nothing`,
 it is computed with [`defaultmesh`](@ref).
 
-Roots found by the GRPF algorithm are confirmed to a tolerance of approximately 3 orders
-of magnitude greater than `grpfparams.tolerance` in both the real and imaginary component.
-For example, if `grpfparams.tolerance = 1e-5`, then the value of the modal equation for each
-root must be less than `1e-2`. Typically the values of each component are close to
-`grpfparams.tolerance`.
-
-There is also a check for redundant modes that requires modes to be separated by at least
-2 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
+There is a check for redundant modes that requires modes to be separated by at least
+1 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
 component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
-component of each mode must be separated by at least 1e-3 from every other mode.
+component of each mode must be separated by at least 1e-4 from every other mode.
 """
-function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
+function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     @unpack approxsusceptibility, grpfparams = params
 
-    if isnothing(origcoords)
-        origcoords = defaultmesh(modeequation.frequency)
+    if isnothing(mesh)
+        mesh = defaultmesh(modeequation.frequency)
     end
 
     # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
@@ -544,16 +513,12 @@ function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPPar
         susceptibilityfcn = z -> susceptibility(z, modeequation; params=params)
     end
 
-    roots, poles = grpf(θ->solvemodalequation(θ, modeequation;
-        params=params, susceptibilityfcn=susceptibilityfcn), origcoords, grpfparams)
+    roots, _ = grpf(θ->solvemodalequation(θ, modeequation;
+        params=params, susceptibilityfcn=susceptibilityfcn), mesh, grpfparams)
 
     # Scale tolerance for filtering
-    # if tolerance is 1e-8, this rounds to 6 decimal places
-    ndigits = round(Int, abs(log10(grpfparams.tolerance)+2), RoundDown)
-
-    # Ensure roots are valid solutions to the modal equation
-    filtertolerance = exp10(-ndigits+1)  # +3 from the grpfparams.tolerannce
-    filterroots!(roots, modeequation; atol=filtertolerance)
+    # if tolerance is 1e-8, this rounds to 7 decimal places
+    ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
 
     # Remove any redundant modes
     sort!(roots; by=reim, rev=true)
@@ -568,7 +533,7 @@ Mesh grids for `GRPF`
 
 """
     defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15),
+        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
         rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
 
 Generate vector of complex coordinates to be used by GRPF in the search for
@@ -590,7 +555,7 @@ See also: [`findmodes`](@ref)
 """
 function defaultmesh(frequency;
     rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15),
+    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
     rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
 
     # TODO: get a better idea of frequency transition

@@ -382,11 +382,11 @@ an upgoing and downgoing wave, each of which is generally elliptically polarized
 the amplitudes of these two waves give a reflection coefficient, except it would only apply
 for an incident wave of that particular elliptical polarization. However, the first set of
 fields can be linearly combined with a second independent solution for the fields, which
-will generally have a elliptical polarization than the first. Two linear combinations of the
-two sets of fields are formed with unit amplitude, linearly polarized incident waves. The
-reflected waves then give the components ``R₁₁``, ``R₂₁`` or ``R₁₂``, ``R₂₂`` for the
-incident wave in the plane of incidence and perpendicular to it, respectively
-[Budden1988] pg 552.
+will generally have a different elliptical polarization than the first. Two linear
+combinations of the two sets of fields are formed with unit amplitude, linearly polarized
+incident waves. The reflected waves then give the components ``R₁₁``, ``R₂₁`` or ``R₁₂``,
+``R₂₂`` for the incident wave in the plane of incidence and perpendicular to it,
+respectively [Budden1988] pg 552.
 
 The process for determining the reflection coefficient requires resolving the two sets of
 fields ``e₁`` and ``e₂`` into the four linearly polarized vacuum modes. The layer of vacuum
@@ -400,7 +400,7 @@ For ``e₁`` and ``e₂``, we can find the corresponding vectors ``f1`` and ``f2
 ``f1 = (u1, d1)ᵀ`` and ``f2 = (u2, d2)ᵀ`` for upgoing and downgoing 2-element vectors ``u``
 and ``d``. From the definition of the reflection coefficient ``R``, ``d = Ru``. Letting
 ``U = (u1, u2)``, ``D = (d1, d2)``, then ``D = RU`` and the reflection coefficient is
-``R = DU¹``. Because the reflection coefficient matrix is a ratio of fields, either ``e₁``
+``R = DU⁻¹``. Because the reflection coefficient matrix is a ratio of fields, either ``e₁``
 and/or ``e₂`` can be independently multiplied by an arbitrary constant and the value of
 ``R`` is unaffected.
 

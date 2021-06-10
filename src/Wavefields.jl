@@ -349,7 +349,8 @@ savevalues(u, t, integrator) = ScaleRecord(integrator.p.z,
 
 Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`.
 
-`params.integrationparams` is not used by this function.
+`params.wavefieldintegrationparams` is used by this function rather than
+`params.integrationparams`.
 """
 function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
     species; params=LMPParams(), unscale=true)

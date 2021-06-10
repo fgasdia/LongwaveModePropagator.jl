@@ -13,13 +13,13 @@ function test_bookerquarticM(scenario)
              M[2,1]             1-q[i]^2-S²+M[2,2]  M[2,3];
              S*q[i]+M[3,1]      M[3,2]              C²+M[3,3]]
 
-        @test LMP.isroot(det(G); atol=1e-5)  # real barely fails 1e-6 for resonant_scenario
+        @test isroot(det(G); atol=1e-5)  # real barely fails 1e-6 for resonant_scenario
     end
 
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(q)
         booker = B[5]*q[i]^4 + B[4]*q[i]^3 + B[3]*q[i]^2 + B[2]*q[i] + B[1]
-        @test LMP.isroot(booker; atol=1e-6)
+        @test isroot(booker; atol=1e-6)
     end
 end
 
@@ -38,7 +38,7 @@ function test_bookerquarticT(scenario)
         G = [1-q[i]^2+M[1,1]    M[1,2]              S*q[i]+M[1,3];
              M[2,1]             1-q[i]^2-S²+M[2,2]  M[2,3];
              S*q[i]+M[3,1]      M[3,2]              C²+M[3,3]]
-        @test LMP.isroot(det(G); atol=1e-6)
+        @test isroot(det(G); atol=1e-6)
     end
 
     # eigvals is >20 times slower than bookerquartic
@@ -47,7 +47,7 @@ function test_bookerquarticT(scenario)
     # Confirm Booker quartic is directly satisfied
     for i in eachindex(q)
         booker = B[5]*q[i]^4 + B[4]*q[i]^3 + B[3]*q[i]^2 + B[2]*q[i] + B[1]
-        @test LMP.isroot(booker; atol=1e-6)
+        @test isroot(booker; atol=1e-6)
     end
 end
 

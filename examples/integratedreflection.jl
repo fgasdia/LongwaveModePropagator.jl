@@ -133,6 +133,8 @@ plot(p1, p2; layout=(1,2), size=(800, 400))
 #md savefig("integratedreflection_xyz.png"); nothing # hide
 #md # ![](integratedreflection_xyz.png)
 
+# 
+
 # ## Generate random scenarios
 # 
 # Now that we've seen what the reflection coefficient functions look like,
@@ -143,21 +145,21 @@ plot(p1, p2; layout=(1,2), size=(800, 400))
 # Each scenario is described by a [`PhysicalModeEquation`](@ref).
 
 function generatescenarios(N)
-    eas = EigenAngle.(complex.(rand(N)*π/2, rand(N)*deg2rad(-10)))
-    frequencies = Frequency.(abs.(randn(N)*60e3))
+    eas = EigenAngle.(complex.(rand(N)*(π/2-π/6) .+ π/6, rand(N)*deg2rad(-10)))
+    frequencies = Frequency.(rand(N)*50e3 .+ 10e3)
 
     B = rand(30e-6:5e-7:60e-6, N)
     ## avoiding within 1° from 0° dip angle
     bfields = BField.(B, rand(N)*(π/2-0.018) .+ 0.018, rand(N)*2π)
 
-    hps = randn(N)*5 .+ 79
-    betas = randn(N)*0.2 .+ 0.45
+    hps = rand(N)*20 .+ 69
+    betas = rand(N)*0.8 .+ 0.2
 
     scenarios = Vector{PhysicalModeEquation}(undef, N)
     for i = 1:N
         species = Species(QE, ME, z->waitprofile(z, hps[i], betas[i]),
                           electroncollisionfrequency)
-        ground = GROUND[5]  ## not used
+        ground = GROUND[5]  ## not used in integration of R
         waveguide = HomogeneousWaveguide(bfields[i], species, ground)
 
         me = PhysicalModeEquation(eas[i], frequencies[i], waveguide)
@@ -221,7 +223,7 @@ function compute(scenarios, tolerances, solvers)
     return Rs, times
 end
 
-tolerances = [1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
+tolerances = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
 tolerancestrings = string.(tolerances)
 
 solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
@@ -247,7 +249,7 @@ Rerrs = differr(Rs, Rrefs)
 mean_Rerrs = dropdims(mean(Rerrs; dims=1); dims=1)
 
 heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
-        clims=(-8, -3),
+        clims=(-9, -2),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="log₁₀ max abs difference", colorbar=true)
 #md savefig("integratedreflection_difference.png"); nothing # hide
@@ -258,14 +260,15 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
 mean_times = dropdims(mean(times; dims=1); dims=1)
 
 heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6;
-        clims=(0, 9),
+        clims=(0, 5),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="time (μs)", colorbar=true)
 #md savefig("integratedreflection_time.png"); nothing # hide
 #md # ![](integratedreflection_time.png)
 
-# The best combination of runtime and accuracy occurs at roughly `Vern7` with a
-# tolerance of `1e-8`.
+# The best accuracy occurs with `Vern7` and experiment's we've done looking at the
+# sensitivity of the mode solutions to integration tolerance have shown we can get away
+# with a tolerance of `1e-4`. To play it safe, the default used by LMP is `1e-5`.
 # The integration accuracy improves considerably for relatively little additional
 # computation time if the tolerance is changed to `1e-9`, but that accuracy is not
-# usually required.
+# required.
