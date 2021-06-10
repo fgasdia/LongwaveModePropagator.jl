@@ -104,3 +104,9 @@ prints an explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) func
 
 <p><a name="Budden1962"></a>K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: <a href="https://doi.org/10.1098/rspa.1962.0041">10.1098/rspa.1962.0041</a>.</p>
 ```
+
+## Citing
+
+We encourage you to cite the following paper (or see [CITATION.bib](https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/CITATION.bib)) if this package is used in scientific work:
+
+F. Gasdia and R. A. Marshall, “A New Longwave Mode Propagator for the Earth-Ionosphere Waveguide,” IEEE Transactions on Antennas and Propagation, doi: [10.1109/TAP.2021.3083753](https://doi.org/10.1109/TAP.2021.3083753).
