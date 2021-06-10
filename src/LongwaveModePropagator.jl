@@ -15,6 +15,7 @@ import FunctionWrappers: FunctionWrapper
 using PolynomialRoots: roots!
 
 using RootsAndPoles, Romberg, ModifiedHankelFunctionsOfOrderOneThird
+export GRPFParams
 
 # LongwaveModePropagator.jl
 export propagate
