@@ -108,6 +108,13 @@ prints an explanation of the [`bookerquartic`](https://fgasdia.github.io/Longwav
 <a name="Ferguson1998"></a>J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. Available: http://www.dtic.mil/docs/citations/ADA350375.
 
 
+## Citing
+
+We encourage you to cite the following paper (or see [CITATION.bib](CITATION.bib)) if this package is used in scientific work:
+
+F. Gasdia and R. A. Marshall, “A New Longwave Mode Propagator for the Earth-Ionosphere Waveguide,” IEEE Transactions on Antennas and Propagation, doi: [10.1109/TAP.2021.3083753](https://doi.org/10.1109/TAP.2021.3083753).
+
+
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-stable-url]: https://fgasdia.github.io/LongwaveModePropagator.jl/stable
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
