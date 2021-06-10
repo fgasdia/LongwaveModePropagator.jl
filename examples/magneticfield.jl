@@ -7,7 +7,7 @@
 # ## Generate scenarios
 #
 # We'll use the JSON I/O functionality of LongwaveModePropagator to create
-# the different magnetic field direction scenarios as a `BatchInput{BasicInput}`.
+# the different magnetic field direction scenarios as a `BatchInput{ExponentialInput}`.
 # We're doing this to ensure identical inputs are passed to LWPC.
 # Although commented out in the `generate` function below, we locally saved the
 # `BatchInput` as a JSON file and used it to feed a custom Python code
@@ -37,7 +37,7 @@ nothing  #hide
 # That's not necessary here.
 
 function generate(hp, β)
-    batch = BatchInput{BasicInput}()
+    batch = BatchInput{ExponentialInput}()
     batch.name = "Magnetic field tests"
     batch.description = "Varying magnetic field directions: vertical, N, E, S, W."
     batch.datetime = Dates.now()
@@ -58,9 +58,9 @@ function generate(hp, β)
     b_azs = deg2rad.(B_AZS)
 
     N = length(b_azs)
-    inputs = Vector{BasicInput}(undef, N)
+    inputs = Vector{ExponentialInput}(undef, N)
     for i in 1:N
-        input = BasicInput()
+        input = ExponentialInput()
 
         input.name = @sprintf("%d_%.0f_%.0f", i, b_dips[i], b_azs[i])
         input.description = "Wait ionosphere with ocean ground at 24 kHz."

@@ -1,10 +1,10 @@
 % Matlab script to create a JSON file formated to be parsed
-% by LongwaveModePropagator.jl as a `BasicInput`.
+% by LongwaveModePropagator.jl as a `ExponentialInput`.
 % 
 % See examples/io.jl.
 
 input.name = "basic";
-input.description = "Test BasicInput";
+input.description = "Test ExponentialInput";
 input.datetime = '2020-12-28T21:06:50.501';
 
 % To get single length arrays in Matlab, use cell arrays ('{}').

@@ -3,7 +3,7 @@
 Created on Tue Dec 29 11:14:54 2020
 
 Python script to create a JSON file formated to be parsed by
-LongwaveModePropagator.jl as a `BasicInput`.
+LongwaveModePropagator.jl as a `ExponentialInput`.
 
 See examples/io.jl.
 
@@ -20,7 +20,7 @@ import numpy as np
 input = dict()
 
 input['name'] = "basic"
-input['description'] = "Test BasicInput"
+input['description'] = "Test ExponentialInput"
 input['datetime'] = datetime.datetime.now().isoformat()[:-3]
 
 input['segment_ranges'] = [0.0]

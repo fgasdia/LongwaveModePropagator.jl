@@ -28,7 +28,7 @@ export BField, Species, Fields, Ground, GROUND
 export waitprofile, electroncollisionfrequency, ioncollisionfrequency
 
 # IO.jl
-export BasicInput, TableInput, BatchInput, BasicOutput, BatchOutput
+export ExponentialInput, TableInput, BatchInput, BasicOutput, BatchOutput
 
 # Samplers.jl
 export Receiver, Sampler, GroundSampler
