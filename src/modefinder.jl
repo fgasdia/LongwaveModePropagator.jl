@@ -482,13 +482,13 @@ function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPP
 end
 
 """
-    findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
+    findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
 
 Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
-`origcoords`.
+`mesh`.
 
-`origcoords` should be an array of complex numbers that make up the original grid over which
-the GRPF algorithm searches for roots of `modeequation`. If `origcoords == nothing`,
+`mesh` should be an array of complex numbers that make up the original grid over which
+the GRPF algorithm searches for roots of `modeequation`. If `mesh === nothing`,
 it is computed with [`defaultmesh`](@ref).
 
 There is a check for redundant modes that requires modes to be separated by at least
@@ -496,11 +496,11 @@ There is a check for redundant modes that requires modes to be separated by at l
 component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
 component of each mode must be separated by at least 1e-4 from every other mode.
 """
-function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPParams())
+function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     @unpack approxsusceptibility, grpfparams = params
 
-    if isnothing(origcoords)
-        origcoords = defaultmesh(modeequation.frequency)
+    if isnothing(mesh)
+        mesh = defaultmesh(modeequation.frequency)
     end
 
     # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
@@ -514,7 +514,7 @@ function findmodes(modeequation::ModeEquation, origcoords=nothing; params=LMPPar
     end
 
     roots, _ = grpf(θ->solvemodalequation(θ, modeequation;
-        params=params, susceptibilityfcn=susceptibilityfcn), origcoords, grpfparams)
+        params=params, susceptibilityfcn=susceptibilityfcn), mesh, grpfparams)
 
     # Scale tolerance for filtering
     # if tolerance is 1e-8, this rounds to 7 decimal places
@@ -533,7 +533,7 @@ Mesh grids for `GRPF`
 
 """
     defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15),
+        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
         rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
 
 Generate vector of complex coordinates to be used by GRPF in the search for
@@ -555,7 +555,7 @@ See also: [`findmodes`](@ref)
 """
 function defaultmesh(frequency;
     rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.15),
+    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
     rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
 
     # TODO: get a better idea of frequency transition
