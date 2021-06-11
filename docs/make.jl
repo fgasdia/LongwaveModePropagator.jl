@@ -29,6 +29,7 @@ examples = [
     "magneticfield.jl",
     "interpretinghpbeta.jl",
     "multiplespecies.jl",
+    "interpolatingfunctions.jl",
     "ground.jl"
 ]
 
@@ -57,6 +58,7 @@ example_pages = Any[
     "generated/magneticfield.md",
     "generated/interpretinghpbeta.md",
     "generated/multiplespecies.md",
+    "generated/interpolationfunctions.md",
     "generated/ground.md"
 ]
 
