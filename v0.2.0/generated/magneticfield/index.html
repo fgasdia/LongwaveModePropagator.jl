@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Magnetic field direction · LongwaveModePropagator</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.0/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">LongwaveModePropagator</span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../basic/">Introduction to defining scenarios</a></li><li><a class="tocitem" href="../io/">File-based I/O</a></li><li><a class="tocitem" href="../meshgrid/">Mesh grid for mode finding - Part 1</a></li><li><a class="tocitem" href="../meshgrid2/">Mesh grid for mode finding - Part 2</a></li><li><a class="tocitem" href="../integratedreflection/">Solvers for ionosphere reflection coefficient</a></li><li><a class="tocitem" href="../wavefieldintegration/">Wavefield integration</a></li><li class="is-active"><a class="tocitem" href>Magnetic field direction</a><ul class="internal"><li><a class="tocitem" href="#Generate-scenarios"><span>Generate scenarios</span></a></li><li><a class="tocitem" href="#Run-the-model"><span>Run the model</span></a></li><li><a class="tocitem" href="#Plots"><span>Plots</span></a></li><li><a class="tocitem" href="#Daytime-ionosphere"><span>Daytime ionosphere</span></a></li></ul></li><li><a class="tocitem" href="../interpretinghpbeta/">Interpreting h′ and β</a></li><li><a class="tocitem" href="../multiplespecies/">Multiple ionospheric species</a></li><li><a class="tocitem" href="../ground/">Ground</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../lib/public/">Public Interface</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Magnetic field direction</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Magnetic field direction</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/master/examples/magneticfield.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Magnetic-field-direction"><a class="docs-heading-anchor" href="#Magnetic-field-direction">Magnetic field direction</a><a id="Magnetic-field-direction-1"></a><a class="docs-heading-anchor-permalink" href="#Magnetic-field-direction" title="Permalink"></a></h1><p>In this example we&#39;ll look at the influence of the magnetic field direction on a nighttime and daytime ionosphere propagation path. Results will be compared to LWPC.</p><h2 id="Generate-scenarios"><a class="docs-heading-anchor" href="#Generate-scenarios">Generate scenarios</a><a id="Generate-scenarios-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-scenarios" title="Permalink"></a></h2><p>We&#39;ll use the JSON I/O functionality of LongwaveModePropagator to create the different magnetic field direction scenarios as a <code>BatchInput{ExponentialInput}</code>. We&#39;re doing this to ensure identical inputs are passed to LWPC. Although commented out in the <code>generate</code> function below, we locally saved the <code>BatchInput</code> as a JSON file and used it to feed a custom Python code which generates LWPC input files, runs LWPC, and saves the results in an HDF5 file.</p><p>First load the packages we need.</p><pre><code class="language-">using Dates, Printf
+using HDF5
+using Plots
+
+using LongwaveModePropagator
+using LongwaveModePropagator: buildrun, Progress, next!</code></pre><p>For convenience, we&#39;ll define global <code>OUTPUT_RANGES</code> at which the electric field will be computed, and the magnetic field dip and azimuth angles <code>B_DIPS</code> and <code>B_AZS</code> (converted below from degrees to radians).</p><pre><code class="language-julia">const OUTPUT_RANGES = 0:5e3:3000e3
+const B_DIPS = [90.0, 60, 60, 60, 60, 60, 60, 60, 60]
+const B_AZS = [0.0, 0, 45, 90, 135, 180, 225, 270, 315]  ## vertical, N, E, S, W</code></pre><p>The <code>generate</code> function produces the <a href="../../lib/public/#LongwaveModePropagator.BatchInput"><code>BatchInput</code></a> of the scenarios. If we wanted, we could comment out the JSON lines near the bottom of the function to also write the <code>BatchInput</code> to a file. That&#39;s not necessary here.</p><pre><code class="language-julia">function generate(hp, β)
+    batch = BatchInput{ExponentialInput}()
+    batch.name = &quot;Magnetic field tests&quot;
+    batch.description = &quot;Varying magnetic field directions: vertical, N, E, S, W.&quot;
+    batch.datetime = Dates.now()
+
+    # Constants
+    frequency = 24e3
+    output_ranges = collect(OUTPUT_RANGES)
+    segment_ranges = [0.0]
+    hprime = [hp]
+    beta = [β]
+
+    # Ocean
+    ground_epsr = [81]
+    ground_sigma = [4.0]
+
+    b_mag = [50e-6]
+    b_dips = deg2rad.(B_DIPS)
+    b_azs = deg2rad.(B_AZS)
+
+    N = length(b_azs)
+    inputs = Vector{ExponentialInput}(undef, N)
+    for i in 1:N
+        input = ExponentialInput()
+
+        input.name = @sprintf(&quot;%d_%.0f_%.0f&quot;, i, b_dips[i], b_azs[i])
+        input.description = &quot;Wait ionosphere with ocean ground at 24 kHz.&quot;
+        input.datetime = Dates.now()
+        input.segment_ranges = segment_ranges
+        input.hprimes = hprime
+        input.betas = beta
+        input.b_mags = b_mag
+        input.b_dips = [b_dips[i]]
+        input.b_azs = [b_azs[i]]
+        input.ground_sigmas = ground_sigma
+        input.ground_epsrs = ground_epsr
+        input.frequency = frequency
+        input.output_ranges = output_ranges
+
+        inputs[i] = input
+    end
+    batch.inputs = inputs
+
+    # json_str = JSON3.write(batch)
+    #
+    # open(&quot;bfields.json&quot;,&quot;w&quot;) do f
+    #     write(f, json_str)
+    # end
+
+    return batch
+end
+
+batch = generate(82.0, 0.6);</code></pre><h2 id="Run-the-model"><a class="docs-heading-anchor" href="#Run-the-model">Run the model</a><a id="Run-the-model-1"></a><a class="docs-heading-anchor-permalink" href="#Run-the-model" title="Permalink"></a></h2><p>Results from my custom LWPC script are saved in an <a href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/master/examples/bfields_lwpc.h5">HDF5 file</a>. For easy comparison, we will also save the results from the Longwave Mode Propagator to an HDF5 file. Although not strictly necessary for a small number inputs like we have here, using an HDF5 file rather than the JSON output file that is generated automatically by LongwaveModePropagator when a file is passed to <code>propagate</code> is more robust for thousands or tens of thousands of input scenarios.</p><pre><code class="language-julia">function runlmp(inputs, outfile)
+
+    h5open(outfile, &quot;cw&quot;) do fid
+        # Create Batch attributes if they don&#39;t already exist
+        fid_attrs = attributes(fid)
+        haskey(fid_attrs, &quot;name&quot;) || (fid_attrs[&quot;name&quot;] = inputs.name)
+        haskey(fid_attrs, &quot;description&quot;) || (fid_attrs[&quot;description&quot;] = inputs.description)
+        haskey(fid_attrs, &quot;datetime&quot;) || (fid_attrs[&quot;datetime&quot;] = string(Dates.now()))
+
+        if haskey(fid, &quot;outputs&quot;)
+            g = fid[&quot;outputs&quot;]
+        else
+            g = create_group(fid, &quot;outputs&quot;)
+        end
+    end
+
+    PM = Progress(length(inputs.inputs), 5)
+    for i in eachindex(inputs.inputs)
+        # If we&#39;ve already run this, we can skip ahead
+        complete = h5open(outfile, &quot;r&quot;) do fid
+            g = open_group(fid, &quot;outputs&quot;)
+            haskey(g, string(i)) ? true : false
+        end
+        complete &amp;&amp; (next!(PM); continue)
+
+        output = buildrun(inputs.inputs[i])
+
+        h5open(outfile, &quot;r+&quot;) do fid
+            g = open_group(fid, &quot;outputs&quot;)
+            o = create_group(g, string(i))
+            attributes(o)[&quot;name&quot;] = output.name
+            attributes(o)[&quot;description&quot;] = output.description
+            attributes(o)[&quot;datetime&quot;] = string(Dates.now())
+            o[&quot;output_ranges&quot;] = output.output_ranges
+            o[&quot;amplitude&quot;] = output.amplitude
+            o[&quot;phase&quot;] = output.phase
+        end
+        next!(PM)
+    end
+end</code></pre><p><code>examples_dir</code> below will need to be modified to the directory where <code>bfields_lmp.h5</code> is located and where you would like <code>bfields_lmp.h5</code> to be saved.</p><pre><code class="language-">root_dir = dirname(dirname(pathof(LongwaveModePropagator)))
+examples_dir = joinpath(root_dir, &quot;examples&quot;)
+lmpfile = joinpath(examples_dir, &quot;bfields_lmp.h5&quot;)
+runlmp(batch, lmpfile)</code></pre><h2 id="Plots"><a class="docs-heading-anchor" href="#Plots">Plots</a><a id="Plots-1"></a><a class="docs-heading-anchor-permalink" href="#Plots" title="Permalink"></a></h2><p>To more easily compare the amplitude and phase curves, we define a function to process the HDF5 files into arrays of amplitude and phase versus range and magnetic field azimuth.</p><pre><code class="language-julia">function process(outputs)
+    dist = read(outputs[&quot;outputs&quot;][&quot;1&quot;][&quot;output_ranges&quot;])
+    mask = indexin(OUTPUT_RANGES, dist)
+
+    agrid = Array{Float64}(undef, length(OUTPUT_RANGES), length(B_AZS))
+    pgrid = similar(agrid)
+
+    for i in eachindex(B_AZS)
+        o = outputs[&quot;outputs&quot;][string(i)]
+
+        amp = read(o[&quot;amplitude&quot;])
+        phase = read(o[&quot;phase&quot;])
+
+        agrid[:,i] = amp[mask]
+        pgrid[:,i] = rad2deg.(phase[mask])
+    end
+
+    return agrid, pgrid
+end
+
+agrid, pgrid = h5open(lmpfile, &quot;r&quot;) do o
+    agrid, pgrid = process(o)
+end</code></pre><p>Here is the amplitude plot itself.</p><pre><code class="language-julia">labels = string.(trunc.(Int, B_AZS), &quot;°&quot;)
+labels[1] = &quot;90°, &quot;*labels[1]
+labels[2] = &quot;60°, &quot;*labels[2]
+labels[3:end] .= &quot;      &quot;.*labels[3:end]
+
+colors = [palette(:phase, length(B_AZS))...]
+pushfirst!(colors, RGB(0.0, 0, 0))
+
+plot(OUTPUT_RANGES/1000, agrid;
+     linewidth=1.5, palette=colors, colorbar=false,
+     xlabel=&quot;range (km)&quot;, ylabel=&quot;amplitude (dB)&quot;,
+     labels=permutedims(labels), legendtitle=&quot;  dip, az&quot;, legend=true)</code></pre><p><img src="../magneticfield_amplitude.png" alt/></p><p>The amplitude corresponding to each magnetic field azimuth (where 0° is along the propagation direction) is color-coded in the plot above, but a couple of the colors appear to be missing. This is because 0° and 180° are identical. There is no &quot;north/south&quot; dependence. Therefore 45°/135° and 315°/225° are also identical.</p><p>On the other hand, there is a significant difference between propagation &quot;east&quot; (pinks) versus &quot;west&quot; (greens). This effect can be <a href="https://doi.org/10.1016/0021-9169(58)90081-3">observed in real life</a>.</p><p>Now we&#39;ll plot the difference from LWPC.</p><pre><code class="language-julia">lwpcfile = joinpath(examples_dir, &quot;bfields_lwpc.h5&quot;)
+
+lagrid, lpgrid = h5open(lwpcfile, &quot;r&quot;) do o
+    lagrid, bpgrid = process(o)
+end
+
+adifference = agrid - lagrid
+
+plot(OUTPUT_RANGES/1000, adifference;
+     linewidth=1.5, palette=colors, colorbar=false,
+     xlabel=&quot;range (km)&quot;, ylabel=&quot;amplitude difference (dB)&quot;,
+     labels=permutedims(labels), legendtitle=&quot;  dip, az&quot;, legend=true)</code></pre><p><img src="../magneticfield_diff.png" alt/></p><p>The two models are a very close match. Where there are large differences they occur because of slight misalignment of nulls with respect to range from the transmitter. The 315°/225° line has the worst match, although it is not clear if there is a particular cause for this outside of the general differences between the two models.</p><h2 id="Daytime-ionosphere"><a class="docs-heading-anchor" href="#Daytime-ionosphere">Daytime ionosphere</a><a id="Daytime-ionosphere-1"></a><a class="docs-heading-anchor-permalink" href="#Daytime-ionosphere" title="Permalink"></a></h2><p>Does magnetic field direction have a different level of influence with daytime ionospheres?</p><pre><code class="language-">lmpfile = joinpath(examples_dir, &quot;bfields_daytime_lmp.h5&quot;)
+runlmp(generate(72.0, 0.3), lmpfile)
+
+agrid, pgrid = h5open(lmpfile, &quot;r&quot;) do o
+    agrid, pgrid = process(o)
+end
+
+plot(OUTPUT_RANGES/1000, agrid;
+     linewidth=1.5, palette=colors, colorbar=false,
+     xlabel=&quot;range (km)&quot;, ylabel=&quot;amplitude (dB)&quot;,
+     labels=permutedims(labels), legendtitle=&quot;  dip, az&quot;, legend=true)
+savefig(&quot;magneticfield_daytime_amplitude.png&quot;); nothing # hide</code></pre><p><img src="magneticfield_daytime_amplitude.png" alt/></p><p>At these lower reflection altitudes the effect of Earth&#39;s magnetic field is decreased.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../wavefieldintegration/">« Wavefield integration</a><a class="docs-footer-nextpage" href="../interpretinghpbeta/">Interpreting h′ and β »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Friday 11 June 2021 19:19">Friday 11 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
