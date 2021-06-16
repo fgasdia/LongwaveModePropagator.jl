@@ -58,7 +58,7 @@ example_pages = Any[
     "generated/magneticfield.md",
     "generated/interpretinghpbeta.md",
     "generated/multiplespecies.md",
-    "generated/interpolationfunctions.md",
+    "generated/interpolatingfunctions.md",
     "generated/ground.md"
 ]
 
