@@ -24,6 +24,9 @@ Type for Wait and Spies (1964) exponential ionosphere profiles defined by [`wait
 The [`electroncollisionfrequency`](@ref) is used for the electron-neutral collision frequency
 profile.
 
+- The electron density profile begins at 40 km altitude and extends to 110 km.
+- The transmitter power is 1 kW.
+
 # Fields
 
 - `name::String`
@@ -343,8 +346,7 @@ Return `HomogeneousWaveguide` from the `i`th entry in each field of `s`.
 """
 function buildwaveguide(s::ExponentialInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
-    species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i];
-                                               cutoff_low=40e3),
+    species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i]; cutoff_low=40e3),
                       electroncollisionfrequency)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -384,17 +386,17 @@ function buildrun(s::ExponentialInput; mesh=nothing, unwrap=true, params=LMPPara
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
         waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in
                                         eachindex(s.segment_ranges)])
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
+    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -422,17 +424,16 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
-        waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in
-                                        eachindex(s.segment_ranges)])
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in eachindex(s.segment_ranges)])
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
+    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name

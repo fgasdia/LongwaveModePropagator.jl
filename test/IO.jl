@@ -283,6 +283,35 @@ end
 
 function basic_lmp()
     output = LMP.propagate("basic.json")
+
+    # Compare to a `propagate` call with waveguide arguments
+    tx = Transmitter(24e3)
+    rx = GroundSampler(0:20e3:2000e3, Fields.Ez)
+
+    # From `generate_basic()`
+    segment_ranges = [0, 500e3, 1000e3, 1500e3]
+    hprimes = [72.0, 74, 75, 76]
+    betas = [0.28, 0.30, 0.32, 0.35]
+    b_mags = fill(50e-6, length(segment_ranges))
+    b_dips = fill(π/2, length(segment_ranges))
+    b_azs = fill(0.0, length(segment_ranges))
+    ground_sigmas = [0.001, 0.001, 0.0005, 0.0001]
+    ground_epsrs = [4, 4, 10, 10]
+
+    wvg = SegmentedWaveguide(
+        [HomogeneousWaveguide(
+            BField(b_mags[i], b_dips[i], b_azs[i]),
+            Species(QE, ME, z->waitprofile(z, hprimes[i], betas[i]; cutoff_low=40e3), electroncollisionfrequency),
+            Ground(ground_epsrs[i], ground_sigmas[i]),
+            segment_ranges[i]
+        ) for i = 1:4]
+    )
+
+    _, a, p = propagate(wvg, tx, rx)
+    
+    @test isapprox(a, output.amplitude, atol=0.1)
+    @test isapprox(p, output.phase, atol=deg2rad(1))
+
     return output
 end
 
