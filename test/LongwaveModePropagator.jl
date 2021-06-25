@@ -52,7 +52,6 @@ function test_propagate_segmented(scenario)
     @test eltype(amp) == Float64
     @test eltype(phase) == Float64
 
-    mesh = LMP.defaultmesh(tx.frequency)
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
     @test E1 ≈ E    rtol=1e-3
     @test amp1 ≈ amp    rtol=1e-3
@@ -76,11 +75,11 @@ function test_mcranges_segmented(scenario)
     waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i], ground[i],
                                                          distances[i]) for i in 1:2])
 
-    Eref, ampref, phaseref = propagate(waveguide, tx, rx; unwrap=false)
+    _, ampref, phaseref = propagate(waveguide, tx, rx; unwrap=false)
 
-    E1, a1, p1 = propagate(waveguide, tx, GroundSampler(600e3, Fields.Ez))
-    E2, a2, p2 = propagate(waveguide, tx, GroundSampler(1400e3, Fields.Ez))
-    E3, a3, p3 = propagate(waveguide, tx, GroundSampler(1800e3, Fields.Ez))
+    _, a1, p1 = propagate(waveguide, tx, GroundSampler(600e3, Fields.Ez))
+    _, a2, p2 = propagate(waveguide, tx, GroundSampler(1400e3, Fields.Ez))
+    _, a3, p3 = propagate(waveguide, tx, GroundSampler(1800e3, Fields.Ez))
 
     m1 = findfirst(isequal(600e3), rx.distance)
     m2 = findfirst(isequal(1400e3), rx.distance)

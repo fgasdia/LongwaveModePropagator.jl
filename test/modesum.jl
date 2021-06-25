@@ -32,7 +32,6 @@ function test_Efield(scenario)
     modes = TEST_MODES[scenario]
 
     X = LMP.distance(rx, tx)
-    E = zeros(ComplexF64, length(X))
 
     E1 = LMP.Efield(modes, waveguide, tx, rx)  # out-of-place
 

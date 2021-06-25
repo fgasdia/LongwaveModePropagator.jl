@@ -1,5 +1,4 @@
-using Test, Dates, Random
-using LinearAlgebra, Statistics
+using Test, Dates, Random, LinearAlgebra, Statistics
 using StaticArrays
 using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks

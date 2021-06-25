@@ -9,7 +9,7 @@ function randomwavefields()
 end
 
 function test_Wavefields()
-    modes, wavefields = randomwavefields()
+    _, wavefields = randomwavefields()
     @unpack wavefieldheights = LMPParams()
 
     @test LMP.numheights(wavefields) == length(wavefieldheights)
@@ -155,7 +155,7 @@ function test_boundaryscalars(scenario)
 end
 
 function test_fieldstrengths(scenario)
-    @unpack ea, bfield, tx, ground, species = scenario
+    @unpack bfield, tx, ground, species = scenario
     modes, wavefields = randomwavefields()
 
     modes = LMP.eigenangles(wavefields)
