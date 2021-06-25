@@ -22,13 +22,9 @@
 # increasing.
 # 
 # From [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl) we'll use
-# a linear interpolator and a cubic spline interpolator.
+# a linear interpolator, a cubic spline interpolator, and monotonic interpolators.
 # We'll use [NormalHermiteSplines.jl](https://github.com/IgorKohan/NormalHermiteSplines.jl)
 # to construct Hermite splines.
-# 
-# Unfortunately, Julia doesn't currently have a well-supported library with the
-# [PCHIP](https://blogs.mathworks.com/cleve/2012/07/16/splines-and-pchips/) interpolator,
-# so I must load `pchip` from my _private_ repository Interp.jl.
 
 using Printf
 using LongwaveModePropagator
@@ -36,26 +32,31 @@ using LongwaveModePropagator: QE, ME
 using Plots, Distances
 
 using Interpolations, NormalHermiteSplines
-using Interp
 nothing #hide
 
 # Here's the discrete profile data. Some interpolators will benefit from random sample
-# points, but real density data will almost always be on a grid.
+# points, but most density data will be on a grid.
 
-zs = 0:500:110e3
+zs = 0:1e3:110e3
 Ne = waitprofile.(zs, 75, 0.32; cutoff_low=40e3);
 
 # Let's construct the interpolators.
 
 linear_itp = LinearInterpolation(zs, Ne)
-cubic_itp = CubicSplineInterpolation(zs, Ne)
+cubic_itp = CubicSplineInterpolation(zs, Ne);
+
+# There's not great documentation on the monotonic interpolators of Interpolations.jl as of
+# `v0.13`, but several are supported.
+
+fb_itp = interpolate(zs, Ne, FritschButlandMonotonicInterpolation())
+fc_itp = interpolate(zs, Ne, FritschCarlsonMonotonicInterpolation())
+s_itp = interpolate(zs, Ne, SteffenMonotonicInterpolation());
+
+# And the Hermite splines
 
 spline = prepare(collect(zs), RK_H1())
 spline = construct(spline, Ne)
-hermite_itp(z) = evaluate_one(spline, z)
-
-pchip_itp = pchip(zs, Ne);
-
+hermite_itp(z) = evaluate_one(spline, z);
 
 # (a spline built with RK_H0 kernel is a continuous function,
 #  a spline built with RK_H1 kernel is a continuously differentiable function,
@@ -66,8 +67,10 @@ Ne_fine = waitprofile.(zs_fine, 75, 0.32; cutoff_low=40e3)
 
 linear_fine = linear_itp.(zs_fine)
 cubic_fine = cubic_itp.(zs_fine)
-hermite_fine = hermite_itp.(zs_fine)
-pchip_fine = pchip_itp.(zs_fine);
+fb_fine = fb_itp.(zs_fine)
+fc_fine = fc_itp.(zs_fine)
+s_fine = s_itp.(zs_fine)
+hermite_fine = hermite_itp.(zs_fine);
 
 # The profiles are compared using percentage difference relative to the true profile.
 
@@ -76,20 +79,22 @@ cmp(a,b) = (a .- b)./b.*100
 dNe = cmp(Ne_fine, Ne_fine)
 dlinear = cmp(linear_fine, Ne_fine)
 dcubic = cmp(cubic_fine, Ne_fine)
-dhermite = cmp(hermite_fine, Ne_fine)
-dpchip = cmp(pchip_fine, Ne_fine);
+dfb = cmp(fb_fine, Ne_fine)
+dfc = cmp(fc_fine, Ne_fine)
+ds = cmp(s_fine, Ne_fine)
+dhermite = cmp(hermite_fine, Ne_fine);
 
 # To plot densities with a log scale, we set values less than 0.1 to NaN.
 
 cl(x) = replace(v->v <= 0.1 ? NaN : v, x)
 lc(x) = replace(x, NaN => 0)
 
-p1 = plot(cl([Ne_fine linear_fine cubic_fine hermite_fine pchip_fine]),
+p1 = plot(cl([Ne_fine linear_fine cubic_fine hermite_fine fb_fine fc_fine s_fine]),
     zs_fine/1000, xscale=:log10, xlabel="Ne (m⁻³)", ylabel="Altitude (km)",
-    legend=:topleft, labels=["Truth" "Linear" "Cubic" "Hermite" "PCHIP"])
-p2 = plot(lc([dNe dlinear dcubic dhermite dpchip]),
+    legend=:topleft, labels=["Truth" "Linear" "Cubic" "Hermite" "FritschButland" "FritschCarlson" "Steffen"])
+p2 = plot(lc([dNe dlinear dcubic dhermite dfb dfc ds]),
     zs_fine/1000, xlabel="% difference", legend=false, xlims=(-100, 100))
-p3 = plot(lc([dNe dlinear dcubic dhermite dpchip]),
+p3 = plot(lc([dNe dlinear dcubic dhermite dfb dfc ds]),
     zs_fine/1000, xlabel="% difference", legend=false, xlims=(-0.1, 0.1))
 plot(p1, p2, p3, layout=(1,3), size=(800,400))
 #md savefig("interpolatingfunctions_profiles.png"); nothing # hide
@@ -104,10 +109,14 @@ plot(p1, p2, p3, layout=(1,3), size=(800,400))
 # 
 # The total RMS differences between each interpolator and the truth are:
 
-for (n, v) in ("linear"=>linear_fine, "cubic"=>cubic_fine, "hermite"=>hermite_fine, "pchip"=>pchip_fine)
+for (n, v) in ("linear"=>linear_fine, "cubic"=>cubic_fine, "hermite"=>hermite_fine,
+    "FritschButland"=>fb_fine, "FritschCarlson"=>fc_fine, "Steffen"=>s_fine)
     @printf("%s: %.3e\n",n, rmsd(v, Ne_fine))
 end
 
+# It's also important to note that the results may be different for non-exponential
+# ionospheres with more complicated profiles. 
+# 
 # ## Propagation results
 # 
 # Let's compare propagation results and performance with each of these interpolators.
@@ -123,7 +132,9 @@ interpolators = (
     "truth" => z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
     "linear"=> linear_itp,
     "cubic" => cubic_itp,
-    "pchip" => pchip_itp
+    "FritschButland" => fb_itp,
+    "FritschCarlson" => fc_itp,
+    "Steffen" => s_itp
 )
 
 function propagateitp(interpolators)
@@ -138,7 +149,7 @@ function propagateitp(interpolators)
         species = Species(QE, ME, itp, electroncollisionfrequency)
         waveguide = HomogeneousWaveguide(bfield, species, ground)
         t0 = time()
-        E, amp, phase = propagate(waveguide, tx, rx)
+        _, amp, phase = propagate(waveguide, tx, rx)
         runtime = time() - t0
         results[n] = (runtime, amp, phase)
     end
@@ -152,7 +163,7 @@ results = propagateitp(interpolators);
 
 d = 0:5:3000
 p1 = plot(ylabel="Amplitude (dB μV/m)")
-p2 = plot(xlabel="Range (km)", ylims=(-0.1, 0.1), ylabel="Δ", legend=false)
+p2 = plot(xlabel="Range (km)", ylims=(-0.03, 0.03), ylabel="Δ", legend=false)
 for (n, v) in results
     plot!(p1, d, v[2], label=n)
     plot!(p2, d, v[2]-results["truth"][2])
@@ -162,7 +173,7 @@ plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
 #md # ![](interpolatingfunctions_amp.png)
 
 p1 = plot(ylabel="Phase (deg)")
-p2 = plot(xlabel="Range (km)", ylims=(-1, 1), ylabel="Δ", legend=false)
+p2 = plot(xlabel="Range (km)", ylims=(-0.4, 0.4), ylabel="Δ", legend=false)
 for (n, v) in results
     plot!(p1, d, rad2deg.(v[3]), label=n)
     plot!(p2, d, rad2deg.(v[3])-rad2deg.(results["truth"][3]))
@@ -171,15 +182,23 @@ plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
 #md savefig("interpolatingfunctions_phase.png"); nothing # hide
 #md # ![](interpolatingfunctions_phase.png)
 
+# Here is the mean absolute amplitude difference between each technique and the true profile:
+
+for n in ("linear", "cubic", "FritschButland", "FritschCarlson", "Steffen")
+    @printf("%s: %.3e\n",n, meanad(results[n][2], results["truth"][2]))
+end
+
 # The amplitude and phase for each of the interpolators matches the true exponential profile
 # extremely closely.
 #  
 # Timing can vary when run by GitHub to build the documentation, so results here are from a
 # local run:
 # 
-# | Interpolator | Runtime relative to `truth` |
-# | ------------ | --------------------------- |
-# | truth        |              1              |
-# | linear       |             2.17            |
-# | cubic        |             1.02            |
-# | pchip        |             1.08            |
+# |  Interpolator  | Runtime relative to `truth` |
+# | -------------- | --------------------------- |
+# | truth          |              1              |
+# | linear         |             1.35            |
+# | cubic          |             1.11            |
+# | FritschButland |             1.23            |
+# | FritschCarlson |             1.07            |
+# | Steffen        |             1.26           |
