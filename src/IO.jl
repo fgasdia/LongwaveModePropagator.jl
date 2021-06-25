@@ -355,13 +355,14 @@ end
 """
     buildwaveguide(s::TableInput, i)
 
-Return `HomogeneousWaveguide` from the `i`th entry in each field of `s` with a linear
-interpolation over `density` and `collision_frequency`.
+Return `HomogeneousWaveguide` from the `i`th entry in each field of `s` with a
+FritschButland monotonic interpolation over `density` and `collision_frequency`.
 """
 function buildwaveguide(s::TableInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
-    density_itp = LinearInterpolation(s.altitude, s.density[i]; extrapolation_bc=Line())
-    collision_itp = LinearInterpolation(s.altitude, s.collision_frequency[i]; extrapolation_bc=Line())
+
+    density_itp = interpolate(s.altitude, s.density[i], FritschButlandMonotonicInterpolation())
+    collision_itp = interpolate(s.altitude, s.collision_frequency[i], FritschButlandMonotonicInterpolation())
     species = Species(QE, ME, density_itp, collision_itp)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -373,6 +374,9 @@ end
     buildrun(s::BatchInput; mesh=nothing, unwrap=true, params=LMPParams())
 
 Build LMP structs from an `Input` and run `LMP`.
+
+For `TableInput`s, a FritschButland monotonic interpolation is performed over `density` and
+`collision_frequency`.
 """
 buildrun
 
@@ -418,8 +422,9 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
-        density_itp = LinearInterpolation(s.altitude, only(s.density); extrapolation_bc=Line())
-        collision_itp = LinearInterpolation(s.altitude, only(s.collision_frequency); extrapolation_bc=Line())
+
+        density_itp = interpolate(s.altitude, only(s.density), FritschButlandMonotonicInterpolation())
+        collision_itp = interpolate(s.altitude, only(s.collision_frequency), FritschButlandMonotonicInterpolation())
         species = Species(QE, ME, density_itp, collision_itp)
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
