@@ -102,17 +102,17 @@ plot(real(night_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topright)</code></pre><p><img src="../wavefields_night.png" alt/></p><p>The times to run each...</p><pre><code class="language-julia">TO</code></pre><pre class="documenter-example-output"> ───────────────────────────────────────────────────────────────────────
                                 Time                   Allocations      
                         ──────────────────────   ───────────────────────
-    Tot / % measured:        88.1s / 10.7%           12.6GiB / 40.1%    
+    Tot / % measured:        90.0s / 10.5%           12.5GiB / 40.1%    
 
  Section        ncalls     time   %tot     avg     alloc   %tot      avg
  ───────────────────────────────────────────────────────────────────────
- Vern9(false)      400    2.20s  23.3%  5.51ms    768MiB  14.9%  1.92MiB
- Vern7(false)      400    1.74s  18.4%  4.36ms    744MiB  14.4%  1.86MiB
- Vern8(false)      400    1.43s  15.2%  3.58ms    739MiB  14.3%  1.85MiB
- OwrenZen5()       400    1.17s  12.4%  2.93ms    740MiB  14.3%  1.85MiB
- Vern6(false)      400    1.08s  11.4%  2.69ms    729MiB  14.1%  1.82MiB
- BS5(false)        400    974ms  10.3%  2.43ms    722MiB  14.0%  1.80MiB
- Tsit5()           400    850ms  9.00%  2.13ms    716MiB  13.9%  1.79MiB
+ Vern9(false)      400    2.15s  22.8%  5.36ms    768MiB  14.9%  1.92MiB
+ Vern8(false)      400    1.50s  15.9%  3.75ms    739MiB  14.3%  1.85MiB
+ Vern7(false)      400    1.42s  15.1%  3.56ms    744MiB  14.4%  1.86MiB
+ OwrenZen5()       400    1.25s  13.2%  3.12ms    740MiB  14.3%  1.85MiB
+ Vern6(false)      400    1.12s  11.9%  2.79ms    729MiB  14.1%  1.82MiB
+ BS5(false)        400    1.09s  11.5%  2.72ms    722MiB  14.0%  1.80MiB
+ Tsit5()           400    908ms  9.63%  2.27ms    716MiB  13.9%  1.79MiB
  ───────────────────────────────────────────────────────────────────────</pre><p>The <code>Tsit5</code>, <code>BS5</code>, and 6th, 7th, and 8th order Vern methods all have similar performance. In fact, rerunning these same tests multiple times can result in different solvers being &quot;fastest&quot;.</p><p>We use <code>Tsit5()</code>as the default in LongwaveModePropagator, which is similar to MATLAB&#39;s <code>ode45</code>, but usually more efficient.</p><p>Why not a strict <code>RK4</code> or a more basic method? I tried them and they produce some discontinuities around the reflection height. It is admittedly difficult to tell if this is a true failure of the methods at this height or a problem related to the scaling and saving callbacks that occur during the integration. In any case, none of the methods tested above exhibit that issue.</p><h2 id="Pitteway-figure-2"><a class="docs-heading-anchor" href="#Pitteway-figure-2">Pitteway figure 2</a><a id="Pitteway-figure-2-1"></a><a class="docs-heading-anchor-permalink" href="#Pitteway-figure-2" title="Permalink"></a></h2><p>Let&#39;s reproduce the wavefields in figure 2 of Pitteway (1965).</p><pre><code class="language-">zs = 110e3:-500:50e3
 zskm = zs/1000
 
@@ -159,4 +159,4 @@ hx2 = getindex.(e, 7)
 ey1p = plotfield(ey1; ylims=(75, 102), title=&quot;\$E_{y,1}\$&quot;);
 hx2p = plotfield(hx2; ylims=(75, 102), title=&quot;\$H_{x,2}\$&quot;);
 plot(ey1p, hx2p; layout=(1,2), size=(400,500))
-savefig(&quot;wavefields_fig3.png&quot;); nothing #hide</code></pre><p><img src="wavefields_fig3.png" alt/></p><img src="../../images/Pitteway1965_fig3.png"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../integratedreflection/">« Solvers for ionosphere reflection coefficient</a><a class="docs-footer-nextpage" href="../magneticfield/">Magnetic field direction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Saturday 26 June 2021 01:53">Saturday 26 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+savefig(&quot;wavefields_fig3.png&quot;); nothing #hide</code></pre><p><img src="wavefields_fig3.png" alt/></p><img src="../../images/Pitteway1965_fig3.png"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../integratedreflection/">« Solvers for ionosphere reflection coefficient</a><a class="docs-footer-nextpage" href="../magneticfield/">Magnetic field direction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Saturday 26 June 2021 03:02">Saturday 26 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
