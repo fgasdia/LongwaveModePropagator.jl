@@ -102,7 +102,7 @@ function test_dRdθdz(scenario)
 end
 
 function test_integratedreflection_vertical(scenario)
-    @unpack ea, tx, ground, bfield, species = scenario
+    @unpack tx, ground, bfield, species = scenario
 
     waveguide = HomogeneousWaveguide(bfield, species, ground)
     me = PhysicalModeEquation(tx.frequency, waveguide)

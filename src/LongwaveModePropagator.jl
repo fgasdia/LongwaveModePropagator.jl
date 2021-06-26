@@ -87,7 +87,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 - `approxsusceptibility::Bool = false`: use a cubic interpolating spline representation of
     [`susceptibility`](@ref) during the integration of [`dRdz`](@ref).
 - `susceptibilitysplinestep::Float64 = 10.0`: altitude step in meters used to build the
-    cubic spline representation of [`susceptibility`](@ref) if `approxsusceptibility == true`.
+    spline representation of [`susceptibility`](@ref) if `approxsusceptibility == true`.
 - `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
     complex root-finding algorithm.
 - `integrationparams::IntegrationParams{T} =

@@ -24,6 +24,9 @@ Type for Wait and Spies (1964) exponential ionosphere profiles defined by [`wait
 The [`electroncollisionfrequency`](@ref) is used for the electron-neutral collision frequency
 profile.
 
+- The electron density profile begins at 40 km altitude and extends to 110 km.
+- The transmitter power is 1 kW.
+
 # Fields
 
 - `name::String`
@@ -343,8 +346,7 @@ Return `HomogeneousWaveguide` from the `i`th entry in each field of `s`.
 """
 function buildwaveguide(s::ExponentialInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
-    species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i];
-                                               cutoff_low=40e3),
+    species = Species(QE, ME, z -> waitprofile(z, s.hprimes[i], s.betas[i]; cutoff_low=40e3),
                       electroncollisionfrequency)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -353,13 +355,19 @@ end
 """
     buildwaveguide(s::TableInput, i)
 
-Return `HomogeneousWaveguide` from the `i`th entry in each field of `s` with a linear
-interpolation over `density` and `collision_frequency`.
+Return `HomogeneousWaveguide` from the `i`th entry in each field of `s` with a
+FritschButland monotonic interpolation over `density` and `collision_frequency`.
+
+Outside of `s.altitude` the nearest `s.density` or `s.collision_frequency` is used.
 """
 function buildwaveguide(s::TableInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
-    density_itp = LinearInterpolation(s.altitude, s.density[i]; extrapolation_bc=Line())
-    collision_itp = LinearInterpolation(s.altitude, s.collision_frequency[i]; extrapolation_bc=Line())
+
+    ditp = interpolate(s.altitude, s.density[i], FritschButlandMonotonicInterpolation())
+    citp = interpolate(s.altitude, s.collision_frequency[i], FritschButlandMonotonicInterpolation())
+
+    density_itp = extrapolate(ditp, Flat())
+    collision_itp = extrapolate(citp, Flat())
     species = Species(QE, ME, density_itp, collision_itp)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -371,6 +379,9 @@ end
     buildrun(s::BatchInput; mesh=nothing, unwrap=true, params=LMPParams())
 
 Build LMP structs from an `Input` and run `LMP`.
+
+For `TableInput`s, a FritschButland monotonic interpolation is performed over `density` and
+`collision_frequency`.
 """
 buildrun
 
@@ -384,17 +395,17 @@ function buildrun(s::ExponentialInput; mesh=nothing, unwrap=true, params=LMPPara
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
         waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in
                                         eachindex(s.segment_ranges)])
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
+    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -416,23 +427,26 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
     if length(s.segment_ranges) == 1
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
-        density_itp = LinearInterpolation(s.altitude, only(s.density); extrapolation_bc=Line())
-        collision_itp = LinearInterpolation(s.altitude, only(s.collision_frequency); extrapolation_bc=Line())
+
+        ditp = interpolate(s.altitude, only(s.density), FritschButlandMonotonicInterpolation())
+        citp = interpolate(s.altitude, only(s.collision_frequency), FritschButlandMonotonicInterpolation())
+
+        density_itp = extrapolate(ditp, Flat())
+        collision_itp = extrapolate(citp, Flat())
         species = Species(QE, ME, density_itp, collision_itp)
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
-        waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in
-                                        eachindex(s.segment_ranges)])
-        tx = Transmitter(VerticalDipole(), Frequency(s.frequency), 100e3)
+        waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in eachindex(s.segment_ranges)])
+        tx = Transmitter(s.frequency)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    E, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
+    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name

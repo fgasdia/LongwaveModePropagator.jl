@@ -48,6 +48,7 @@ end
         resonant_horizontal_scenario=>"resonant_horizontal.log",
         segmented_scenario=>"segmented.log")
 
+    @info "  Running:"
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
         resonant_elevatedrx_scenario, resonant_horizontal_scenario,)
 

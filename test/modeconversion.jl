@@ -1,5 +1,5 @@
 function test_modeconversion_segmented(scenario)
-    @unpack distances, ea, tx, bfield, species, ground = scenario()
+    @unpack distances, tx, bfield, species, ground = scenario()
     params = LMPParams()
 
     waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i],
