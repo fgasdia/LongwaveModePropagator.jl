@@ -357,12 +357,17 @@ end
 
 Return `HomogeneousWaveguide` from the `i`th entry in each field of `s` with a
 FritschButland monotonic interpolation over `density` and `collision_frequency`.
+
+Outside of `s.altitude` the nearest `s.density` or `s.collision_frequency` is used.
 """
 function buildwaveguide(s::TableInput, i)
     bfield = BField(s.b_mags[i], s.b_dips[i], s.b_azs[i])
 
-    density_itp = interpolate(s.altitude, s.density[i], FritschButlandMonotonicInterpolation())
-    collision_itp = interpolate(s.altitude, s.collision_frequency[i], FritschButlandMonotonicInterpolation())
+    ditp = interpolate(s.altitude, s.density[i], FritschButlandMonotonicInterpolation())
+    citp = interpolate(s.altitude, s.collision_frequency[i], FritschButlandMonotonicInterpolation())
+
+    density_itp = extrapolate(ditp, Flat())
+    collision_itp = extrapolate(citp, Flat())
     species = Species(QE, ME, density_itp, collision_itp)
     ground = Ground(s.ground_epsrs[i], s.ground_sigmas[i])
     return HomogeneousWaveguide(bfield, species, ground, s.segment_ranges[i])
@@ -423,8 +428,11 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
         # HomogeneousWaveguide
         bfield = BField(only(s.b_mags), only(s.b_dips), only(s.b_azs))
 
-        density_itp = interpolate(s.altitude, only(s.density), FritschButlandMonotonicInterpolation())
-        collision_itp = interpolate(s.altitude, only(s.collision_frequency), FritschButlandMonotonicInterpolation())
+        ditp = interpolate(s.altitude, only(s.density), FritschButlandMonotonicInterpolation())
+        citp = interpolate(s.altitude, only(s.collision_frequency), FritschButlandMonotonicInterpolation())
+
+        density_itp = extrapolate(ditp, Flat())
+        collision_itp = extrapolate(citp, Flat())
         species = Species(QE, ME, density_itp, collision_itp)
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
