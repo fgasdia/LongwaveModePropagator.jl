@@ -3,15 +3,9 @@ using Plots
 using LongwaveModePropagator, GeographicLib
 const LMP = LongwaveModePropagator
 
-using LMPTools, PropagationModelPrep
+using LMPTools, PropagationModelPrep, SubionosphericVLFInversionAlgorithms
+const SIA = SubionosphericVLFInversionAlgorithms
 
-# As defined in SubionosphericVLFInversionAlgorithms
-function pathpts(tx, rx; dist=100e3)
-    line = GeodesicLine(tx, rx)
-    wpts = waypoints(line; dist=dist)[1:end-1]
-
-    return line, wpts
-end
 
 function buildpaths()
     transmitters = [TRANSMITTER[:NLK], TRANSMITTER[:NML]]
@@ -130,7 +124,7 @@ function fulllmp()
     idx = 1
     for i in N
         tx, rx = paths[i]
-        _, wpts = pathpts(tx, rx; dist=100e3)
+        _, wpts = SIA.pathpts(tx, rx; dist=100e3)
         geoaz = inverse(tx.longitude, tx.latitude, rx.longitude, rx.latitude).azi
 
         wvg = SegmentedWaveguide([
@@ -162,7 +156,7 @@ p
 ####
 paths = buildpaths()
 tx, rx = paths[2] 
-_, wpts = pathpts(tx, rx; dist=100e3)
+_, wpts = SIA.pathpts(tx, rx; dist=100e3)
 geoaz = inverse(tx.longitude, tx.latitude, rx.longitude, rx.latitude).azi
 
 params = LMPParams(integrationparams=IntegrationParams(tolerance=1e-9),
@@ -390,21 +384,49 @@ end
 ####
 
 
+function comparemodels(lwpc)
+    dt = DateTime(2020, 3, 1, 20, 00)  # day
+    hbfcn(lo, la, dt) = ferguson(la, zenithangle(la, lo, dt), dt)
+    
+    pathstep = 100e3
+    paths = buildpaths()
 
+    batch = BatchInput{ExponentialInput}()
+    batch.name = "estimate"
+    batch.description = ""
+    batch.datetime = Dates.now()
+    batch.inputs = Vector{ExponentialInput}(undef, length(paths))
+
+    for i in eachindex(paths)
+        tx, rx = paths[i]
+        input = SIA.model_observation(hbfcn, tx, rx, dt; pathstep)
+        batch.inputs[i] = input
+    end
+
+    if lwpc
+        computejob = LocalParallel("estimate", ".", "C:\\LWPCv21\\lwpm.exe", 16, 90)
+        output = LWPC.run(batch, computejob; savefile=false)
+    else
+        output = LMP.buildrun(batch; params=LMPParams(approxsusceptibility=true))
+    end
+
+    return output
+end
 
 lwpco = comparemodels(true)
 lmpo = comparemodels(false)
 
-p = plot(legend=false, xlims=(1e6, 1.5e6), ylims=(40, 50))
-[plot!(o.output_ranges, o.amplitude) for o in lmpo.outputs]
-p = plot(legend=false)
-[plot!(o.output_ranges, o.amplitude) for o in lwpco.outputs]
+p = plot(legend=false, xlims=(1e3, 1.5e3), ylims=(40, 50), xlabel="Range", ylabel="Amplitude")
+[plot!(o.output_ranges/1000, o.amplitude) for o in lmpo.outputs]
 
 p = plot(legend=false)
+[plot!(o.output_ranges, o.amplitude, color="red") for o in lwpco.outputs]
+
+p = plot(legend=false, xlabel="Range", ylabel="Amplitude")
 for i = 1:length(lmpo.outputs)
     mo = lmpo.outputs[i]
     wo = lwpco.outputs[i]
-    plot!(mo.output_ranges, mo.amplitude .- wo.amplitude)
+    plot!(mo.output_ranges/1000, mo.amplitude .- wo.amplitude)
 end
 
 
