@@ -13,9 +13,9 @@ function readlog(file)
     numdatalines = lastdataline - firstdataline + 1
 
     # Read log file
-    raw = CSV.File(file; datarow=firstdataline, limit=numdatalines,
+    raw = CSV.File(file; skipto=firstdataline, limit=numdatalines,
                    delim=' ', ignorerepeated=true, header=false,
-                   silencewarnings=true, threaded=false)
+                   silencewarnings=true, ntasks=1)
 
     # Stack the columns together
     dist = vcat(raw.Column1, raw.Column4, raw.Column7)
