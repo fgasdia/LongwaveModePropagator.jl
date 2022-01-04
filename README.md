@@ -112,7 +112,7 @@ prints an explanation of the [`bookerquartic`](https://fgasdia.github.io/Longwav
 
 We encourage you to cite the following paper (or see [CITATION.bib](CITATION.bib)) if this package is used in scientific work:
 
-F. Gasdia and R. A. Marshall, “A New Longwave Mode Propagator for the Earth-Ionosphere Waveguide,” IEEE Transactions on Antennas and Propagation, doi: [10.1109/TAP.2021.3083753](https://doi.org/10.1109/TAP.2021.3083753).
+F. Gasdia and R. A. Marshall, "A New Longwave Mode Propagator for the Earth–Ionosphere Waveguide," in IEEE Transactions on Antennas and Propagation, vol. 69, no. 12, pp. 8675-8688, Dec. 2021, doi: [10.1109/TAP.2021.3083753](https://doi.org/10.1109/TAP.2021.3083753).
 
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
