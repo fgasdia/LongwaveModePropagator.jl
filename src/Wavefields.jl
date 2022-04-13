@@ -386,7 +386,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     sol = solve(prob, solver; callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
                 dt=dt, force_dtmin=force_dtmin, maxiters=maxiters,
-                atol=tolerance, rtol=tolerance)
+                abstol=tolerance, reltol=tolerance)
 
     if unscale
         e = unscalewavefields(saved_values)
