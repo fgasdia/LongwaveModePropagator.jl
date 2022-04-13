@@ -107,6 +107,8 @@ prints an explanation of the [`bookerquartic`](https://fgasdia.github.io/Longwav
 
 <a name="Ferguson1998"></a>J. A. Ferguson, “Computer programs for assessment of long-wavelength radio communications, version 2.0: User’s guide and source files,” Space and Naval Warfare Systems Center, San Diego, CA, Technical Document 3030, May 1998. Available: http://www.dtic.mil/docs/citations/ADA350375.
 
+<a name="Gasdia2021"></a>F. W. Gasdia, “Imaging the D-Region Ionosphere with Subionospheric VLF Signals,” ProQuest Dissertations Publishing, 2021. Available: https://go.exlibris.link/pGnF7CYf.
+
 
 ## Citing
 
