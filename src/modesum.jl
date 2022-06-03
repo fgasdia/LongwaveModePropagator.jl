@@ -290,7 +290,6 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
 
     zt = altitude(tx)
     zr = altitude(rx)
-    rxfield = fieldcomponent(rx)
 
     # Transmit antenna orientation with respect to propagation direction
     # See [Morfitt1980] pg. 22
@@ -317,14 +316,10 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
         fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants; params=params)
     end
 
-    # TODO: Handle multiple fields - maybe just always return all 3?
-    if rxfield == Fields.Ez
-        rxterm = -S₀*fzr
-    elseif rxfield == Fields.Ey
-        rxterm = efconstants.EyHy*fyr
-    elseif rxfield == Fields.Ex
-        rxterm = -fxr
-    end
+    rxEz = -S₀*fzr
+    rxEy = efconstants.EyHy*fyr
+    rxEx = -fxr
+    rxterm = SVector(rxEz, rxEy, rxEx)
 
     return txterm, rxterm
 end
@@ -341,12 +336,10 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     frequency == tx.frequency ||
         throw(ArgumentError("`tx.frequency` and `modeequation.frequency` do not match"))
 
-    rxfield = fieldcomponent(rx)
-
     dFdθ, R, Rg = solvedmodalequation(modeequation; params=params)
     efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=params)
 
-    λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants; params=params)
+    λv, _, _ = excitationfactor(ea, dFdθ, R, efconstants; params=params)
 
     # Transmitter term
     # TODO: specialized heightgains for z = 0
@@ -354,13 +347,10 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
     txterm = λv*fz
 
     # Receiver term
-    if rxfield == Fields.Ez
-        rxterm = -S₀*fz
-    elseif rxfield == Fields.Ey
-        rxterm = efconstants.EyHy*fy
-    elseif rxfield == Fields.Ex
-        rxterm = -fx
-    end
+    rxEz = -S₀*fz
+    rxEy = efconstants.EyHy*fy
+    rxEx = -fx
+    rxterm = SVector(rxEz, rxEy, rxEx)
 
     return txterm, rxterm
 end
@@ -368,6 +358,19 @@ end
 #==
 Electric field calculation
 ==#
+
+"Order of `rxterm` field returned by `modeterms`." 
+function rxtermidx(f::Fields.Field)
+    if f == Fields.Ez
+        return 1
+    elseif f == Fields.Ey
+        return 2
+    elseif f == Fields.Ex
+        return 3
+    else
+        throw(ArgumentError("Field `f` not supported."))
+    end
+end
 
 """
     Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
@@ -390,8 +393,17 @@ sampler `rx`.
 function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     params=LMPParams())
 
+    rxfield = fieldcomponent(rx)
+    nfields = numcomponents(rxfield)
+
     X = distance(rx, tx)
-    E = zeros(ComplexF64, length(X))
+
+    # Shortcut to return a scalar E if possible
+    if nfields == 1 && length(X) == 1
+        return Efield_scalar(modes, waveguide, tx, rx; params)
+    end
+    
+    E = zeros(ComplexF64, length(X), nfields)
 
     txpower = power(tx)
     frequency = tx.frequency
@@ -406,7 +418,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
         txrxterm = txterm*rxterm
 
         @inbounds for i in eachindex(E)
-            E[i] += txrxterm*cis(expterm*X[i])
+            E[i,:] .+= txrxterm*cis(expterm*X[i])
         end
     end
 
@@ -417,22 +429,24 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
     # TODO: Radiation resistance correction if zt > 0
     # See, e.g. Pappert Hitney 1989 TWIRE paper
 
-    @inbounds for i in eachindex(E)
-        E[i] *= Q/sqrt(abs(sin(X[i]/params.earthradius)))
+    @inbounds for i in eachindex(X)
+        E[i,:] .*= Q/sqrt(abs(sin(X[i]/params.earthradius)))
     end
 
     # At transmitter (within 1 meter from it), E is complex NaN or Inf
     if X[1] < 1
         # Used in LWPC `lw_sum_modes.for`, but not sure where they got it
         # amplitude = 10log10(80*Q)
-        E[1] = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
+        E[1,:] .= sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
     end
 
     return E
 end
 
-function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
-    rx::AbstractSampler{<:Real}; params=LMPParams())
+"Specialized `Efield` returns a scalar value.
+Used when only a single field component is evaluated at a single location."
+function Efield_scalar(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
+    rx::AbstractSampler; params=LMPParams())
 
     frequency = tx.frequency
     k = frequency.k
@@ -451,6 +465,8 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
         return E
     end
 
+    rxidx = rxtermidx(fieldcomponent(rx))
+
     E = zero(ComplexF64)
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
@@ -458,7 +474,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
 
         S₀ = referencetoground(ea.sinθ; params=params)
         expterm = -k*(S₀ - 1)
-        txrxterm = txterm*rxterm
+        txrxterm = txterm*rxterm[rxidx]
 
         E += txrxterm*cis(expterm*x)
     end
@@ -483,10 +499,13 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
         throw(ArgumentError("`wavefields_vec` and `adjwavefields_vec` must have the same"*
                             "length as `waveguide`."))
 
+    rxfield = fieldcomponent(rx)
+    nfields = numcomponents(rxfield)
+
     X = distance(rx, tx)
     maxX = maximum(X)
     Xlength = length(X)
-    E = Vector{ComplexF64}(undef, Xlength)
+    E = Vector{ComplexF64}(undef, Xlength, nfields)
 
     frequency = tx.frequency
     k = frequency.k

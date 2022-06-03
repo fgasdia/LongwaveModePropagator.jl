@@ -20,6 +20,18 @@ using Base: @enum
 @enum Field Ex Ey Ez
 end
 
+function numcomponents(f)
+    if f == Fields.Ex || f == Fields.Ey || f == Fields.Ez
+        return 1
+    elseif f == Fields.E || f == Fields.H
+        return 3
+    elseif f == Fields.EH
+        return 6
+    else
+        throw(ArgumentError("Field $f is not supported."))
+    end
+end
+
 ########
 
 """
@@ -84,7 +96,7 @@ fieldcomponent(g::GroundSampler) = g.fieldcomponent
 altitude(g::GroundSampler) = 0.0
 
 """
-    Receiver{<:Antenna}
+    Receiver{<:Antenna} <: AbstractSampler{A}
 
 Represent a physical receiver.
 
@@ -98,7 +110,7 @@ A default `Receiver{VerticalDipole}` is returned with `Receiver()`.
 - `altitude::Float64 = 0.0`: receiver altitude in meters above the ground.
 - `antenna::Antenna = VerticalDipole()`: receiver antenna.
 """
-struct Receiver{A<:Antenna}
+struct Receiver{A<:Antenna} <: AbstractSampler{A}
     name::String
     latitude::Float64
     longitude::Float64
@@ -108,6 +120,7 @@ end
 
 Receiver() = Receiver{VerticalDipole}("", 0.0, 0.0, 0.0, VerticalDipole())
 
-altitude(r::Receiver) = r.altitude
-distance(r::Receiver,t::Transmitter) = nothing   # TODO proj4 stuff
+distance(r::Receiver,t::Transmitter) =
+    throw(MethodError("Calculation of `distance` between a `Receiver` and `Transmitter` is not yet supported."))
 fieldcomponent(r::Receiver) = fieldcomponent(r.antenna)
+altitude(r::Receiver) = r.altitude
