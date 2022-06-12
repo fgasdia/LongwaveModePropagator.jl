@@ -54,7 +54,7 @@ function test_propagate_segmented(scenario)
 
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
     @test E1 ≈ E    rtol=1e-3
-    @test amp1 ≈ amp    rtol=1e-3
+    @test amp1 ≈ amp    rtol=1e-2
     @test phase1 ≈ phase   rtol=1e-3
 
     # Are params being carried through?

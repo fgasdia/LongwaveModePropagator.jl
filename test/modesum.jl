@@ -33,13 +33,14 @@ function test_Efield(scenario)
 
     X = LMP.distance(rx, tx)
 
+    fi = LMP.fieldindex(LMP.fieldcomponent(rx))
     E1 = LMP.Efield(modes, waveguide, tx, rx)  # out-of-place
 
     singlerx = GroundSampler(1000e3, rx.fieldcomponent)
     E2 = LMP.Efield(modes, waveguide, tx, singlerx)  # specialized
 
     distidx = findfirst(x->x==1000e3, X)
-    @test E2 ≈ E1[distidx]
+    @test E2 ≈ E1[fi,distidx]
 end
 
 

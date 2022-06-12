@@ -383,7 +383,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     # WARNING: Without `lazy=false` (necessary since we're using DiscreteCallback) don't
     # use continuous solution output! Also, we're only saving at zs.
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
-    sol = solve(prob, solver; callback=CallbackSet(cb, scb),
+    _ = solve(prob, solver; callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
                 dt=dt, force_dtmin=force_dtmin, maxiters=maxiters,
                 abstol=tolerance, reltol=tolerance)

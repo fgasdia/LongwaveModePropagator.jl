@@ -207,10 +207,13 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
 
     E = Efield(modes, waveguide, tx, rx; params=params)
 
-    amplitude, phase = amplitudephase(E)
+    amplitude = dBamplitude.(E)
+    phase = angle.(E)
 
     if unwrap
-        unwrap!(phase)
+        for r in eachrow(phase)
+            unwrap!(r)  # modifies phase in place
+        end
     end
 
     return E, amplitude, phase
@@ -275,10 +278,13 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         E = only(E)
     end
 
-    amplitude, phase = amplitudephase(E)
+    amplitude = dBamplitude.(E)
+    phase = angle.(E)
 
     if unwrap
-        unwrap!(phase)
+        for r in eachrow(phase)
+            unwrap!(r)  # modifies phase in place
+        end
     end
 
     return E, amplitude, phase
