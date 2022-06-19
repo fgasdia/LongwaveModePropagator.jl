@@ -106,8 +106,8 @@ instantiation capabilities, e.g.:
 
 ```julia
 p = LMPParams()
-p2 = LMPParams(earth_radius=6370e3)
-p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
+p2 = LMPParams(earthradius=6370e3)
+p3 = LMPParams(p2; grpfparams=GRPFParams(100000, 1e-6, true))
 ```
 
 See also: [`IntegrationParams`](@ref)
@@ -207,6 +207,11 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
 
     E = Efield(modes, waveguide, tx, rx; params=params)
 
+    # Although now this function is technically type unstable, it has minimal affect on runtime
+    if length(E) == 1
+        E = only(E)
+    end
+
     amplitude = dBamplitude.(E)
     phase = angle.(E)
 
@@ -270,10 +275,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
     E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=params)
 
-    # Efield for SegmentedWaveguides doesn't have a specialized form for AbstractSamplers
-    # of Number type, but for consistency we will return scalar E.
-    # Although now this function is technically type unstable, it has a practically
-    # unmeasurable affect on the total runtime.
+    # Although now this function is technically type unstable, it has minimal affect on runtime
     if length(E) == 1
         E = only(E)
     end

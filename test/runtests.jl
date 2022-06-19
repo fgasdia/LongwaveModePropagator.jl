@@ -125,7 +125,7 @@ const homogeneousiono_scenario = (
 )
 
 const segmented_scenario = (
-    ea=EigenAngle(1.5 - 0.1),
+    ea=EigenAngle(1.5 - 0.1im),
     bfield=[BField(50e-6, deg2rad(68), deg2rad(111)), BField(50e-6, deg2rad(68), deg2rad(111))],
     species=[Species(QE, ME,
                      z->waitprofile(z, 75, 0.32; cutoff_low=40e3),

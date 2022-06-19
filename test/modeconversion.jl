@@ -1,10 +1,9 @@
 function test_modeconversion_segmented(scenario)
-    @unpack distances, tx, bfield, species, ground = scenario()
+    @unpack distances, tx, bfield, species, ground = scenario
     params = LMPParams()
 
     waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i],
                                         ground[i], distances[i]) for i in 1:2])
-
 
     heighttype = typeof(params.wavefieldheights)
     wavefields_vec = Vector{LMP.Wavefields{heighttype}}(undef, 2)
@@ -27,5 +26,10 @@ function test_modeconversion_segmented(scenario)
 
     a = LMP.modeconversion(wavefields_vec[1], wavefields_vec[1], adjwavefields_vec[1])
     @test all(diag(a) .≈ complex(1))
-    # a = modeconversion(wavefields_vec[1], wavefields_vec[2], adjwavefields_vec[2])
+end
+
+@testset "modeconversion.jl" begin
+    @info "Testing modeconversion"
+
+    test_modeconversion_segmented(segmented_scenario)
 end

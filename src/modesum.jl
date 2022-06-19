@@ -370,7 +370,7 @@ function fieldindex(f::Fields.Field)
     elseif f == Fields.Ex
         return 3
     else
-        throw(ArgumentError("Field `f` not supported."))
+        throw(ArgumentError("$f not supported."))
     end
 end
 
@@ -380,6 +380,9 @@ end
 
 Compute the complex electric field by summing `modes` in `waveguide` for emitter `tx` at
 sampler `rx`.
+
+This function always returns all three electric field components, regardless of the value
+of `rx.fieldcomponent`.
 
 # References
 
@@ -395,16 +398,10 @@ sampler `rx`.
 function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     params=LMPParams())
 
-    rxfield = fieldcomponent(rx)
-    nfields = numcomponents(rxfield)
+    # There's no compute time advantage switching to a specialized version of Efield for
+    # scalars.
 
     X = distance(rx, tx)
-
-    # Shortcut to return a scalar E if possible
-    if nfields == 1 && length(X) == 1
-        return Efield_scalar(modes, waveguide, tx, rx; params)
-    end
-    
     E = zeros(ComplexF64, NUMRXTERMS, length(X))
 
     txpower = power(tx)
@@ -441,47 +438,6 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
         # amplitude = 10log10(80*Q)
         @. E[:,1] = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
     end
-
-    return E
-end
-
-"Specialized `Efield` returns a scalar value.
-Used when only a single field component is evaluated at a single location."
-function Efield_scalar(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
-    rx::AbstractSampler; params=LMPParams())
-
-    frequency = tx.frequency
-    k = frequency.k
-
-    txpower = power(tx)
-    x = distance(rx, tx)
-
-    Q = 0.6822408*sqrt(frequency.f*txpower)
-
-    # At transmitter (within 1 meter from it), E is complex NaN or Inf
-    if x < 1
-        # Used in LWPC `lw_sum_modes.for`, but not sure where they got it
-        # amplitude = 10log10(80*Q)
-        E = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
-
-        return E
-    end
-
-    rxidx = fieldindex(fieldcomponent(rx))
-
-    E = zero(ComplexF64)
-    for ea in modes
-        modeequation = PhysicalModeEquation(ea, frequency, waveguide)
-        txterm, rxterm = modeterms(modeequation, tx, rx, params=params)
-
-        S₀ = referencetoground(ea.sinθ; params=params)
-        expterm = -k*(S₀ - 1)
-        txrxterm = txterm*rxterm[rxidx]
-
-        E += txrxterm*cis(expterm*x)
-    end
-
-    E *= Q/sqrt(abs(sin(x/params.earthradius)))
 
     return E
 end

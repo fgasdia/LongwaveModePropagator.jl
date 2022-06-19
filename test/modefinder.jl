@@ -286,8 +286,6 @@ function test_findmodes(scenario)
         isroot(f) || return f
         @test isroot(f)
     end
-
-    # return modes
 end
 
 ########

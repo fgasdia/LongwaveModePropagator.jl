@@ -52,6 +52,7 @@ function test_propagate_segmented(scenario)
     @test eltype(amp) == Float64
     @test eltype(phase) == Float64
 
+    # It's not entirely deterministic?
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
     @test E1 ≈ E    rtol=1e-3
     @test amp1 ≈ amp    rtol=1e-2
