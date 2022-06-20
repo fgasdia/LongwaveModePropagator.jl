@@ -3,7 +3,7 @@ using StaticArrays
 using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
 using JSON3, StructTypes, CSV
-using Interpolations, NLsolve, FiniteDiff
+using Interpolations, FiniteDiff, NLsolve
 
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME, distance, power
