@@ -18,10 +18,10 @@ include("utils.jl")
 #==
 Scenarios
 ==#
-const TEST_MODES = Dict{Any,Vector{EigenAngle}}()
+const TEST_MODES = Dict{Any,Vector{ComplexF64}}()
 
 const verticalB_scenario = (
-    ea=EigenAngle(1.5 - 0.1im),
+    ea=1.5-0.1im,
     bfield=BField(50e-6, π/2, 0),
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -32,7 +32,7 @@ const verticalB_scenario = (
 )
 
 const multiplespecies_scenario = (
-    ea=EigenAngle(1.5 - 0.1im),
+    ea=1.5-0.1im,
     bfield=BField(50e-6, π/2, 0),
     species=(
         Species(QE, ME,
@@ -48,7 +48,7 @@ const multiplespecies_scenario = (
 )
 
 const isotropicB_resonant_scenario = (
-    ea=EigenAngle(1.453098822238508 - 0.042008075239068944im),  # resonant
+    ea=1.453098822238508-0.042008075239068944im,  # resonant
     bfield=BField(50e-6, 0, π/2),
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -59,7 +59,7 @@ const isotropicB_resonant_scenario = (
 )
 
 const resonant_scenario = (
-    ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
+    ea=1.416127852502346-0.016482589477369265im,  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -70,7 +70,7 @@ const resonant_scenario = (
 )
 
 const resonant_elevatedrx_scenario = (
-    ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
+    ea=1.416127852502346-0.016482589477369265im,  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -81,7 +81,7 @@ const resonant_elevatedrx_scenario = (
 )
 
 const resonant_horizontal_scenario = (
-    ea=EigenAngle(1.416127852502346 - 0.016482589477369265im),  # resonant
+    ea=1.416127852502346-0.016482589477369265im,  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -92,7 +92,7 @@ const resonant_horizontal_scenario = (
 )
 
 const nonresonant_scenario = (
-    ea=EigenAngle(1.5 - 0.1im),
+    ea=1.5-0.1im,
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
                     z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -103,7 +103,7 @@ const nonresonant_scenario = (
 )
 
 const interp_scenario = (
-    ea=EigenAngle(1.5 - 0.1im),
+    ea=1.5-0.1im,
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
         LinearInterpolation(0:500:110e3, waitprofile.(0:500:110e3, (75,), (0.32,); cutoff_low=40e3); extrapolation_bc=Line()),
@@ -114,7 +114,7 @@ const interp_scenario = (
 )
 
 const homogeneousiono_scenario = (
-    ea=EigenAngle(1.4161252139020892 - 0.016348911573820547im),  # resonant
+    ea=1.4161252139020892-0.016348911573820547im,  # resonant
     bfield=BField(50e-6, deg2rad(68), deg2rad(111)),
     species=Species(QE, ME,
                     z->2.65e6,
@@ -125,7 +125,7 @@ const homogeneousiono_scenario = (
 )
 
 const segmented_scenario = (
-    ea=EigenAngle(1.5 - 0.1),
+    ea=1.5-0.1im,
     bfield=[BField(50e-6, deg2rad(68), deg2rad(111)), BField(50e-6, deg2rad(68), deg2rad(111))],
     species=[Species(QE, ME,
                      z->waitprofile(z, 75, 0.32; cutoff_low=40e3),
@@ -155,7 +155,6 @@ end
 
 
 @testset "LongwaveModePropagator" begin
-    include("EigenAngles.jl")
     include("Geophysics.jl")
     include("Waveguides.jl")
 

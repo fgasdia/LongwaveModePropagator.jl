@@ -7,7 +7,7 @@ related to calculating wavefields and vacuum reflection coefficients from the qu
 ==#
 
 """
-    bookerquartic(ea::EigenAngle, M)
+    bookerquartic(ea, M)
     bookerquartic(T::TMatrix)
 
 Compute roots `q` and the coefficients `B` of the Booker quartic described by the
@@ -21,8 +21,9 @@ susceptibility tensor `M` or `T` matrix.
 """
 bookerquartic
 
-function bookerquartic(ea::EigenAngle, M)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+function bookerquartic(ea, M)
+    S, C = sincos(ea)
+    C² = C^2
 
     # Precompute
     M11p1 = 1 + M[1,1]
@@ -78,7 +79,7 @@ function bookerquartic(T::TMatrix)
 end
 
 """
-    dbookerquartic(ea::EigenAngle, M, q, B)
+    dbookerquartic(ea, M, q, B)
     dbookerquartic(T::TMatrix, dT, q, B)
 
 Compute derivative `dq` of the Booker quartic roots `q` with respect to ``θ`` for the
@@ -86,11 +87,12 @@ ionosphere described by susceptibility tensor `M` or `T` matrix.
 """
 dbookerquartic
 
-function dbookerquartic(ea::EigenAngle, M, q, B)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+function dbookerquartic(ea, M, q, B)
+    S, C = sincos(ea)
+    C² = C^2
 
     dS = C
-    dC = -S
+    # dC = -S
     dC² = -2*S*C
 
     dB3 = dS*(M[1,3] + M[3,1])
@@ -185,8 +187,6 @@ function sortquarticroots!(q)
     # It looks like we could just `sort!(q, by=real)`, but the quadrants of each root are
     # not fixed and the positions in the Argand diagram are just approximate.
 
-    length(q) == 4 || @warn "length of `q` is not 4"
-
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
     # This is faster than `sort!(q, by=upgoing)`
@@ -224,7 +224,7 @@ function sortquarticroots!(q)
 end
 
 @doc raw"""
-    bookerwavefields(ea::EigenAngle, M)
+    bookerwavefields(ea, M)
     bookerwavefields(T::TMatrix)
 
 Compute the two-column wavefields matrix `e` from the ionosphere with susceptibility tensor
@@ -250,13 +250,13 @@ analytical solution is used where `e[2,:] = 1`.
 bookerwavefields
 
 function bookerwavefields(T::TMatrix)
-    q, B = bookerquartic(T)
+    q, _ = bookerquartic(T)
     sortquarticroots!(q)
     return bookerwavefields(T, q)
 end
 
-function bookerwavefields(ea::EigenAngle, M)
-    q, B = bookerquartic(ea, M)
+function bookerwavefields(ea, M)
+    q, _ = bookerquartic(ea, M)
     sortquarticroots!(q)
     T = tmatrix(ea, M)
     return bookerwavefields(T, q)
@@ -283,7 +283,7 @@ function bookerwavefields(T::TMatrix, q)
 end
 
 """
-    bookerwavefields(ea::EigenAngle, M, ::Dθ)
+    bookerwavefields(ea, M, ::Dθ)
     bookerwavefields(T::TMatrix, dT, ::Dθ)
 
 Compute the two-column wavefields matrix `e` as well as its derivative with respect to
@@ -297,7 +297,7 @@ function bookerwavefields(T::TMatrix, dT, ::Dθ)
     return bookerwavefields(T, dT, q, dq)
 end
 
-function bookerwavefields(ea::EigenAngle, M, ::Dθ)
+function bookerwavefields(ea, M, ::Dθ)
     q, B = bookerquartic(ea, M)
     sortquarticroots!(q)
     dq = dbookerquartic(ea, M, q, B)
@@ -342,8 +342,8 @@ function bookerwavefields(T::TMatrix, dT, q, dq)
 end
 
 @doc raw"""
-    bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
-    bookerreflection(ea::EigenAngle, e)
+    bookerreflection(ea, M::SMatrix{3,3})
+    bookerreflection(ea, e)
 
 Compute the ionosphere reflection coefficient matrix for a sharply bounded ionosphere from
 4×2 wavefields matrix `e` or the susceptibility matrix `M`.
@@ -411,8 +411,8 @@ For additional details, see [Budden1988], chapter 18, section 7.
 """
 bookerreflection
 
-function bookerreflection(ea::EigenAngle, e)
-    C = ea.cosθ
+function bookerreflection(ea, e)
+    C = cos(ea)
 
     # The order of the two upgoing waves doesn't matter. Swapping the first and second
     # columns of `e` will result in the same reflection coefficient matrix.
@@ -425,20 +425,20 @@ function bookerreflection(ea::EigenAngle, e)
     return R
 end
 
-function bookerreflection(ea::EigenAngle, M::SMatrix{3,3})
+function bookerreflection(ea, M::SMatrix{3,3})
     e = bookerwavefields(ea, M)
     return bookerreflection(ea, e)
 end
 
 """
-    bookerreflection(ea::EigenAngle, M, ::Dθ)
+    bookerreflection(ea, M, ::Dθ)
 
 Compute the ionosphere reflection coefficient matrix ``R`` for a sharply bounded
 ionosphere with susceptibility tensor `M`, as well as its derivative ``dR/dθ`` returned as
 the tuple `(R, dR)`.
 """
-function bookerreflection(ea::EigenAngle, M, ::Dθ)
-    S, C = ea.sinθ, ea.cosθ
+function bookerreflection(ea, M, ::Dθ)
+    S, C = sincos(ea)
 
     e, de = bookerwavefields(ea, M, Dθ())
 

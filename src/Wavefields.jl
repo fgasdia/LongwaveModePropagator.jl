@@ -17,16 +17,16 @@ accessed as a `Matrix` of `SVector{6,ComplexF64}` corresponding to `[height, mod
 struct Wavefields{H<:AbstractRange}
     v::Matrix{SVector{6,ComplexF64}}  # v[height,mode]  ; type is derived from typeof T, which is from M
     heights::H
-    eas::Vector{EigenAngle}
+    eas::Vector{ComplexF64}
 end
 
 """
-    Wavefields(heights, eas::Vector{EigenAngle})
+    Wavefields(heights, eas)
 
 A constructor for initializing `Wavefields` with an appropriately sized `undef` Matrix
 given eigenangles `eas` and `heights`.
 """
-function Wavefields(heights, eas::Vector{EigenAngle})
+function Wavefields(heights, eas)
     v = Matrix{SVector{6,ComplexF64}}(undef, length(heights), length(eas))
     return Wavefields(v, heights, eas)
 end
@@ -78,7 +78,7 @@ Parameters passed to Pitteway integration of wavefields [Pitteway1965].
 - `ortho_scalar::Complex{Float64}`: scalar for Gram-Schmidt orthogonalization.
 - `e1_scalar::Float64`: scalar for wavefield vector 1.
 - `e2_scalar::Float64`: scalar for wavefield vector 2.
-- `ea::EigenAngle`: wavefield eigenangle.
+- `ea`: wavefield eigenangle.
 - `frequency::Frequency`: electromagentic wave frequency in Hz.
 - `bfield::BField`: Earth's magnetic field in Tesla.
 - `species::S`: species in the ionosphere.
@@ -90,7 +90,7 @@ struct WavefieldIntegrationParams{S,T,T2,H}
     ortho_scalar::ComplexF64
     e1_scalar::Float64
     e2_scalar::Float64
-    ea::EigenAngle
+    ea::ComplexF64
     frequency::Frequency
     bfield::BField
     species::S
@@ -344,7 +344,7 @@ savevalues(u, t, integrator) = ScaleRecord(integrator.p.z,
                                            integrator.p.e2_scalar)
 
 """
-    integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+    integratewavefields(zs, ea, frequency::Frequency, bfield::BField,
         species; params=LMPParams())
 
 Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`.
@@ -352,7 +352,7 @@ Compute wavefields vectors `e` at `zs` by downward integration over heights `zs`
 `params.wavefieldintegrationparams` is used by this function rather than
 `params.integrationparams`.
 """
-function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+function integratewavefields(zs, ea, frequency::Frequency, bfield::BField,
     species; params=LMPParams(), unscale=true)
     # TODO: version that updates output `e` in place
 
@@ -460,7 +460,7 @@ boundaryscalars(R, Rg, e, isotropic::Bool=false) =
 
 """
     fieldstrengths!(EH, zs, me::ModeEquation; params=LMPParams())
-    fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+    fieldstrengths!(EH, zs, ea, frequency::Frequency, bfield::BField,
         species, ground::Ground; params=LMPParams())
 
 Compute ``(Ex, Ey, Ez, Hx, Hy, Hz)ᵀ`` wavefields vectors as elements of `EH` by fullwave
@@ -469,7 +469,7 @@ integration at each height in `zs`.
 The wavefields are scaled to satisfy the waveguide boundary conditions, which is only valid
 at solutions of the mode equation.
 """
-function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::BField,
+function fieldstrengths!(EH, zs, ea, frequency::Frequency, bfield::BField,
     species, ground::Ground; params=LMPParams())
 
     @assert length(EH) == length(zs)
@@ -481,7 +481,7 @@ function fieldstrengths!(EH, zs, ea::EigenAngle, frequency::Frequency, bfield::B
     Rg = fresnelreflection(ea, ground, frequency)
     b1, b2 = boundaryscalars(R, Rg, e[end], isisotropic(bfield))
 
-    S = ea.sinθ
+    S = sin(ea)
     @inbounds for i in eachindex(EH)
         M = susceptibility(zs[i], frequency, bfield, species; params=params)
 

@@ -15,12 +15,12 @@ Parameters for solving the physical mode equation ``\det(Rg*R - I)``.
 
 Fields:
 
-    - ea::EigenAngle
+    - ea::ComplexF64
     - frequency::Frequency
     - waveguide::W
 """
 struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
-    ea::EigenAngle
+    ea::ComplexF64
     frequency::Frequency
     waveguide::W
 end
@@ -28,22 +28,20 @@ end
 """
     PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide)
 
-Create a `PhysicalModeEquation` struct with `ea = complex(0.0)`.
+Create a `PhysicalModeEquation` struct with `ea = 0.0+0.0im`.
 
 See also: [`setea`](@ref)
 """
 PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
-    PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
+    PhysicalModeEquation(0.0+0.0im, f, w)
 
 """
     setea(ea, modeequation)
 
 Return `modeequation` with eigenangle `ea`.
-
-`ea` will be converted to an `EigenAngle` if necessary.
 """
 setea(ea, modeequation::PhysicalModeEquation) =
-    PhysicalModeEquation(EigenAngle(ea), modeequation.frequency, modeequation.waveguide)
+    PhysicalModeEquation(ea, modeequation.frequency, modeequation.waveguide)
 
 
 ##########
@@ -51,7 +49,7 @@ setea(ea, modeequation::PhysicalModeEquation) =
 ##########
 
 """
-    wmatrix(ea::EigenAngle, T)
+    wmatrix(ea, T)
 
 Compute the four submatrix elements of `W` used in the equation ``dR/dz`` from the
 ionosphere with `T` matrix returned as a tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
@@ -75,8 +73,9 @@ the upgoing and downgoing component waves.
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
-function wmatrix(ea::EigenAngle, T)
-    C, Cinv = ea.cosθ, ea.secθ
+function wmatrix(ea, T)
+    C = cos(ea)
+    Cinv = 1/C  # == sec(ea)
 
     # Precompute
     T12Cinv = T[1,2]*Cinv
@@ -145,14 +144,15 @@ function wmatrix(ea::EigenAngle, T)
 end
 
 """
-    dwmatrix(ea::EigenAngle, T, dT)
+    dwmatrix(ea, T, dT)
 
 Compute the four submatrix elements of ``dW/dθ`` returned as the tuple
 `(dW₁₁, dW₂₁, dW₁₂, dW₂₂)` from the ionosphere with `T` matrix and its derivative with
 respect to ``θ``, `dT`.
 """
-function dwmatrix(ea::EigenAngle, T, dT)
-    C, S, C², Cinv = ea.cosθ, ea.sinθ, ea.cos²θ, ea.secθ
+function dwmatrix(ea, T, dT)
+    S, C = sincos(ea)
+    Cinv = 1/C
     C²inv = Cinv^2
 
     dC = -S
@@ -321,7 +321,7 @@ end
 ##########
 
 """
-    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+    fresnelreflection(ea, ground::Ground, frequency::Frequency)
     fresnelreflection(m::PhysicalModeEquation)
 
 Compute the Fresnel reflection coefficient matrix for the ground-freespace interface at the
@@ -329,8 +329,9 @@ ground.
 """
 fresnelreflection
 
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
-    C, S² = ea.cosθ, ea.sin²θ
+function fresnelreflection(ea, ground::Ground, frequency::Frequency)
+    S, C = sincos(ea)
+    S² = S^2
     ω = frequency.ω
 
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
@@ -350,14 +351,15 @@ fresnelreflection(m::PhysicalModeEquation) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
 
 """
-    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+    fresnelreflection(ea, ground::Ground, frequency::Frequency, ::Dθ)
     fresnelreflection(m::PhysicalModeEquation, ::Dθ)
 
 Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
 with respect to ``θ`` returned as the tuple `(Rg, dRg)`.
 """
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
-    C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
+function fresnelreflection(ea, ground::Ground, frequency::Frequency, ::Dθ)
+    S, C = sincos(ea)
+    S² = S^2
     S2 = 2*S
     ω = frequency.ω
 
@@ -449,7 +451,7 @@ function solvemodalequation(θ, modeequation::PhysicalModeEquation;
     params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
 
     # Convenience function for `grpf`
-    modeequation = setea(EigenAngle(θ), modeequation)
+    modeequation = setea(θ, modeequation)
     solvemodalequation(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
 end
 
@@ -477,14 +479,14 @@ Set `θ` for `modeequation` and then solve the derivative of the mode equation w
 to `θ`.
 """
 function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
-    modeequation = setea(EigenAngle(θ), modeequation)
+    modeequation = setea(θ, modeequation)
     solvedmodalequation(modeequation; params=params)
 end
 
 """
     findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
 
-Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
+Find eigenangles associated with `modeequation.waveguide` within the domain of
 `mesh`.
 
 `mesh` should be an array of complex numbers that make up the original grid over which
@@ -524,7 +526,7 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     sort!(roots; by=reim, rev=true)
     unique!(z->round(z; digits=ndigits), roots)
 
-    return EigenAngle.(roots)
+    return roots
 end
 
 #==

@@ -21,8 +21,7 @@ export GRPFParams
 export propagate
 
 # EigenAngle.jl
-export EigenAngle
-export attenuation, phasevelocity, referencetoground, setea
+export attenuation, phasevelocity, referencetoground
 
 # Geophysics.jl
 export BField, Species, Fields, Ground, GROUND
@@ -37,6 +36,9 @@ export Receiver, Sampler, GroundSampler
 # Emitters.jl
 export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
 export inclination, azimuth
+
+# modeconversion.jl
+export setea
 
 # modefinder.jl
 export findmodes, PhysicalModeEquation
@@ -176,19 +178,19 @@ include("IO.jl")
 
 """
     propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-              modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing,
+              modes::Union{Nothing,Vector{ComplexF64}}=nothing, mesh=nothing,
               params=LMPParams())
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx`.
 
-Precomputed waveguide `modes` can optionally be provided as a `Vector{EigenAngle}`. By
+Precomputed waveguide `modes` can optionally be provided as a `Vector{ComplexF64}`. By
 default modes are found with [`findmodes`](@ref).
 
 If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing, unwrap=true,
+    modes::Union{Nothing,Vector{ComplexF64}}=nothing, mesh=nothing, unwrap=true,
     params=LMPParams())
 
     if isnothing(modes)
