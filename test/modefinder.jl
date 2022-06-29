@@ -113,10 +113,10 @@ function test_integratedreflection_vertical(scenario)
 
     # Let's also check with interpolation susceptibilityfcn here
     Mfcn = z -> LMP.susceptibility(z, me)
-    R2 = @inferred LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
+    R2 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
     
     Mfcn2 = LMP.susceptibilityspline(me)
-    R3 = @inferred LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
+    R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
     
     @test R2 == R
     @test maxabsdiff(R, R3) < 1e-6

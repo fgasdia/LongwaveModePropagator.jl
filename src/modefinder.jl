@@ -261,7 +261,7 @@ function of altitude `z` in meters.
 `params.integrationparams` are passed to `DifferentialEquations.jl`.
 """
 function integratedreflection(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))::SMatrix{2,2,ComplexF64,4}
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
