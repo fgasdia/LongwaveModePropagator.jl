@@ -71,7 +71,7 @@ function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle)
 end
 
 """
-    isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
+    isdetached(ea::EigenAngle, frequency; params=LMPParams())
 
 Return `true` if this is likely an earth detached (whispering gallery) mode according to the
 criteria in [Pappert1981] eq. 1 with the additional criteria that the frequency be
@@ -83,13 +83,13 @@ above 100 kHz.
     Ocean Systems Center, San Diego, CA, NOSC/TR-647, Jan. 1981.
     [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
 """
-function isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
-    C, C² = ea.cosθ, ea.cos²θ
-    f, k = frequency.f, frequency.k
+function isdetached(ea::EigenAngle, frequency; params=LMPParams())
+    C² = ea.cos²θ
+    k = frequency.k
     @unpack earthradius, curvatureheight = params
     α = 2/earthradius
 
-    return f > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
+    return frequency > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
 end
 
 """
@@ -115,15 +115,15 @@ function referencetoground(sinθ; params=LMPParams())
 end
 
 """
-    attenuation(ea, frequency::Frequency; params=LMPParams())
+    attenuation(ea, frequency)
 
-Compute attenuation of eigenangle `ea` at the ground.
+Compute attenuation of eigenangle `ea` at the ground for a wave `frequency` in Hertz.
 
 `ea` will be converted to an `EigenAngle` if needed.
 
 This function internally references `ea` to the ground.
 """
-function attenuation(ea, frequency::Frequency; params=LMPParams())
+function attenuation(ea, frequency)
     ea = EigenAngle(ea)
     S₀ = referencetoground(ea.sinθ)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB

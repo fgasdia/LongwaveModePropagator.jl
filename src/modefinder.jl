@@ -16,23 +16,23 @@ Parameters for solving the physical mode equation ``\det(Rg*R - I)``.
 Fields:
 
     - ea::EigenAngle
-    - frequency::Frequency
+    - frequency::Float64
     - waveguide::W
 """
 struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
     ea::EigenAngle
-    frequency::Frequency
+    frequency::Float64
     waveguide::W
 end
 
 """
-    PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide)
+    PhysicalModeEquation(f, w::HomogeneousWaveguide)
 
 Create a `PhysicalModeEquation` struct with `ea = complex(0.0)`.
 
 See also: [`setea`](@ref)
 """
-PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
+PhysicalModeEquation(f, w::HomogeneousWaveguide) =
     PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
 
 """
@@ -208,7 +208,7 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
 function dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
     @unpack ea, frequency = modeequation
 
-    k = frequency.k
+    k = wavenumber(frequency)
 
     M = susceptibilityfcn(z)
     T = tmatrix(ea, M)
@@ -231,7 +231,7 @@ function dRdθdz(RdRdθ, p, z)
     modeequation, params = p
     @unpack ea, frequency = modeequation
 
-    k = frequency.k
+    k = wavenumber(frequency)
 
     M = susceptibility(z, modeequation; params=params)
     T = tmatrix(ea, M)
@@ -321,17 +321,17 @@ end
 ##########
 
 """
-    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+    fresnelreflection(ea::EigenAngle, ground::Ground, frequency)
     fresnelreflection(m::PhysicalModeEquation)
 
 Compute the Fresnel reflection coefficient matrix for the ground-freespace interface at the
-ground.
+ground for a wave `frequency` in Hertz.
 """
 fresnelreflection
 
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+function fresnelreflection(ea::EigenAngle, ground::Ground, frequency)
     C, S² = ea.cosθ, ea.sin²θ
-    ω = frequency.ω
+    ω = angular(frequency)
 
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
 
@@ -350,16 +350,16 @@ fresnelreflection(m::PhysicalModeEquation) =
     fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
 
 """
-    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+    fresnelreflection(ea::EigenAngle, ground::Ground, frequency, ::Dθ)
     fresnelreflection(m::PhysicalModeEquation, ::Dθ)
 
 Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
 with respect to ``θ`` returned as the tuple `(Rg, dRg)`.
 """
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+function fresnelreflection(ea::EigenAngle, ground::Ground, frequency, ::Dθ)
     C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
     S2 = 2*S
-    ω = frequency.ω
+    ω = angular(frequency)
 
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
 
@@ -580,7 +580,6 @@ function defaultmesh(frequency;
 
     return mesh
 end
-defaultmesh(f::Frequency; kw...) = defaultmesh(f.f; kw...)
 
 """
     trianglemesh(zbl, ztr, Δr)
