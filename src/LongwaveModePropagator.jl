@@ -35,7 +35,7 @@ export ExponentialInput, TableInput, BatchInput, BasicOutput, BatchOutput
 export Receiver, Sampler, GroundSampler
 
 # Emitters.jl
-export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
+export Transmitter, Dipole, VerticalDipole, HorizontalDipole
 export inclination, azimuth
 
 # modefinder.jl

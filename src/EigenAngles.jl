@@ -85,7 +85,7 @@ above 100 kHz.
 """
 function isdetached(ea::EigenAngle, frequency; params=LMPParams())
     C² = ea.cos²θ
-    k = frequency.k
+    k = wavenumber(frequency)
     @unpack earthradius, curvatureheight = params
     α = 2/earthradius
 
@@ -127,7 +127,7 @@ function attenuation(ea, frequency)
     ea = EigenAngle(ea)
     S₀ = referencetoground(ea.sinθ)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
-    return -neper2dB*frequency.k*imag(S₀)*1e6
+    return -neper2dB*wavenumber(frequency)*imag(S₀)*1e6
 end
 
 """
