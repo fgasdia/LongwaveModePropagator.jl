@@ -277,7 +277,7 @@ function test_findmodes(scenario)
     @test length(modes) == length(modes2)
 
     # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
-    @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 5e-4 for i in 1:length(modes))
+    @test all(maxabsdiff(modes[i], modes2[i]) < 5e-4 for i in 1:length(modes))
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)
