@@ -168,7 +168,7 @@ function test_fresnelreflection(scenario)
     # PEC ground
     pec_ground = LMP.Ground(1, 1e12)
     vertical_ea = LMP.EigenAngle(π/2)
-    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
+    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, 24e3)
     @test isapprox(abs.(Rg), I; atol=1e-7)
 
     waveguide = HomogeneousWaveguide(bfield, species, ground)

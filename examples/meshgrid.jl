@@ -57,9 +57,9 @@ using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
 # We'll define four different [`PhysicalModeEquation`](@ref)'s that we'll use
 # throughout this example.
 
-lowfrequency = Frequency(10e3)
-midfrequency = Frequency(20e3)
-highfrequency = Frequency(100e3)
+lowfrequency = 10e3
+midfrequency = 20e3
+highfrequency = 100e3
 
 day = Species(QE, ME, z->waitprofile(z, 75, 0.35), electroncollisionfrequency)
 night = Species(QE, ME, z->waitprofile(z, 85, 0.9), electroncollisionfrequency)

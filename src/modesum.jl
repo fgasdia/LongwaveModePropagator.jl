@@ -65,8 +65,8 @@ factors where eigenangle `ea₀` is referenced to the ground.
 """
 function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPParams())
     S², C² = ea₀.sin²θ, ea₀.cos²θ
-    k, ω = frequency.k, frequency.ω
     ϵᵣ, σ = ground.ϵᵣ, ground.σ
+    k, ω = wavenumber(frequency), angular(frequency)
 
     @unpack earthradius = params
 
@@ -212,7 +212,7 @@ See also: [`excitationfactorconstants`](@ref)
 """
 function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
     C, C² = ea₀.cosθ, ea₀.cos²θ
-    k = frequency.k
+    k = wavenumber(frequency)
     @unpack F₁, F₂, F₃, F₄, Rg = efconstants
     @unpack earthradius, earthcurvature = params
 
@@ -395,7 +395,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
 
     txpower = power(tx)
     frequency = tx.frequency
-    k = frequency.k
+    k = wavenumber(frequency)
 
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
@@ -410,7 +410,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
         end
     end
 
-    Q = 0.6822408*sqrt(frequency.f*txpower)  # factor from lw_sum_modes.for
+    Q = 0.6822408*sqrt(frequency*txpower)  # factor from lw_sum_modes.for
     # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
     # Q *= 100 # for V/m to uV/m
 
@@ -435,12 +435,12 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
     rx::AbstractSampler{<:Real}; params=LMPParams())
 
     frequency = tx.frequency
-    k = frequency.k
+    k = wavenumber(frequency)
 
     txpower = power(tx)
     x = distance(rx, tx)
 
-    Q = 0.6822408*sqrt(frequency.f*txpower)
+    Q = 0.6822408*sqrt(frequency*txpower)
 
     # At transmitter (within 1 meter from it), E is complex NaN or Inf
     if x < 1
@@ -489,9 +489,9 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
     E = Vector{ComplexF64}(undef, Xlength)
 
     frequency = tx.frequency
-    k = frequency.k
+    k = wavenumber(frequency)
 
-    Q = 0.6822408*sqrt(frequency.f*tx.power)
+    Q = 0.6822408*sqrt(frequency*tx.power)
 
     # Initialize
     J = length(waveguide)

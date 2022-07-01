@@ -28,7 +28,7 @@ using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh, defaultm
 # Here we define the `HomogeneousWaveguide` from the second half of the
 # `segmented_scenario` known to have the missing roots.
 
-frequency = Frequency(24e3)
+frequency = 24e3
 electrons = Species(QE, ME, z->waitprofile(z, 80, 0.45), electroncollisionfrequency)
 waveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), electrons, Ground(15, 0.001))
 me = PhysicalModeEquation(frequency, waveguide)

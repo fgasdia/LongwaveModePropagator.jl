@@ -61,7 +61,6 @@ Fields
 ### Emitters
 
 ```@docs
-Frequency
 Transmitter
 Dipole
 VerticalDipole
