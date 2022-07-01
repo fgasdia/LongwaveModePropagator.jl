@@ -7,7 +7,7 @@ using Interpolations
 using LongwaveModePropagator
 using LongwaveModePropagator: StaticArrays, QE, ME
 const LMP = LongwaveModePropagator</code></pre><h2 id="R(z)"><a class="docs-heading-anchor" href="#R(z)">R(z)</a><a id="R(z)-1"></a><a class="docs-heading-anchor-permalink" href="#R(z)" title="Permalink"></a></h2><p>Let&#39;s examine the four reflection coefficients for the ionosphere as a function of height.</p><p>We will use a typical daytime ionosphere with a Wait and Spies (1964) profile and a wave frequency of 24 kHz. The background magnetic field will be vertical with a magnitude of 50,000 nT. We also need to specify the wave angle of incidence on the ionosphere. We&#39;ll use a real <span>$\theta = 75°$</span>.</p><pre><code class="language-julia hljs">species = Species(QE, ME, z-&gt;waitprofile(z, 75, 0.32), electroncollisionfrequency)
-frequency = Frequency(24e3)
+frequency = 24e3
 bfield = BField(50e-6, π/2, 0)
 ea = EigenAngle(deg2rad(75));</code></pre><p>We start the integration at a &quot;great height&quot;. For longwaves, anything above the D-region is fine. LongwaveModePropagator defaults to a <code>topheight</code> of 110 km.</p><pre><code class="language-julia hljs">topheight = 110e3
 Mtop = LMP.susceptibility(topheight, frequency, bfield, species)
@@ -25,7 +25,7 @@ nu = species.collisionfrequency.(zs)
 Wr = LMP.waitsparameter.(zs, (frequency,), (bfield,), (species,))
 
 altinterp = LinearInterpolation(reverse(Wr), reverse(zs))
-eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
+eqz = altinterp(2π*frequency)  # altitude where ω = ωᵣ
 
 ne[end] = NaN  # otherwise Plots errors
 Wr[end] = NaN
@@ -36,9 +36,9 @@ p1 = plot([ne nu Wr], zs/1000;
           labels=[&quot;Nₑ (m⁻³)&quot; &quot;ν (s⁻¹)&quot; &quot;ωᵣ = ωₚ²/ν&quot;], legend=:topleft,
           linewidth=1.5);
 
-vline!(p1, [frequency.ω]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
+vline!(p1, [2π*frequency]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
 hline!(p1, [eqz/1000]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quot;);
-annotate!(p1, frequency.ω, 10, text(&quot; ω&quot;, :left, 9));
+annotate!(p1, 2π*frequency, 10, text(&quot; ω&quot;, :left, 9));
 annotate!(p1, 70, eqz/1000-3, text(&quot;ωᵣ = ω&quot;, :left, 9));
 
 R11 = abs.(sol(zs; idxs=1))
@@ -57,7 +57,7 @@ hline!(p2, [eqz/1000]; linestyle=:dash, color=&quot;gray&quot;, label=&quot;&quo
 plot(p1, p2; layout=(1,2), size=(800, 400))
 savefig(&quot;integratedreflection_xyz.png&quot;); nothing # hide</code></pre><p><img src="integratedreflection_xyz.png" alt/></p><h2 id="Generate-random-scenarios"><a class="docs-heading-anchor" href="#Generate-random-scenarios">Generate random scenarios</a><a id="Generate-random-scenarios-1"></a><a class="docs-heading-anchor-permalink" href="#Generate-random-scenarios" title="Permalink"></a></h2><p>Now that we&#39;ve seen what the reflection coefficient functions look like, we&#39;ll focus on finding an accurate but efficient solver.</p><p>We will evaluate the solutions across a range of different random ionospheres, frequencies, and angles of incidence. Each scenario is described by a <a href="../../lib/public/#LongwaveModePropagator.PhysicalModeEquation"><code>PhysicalModeEquation</code></a>.</p><pre><code class="language-julia hljs">function generatescenarios(N)
     eas = EigenAngle.(complex.(rand(N)*(π/2-π/6) .+ π/6, rand(N)*deg2rad(-10)))
-    frequencies = Frequency.(rand(N)*50e3 .+ 10e3)
+    frequencies = rand(N)*50e3 .+ 10e3
 
     B = rand(30e-6:5e-7:60e-6, N)
     # avoiding within 1° from 0° dip angle
@@ -140,4 +140,4 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
 heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6;
         clims=(0, 5),
         xlabel=&quot;tolerance&quot;, ylabel=&quot;solver&quot;,
-        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">GKS: Rectangle definition is invalid in routine SET_VIEWPORT</code></pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best accuracy occurs with <code>Vern7</code> and experiment&#39;s we&#39;ve done looking at the sensitivity of the mode solutions to integration tolerance have shown we can get away with a tolerance of <code>1e-4</code>. To play it safe, the default used by LMP is <code>1e-5</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.19 on <span class="colophon-date" title="Thursday 30 June 2022 00:14">Thursday 30 June 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+        colorbar_title=&quot;time (μs)&quot;, colorbar=true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">GKS: Rectangle definition is invalid in routine SET_VIEWPORT</code></pre><p><img src="../integratedreflection_time.png" alt/></p><p>The best accuracy occurs with <code>Vern7</code> and experiment&#39;s we&#39;ve done looking at the sensitivity of the mode solutions to integration tolerance have shown we can get away with a tolerance of <code>1e-4</code>. To play it safe, the default used by LMP is <code>1e-5</code>. The integration accuracy improves considerably for relatively little additional computation time if the tolerance is changed to <code>1e-9</code>, but that accuracy is not required.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshgrid2/">« Mesh grid for mode finding - Part 2</a><a class="docs-footer-nextpage" href="../wavefieldintegration/">Wavefield integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.19 on <span class="colophon-date" title="Friday 1 July 2022 00:42">Friday 1 July 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
