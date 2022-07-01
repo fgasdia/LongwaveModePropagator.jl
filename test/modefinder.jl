@@ -8,7 +8,7 @@ function test_physicalmodeequation(scenario)
 
     me2 = PhysicalModeEquation(tx.frequency, waveguide)
     @test me2 isa PhysicalModeEquation
-    @test iszero(me2.ea)
+    @test iszero(me2.θ)
 
     @test LMP.setea(ea, me2) == me
 end

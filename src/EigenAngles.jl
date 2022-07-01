@@ -39,26 +39,26 @@ function referencetoground(θ; params=LMPParams())
 end
 
 """
-    attenuation(θ, frequency::Frequency; params=LMPParams())
+    attenuation(ea, frequency::Frequency; params=LMPParams())
 
-Compute attenuation of eigenangle `θ` at the ground.
+Compute attenuation of eigenangle `ea` at the ground.
 
-This function internally references `θ` to the ground.
+This function internally references `ea` to the ground.
 """
-function attenuation(θ, frequency::Frequency; params=LMPParams())
-    S₀ = referencetoground(θ; params)
+function attenuation(ea, frequency::Frequency; params=LMPParams())
+    S₀ = referencetoground(ea; params)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
     return -neper2dB*frequency.k*imag(S₀)*1e6
 end
 
 """
-    phasevelocity(θ; params=LMPParams())
+    phasevelocity(ea; params=LMPParams())
 
-Compute the relative phase velocity ``v/c`` associated with the eigenangle `θ`.
+Compute the relative phase velocity ``v/c`` associated with the eigenangle `ea`.
 
 This function internally references `θ` to the ground.
 """
-function phasevelocity(θ; params=LMPParams())
-    S₀ = referencetoground(θ; params)
+function phasevelocity(ea; params=LMPParams())
+    S₀ = referencetoground(ea; params)
     return 1/real(S₀)
 end

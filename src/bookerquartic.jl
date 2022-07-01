@@ -7,7 +7,7 @@ related to calculating wavefields and vacuum reflection coefficients from the qu
 ==#
 
 """
-    bookerquartic(ea, M)
+    bookerquartic(θ, M)
     bookerquartic(T::TMatrix)
 
 Compute roots `q` and the coefficients `B` of the Booker quartic described by the
@@ -21,8 +21,8 @@ susceptibility tensor `M` or `T` matrix.
 """
 bookerquartic
 
-function bookerquartic(ea, M)
-    S, C = sincos(ea)
+function bookerquartic(θ, M)
+    S, C = sincos(θ)
     C² = C^2
 
     # Precompute
@@ -79,7 +79,7 @@ function bookerquartic(T::TMatrix)
 end
 
 """
-    dbookerquartic(ea, M, q, B)
+    dbookerquartic(θ, M, q, B)
     dbookerquartic(T::TMatrix, dT, q, B)
 
 Compute derivative `dq` of the Booker quartic roots `q` with respect to ``θ`` for the
@@ -87,8 +87,8 @@ ionosphere described by susceptibility tensor `M` or `T` matrix.
 """
 dbookerquartic
 
-function dbookerquartic(ea, M, q, B)
-    S, C = sincos(ea)
+function dbookerquartic(θ, M, q, B)
+    S, C = sincos(θ)
     C² = C^2
 
     dS = C
@@ -224,7 +224,7 @@ function sortquarticroots!(q)
 end
 
 @doc raw"""
-    bookerwavefields(ea, M)
+    bookerwavefields(θ, M)
     bookerwavefields(T::TMatrix)
 
 Compute the two-column wavefields matrix `e` from the ionosphere with susceptibility tensor
@@ -255,10 +255,10 @@ function bookerwavefields(T::TMatrix)
     return bookerwavefields(T, q)
 end
 
-function bookerwavefields(ea, M)
-    q, _ = bookerquartic(ea, M)
+function bookerwavefields(θ, M)
+    q, _ = bookerquartic(θ, M)
     sortquarticroots!(q)
-    T = tmatrix(ea, M)
+    T = tmatrix(θ, M)
     return bookerwavefields(T, q)
 end
 
@@ -283,7 +283,7 @@ function bookerwavefields(T::TMatrix, q)
 end
 
 """
-    bookerwavefields(ea, M, ::Dθ)
+    bookerwavefields(θ, M, ::Dθ)
     bookerwavefields(T::TMatrix, dT, ::Dθ)
 
 Compute the two-column wavefields matrix `e` as well as its derivative with respect to
@@ -297,12 +297,12 @@ function bookerwavefields(T::TMatrix, dT, ::Dθ)
     return bookerwavefields(T, dT, q, dq)
 end
 
-function bookerwavefields(ea, M, ::Dθ)
-    q, B = bookerquartic(ea, M)
+function bookerwavefields(θ, M, ::Dθ)
+    q, B = bookerquartic(θ, M)
     sortquarticroots!(q)
-    dq = dbookerquartic(ea, M, q, B)
-    T = tmatrix(ea, M)
-    dT = dtmatrix(ea, M)
+    dq = dbookerquartic(θ, M, q, B)
+    T = tmatrix(θ, M)
+    dT = dtmatrix(θ, M)
 
     return bookerwavefields(T, dT, q, dq)
 end
@@ -342,8 +342,8 @@ function bookerwavefields(T::TMatrix, dT, q, dq)
 end
 
 @doc raw"""
-    bookerreflection(ea, M::SMatrix{3,3})
-    bookerreflection(ea, e)
+    bookerreflection(θ, M::SMatrix{3,3})
+    bookerreflection(θ, e)
 
 Compute the ionosphere reflection coefficient matrix for a sharply bounded ionosphere from
 4×2 wavefields matrix `e` or the susceptibility matrix `M`.
@@ -411,8 +411,8 @@ For additional details, see [Budden1988], chapter 18, section 7.
 """
 bookerreflection
 
-function bookerreflection(ea, e)
-    C = cos(ea)
+function bookerreflection(θ, e)
+    C = cos(θ)
 
     # The order of the two upgoing waves doesn't matter. Swapping the first and second
     # columns of `e` will result in the same reflection coefficient matrix.
@@ -425,22 +425,22 @@ function bookerreflection(ea, e)
     return R
 end
 
-function bookerreflection(ea, M::SMatrix{3,3})
-    e = bookerwavefields(ea, M)
-    return bookerreflection(ea, e)
+function bookerreflection(θ, M::SMatrix{3,3})
+    e = bookerwavefields(θ, M)
+    return bookerreflection(θ, e)
 end
 
 """
-    bookerreflection(ea, M, ::Dθ)
+    bookerreflection(θ, M, ::Dθ)
 
 Compute the ionosphere reflection coefficient matrix ``R`` for a sharply bounded
 ionosphere with susceptibility tensor `M`, as well as its derivative ``dR/dθ`` returned as
 the tuple `(R, dR)`.
 """
-function bookerreflection(ea, M, ::Dθ)
-    S, C = sincos(ea)
+function bookerreflection(θ, M, ::Dθ)
+    S, C = sincos(θ)
 
-    e, de = bookerwavefields(ea, M, Dθ())
+    e, de = bookerwavefields(θ, M, Dθ())
 
     D = SMatrix{2,2}(C*e[4,1]-e[1,1], -C*e[2,1]+e[3,1], C*e[4,2]-e[1,2], -C*e[2,2]+e[3,2])
     dD = SMatrix{2,2}(-S*e[4,1] + C*de[4,1] - de[1,1], S*e[2,1] - C*de[2,1] + de[3,1],
