@@ -4,7 +4,7 @@
 # are in radians).
 
 """
-    isdetached(θ, frequency::Frequency; params=LMPParams())
+    isdetached(θ, frequency; params=LMPParams())
 
 Return `true` if angle `θ` is likely an earth detached (whispering gallery) mode according to the
 criteria in [Pappert1981] eq. 1 with the additional criteria that the frequency be
@@ -16,12 +16,12 @@ above 100 kHz.
     Ocean Systems Center, San Diego, CA, NOSC/TR-647, Jan. 1981.
     [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
 """
-function isdetached(θ, frequency::Frequency; params=LMPParams())
+function isdetached(θ, frequency; params=LMPParams())
     @unpack earthradius, curvatureheight = params
 
     C = cos(θ)
     C² = C^2
-    f, k = frequency.f, frequency.k
+    k = wavenumber(frequency)
     α = 2/earthradius
 
     return frequency > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
@@ -45,7 +45,7 @@ Compute attenuation of eigenangle `ea` at the ground for a wave `frequency` in H
 
 This function internally references `ea` to the ground.
 """
-function attenuation(ea, frequency::Frequency; params=LMPParams())
+function attenuation(ea, frequency; params=LMPParams())
     ea₀ = referencetoground(ea; params)
     S₀ = sin(ea₀)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB

@@ -66,7 +66,6 @@ factors where eigenangle `ea₀` is referenced to the ground.
 function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPParams())
     S₀, C₀ = sincos(ea₀)
     S₀², C₀² = S₀^2, C₀^2
-    k, ω = frequency.k, frequency.ω
     ϵᵣ, σ = ground.ϵᵣ, ground.σ
     k, ω = wavenumber(frequency), angular(frequency)
 
