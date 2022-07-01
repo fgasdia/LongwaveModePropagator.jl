@@ -154,7 +154,8 @@ factor for electric fields can be found as:
 function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LMPParams())
     S = sin(ea)
     sqrtS = sqrt(S)
-    S₀ = referencetoground(ea; params)
+    ea₀ = referencetoground(ea; params)
+    S₀ = sin(ea₀)
 
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0, Rg = efconstants
 
@@ -405,7 +406,8 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
         txterm, rxterm = modeterms(modeequation, tx, rx; params)
 
-        S₀ = referencetoground(ea; params)
+        ea₀ = referencetoground(ea; params)
+        S₀ = sin(ea₀)
         expterm = -k*(S₀ - 1)
         txrxterm = txterm*rxterm
 
@@ -460,7 +462,8 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
         txterm, rxterm = modeterms(modeequation, tx, rx; params)
 
-        S₀ = referencetoground(ea; params)
+        ea₀ = referencetoground(ea; params)
+        S₀ = sin(ea₀)
         expterm = -k*(S₀ - 1)
         txrxterm = txterm*rxterm
 
@@ -560,7 +563,8 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
 
             totalfield = zero(eltype(E))
             for n = 1:N
-                S₀ = referencetoground(eas[n]; params)
+                ea₀ = referencetoground(eas[n]; params)
+                S₀ = sin(ea₀)
                 totalfield += rcvrfields[n]*cis(-k*x*(S₀ - 1))*factor
             end
 
@@ -577,7 +581,8 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
 
             resize!(previous_xmtrfields, N)
             for n = 1:N
-                S₀ = referencetoground(eas[n]; params)
+                ea₀ = referencetoground(eas[n]; params)
+                S₀ = sin(ea₀)
 
                 # Excitation factors at end of slab
                 xmtrfields[n] *= cis(-k*x*(S₀ - 1))

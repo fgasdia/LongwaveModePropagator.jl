@@ -28,14 +28,14 @@ function isdetached(θ, frequency::Frequency; params=LMPParams())
 end
 
 """
-    referencetoground(θ; params=LMPParams())
+    referencetoground(ea; params=LMPParams())
 
-Reference eigenangle `θ` from `params.curvatureheight` to ground (``z = 0``).
+Reference eigenangle `ea` from `params.curvatureheight` to ground (``z = 0``).
 """
-function referencetoground(θ; params=LMPParams())
+function referencetoground(ea; params=LMPParams())
     # see, e.g. PS71 pg 11
     @unpack earthradius, curvatureheight = params
-    return asin(sin(θ)/sqrt(1 - 2/earthradius*curvatureheight))
+    return asin(sin(ea)/sqrt(1 - 2/earthradius*curvatureheight))
 end
 
 """
@@ -46,7 +46,8 @@ Compute attenuation of eigenangle `ea` at the ground.
 This function internally references `ea` to the ground.
 """
 function attenuation(ea, frequency::Frequency; params=LMPParams())
-    S₀ = referencetoground(ea; params)
+    ea₀ = referencetoground(ea; params)
+    S₀ = sin(ea₀)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
     return -neper2dB*frequency.k*imag(S₀)*1e6
 end
@@ -59,6 +60,7 @@ Compute the relative phase velocity ``v/c`` associated with the eigenangle `ea`.
 This function internally references `θ` to the ground.
 """
 function phasevelocity(ea; params=LMPParams())
-    S₀ = referencetoground(ea; params)
+    ea₀ = referencetoground(ea; params)
+    S₀ = sin(ea₀)
     return 1/real(S₀)
 end
