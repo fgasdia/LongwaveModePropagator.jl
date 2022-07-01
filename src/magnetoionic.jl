@@ -46,8 +46,8 @@ correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where 
 function susceptibility(altitude, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
-    B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
-    ω = frequency.ω
+    _, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+    ω = angular(frequency)
 
     # Precompute constants (if multiple species)
     invω = inv(ω)

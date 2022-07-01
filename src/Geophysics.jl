@@ -276,9 +276,10 @@ gyrofrequency(q, m, B) = q*B/m
 gyrofrequency(s::Species, b::BField) = gyrofrequency(s.charge, s.mass, b.B)
 
 """
-    magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
+    magnetoionicparameters(z, frequency, bfield::BField, species::Species)
 
-Compute the magnetoionic parameters `X`, `Y`, and `Z` for height `z`.
+Compute the magnetoionic parameters `X`, `Y`, and `Z` for height `z` and wave `frequency` in
+Hertz.
 
 ```math
 X = N e² / (ϵ₀ m ω²)
@@ -299,9 +300,8 @@ Z = ν / ω
 [Ratcliffe1959]: J. A. Ratcliffe, "The magneto-ionic theory & its applications to the
     ionosphere," Cambridge University Press, 1959.
 """
-function magnetoionicparameters(z, frequency::Frequency, bfield::BField, species::Species)
-    m = species.mass
-    ω = frequency.ω
+function magnetoionicparameters(z, frequency, bfield::BField, species::Species)
+    ω = angular(frequency)
 
     invω = inv(ω)
     invE0ω = invω/E0
@@ -327,18 +327,18 @@ end
 end
 
 """
-    waitsparameter(z, frequency::Frequency, bfield::BField, species::Species)
+    waitsparameter(z, frequency, bfield::BField, species::Species)
 
-Compute Wait's conductivity parameter `Wr`.
+Compute Wait's conductivity parameter `Wr` for a wave of `frequency` in Hertz.
 
 ```math
 ωᵣ = Xω²/ν = ωₚ²/ν
 ```
 """
-function waitsparameter(z, frequency::Frequency, bfield::BField, species::Species)
-    X, Y, Z = magnetoionicparameters(z, frequency, bfield, species)
+function waitsparameter(z, frequency, bfield::BField, species::Species)
+    X, _, _ = magnetoionicparameters(z, frequency, bfield, species)
 
-    ω = frequency.ω
+    ω = angular(frequency)
     nu = species.collisionfrequency
 
     return X*ω^2/nu(z)

@@ -46,7 +46,7 @@ nothing  #hide
 # This can be specified as `GROUND[8]`.
 
 θ = deg2rad(40)
-frequency = Frequency(16e3)
+frequency = 16e3
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]
 
@@ -298,8 +298,8 @@ plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)
 #
 # First let's set up the new scenario.
 
-θ = 0
-frequency = Frequency(202e3)
+θ = complex(0.0)
+frequency = 202e3
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]
 nothing  #hide

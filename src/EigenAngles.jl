@@ -24,7 +24,7 @@ function isdetached(θ, frequency::Frequency; params=LMPParams())
     f, k = frequency.f, frequency.k
     α = 2/earthradius
 
-    return f > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
+    return frequency > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
 end
 
 """
@@ -39,9 +39,9 @@ function referencetoground(ea; params=LMPParams())
 end
 
 """
-    attenuation(ea, frequency::Frequency; params=LMPParams())
+    attenuation(ea, frequency)
 
-Compute attenuation of eigenangle `ea` at the ground.
+Compute attenuation of eigenangle `ea` at the ground for a wave `frequency` in Hertz.
 
 This function internally references `ea` to the ground.
 """
@@ -49,7 +49,7 @@ function attenuation(ea, frequency::Frequency; params=LMPParams())
     ea₀ = referencetoground(ea; params)
     S₀ = sin(ea₀)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
-    return -neper2dB*frequency.k*imag(S₀)*1e6
+    return -neper2dB*wavenumber(frequency)*imag(S₀)*1e6
 end
 
 """

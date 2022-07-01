@@ -32,24 +32,6 @@ using LongwaveModePropagator: QE, ME
 # 
 # We'll begin by looking at the related types that `Emitter`s and `Sampler`s rely on.
 #
-# ### Frequencies
-#
-# Throughout the code, the electromagnetic wave frequency is required in different
-# forms: as a temporal frequency, angular frequency, or a wave number or wavelength.
-# These are always defined in vacuum.
-#
-# For consistency and convenience, LongwaveModePropagator defines a [`Frequency`](@ref)
-# struct containing fields for:
-#
-# - frequency `f` in Hertz
-# - angular frequency `ω` in radians/sec
-# - wavenumber `k` in radians/meter
-# - wavelength `λ` in meters
-#
-# These fields are automatically calculated when passed a temporal frequency.
-
-frequency = Frequency(20e3)
-
 # ### Antennas
 #
 # LongwaveModePropagator computes the far field in the waveguide produced from
@@ -113,7 +95,7 @@ rad2deg(azimuth(hd))
 # - `latitude::Float64`: transmitter geographic latitude in degrees.
 # - `longitude::Float64`: transmitter geographic longitude in degrees.
 # - `antenna::Antenna`: transmitter antenna.
-# - `frequency::Frequency`: transmit frequency.
+# - `frequency::Float64`: transmit frequency in Hertz.
 # - `power::Float64`: transmit power in Watts.
 #
 # Note that currently `latitude` and `longitude` are not used.
