@@ -116,7 +116,7 @@ function test_integratedreflection_vertical(scenario)
     Mfcn2 = LMP.susceptibilityspline(me)
     R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
     
-    @test R2 == R
+    @test R2 ≈ R
     @test maxabsdiff(R, R3) < 1e-6
 end
 
@@ -213,8 +213,8 @@ function test_solvemodalequation(scenario)
     Mfcn2 = LMP.susceptibilityspline(me)
     f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
 
-    @test f == f3
-    @test maxabsdiff(f, f4) < 1e-3
+    @test f ≈ f3
+    @test abs(f - f4) < 1e-3
 end
 
 function test_modalequation_resonant(scenario)
