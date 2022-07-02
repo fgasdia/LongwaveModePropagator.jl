@@ -1,5 +1,5 @@
 function randomwavefields()
-    modes = EigenAngle.(rand(TEST_RNG, ComplexF64, 10))
+    modes = rand(TEST_RNG, ComplexF64, 10)
     heights = LMPParams().wavefieldheights
 
     v = rand(SVector{6,ComplexF64}, length(heights), length(modes))
