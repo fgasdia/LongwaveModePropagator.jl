@@ -111,29 +111,3 @@ susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
 
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
     susceptibility(altitude, frequency, w.bfield, w.species; params)
-
-"""
-    susceptibilityspline(frequency, bfield, species; params=LMPParams())
-    susceptibilityspline(frequency, w::HomogeneousWaveguide; params=LMPParams())
-    susceptibilityspline(me::ModeEquation; params=LMPParams())
-
-Construct a cubic interpolating spline of [`susceptibility`](@ref) and return the callable
-`Interpolations` type.
-
-`params.susceptibilitysplinestep` is the altitude step in meters used to construct the
-spline between `BOTTOMHEIGHT` and `params.topheight`.
-"""
-function susceptibilityspline(frequency, bfield, species; params=LMPParams())
-    zs = BOTTOMHEIGHT:params.susceptibilitysplinestep:params.topheight
-    Ms = susceptibility.(zs, (frequency,), (bfield,), (species,))
-
-    itp = CubicSplineInterpolation(zs, Ms)
-
-    return itp
-end
-
-susceptibilityspline(me::ModeEquation; params=LMPParams()) =
-    susceptibilityspline(me.frequency, me.waveguide; params)
-
-susceptibilityspline(frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibilityspline(frequency, w.bfield, w.species; params)

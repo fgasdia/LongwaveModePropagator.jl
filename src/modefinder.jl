@@ -184,10 +184,9 @@ function dwmatrix(θ, T, dT)
 end
 
 """
-    dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
+    dRdz(R, modeequation, z)
 
 Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
-`susceptibilityfcn` is a function returning the ionosphere susceptibility at height `z`.  
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
 a horizontally stratified ionosphere [Budden1955a], the differential of the
@@ -204,12 +203,12 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
+function dRdz(R, modeequation, z; params=LMPParams())
     @unpack θ, frequency = modeequation
 
     k = wavenumber(frequency)
 
-    M = susceptibilityfcn(z)
+    M = susceptibility(z, modeequation; params)
     T = tmatrix(θ, M)
     W11, W21, W12, W22 = wmatrix(θ, T)
 
@@ -249,18 +248,14 @@ function dRdθdz(RdRdθ, p, z)
 end
 
 """
-    integratedreflection(modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
+    integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
 
 Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` from
 `params.topheight`, returning the ionosphere reflection coefficient `R` at the ground.
-`susceptibilityfcn` is a function returning the ionosphere susceptibility tensor as a
-function of altitude `z` in meters.
 
 `params.integrationparams` are passed to `DifferentialEquations.jl`.
 """
-function integratedreflection(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))::SMatrix{2,2,ComplexF64,4}
+function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
@@ -268,7 +263,7 @@ function integratedreflection(modeequation::PhysicalModeEquation;
     Mtop = susceptibility(topheight, modeequation; params)
     Rtop = bookerreflection(modeequation.θ, Mtop)
 
-    prob = ODEProblem{false}((R,p,z)->dRdz(R,p,z,susceptibilityfcn), Rtop, (topheight, BOTTOMHEIGHT), modeequation)
+    prob = ODEProblem{false}((R,p,z)->dRdz(R,p,z; params), Rtop, (topheight, BOTTOMHEIGHT), modeequation)
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
@@ -421,19 +416,15 @@ function dmodalequation(R, dR, Rg, dRg)
 end
 
 """
-    solvemodalequation(modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
+    solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
 
 Compute the ionosphere and ground reflection coefficients and return the value of the
-determinental modal equation associated with `modeequation`. `susceptibilityfcn` is a
-function that returns the ionosphere susceptibility as a function of altitude `z` in meters.
+determinental modal equation associated with `modeequation`.
 
 See also: [`solvedmodalequation`](@ref)
 """
-function solvemodalequation(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
-
-    R = integratedreflection(modeequation; params, susceptibilityfcn=susceptibilityfcn)
+function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
+    R = integratedreflection(modeequation; params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
@@ -441,17 +432,13 @@ function solvemodalequation(modeequation::PhysicalModeEquation;
 end
 
 """
-    solvemodalequation(θ, modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
+    solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
 
 Set `θ` for `modeequation` and then solve the modal equation.
 """
-function solvemodalequation(θ, modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
-
-    # Convenience function for `grpf`
+function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
     modeequation = setea(θ, modeequation)
-    solvemodalequation(modeequation; params, susceptibilityfcn=susceptibilityfcn)
+    solvemodalequation(modeequation; params)
 end
 
 """
@@ -497,8 +484,8 @@ There is a check for redundant modes that requires modes to be separated by at l
 component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
 component of each mode must be separated by at least 1e-4 from every other mode.
 """
-function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
-    @unpack approxsusceptibility, grpfparams = params
+function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams(), refine=true)
+    @unpack grpfparams = params
 
     if isnothing(mesh)
         mesh = defaultmesh(modeequation.frequency)
@@ -508,14 +495,7 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     # is possible multiple identical modes will be identified. Checks for valid and
     # redundant modes help ensure valid eigenangles are returned from this function.
 
-    if approxsusceptibility
-        susceptibilityfcn = susceptibilityspline(modeequation; params)
-    else
-        susceptibilityfcn = z -> susceptibility(z, modeequation; params)
-    end
-
-    roots, _ = grpf(θ->solvemodalequation(θ, modeequation;
-        params, susceptibilityfcn=susceptibilityfcn), mesh, grpfparams)
+    roots, _ = grpf(θ->solvemodalequation(θ, modeequation; params), mesh, grpfparams)
 
     # Scale tolerance for filtering
     # if tolerance is 1e-8, this rounds to 7 decimal places

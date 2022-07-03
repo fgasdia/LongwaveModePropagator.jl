@@ -108,16 +108,6 @@ function test_integratedreflection_vertical(scenario)
     R = LMP.integratedreflection(me)
 
     @test R[1,2] ≈ R[2,1]
-
-    # Let's also check with interpolation susceptibilityfcn here
-    Mfcn = z -> LMP.susceptibility(z, me)
-    R2 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
-    
-    Mfcn2 = LMP.susceptibilityspline(me)
-    R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
-    
-    @test R2 ≈ R
-    @test maxabsdiff(R, R3) < 1e-6
 end
 
 function test_integratedreflection_deriv(scenario)
@@ -205,16 +195,6 @@ function test_solvemodalequation(scenario)
     me2 = PhysicalModeEquation(0.0+0.0im, tx.frequency, waveguide)
     f2 = LMP.solvemodalequation(ea, me2)
     @test f == f2
-
-    # Test with specified susceptibilityfcn
-    Mfcn = z -> LMP.susceptibility(z, me)
-    f3 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn)
-
-    Mfcn2 = LMP.susceptibilityspline(me)
-    f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
-
-    @test f ≈ f3
-    @test abs(f - f4) < 1e-3
 end
 
 function test_modalequation_resonant(scenario)
