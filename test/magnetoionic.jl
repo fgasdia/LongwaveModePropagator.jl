@@ -27,45 +27,11 @@ function test_susceptibility(scenario)
     @inferred LMP.susceptibility(70e3, tx.frequency, bfield, species)
 end
 
-function test_spline(scenario)
-    @unpack tx, bfield, species = scenario
-
-    itp = LMP.susceptibilityspline(tx.frequency, bfield, species)
-
-    zs = LMP.BOTTOMHEIGHT:1:LMPParams().topheight
-    Ms = LMP.susceptibility.(zs, (tx.frequency,), (bfield,), (species,))
-    Mitp = itp.(zs)
-
-    function matrix(M)
-        mat = Matrix{eltype(M[1])}(undef, length(M), 9)
-        for i in eachindex(M)
-            mat[i,:] = M[i]
-        end
-        return mat
-    end
-
-    @test matrix(Mitp) ≈ matrix(Ms) rtol=1e-5
-
-    # plot(matrix(real(Ms)), zs/1000, legend=false)
-    # plot!(matrix(real(Mitp)), zs/1000, linestyle=:dash)
-
-    # Mdiff = matrix(real(Ms)) .- matrix(real(Mitp))
-    # scaleddiff = Mdiff./matrix(real(Ms))
-    # plot(Mdiff, zs/1000, legend=false, ylims=(0,110))
-
-    # Make sure `params.susceptibilitysplinestep` is being used
-    itp2 = LMP.susceptibilityspline(tx.frequency, bfield, species; params=LMPParams(susceptibilitysplinestep=10.0))
-    itp3 = LMP.susceptibilityspline(tx.frequency, bfield, species; params=LMPParams(susceptibilitysplinestep=20.0))
-    @test itp == itp2
-    @test itp != itp3
-end
-
 @testset "magnetoionic.jl" begin
     @info "Testing magnetoionic"
 
     for scn in (verticalB_scenario, resonant_scenario, nonresonant_scenario,
             multiplespecies_scenario)
         test_susceptibility(scn)
-        test_spline(scn)
     end
 end

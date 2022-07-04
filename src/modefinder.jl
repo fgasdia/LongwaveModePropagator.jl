@@ -470,6 +470,36 @@ function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPP
 end
 
 """
+    secantmethod(θ₀, modeequation; params=LMPParams(), tolerance=1e-10, maxiter=200)
+
+Apply secant method to refine eigenangle `θ₀`. `tolerance` is the largest acceptable change
+in `θ` between iterations and `maxiter` is the maximum number of iterations before returning
+the refined eigenangle. 
+"""
+function secantmethod(θ₀, modeequation; params=LMPParams())
+    @unpack refineeigenangles_tolerance, refineeigenangles_maxiter = params
+    tolerance = refineeigenangles_tolerance
+    maxiter = refineeigenangles_maxiter
+
+    tolerance² = tolerance^2  # `abs2` is faster than `abs` for complex types
+    t = params.grpfparams.tolerance
+    δθ = complex(t, t)
+    θ₁ = θ₀ + δθ
+    iter = 0
+    let θ₂
+        while abs2(θ₁ - θ₀) > tolerance² && iter < maxiter
+            f₀ = solvemodalequation(θ₀, modeequation; params)
+            f₁ = solvemodalequation(θ₁, modeequation; params)
+            θ₂ = θ₁ - f₁*(θ₁ - θ₀)/(f₁ - f₀)
+            θ₀, θ₁ = θ₁, θ₂
+            iter += 1
+        end
+        iter >= maxiter && @warn "maxiter reached"
+        return θ₂
+    end
+end
+
+"""
     findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
 
 Find eigenangles associated with `modeequation.waveguide` within the domain of
@@ -481,11 +511,11 @@ it is computed with [`defaultmesh`](@ref).
 
 There is a check for redundant modes that requires modes to be separated by at least
 1 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
-component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
-component of each mode must be separated by at least 1e-4 from every other mode.
+component. For example, if `grpfparams.tolerance = 1e-4`, then either the real or imaginary
+component of each mode must be separated by at least 1e-3 radians from every other mode.
 """
-function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams(), refine=true)
-    @unpack grpfparams = params
+function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
+    @unpack grpfparams, refineeigenangles = params
 
     if isnothing(mesh)
         mesh = defaultmesh(modeequation.frequency)
@@ -498,12 +528,21 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams(),
     roots, _ = grpf(θ->solvemodalequation(θ, modeequation; params), mesh, grpfparams)
 
     # Scale tolerance for filtering
-    # if tolerance is 1e-8, this rounds to 7 decimal places
+    # if tolerance is 1e-4, this rounds to 3 decimal places
     ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
 
     # Remove any redundant modes
     sort!(roots; by=reim, rev=true)
     unique!(z->round(z; digits=ndigits), roots)
+
+    if refineeigenangles
+        # use higher tolerance for integrationparams
+        for i in eachindex(roots)
+            θ = secantmethod(roots[i], modeequation;
+                params=LMPParams(params; integrationparams=IntegrationParams(tolerance=1e-8)))
+            roots[i] = θ
+        end
+    end
 
     return roots
 end
