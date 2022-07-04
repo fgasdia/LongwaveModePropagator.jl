@@ -243,9 +243,11 @@ function test_findmodes(scenario)
     modes = @inferred findmodes(modeequation, origcoords; params=LMPParams(refineeigenangles=false))
     modes2 = findmodes(modeequation, origcoords; params=LMPParams(refineeigenangles=true))
     modes3 = @inferred findmodes(modeequation)
+    modes4 = findmodes(modeequation)
 
+    @test modes2 ≈ modes4
+    @test modes3 ≈ modes4
     @test length(modes) == length(modes2) == length(modes3)
-    @test modes ≈ modes3 atol=1e-5
 
     fparams = LMPParams(integrationparams=IntegrationParams(tolerance=1e-8))
     for m in modes
