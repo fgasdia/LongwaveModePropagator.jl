@@ -23,7 +23,7 @@ StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 [compat]
 DiffEqCallbacks = "2"
 FunctionWrappers = "1.1"
-Interpolations = "0.12,0.13"
+Interpolations = "0.12,0.13, 0.14"
 JSON3 = "1"
 ModifiedHankelFunctionsOfOrderOneThird = "1"
 OrdinaryDiffEq = "5,6"
