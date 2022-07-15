@@ -1,7 +1,7 @@
 name = "LongwaveModePropagator"
 uuid = "38c6559a-e0a7-48c6-827d-3f02e2d19cec"
 authors = ["Forrest Gasdia <EP-Guy@users.noreply.github.com>"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -23,7 +23,7 @@ StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 [compat]
 DiffEqCallbacks = "2"
 FunctionWrappers = "1.1"
-Interpolations = "0.12,0.13"
+Interpolations = "0.12 - 0.14"
 JSON3 = "1"
 ModifiedHankelFunctionsOfOrderOneThird = "1"
 OrdinaryDiffEq = "5,6"
