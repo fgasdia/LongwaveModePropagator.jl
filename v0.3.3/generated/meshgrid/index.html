@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Mesh grid for mode finding - Part 1 · LongwaveModePropagator</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LongwaveModePropagator</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../basic/">Introduction to defining scenarios</a></li><li><a class="tocitem" href="../io/">File-based I/O</a></li><li class="is-active"><a class="tocitem" href>Mesh grid for mode finding - Part 1</a><ul class="internal"><li><a class="tocitem" href="#Mode-equation"><span>Mode equation</span></a></li><li><a class="tocitem" href="#Exploring-the-mode-equation-phase"><span>Exploring the mode equation phase</span></a></li><li><a class="tocitem" href="#Global-complex-roots-and-poles-finding"><span>Global complex roots and poles finding</span></a></li></ul></li><li><a class="tocitem" href="../meshgrid2/">Mesh grid for mode finding - Part 2</a></li><li><a class="tocitem" href="../integratedreflection/">Solvers for ionosphere reflection coefficient</a></li><li><a class="tocitem" href="../wavefieldintegration/">Wavefield integration</a></li><li><a class="tocitem" href="../magneticfield/">Magnetic field direction</a></li><li><a class="tocitem" href="../interpretinghpbeta/">Interpreting h′ and β</a></li><li><a class="tocitem" href="../multiplespecies/">Multiple ionospheric species</a></li><li><a class="tocitem" href="../interpolatingfunctions/">Density and collision frequency as interpolating functions</a></li><li><a class="tocitem" href="../ground/">Ground</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../lib/public/">Public Interface</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Mesh grid for mode finding - Part 1</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Mesh grid for mode finding - Part 1</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/meshgrid.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Mesh-grid-for-mode-finding-Part-1"><a class="docs-heading-anchor" href="#Mesh-grid-for-mode-finding-Part-1">Mesh grid for mode finding - Part 1</a><a id="Mesh-grid-for-mode-finding-Part-1-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-grid-for-mode-finding-Part-1" title="Permalink"></a></h1><p>The <a href="https://doi.org/10.1109/TAP.2018.2869213">Global complex Roots and Poles Finding</a> (GRPF) algorithm searches for roots and poles of complex-valued functions by sampling the function at the nodes of a regular mesh and analyzing the function&#39;s complex phase. The mesh search region can be arbitrarily shaped and guarantees that none of the roots/poles can be missed as long as the mesh step is sufficiently small. Specifically, the phase change of the function value cannot exceed three quadrants across mesh edges. Effectively this means there cannot be equal numbers of roots and poles within the boundary of each identified candidate region.</p><p>Because the GRPF algorithm uses an adaptive meshing process, the initial mesh node spacing can actually be greater than the distance between the roots/poles of the function, but there is no established method for <em>a priori</em> estimation of the required initial sampling of an arbitrary function. The GRPF algorithm is implemented in <a href="https://github.com/fgasdia/RootsAndPoles.jl">RootsAndPoles.jl</a> and used by LongwaveModePropagator to identify eigenangles of <a href="../../lib/public/#LongwaveModePropagator.HomogeneousWaveguide"><code>HomogeneousWaveguide</code></a>&#39;s. Therefore, we must experimentally determine a sufficient initial mesh grid spacing to identify roots of the mode equation.</p><h2 id="Mode-equation"><a class="docs-heading-anchor" href="#Mode-equation">Mode equation</a><a id="Mode-equation-1"></a><a class="docs-heading-anchor-permalink" href="#Mode-equation" title="Permalink"></a></h2><p>The criteria for mode propagation in the Earth-ionosphere waveguide is described by the fundamental equation of mode theory</p><p class="math-container">\[\det(\overline{\bm{R}}(\theta)\bm{R}(\theta) - \bm{I}) = 0\]</p><p>where <span>$\overline{\bm{R}}(\theta)$</span> is the reflection coefficient matrix for the ground and <span>$\bm{R}(\theta)$</span> is the reflection coefficient of the ionosphere. Both are functions of the complex angle <span>$\theta$</span>. The discrete values of <span>$\theta$</span> for which the fundamental equation is satisfied are known as <em>eigenangles</em>.</p><p>First, import the necessary packages.</p><pre><code class="language-julia hljs">using Plots
+using Plots.Measures
+using RootsAndPoles
+
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh</code></pre><h2 id="Exploring-the-mode-equation-phase"><a class="docs-heading-anchor" href="#Exploring-the-mode-equation-phase">Exploring the mode equation phase</a><a id="Exploring-the-mode-equation-phase-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-the-mode-equation-phase" title="Permalink"></a></h2><p>The U.S. Navy&#39;s Long Wavelength Propagation Capability (LWPC) searches the region of the complex plane from 30° to 90° in the real axis and 0° to -10° in the imaginary axis. The lowest order modes are nearest 90° - i0°, excluding 90°. Modes with large negative imaginary components are highly attenuated and have relatively little affect on the total field in the waveguide.</p><p>Let&#39;s begin by exploring the modal equation phase on a fine grid across the bottom right complex quadrant.</p><p>We&#39;ll define four different <a href="../../lib/public/#LongwaveModePropagator.PhysicalModeEquation"><code>PhysicalModeEquation</code></a>&#39;s that we&#39;ll use throughout this example.</p><pre><code class="language-julia hljs">lowfrequency = 10e3
+midfrequency = 20e3
+highfrequency = 100e3
+
+day = Species(QE, ME, z-&gt;waitprofile(z, 75, 0.35), electroncollisionfrequency)
+night = Species(QE, ME, z-&gt;waitprofile(z, 85, 0.9), electroncollisionfrequency)
+
+daywaveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), day, GROUND[5])
+nightwaveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), night, GROUND[5])
+
+day_low_me = PhysicalModeEquation(lowfrequency, daywaveguide)
+day_mid_me = PhysicalModeEquation(midfrequency, daywaveguide)
+day_high_me = PhysicalModeEquation(highfrequency, daywaveguide)
+
+night_mid_me = PhysicalModeEquation(midfrequency, nightwaveguide)
+
+day_low_title = &quot;10 kHz\nh′: 75, β: 0.35&quot;
+day_mid_title = &quot;20 kHz\nh′: 75, β: 0.35&quot;
+day_high_title = &quot;100 kHz\nh′: 75, β: 0.35&quot;
+night_mid_title = &quot;20 kHz\nh′: 85, β: 0.9&quot;</code></pre><p>Here we define a dense rectangular mesh.</p><pre><code class="language-julia hljs">Δr = 0.2
+x = 0:Δr:90
+y = -40:Δr:0
+mesh = x .+ im*y&#39;;</code></pre><p>Now we simply iterate over each node of the mesh, evaluating the modal equation with <a href="../../lib/internals/#LongwaveModePropagator.solvemodalequation-Tuple{Any, PhysicalModeEquation}"><code>LongwaveModePropagator.solvemodalequation</code></a>, explicitly imported from LongwaveModePropagator above. We use Julia&#39;s <code>Threads.@threads</code> multithreading capability to speed up the computation.</p><pre><code class="language-julia hljs">function modeequationphase(me, mesh)
+    phase = Vector{Float64}(undef, length(mesh))
+    Threads.@threads for i in eachindex(mesh)
+        f = solvemodalequation(deg2rad(mesh[i]), me)
+        phase[i] = rad2deg(angle(f))
+    end
+    return phase
+end
+
+phase = modeequationphase(day_mid_me, mesh);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Instability detected. Aborting
+└ @ SciMLBase ~/.julia/packages/SciMLBase/cGK2b/src/integrator_interface.jl:429</code></pre><p>If an instability occurs in the integration of the reflection coefficient, it likely happened at the angle 90° + i0°, which is not a valid mode. This isn&#39;t a problem for plotting though!</p><p>Plotting the results, we can see that there are clearly identifiable locations where white, black, blue, and orange, each representing a different quadrant of the complex plane, all meet. Each of these locations are either a root or pole in the daytime ionosphere.</p><pre><code class="language-julia hljs">heatmap(x, y, reshape(phase, length(x), length(y))&#39;;
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-40, 0),
+        xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
+        title=day_mid_title,
+        right_margin=2mm)</code></pre><p><img src="../meshgrid_20kday.png" alt/></p><p>We can zoom in to the upper right corner of the plot to see the lowest order modes:</p><pre><code class="language-julia hljs">heatmap(x, y, reshape(phase, length(x), length(y))&#39;;
+        color=:twilight, clims=(-180, 180),
+        xlims=(30, 90), ylims=(-10, 0),
+        xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
+        title=day_mid_title,
+        right_margin=2mm)</code></pre><p><img src="../meshgrid_20kdayzoom.png" alt/></p><p>If we switch to a nighttime ionosphere with a high Wait β parameter, we see that the roots move closer to the axes. A perfectly reflecting conductor has eigenangles along the real and complex axes.</p><pre><code class="language-julia hljs">phase = modeequationphase(night_mid_me, mesh);
+
+heatmap(x, y, reshape(phase, length(x), length(y))&#39;;
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-40, 0),
+        xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
+        title=night_mid_title,
+        right_margin=2mm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Instability detected. Aborting
+└ @ SciMLBase ~/.julia/packages/SciMLBase/cGK2b/src/integrator_interface.jl:429</code></pre><p><img src="../meshgrid_20knight.png" alt/></p><p>At lower frequencies, the roots/poles move further apart.</p><pre><code class="language-julia hljs">phase = modeequationphase(day_low_me, mesh);
+
+heatmap(x, y, reshape(phase, length(x), length(y))&#39;;
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-40, 0),
+        xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
+        title=day_low_title,
+        right_margin=2mm)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Instability detected. Aborting
+└ @ SciMLBase ~/.julia/packages/SciMLBase/cGK2b/src/integrator_interface.jl:429</code></pre><p><img src="../meshgrid_10kday.png" alt/></p><h2 id="Global-complex-roots-and-poles-finding"><a class="docs-heading-anchor" href="#Global-complex-roots-and-poles-finding">Global complex roots and poles finding</a><a id="Global-complex-roots-and-poles-finding-1"></a><a class="docs-heading-anchor-permalink" href="#Global-complex-roots-and-poles-finding" title="Permalink"></a></h2><p>The global complex roots and poles finding (GRPF) algorithm is most efficient when the initial mesh grid consists of equilateral triangles. Such a grid can be produced with the <code>rectangulardomain</code> function from RootsAndPoles, but as seen in the evaluation of the modal equation above, no roots or poles appear in the lower right diagonal half of the domain. Even if they did, they would correspond to highly attenuated modes. Therefore, to save compute time, we can exclude the lower right triangle of the domain from the initial mesh.</p><p>The function <a href="../../lib/internals/#LongwaveModePropagator.trianglemesh-Tuple{Any, Any, Any}"><code>LongwaveModePropagator.trianglemesh</code></a> is built into LongwaveModePropagator for this purpose. The inputs are specified by the complex bottom left corner <code>zbl</code>, the top right corner <code>ztr</code>, and the mesh spacing <code>Δr</code> in <em>radians</em>.</p><pre><code class="language-julia hljs">zbl = deg2rad(complex(30.0, -10.0))
+ztr = deg2rad(complex(89.9, 0.0))
+Δr = deg2rad(0.5)
+
+mesh = trianglemesh(zbl, ztr, Δr);</code></pre><p>We convert back to degrees just for plotting. Here&#39;s a zoomed in portion of the upper right of the domain.</p><pre><code class="language-julia hljs">meshdeg = rad2deg.(mesh)
+
+img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
+           xlims=(80, 90), ylims=(-10, 0),
+           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;,
+           legend=false, size=(450,375));
+plot!(img, [80, 90], [0, 0]; color=&quot;red&quot;);
+plot!(img, [0, 90], [-90, 0]; color=&quot;red&quot;)</code></pre><p><img src="../meshgrid_trianglemesh.png" alt/></p><p>Now let&#39;s apply <code>grpf</code> to the modal equation on the triangle mesh. <code>grpf</code> adaptively refines the mesh to obtain a more accurate estimate of the position of the roots and poles.</p><p><a href="../../lib/public/#LongwaveModePropagator.LMPParams"><code>LMPParams</code></a> is a struct use for passing parameters across LongwaveModePropagator. Default values are automatically inserted when instantiating the struct. We&#39;ll extract the <code>grpfparams</code> field which contains a <code>GRPFParams</code> struct for passing to <code>grpf</code>.</p><p>We will also pass RootsAndPoles&#39; <code>PlotData()</code> argument to obtain additional information on the function phase for plotting.</p><pre><code class="language-julia hljs">params = LMPParams().grpfparams
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, day_mid_me),
+                                                  mesh, PlotData(), params);</code></pre><p>The <code>getplotdata</code> function, provided by RootsAndPoles, is a convenience function for plotting a color-coded tesselation from <code>grpf</code> based on the phase of the function.</p><pre><code class="language-julia hljs">z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+twilightquads = [
+    colorant&quot;#9E3D36&quot;,
+    colorant&quot;#C99478&quot;,
+    colorant&quot;#7599C2&quot;,
+    colorant&quot;#5C389E&quot;,
+    colorant&quot;#404040&quot;,
+    RGB(0.0, 0.0, 0.0)
+]
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(30, 90), ylims=(-10, 0),
+           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
+           title=day_mid_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_20kdaymesh.png" alt/></p><p>In the plot above, roots are marked with red circles and poles are marked with red triangles. The automatic refinement of the mesh is clearly visible.</p><p>Here are similar plots for the other three scenarios.</p><pre><code class="language-julia hljs"># Daytime ionosphere, low frequency
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, day_low_me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(30, 90), ylims=(-10, 0),
+           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
+           title=day_low_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_10kdaymesh.png" alt/></p><p>At 100 kHz, <code>grpf</code> requires more mesh refinements and takes considerably more time to run.</p><pre><code class="language-julia hljs"># Daytime ionosphere, high frequency
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, day_high_me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(30, 90), ylims=(-10, 0),
+           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
+           title=day_high_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_100kdaymesh.png" alt/></p><pre><code class="language-julia hljs"># Nighttime ionosphere, 20 kHz
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, night_mid_me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(30, 90), ylims=(-10, 0),
+           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
+           title=night_mid_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_20knightmesh.png" alt/></p><p>The example continues in <a href="../meshgrid2/#Mesh-grid-for-mode-finding-Part-2">Mesh grid for mode finding - Part 2</a>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« File-based I/O</a><a class="docs-footer-nextpage" href="../meshgrid2/">Mesh grid for mode finding - Part 2 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.21 on <span class="colophon-date" title="Thursday 21 July 2022 01:55">Thursday 21 July 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
