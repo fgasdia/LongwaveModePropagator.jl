@@ -59,9 +59,9 @@ nothing  #hide
 # We'll use a real ``\theta = 75°``.
 
 species = Species(QE, ME, z->waitprofile(z, 75, 0.32), electroncollisionfrequency)
-frequency = Frequency(24e3)
+frequency = 24e3
 bfield = BField(50e-6, π/2, 0)
-ea = EigenAngle(deg2rad(75));
+θ = deg2rad(75);
 
 # We start the integration at a "great height".
 # For longwaves, anything above the D-region is fine.
@@ -69,7 +69,7 @@ ea = EigenAngle(deg2rad(75));
 
 topheight = 110e3
 Mtop = LMP.susceptibility(topheight, frequency, bfield, species)
-Rtop = LMP.bookerreflection(ea, Mtop)
+Rtop = LMP.bookerreflection(θ, Mtop)
 
 # The starting solution `Rtop` comes from a solution of the Booker quartic for the
 # wavefields at `topheight`.
@@ -81,7 +81,7 @@ Rtop = LMP.bookerreflection(ea, Mtop)
 
 ground = GROUND[1]
 waveguide = HomogeneousWaveguide(bfield, species, ground)
-me = PhysicalModeEquation(ea, frequency, waveguide);
+me = PhysicalModeEquation(θ, frequency, waveguide);
 
 # Then we simply define the `ODEProblem` and `solve`.
 
@@ -100,7 +100,7 @@ nu = species.collisionfrequency.(zs)
 Wr = LMP.waitsparameter.(zs, (frequency,), (bfield,), (species,))
 
 altinterp = LinearInterpolation(reverse(Wr), reverse(zs))
-eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
+eqz = altinterp(2π*frequency)  # altitude where ω = ωᵣ
 
 ne[end] = NaN  # otherwise Plots errors
 Wr[end] = NaN
@@ -111,9 +111,9 @@ p1 = plot([ne nu Wr], zs/1000;
           labels=["Nₑ (m⁻³)" "ν (s⁻¹)" "ωᵣ = ωₚ²/ν"], legend=:topleft,
           linewidth=1.5);
 
-vline!(p1, [frequency.ω]; linestyle=:dash, color="gray", label="");
+vline!(p1, [2π*frequency]; linestyle=:dash, color="gray", label="");
 hline!(p1, [eqz/1000]; linestyle=:dash, color="gray", label="");
-annotate!(p1, frequency.ω, 10, text(" ω", :left, 9));
+annotate!(p1, 2π*frequency, 10, text(" ω", :left, 9));
 annotate!(p1, 70, eqz/1000-3, text("ωᵣ = ω", :left, 9));
 
 R11 = abs.(sol(zs; idxs=1))
@@ -145,8 +145,8 @@ plot(p1, p2; layout=(1,2), size=(800, 400))
 # Each scenario is described by a [`PhysicalModeEquation`](@ref).
 
 function generatescenarios(N)
-    eas = EigenAngle.(complex.(rand(N)*(π/2-π/6) .+ π/6, rand(N)*deg2rad(-10)))
-    frequencies = Frequency.(rand(N)*50e3 .+ 10e3)
+    θs = complex.(rand(N)*(π/2-π/6) .+ π/6, rand(N)*deg2rad(-10))
+    frequencies = rand(N)*50e3 .+ 10e3
 
     B = rand(30e-6:5e-7:60e-6, N)
     ## avoiding within 1° from 0° dip angle
@@ -162,7 +162,7 @@ function generatescenarios(N)
         ground = GROUND[5]  ## not used in integration of R
         waveguide = HomogeneousWaveguide(bfields[i], species, ground)
 
-        me = PhysicalModeEquation(eas[i], frequencies[i], waveguide)
+        me = PhysicalModeEquation(θs[i], frequencies[i], waveguide)
         scenarios[i] = me
     end
 

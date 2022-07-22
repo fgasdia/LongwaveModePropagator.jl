@@ -21,8 +21,7 @@ export GRPFParams
 export propagate
 
 # EigenAngle.jl
-export EigenAngle
-export attenuation, phasevelocity, referencetoground, setea
+export attenuation, phasevelocity, referencetoground
 
 # Geophysics.jl
 export BField, Species, Fields, Ground, GROUND
@@ -35,8 +34,11 @@ export ExponentialInput, TableInput, BatchInput, BasicOutput, BatchOutput
 export Receiver, Sampler, GroundSampler
 
 # Emitters.jl
-export Transmitter, Dipole, VerticalDipole, HorizontalDipole, Frequency
+export Transmitter, Dipole, VerticalDipole, HorizontalDipole
 export inclination, azimuth
+
+# modeconversion.jl
+export setea
 
 # modefinder.jl
 export findmodes, PhysicalModeEquation
@@ -176,19 +178,19 @@ include("IO.jl")
 
 """
     propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-              modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing,
+              modes::Union{Nothing,Vector{ComplexF64}}=nothing, mesh=nothing,
               params=LMPParams())
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx`.
 
-Precomputed waveguide `modes` can optionally be provided as a `Vector{EigenAngle}`. By
+Precomputed waveguide `modes` can optionally be provided as a `Vector{ComplexF64}`. By
 default modes are found with [`findmodes`](@ref).
 
 If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
 mode finding algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
-    modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing, unwrap=true,
+    modes::Union{Nothing,Vector{ComplexF64}}=nothing, mesh=nothing, unwrap=true,
     params=LMPParams())
 
     if isnothing(modes)
@@ -202,10 +204,10 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
         end
 
         modeequation = PhysicalModeEquation(tx.frequency, waveguide)
-        modes = findmodes(modeequation, mesh; params=params)
+        modes = findmodes(modeequation, mesh; params)
     end
 
-    E = Efield(modes, waveguide, tx, rx; params=params)
+    E = Efield(modes, waveguide, tx, rx; params)
 
     amplitude, phase = amplitudephase(E)
 
@@ -249,7 +251,7 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
         modeequation = PhysicalModeEquation(tx.frequency, wvg)
 
-        modes = findmodes(modeequation, mesh; params=params)
+        modes = findmodes(modeequation, mesh; params)
 
         # adjoint wavefields are wavefields through adjoint waveguide, but for same modes
         # as wavefield
@@ -259,13 +261,13 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         adjwavefields = Wavefields(params.wavefieldheights, modes)
 
         calculate_wavefields!(wavefields, adjwavefields, tx.frequency, wvg, adjwvg;
-                              params=params)
+                              params)
 
         wavefields_vec[j] = wavefields
         adjwavefields_vec[j] = adjwavefields
     end
 
-    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=params)
+    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params)
 
     # Efield for SegmentedWaveguides doesn't have a specialized form for AbstractSamplers
     # of Number type, but for consistency we will return scalar E.
@@ -308,9 +310,9 @@ function propagate(file::AbstractString, outfile=missing; incrementalwrite=false
     if incrementalwrite
         s isa BatchInput || throw(ArgumentError("incrementalwrite only supported for"*
                                                 "BatchInput files"))
-        output = buildrunsave(outfile, s; append=append, mesh=mesh, unwrap=unwrap, params=params)
+        output = buildrunsave(outfile, s; append=append, mesh=mesh, unwrap=unwrap, params)
     else
-        output = buildrun(s; mesh=mesh, unwrap=unwrap, params=params)
+        output = buildrun(s; mesh=mesh, unwrap=unwrap, params)
 
         json_str = JSON3.write(output)
 

@@ -8,16 +8,15 @@ function test_physicalmodeequation(scenario)
 
     me2 = PhysicalModeEquation(tx.frequency, waveguide)
     @test me2 isa PhysicalModeEquation
-    @test iszero(me2.ea.θ)
+    @test iszero(me2.θ)
 
     @test LMP.setea(ea, me2) == me
-    @test LMP.setea(ea.θ, me2) == me
 end
 
 function test_wmatrix(scenario)
     @unpack ea, tx, bfield, species = scenario
 
-    C = ea.cosθ
+    C = cos(ea)
     L = @SMatrix [C 0 -C 0;
                   0 -1 0 -1;
                   0 -C 0 C;
@@ -37,10 +36,9 @@ function test_wmatrix_deriv(scenario)
 
     for i = 1:4
         for j = 1:4
-            Wfcn(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M); LMP.wmatrix(ea, T)[i][j])
+            Wfcn(θ) = (T = LMP.tmatrix(θ, M); LMP.wmatrix(θ, T)[i][j])
             dWref = FiniteDiff.finite_difference_derivative(Wfcn, θs, Val{:central})
-            dW(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M);
-                     dT = LMP.dtmatrix(ea, M); LMP.dwmatrix(ea, T, dT)[i][j])
+            dW(θ) = (T = LMP.tmatrix(θ, M); dT = LMP.dtmatrix(θ, M); LMP.dwmatrix(θ, T, dT)[i][j])
 
             @test maxabsdiff(dW.(θs), dWref) < 1e-3
         end
@@ -86,13 +84,13 @@ function test_dRdθdz(scenario)
     z = params.topheight - 500
 
     for i = 1:4
-        dRfcn(θ) = (ea = EigenAngle(θ); Rtop = LMP.bookerreflection(ea, Mtop);
-            me = LMP.setea(ea, me); LMP.dRdz(Rtop, me, z)[i])
+        dRfcn(θ) = (Rtop = LMP.bookerreflection(θ, Mtop); me = LMP.setea(θ, me);
+                LMP.dRdz(Rtop, me, z)[i])
         dRdθref = FiniteDiff.finite_difference_derivative(dRfcn, θs, Val{:central})
-        dRdθtmp(θ) = (ea = EigenAngle(θ); me = LMP.setea(ea, me);
-            (Rtop, dRdθtop) = LMP.bookerreflection(ea, Mtop, LMP.Dθ());
-            RdRdθtop = vcat(Rtop, dRdθtop);
-            LMP.dRdθdz(RdRdθtop, (me, params), z))
+        dRdθtmp(θ) = (me = LMP.setea(θ, me);
+                (Rtop, dRdθtop) = LMP.bookerreflection(θ, Mtop, LMP.Dθ());
+                RdRdθtop = vcat(Rtop, dRdθtop);
+                LMP.dRdθdz(RdRdθtop, (me, params), z))
         dR(θ) = dRdθtmp(θ)[SVector(1,2),:][i]
         dRdθ(θ) = dRdθtmp(θ)[SVector(3,4),:][i]
 
@@ -118,7 +116,7 @@ function test_integratedreflection_vertical(scenario)
     Mfcn2 = LMP.susceptibilityspline(me)
     R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
     
-    @test R2 == R
+    @test R2 ≈ R
     @test maxabsdiff(R, R3) < 1e-6
 end
 
@@ -167,8 +165,8 @@ function test_fresnelreflection(scenario)
 
     # PEC ground
     pec_ground = LMP.Ground(1, 1e12)
-    vertical_ea = LMP.EigenAngle(π/2)
-    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, Frequency(24e3))
+    vertical_ea = π/2
+    Rg = LMP.fresnelreflection(vertical_ea, pec_ground, 24e3)
     @test isapprox(abs.(Rg), I; atol=1e-7)
 
     waveguide = HomogeneousWaveguide(bfield, species, ground)
@@ -180,9 +178,9 @@ function test_fresnelreflection_deriv(scenario)
     @unpack ea, tx, bfield, species, ground = scenario
     freq = tx.frequency
 
-    dRgtmp(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq, LMP.Dθ()))
+    dRgtmp(θ) = LMP.fresnelreflection(θ, ground, freq, LMP.Dθ())
     for i = 1:4
-        Rgref(θ) = (ea = EigenAngle(θ); LMP.fresnelreflection(ea, ground, freq)[i])
+        Rgref(θ) = LMP.fresnelreflection(θ, ground, freq)[i]
         dRgref = FiniteDiff.finite_difference_derivative(Rgref, θs, Val{:central})
         Rg(θ) = dRgtmp(θ)[1][i]
         dRg(θ) = dRgtmp(θ)[2][i]
@@ -204,8 +202,8 @@ function test_solvemodalequation(scenario)
     me = PhysicalModeEquation(ea, tx.frequency, waveguide)
 
     f = LMP.solvemodalequation(me)
-    me2 = PhysicalModeEquation(EigenAngle(0.0+0.0im), tx.frequency, waveguide)
-    f2 = LMP.solvemodalequation(ea.θ, me2)
+    me2 = PhysicalModeEquation(0.0+0.0im, tx.frequency, waveguide)
+    f2 = LMP.solvemodalequation(ea, me2)
     @test f == f2
 
     # Test with specified susceptibilityfcn
@@ -215,8 +213,8 @@ function test_solvemodalequation(scenario)
     Mfcn2 = LMP.susceptibilityspline(me)
     f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
 
-    @test f == f3
-    @test maxabsdiff(f, f4) < 1e-3
+    @test f ≈ f3
+    @test abs(f - f4) < 1e-3
 end
 
 function test_modalequation_resonant(scenario)
@@ -279,7 +277,7 @@ function test_findmodes(scenario)
     @test length(modes) == length(modes2)
 
     # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
-    @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 5e-4 for i in 1:length(modes))
+    @test all(maxabsdiff(modes[i], modes2[i]) < 5e-4 for i in 1:length(modes))
 
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)

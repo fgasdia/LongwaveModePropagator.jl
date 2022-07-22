@@ -46,8 +46,8 @@ correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where 
 function susceptibility(altitude, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
-    B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
-    ω = frequency.ω
+    _, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+    ω = angular(frequency)
 
     # Precompute constants (if multiple species)
     invω = inv(ω)
@@ -107,10 +107,10 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
 end
 
 susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
-    susceptibility(altitude, me.frequency, me.waveguide; params=params)
+    susceptibility(altitude, me.frequency, me.waveguide; params)
 
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibility(altitude, frequency, w.bfield, w.species; params=params)
+    susceptibility(altitude, frequency, w.bfield, w.species; params)
 
 """
     susceptibilityspline(frequency, bfield, species; params=LMPParams())
@@ -133,7 +133,7 @@ function susceptibilityspline(frequency, bfield, species; params=LMPParams())
 end
 
 susceptibilityspline(me::ModeEquation; params=LMPParams()) =
-    susceptibilityspline(me.frequency, me.waveguide; params=params)
+    susceptibilityspline(me.frequency, me.waveguide; params)
 
 susceptibilityspline(frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibilityspline(frequency, w.bfield, w.species; params=params)
+    susceptibilityspline(frequency, w.bfield, w.species; params)

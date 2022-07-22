@@ -1,79 +1,12 @@
-"""
-    EigenAngle
-
-Plane-wave propagation direction in angle `θ` from the vertical in radians.
-
-Common trigonometric function values of this angle are calculated to increase performance.
-
-# Fields
-
-- `θ::ComplexF64`
-- `cosθ::ComplexF64`
-- `sinθ::ComplexF64`
-- `secθ::ComplexF64`
-- `cos²θ::ComplexF64`
-- `sin²θ::ComplexF64`
-
-`Real` `θ` will be automatically converted to `Complex`.
-
-!!! note
-
-    Technically this is an angle of incidence from the vertical, and not necessarily an
-    _eigen_angle unless it is found to be associated with a propagated mode in the waveguide.
-"""
-struct EigenAngle
-    θ::ComplexF64  # radians, because df/dθ are in radians
-    cosθ::ComplexF64
-    sinθ::ComplexF64
-    secθ::ComplexF64  # == 1/cosθ
-    cos²θ::ComplexF64
-    sin²θ::ComplexF64
-end
-
-EigenAngle(ea::EigenAngle) = ea
-EigenAngle(θ::Real) = EigenAngle(complex(θ))
-function EigenAngle(θ::Complex)
-    rθ, iθ = reim(θ)
-    ((abs(rθ) > 2π) || (abs(iθ) > 2π)) && @warn "θ > 2π. Make sure θ is in radians."
-    S, C = sincos(θ)
-    Cinv = inv(C)  # == sec(θ)
-    C² = C^2
-    S² = 1 - C²
-    EigenAngle(θ, C, S, Cinv, C², S²)
-end
+# EigenAngle.jl
+# 
+# Plane-wave propagation direction in angle `θ` from the vertical in radians (because df/dθ
+# are in radians).
 
 """
-    isless(x::EigenAngle, y::EigenAngle)
+    isdetached(θ, frequency; params=LMPParams())
 
-Calls `Base.isless` for complex `EigenAngle` by `real` and then `imag` component.
-
-By defining `isless`, calling `sort` on `EigenAngle`s sorts by real component first and
-imaginary component second.
-"""
-function Base.isless(x::EigenAngle, y::EigenAngle)
-    return isless((real(x.θ), imag(x.θ)), (real(y.θ), imag(y.θ)))
-end
-
-function Base.show(io::IO, e::EigenAngle)
-    compact = get(io, :compact, false)
-
-    if compact
-        print(io, e.θ)
-    else
-        print(io, e.θ)
-    end
-    return nothing
-end
-
-function Base.show(io::IO, ::MIME"text/plain", e::EigenAngle)
-    println(io, "EigenAngle: ")
-    show(io, e)
-end
-
-"""
-    isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
-
-Return `true` if this is likely an earth detached (whispering gallery) mode according to the
+Return `true` if angle `θ` is likely an earth detached (whispering gallery) mode according to the
 criteria in [Pappert1981] eq. 1 with the additional criteria that the frequency be
 above 100 kHz.
 
@@ -83,64 +16,51 @@ above 100 kHz.
     Ocean Systems Center, San Diego, CA, NOSC/TR-647, Jan. 1981.
     [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
 """
-function isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
-    C, C² = ea.cosθ, ea.cos²θ
-    f, k = frequency.f, frequency.k
+function isdetached(θ, frequency; params=LMPParams())
     @unpack earthradius, curvatureheight = params
+
+    C = cos(θ)
+    C² = C^2
+    k = wavenumber(frequency)
     α = 2/earthradius
 
-    return f > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
+    return frequency > 100e3 && real(2im/3*(k/α)*(C²- α*curvatureheight)^(3/2)) > 12.4
 end
 
 """
-    referencetoground(ea::EigenAngle; params=LMPParams())
+    referencetoground(ea; params=LMPParams())
 
-Reference `ea` from `params.curvatureheight` to ground (``z = 0``).
+Reference eigenangle `ea` from `params.curvatureheight` to ground (``z = 0``).
 """
-function referencetoground(ea::EigenAngle; params=LMPParams())
+function referencetoground(ea; params=LMPParams())
     # see, e.g. PS71 pg 11
     @unpack earthradius, curvatureheight = params
-    return EigenAngle(asin(ea.sinθ/sqrt(1 - 2/earthradius*curvatureheight)))
+    return asin(sin(ea)/sqrt(1 - 2/earthradius*curvatureheight))
 end
 
 """
-    referencetoground(sinθ; params=LMPParams())
+    attenuation(ea, frequency)
 
-Reference ``sin(θ)`` from `params.curvatureheight` to the ground and return ``sin(θ₀)`` at
-the ground.
-"""
-function referencetoground(sinθ; params=LMPParams())
-    @unpack earthradius, curvatureheight = params
-    return sinθ/sqrt(1 - 2/earthradius*curvatureheight)
-end
-
-"""
-    attenuation(ea, frequency::Frequency; params=LMPParams())
-
-Compute attenuation of eigenangle `ea` at the ground.
-
-`ea` will be converted to an `EigenAngle` if needed.
+Compute attenuation of eigenangle `ea` at the ground for a wave `frequency` in Hertz.
 
 This function internally references `ea` to the ground.
 """
-function attenuation(ea, frequency::Frequency; params=LMPParams())
-    ea = EigenAngle(ea)
-    S₀ = referencetoground(ea.sinθ)
+function attenuation(ea, frequency; params=LMPParams())
+    ea₀ = referencetoground(ea; params)
+    S₀ = sin(ea₀)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
-    return -neper2dB*frequency.k*imag(S₀)*1e6
+    return -neper2dB*wavenumber(frequency)*imag(S₀)*1e6
 end
 
 """
-    phasevelocity(ea)
+    phasevelocity(ea; params=LMPParams())
 
-Compute the relative phase velocity ``v/c`` associated with the eigenangle `θ`.
+Compute the relative phase velocity ``v/c`` associated with the eigenangle `ea`.
 
-`ea` will be converted to an `EigenAngle` if needed.
-
-This function internally references `ea` to the ground.
+This function internally references `θ` to the ground.
 """
-function phasevelocity(ea)
-    ea = EigenAngle(ea)
-    S₀ = referencetoground(ea.sinθ)
+function phasevelocity(ea; params=LMPParams())
+    ea₀ = referencetoground(ea; params)
+    S₀ = sin(ea₀)
     return 1/real(S₀)
 end

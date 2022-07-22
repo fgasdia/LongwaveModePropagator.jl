@@ -6,7 +6,6 @@ Documentation of `LongwaveModePropagator.jl`'s exported structs and functions.
 
 - [Basic Functions](@ref)
 - [Mode Finder](@ref)
-- [EigenAngle](@ref)
 - [Geophysics](@ref)
 - [Samplers](@ref)
 - [Emitters](@ref)
@@ -32,7 +31,6 @@ IntegrationParams
 ### EigenAngle
 
 ```@docs
-EigenAngle
 attenuation
 phasevelocity
 referencetoground
@@ -61,7 +59,6 @@ Fields
 ### Emitters
 
 ```@docs
-Frequency
 Transmitter
 Dipole
 VerticalDipole

@@ -15,35 +15,32 @@ Parameters for solving the physical mode equation ``\det(Rg*R - I)``.
 
 Fields:
 
-    - ea::EigenAngle
-    - frequency::Frequency
+    - θ::ComplexF64
+    - frequency::Float64
     - waveguide::W
 """
 struct PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
-    ea::EigenAngle
-    frequency::Frequency
+    θ::ComplexF64
+    frequency::Float64
     waveguide::W
 end
 
 """
-    PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide)
+    PhysicalModeEquation(f, w::HomogeneousWaveguide)
 
-Create a `PhysicalModeEquation` struct with `ea = complex(0.0)`.
+Create a `PhysicalModeEquation` struct with `θ = 0.0+0.0im`.
 
 See also: [`setea`](@ref)
 """
-PhysicalModeEquation(f::Frequency, w::HomogeneousWaveguide) =
-    PhysicalModeEquation(EigenAngle(complex(0.0)), f, w)
+PhysicalModeEquation(f, w::HomogeneousWaveguide) = PhysicalModeEquation(0.0+0.0im, f, w)
 
 """
-    setea(ea, modeequation)
+    setea(θ, modeequation)
 
-Return `modeequation` with eigenangle `ea`.
-
-`ea` will be converted to an `EigenAngle` if necessary.
+Return `modeequation` with angle `θ`.
 """
-setea(ea, modeequation::PhysicalModeEquation) =
-    PhysicalModeEquation(EigenAngle(ea), modeequation.frequency, modeequation.waveguide)
+setea(θ, modeequation::PhysicalModeEquation) =
+    PhysicalModeEquation(θ, modeequation.frequency, modeequation.waveguide)
 
 
 ##########
@@ -51,7 +48,7 @@ setea(ea, modeequation::PhysicalModeEquation) =
 ##########
 
 """
-    wmatrix(ea::EigenAngle, T)
+    wmatrix(θ, T)
 
 Compute the four submatrix elements of `W` used in the equation ``dR/dz`` from the
 ionosphere with `T` matrix returned as a tuple `(W₁₁, W₂₁, W₁₂, W₂₂)`.
@@ -75,8 +72,9 @@ the upgoing and downgoing component waves.
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
-function wmatrix(ea::EigenAngle, T)
-    C, Cinv = ea.cosθ, ea.secθ
+function wmatrix(θ, T)
+    C = cos(θ)
+    Cinv = 1/C  # == sec(θ)
 
     # Precompute
     T12Cinv = T[1,2]*Cinv
@@ -145,14 +143,15 @@ function wmatrix(ea::EigenAngle, T)
 end
 
 """
-    dwmatrix(ea::EigenAngle, T, dT)
+    dwmatrix(θ, T, dT)
 
 Compute the four submatrix elements of ``dW/dθ`` returned as the tuple
 `(dW₁₁, dW₂₁, dW₁₂, dW₂₂)` from the ionosphere with `T` matrix and its derivative with
 respect to ``θ``, `dT`.
 """
-function dwmatrix(ea::EigenAngle, T, dT)
-    C, S, C², Cinv = ea.cosθ, ea.sinθ, ea.cos²θ, ea.secθ
+function dwmatrix(θ, T, dT)
+    S, C = sincos(θ)
+    Cinv = 1/C
     C²inv = Cinv^2
 
     dC = -S
@@ -206,13 +205,13 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
     no. 1171, pp. 516–537, Feb. 1955.
 """
 function dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
-    @unpack ea, frequency = modeequation
+    @unpack θ, frequency = modeequation
 
-    k = frequency.k
+    k = wavenumber(frequency)
 
     M = susceptibilityfcn(z)
-    T = tmatrix(ea, M)
-    W11, W21, W12, W22 = wmatrix(ea, T)
+    T = tmatrix(θ, M)
+    W11, W21, W12, W22 = wmatrix(θ, T)
 
     # the factor k/(2i) isn't explicitly in [Budden1955a] because of his change of variable
     # ``s = kz``
@@ -229,15 +228,15 @@ Compute the differential ``dR/dθ/dz`` at height `z` returned as an `SMatrix{4,2
 """
 function dRdθdz(RdRdθ, p, z)
     modeequation, params = p
-    @unpack ea, frequency = modeequation
+    @unpack θ, frequency = modeequation
 
-    k = frequency.k
+    k = wavenumber(frequency)
 
-    M = susceptibility(z, modeequation; params=params)
-    T = tmatrix(ea, M)
-    dT = dtmatrix(ea, M)
-    W11, W21, W12, W22 = wmatrix(ea, T)
-    dW11, dW21, dW12, dW22 = dwmatrix(ea, T, dT)
+    M = susceptibility(z, modeequation; params)
+    T = tmatrix(θ, M)
+    dT = dtmatrix(θ, M)
+    W11, W21, W12, W22 = wmatrix(θ, T)
+    dW11, dW21, dW12, dW22 = dwmatrix(θ, T, dT)
 
     R = RdRdθ[SVector(1,2),:]
     dRdθ = RdRdθ[SVector(3,4),:]
@@ -251,7 +250,7 @@ end
 
 """
     integratedreflection(modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
 
 Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` from
 `params.topheight`, returning the ionosphere reflection coefficient `R` at the ground.
@@ -261,13 +260,13 @@ function of altitude `z` in meters.
 `params.integrationparams` are passed to `DifferentialEquations.jl`.
 """
 function integratedreflection(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))::SMatrix{2,2,ComplexF64,4}
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))::SMatrix{2,2,ComplexF64,4}
 
     @unpack topheight, integrationparams = params
     @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
 
-    Mtop = susceptibility(topheight, modeequation; params=params)
-    Rtop = bookerreflection(modeequation.ea, Mtop)
+    Mtop = susceptibility(topheight, modeequation; params)
+    Rtop = bookerreflection(modeequation.θ, Mtop)
 
     prob = ODEProblem{false}((R,p,z)->dRdz(R,p,z,susceptibilityfcn), Rtop, (topheight, BOTTOMHEIGHT), modeequation)
 
@@ -299,8 +298,8 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
     # compared to the non-Dθ form.
     tolerance = 1e-10
 
-    Mtop = susceptibility(topheight, modeequation; params=params)
-    Rtop, dRdθtop = bookerreflection(modeequation.ea, Mtop, Dθ())
+    Mtop = susceptibility(topheight, modeequation; params)
+    Rtop, dRdθtop = bookerreflection(modeequation.θ, Mtop, Dθ())
     RdRdθtop = vcat(Rtop, dRdθtop)
 
     prob = ODEProblem{false}(dRdθdz, RdRdθtop, (topheight, BOTTOMHEIGHT),
@@ -321,17 +320,18 @@ end
 ##########
 
 """
-    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
+    fresnelreflection(θ, ground::Ground, frequency)
     fresnelreflection(m::PhysicalModeEquation)
 
 Compute the Fresnel reflection coefficient matrix for the ground-freespace interface at the
-ground.
+ground for a wave `frequency` in Hertz.
 """
 fresnelreflection
 
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
-    C, S² = ea.cosθ, ea.sin²θ
-    ω = frequency.ω
+function fresnelreflection(θ, ground::Ground, frequency)
+    S, C = sincos(θ)
+    S² = S^2
+    ω = angular(frequency)
 
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
 
@@ -347,19 +347,20 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency)
 end
 
 fresnelreflection(m::PhysicalModeEquation) =
-    fresnelreflection(m.ea, m.waveguide.ground, m.frequency)
+    fresnelreflection(m.θ, m.waveguide.ground, m.frequency)
 
 """
-    fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
+    fresnelreflection(θ, ground::Ground, frequency, ::Dθ)
     fresnelreflection(m::PhysicalModeEquation, ::Dθ)
 
 Compute the Fresnel reflection coefficient matrix for the ground as well as its derivative
 with respect to ``θ`` returned as the tuple `(Rg, dRg)`.
 """
-function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency, ::Dθ)
-    C, S, S² = ea.cosθ, ea.sinθ, ea.sin²θ
+function fresnelreflection(θ, ground::Ground, frequency, ::Dθ)
+    S, C = sincos(θ)
+    S² = S^2
     S2 = 2*S
-    ω = frequency.ω
+    ω = angular(frequency)
 
     Ng² = complex(ground.ϵᵣ, -ground.σ/(ω*E0))
 
@@ -380,7 +381,7 @@ function fresnelreflection(ea::EigenAngle, ground::Ground, frequency::Frequency,
 end
 
 fresnelreflection(m::PhysicalModeEquation, ::Dθ) =
-    fresnelreflection(m.ea, m.waveguide.ground, m.frequency, Dθ())
+    fresnelreflection(m.θ, m.waveguide.ground, m.frequency, Dθ())
 
 ##########
 # Identify EigenAngles
@@ -421,7 +422,7 @@ end
 
 """
     solvemodalequation(modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
 
 Compute the ionosphere and ground reflection coefficients and return the value of the
 determinental modal equation associated with `modeequation`. `susceptibilityfcn` is a
@@ -430,9 +431,9 @@ function that returns the ionosphere susceptibility as a function of altitude `z
 See also: [`solvedmodalequation`](@ref)
 """
 function solvemodalequation(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
 
-    R = integratedreflection(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
+    R = integratedreflection(modeequation; params, susceptibilityfcn=susceptibilityfcn)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
@@ -441,16 +442,16 @@ end
 
 """
     solvemodalequation(θ, modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
 
 Set `θ` for `modeequation` and then solve the modal equation.
 """
 function solvemodalequation(θ, modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params))
 
     # Convenience function for `grpf`
-    modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
+    modeequation = setea(θ, modeequation)
+    solvemodalequation(modeequation; params, susceptibilityfcn=susceptibilityfcn)
 end
 
 """
@@ -460,7 +461,7 @@ Compute the derivative of the modal equation with respect to ``θ`` returned as 
 `(dF, R, Rg)` for the ionosphere and ground reflection coefficients.
 """
 function solvedmodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
-    RdR = integratedreflection(modeequation, Dθ(); params=params)
+    RdR = integratedreflection(modeequation, Dθ(); params)
     R = RdR[SVector(1,2),:]
     dR = RdR[SVector(3,4),:]
 
@@ -477,14 +478,14 @@ Set `θ` for `modeequation` and then solve the derivative of the mode equation w
 to `θ`.
 """
 function solvedmodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
-    modeequation = setea(EigenAngle(θ), modeequation)
-    solvedmodalequation(modeequation; params=params)
+    modeequation = setea(θ, modeequation)
+    solvedmodalequation(modeequation; params)
 end
 
 """
     findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
 
-Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
+Find eigenangles associated with `modeequation.waveguide` within the domain of
 `mesh`.
 
 `mesh` should be an array of complex numbers that make up the original grid over which
@@ -508,13 +509,13 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     # redundant modes help ensure valid eigenangles are returned from this function.
 
     if approxsusceptibility
-        susceptibilityfcn = susceptibilityspline(modeequation; params=params)
+        susceptibilityfcn = susceptibilityspline(modeequation; params)
     else
-        susceptibilityfcn = z -> susceptibility(z, modeequation; params=params)
+        susceptibilityfcn = z -> susceptibility(z, modeequation; params)
     end
 
     roots, _ = grpf(θ->solvemodalequation(θ, modeequation;
-        params=params, susceptibilityfcn=susceptibilityfcn), mesh, grpfparams)
+        params, susceptibilityfcn=susceptibilityfcn), mesh, grpfparams)
 
     # Scale tolerance for filtering
     # if tolerance is 1e-8, this rounds to 7 decimal places
@@ -524,7 +525,7 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     sort!(roots; by=reim, rev=true)
     unique!(z->round(z; digits=ndigits), roots)
 
-    return EigenAngle.(roots)
+    return roots
 end
 
 #==
@@ -580,7 +581,6 @@ function defaultmesh(frequency;
 
     return mesh
 end
-defaultmesh(f::Frequency; kw...) = defaultmesh(f.f; kw...)
 
 """
     trianglemesh(zbl, ztr, Δr)

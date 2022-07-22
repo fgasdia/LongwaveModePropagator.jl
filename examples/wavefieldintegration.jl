@@ -45,8 +45,8 @@ nothing  #hide
 # has a ground conductivity index of 8.
 # This can be specified as `GROUND[8]`.
 
-ea = EigenAngle(deg2rad(40))
-frequency = Frequency(16e3)
+θ = deg2rad(40)
+frequency = 16e3
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]
 
@@ -126,8 +126,8 @@ nothing  #hide
 zs = 110e3:-50:0
 zskm = zs/1000
 
-e = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=true)
-e_unscaled = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=false)
+e = LMP.integratewavefields(zs, θ, frequency, bfield, day; unscale=true)
+e_unscaled = LMP.integratewavefields(zs, θ, frequency, bfield, day; unscale=false)
 
 ex1 = getindex.(e, 1)
 ex1_unscaled = getindex.(e_unscaled, 1)
@@ -183,8 +183,8 @@ for s in eachindex(solvers)
     params = LMPParams(wavefieldintegrationparams=ip)
 
     ## make sure method is compiled
-    LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params);
-    LMP.integratewavefields(zs, ea, frequency, bfield, night; params=params);
+    LMP.integratewavefields(zs, θ, frequency, bfield, day; params=params);
+    LMP.integratewavefields(zs, θ, frequency, bfield, night; params=params);
 
     solverstring = solverstrings[s]
     let day_e, night_e
@@ -192,11 +192,11 @@ for s in eachindex(solvers)
         for i = 1:200
             ## day ionosphere
             @timeit TO solverstring begin
-                day_e = LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params)
+                day_e = LMP.integratewavefields(zs, θ, frequency, bfield, day; params=params)
             end
             ## night ionosphere
             @timeit TO solverstring begin
-                night_e = LMP.integratewavefields(zs, ea, frequency, bfield, night; params=params)
+                night_e = LMP.integratewavefields(zs, θ, frequency, bfield, night; params=params)
             end
         end
         push!(day_es, day_e)
@@ -248,7 +248,7 @@ TO
 zs = 110e3:-500:50e3
 zskm = zs/1000
 
-e = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=true)
+e = LMP.integratewavefields(zs, θ, frequency, bfield, day; unscale=true)
 
 ex1 = getindex.(e, 1)
 ey1 = getindex.(e, 2)
@@ -298,8 +298,8 @@ plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)
 #
 # First let's set up the new scenario.
 
-ea = EigenAngle(0)
-frequency = Frequency(202e3)
+θ = complex(0.0)
+frequency = 202e3
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]
 nothing  #hide
@@ -309,7 +309,7 @@ nothing  #hide
 zs = 110e3:-50:70e3
 zskm = zs/1000
 
-e = LMP.integratewavefields(zs, ea, frequency, bfield, night)
+e = LMP.integratewavefields(zs, θ, frequency, bfield, night)
 
 ey1 = getindex.(e, 2)
 hx2 = getindex.(e, 7)
