@@ -113,10 +113,10 @@ function test_integratedreflection_vertical(scenario)
 
     # Let's also check with interpolation susceptibilityfcn here
     Mfcn = z -> LMP.susceptibility(z, me)
-    R2 = @inferred LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
+    R2 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
     
     Mfcn2 = LMP.susceptibilityspline(me)
-    R3 = @inferred LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
+    R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
     
     @test R2 == R
     @test maxabsdiff(R, R3) < 1e-6
@@ -210,10 +210,10 @@ function test_solvemodalequation(scenario)
 
     # Test with specified susceptibilityfcn
     Mfcn = z -> LMP.susceptibility(z, me)
-    f3 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn)
+    f3 = LMP.solvemodalequation(me; susceptibilityfcn=Mfcn)
 
     Mfcn2 = LMP.susceptibilityspline(me)
-    f4 = @inferred LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
+    f4 = LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
 
     @test f == f3
     @test maxabsdiff(f, f4) < 1e-3
