@@ -5,9 +5,9 @@ function test_tmatrix_deriv(scenario)
 
     for i = 1:4
         for j = 1:4
-            Tfcn(θ) = LMP.tmatrix(θ, M)[i,j]
+            Tfcn(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M)[i,j])
             dTref = FiniteDiff.finite_difference_derivative(Tfcn, θs, Val{:central})
-            dT(θ) = LMP.dtmatrix(θ, M)[i,j]
+            dT(θ) = (ea = EigenAngle(θ); T = LMP.dtmatrix(ea, M)[i,j])
 
             @test maxabsdiff(dT.(θs), dTref) < 1e-7
         end

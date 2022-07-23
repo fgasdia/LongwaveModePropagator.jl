@@ -107,10 +107,10 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
 end
 
 susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
-    susceptibility(altitude, me.frequency, me.waveguide; params)
+    susceptibility(altitude, me.frequency, me.waveguide; params=params)
 
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibility(altitude, frequency, w.bfield, w.species; params)
+    susceptibility(altitude, frequency, w.bfield, w.species; params=params)
 
 """
     susceptibilityspline(frequency, bfield, species; params=LMPParams())
@@ -133,7 +133,7 @@ function susceptibilityspline(frequency, bfield, species; params=LMPParams())
 end
 
 susceptibilityspline(me::ModeEquation; params=LMPParams()) =
-    susceptibilityspline(me.frequency, me.waveguide; params)
+    susceptibilityspline(me.frequency, me.waveguide; params=params)
 
 susceptibilityspline(frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibilityspline(frequency, w.bfield, w.species; params)
+    susceptibilityspline(frequency, w.bfield, w.species; params=params)

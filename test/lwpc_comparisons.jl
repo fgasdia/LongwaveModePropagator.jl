@@ -2,7 +2,7 @@ function test_lmp(scenario)
     @unpack tx, rx, bfield, species, ground = scenario
     waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-    _, amplitude, phase = propagate(waveguide, tx, rx)
+    E, amplitude, phase = propagate(waveguide, tx, rx)
 
     lmp_d = collect(distance(rx, tx)/1e3)
     lmp_a = amplitude
@@ -17,7 +17,7 @@ function test_lmp_segmented(scenario)
     waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i], ground[i],
                                                          distances[i]) for i in 1:2])
 
-    _, amplitude, phase = propagate(waveguide, tx, rx)
+    E, amplitude, phase = propagate(waveguide, tx, rx)
 
     lmp_d = collect(distance(rx, tx)/1e3)
     lmp_a = amplitude
@@ -39,7 +39,7 @@ function compare(lwpc_file, lmp_d, lmp_a, lmp_p)
 end
 
 
-@testset "LWPC comparisons" begin 
+@testset "LWPC comparisons" begin
     @info "Comparing to LWPC..."
 
     files = Dict(verticalB_scenario=>"verticalB.log", resonant_scenario=>"resonant.log",

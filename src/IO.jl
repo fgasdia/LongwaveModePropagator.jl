@@ -405,7 +405,7 @@ function buildrun(s::ExponentialInput; mesh=nothing, unwrap=true, params=LMPPara
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params)
+    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -446,7 +446,7 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
-    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params)
+    _, amp, phase = propagate(waveguide, tx, rx; mesh=mesh, unwrap=unwrap, params=params)
 
     output = BasicOutput()
     output.name = s.name
@@ -471,7 +471,7 @@ function buildrun(s::BatchInput; mesh=nothing, unwrap=true, params=LMPParams())
     batch.datetime = Dates.now()
 
     @progress name = "Batch inputs" for i in eachindex(s.inputs)
-        output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params)
+        output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params=params)
         push!(batch.outputs, output)
     end
 
@@ -517,7 +517,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
             continue
         end
 
-        output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params)
+        output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params=params)
         push!(batch.outputs, output)
 
         json_str = JSON3.write(batch)

@@ -4,8 +4,8 @@ function test_bookerquarticM(scenario)
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
     q, B = LMP.bookerquartic(ea, M)
 
-    S, C = sincos(ea)
-    S², C² = S^2, C^2
+    S = ea.sinθ
+    S², C² = ea.sin²θ, ea.cos²θ
 
     # Confirm roots of Booker quartic satisfy ``det(Γ² + I + M) = 0``
     for i in eachindex(q)
@@ -30,8 +30,8 @@ function test_bookerquarticT(scenario)
     T = LMP.tmatrix(ea, M)
     q, B = LMP.bookerquartic(T)
 
-    S, C = sincos(ea)
-    S², C² = S^2, C^2
+    S = ea.sinθ
+    S², C² = ea.sin²θ, ea.cos²θ
 
     # Confirm roots of Booker quartic satisfy ``det(Γ² + I + M) = 0``
     for i in eachindex(q)
@@ -72,10 +72,11 @@ function test_bookerquarticM_deriv(scenario)
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 
     for i = 1:4
-        qfcn(θ) = ((q, B) = LMP.bookerquartic(θ, M); sort!(q; by=LMP.upgoing); q[i])
+        qfcn(θ) = (ea = EigenAngle(θ); (q, B) = LMP.bookerquartic(ea, M);
+            sort!(q; by=LMP.upgoing); q[i])
         dqref = FiniteDiff.finite_difference_derivative(qfcn, θs, Val{:central})
-        dq(θ) = ((q, B) = LMP.bookerquartic(θ, M);
-                sort!(q; by=LMP.upgoing); LMP.dbookerquartic(θ, M, q, B)[i])
+        dq(θ) = (ea = EigenAngle(θ); (q, B) = LMP.bookerquartic(ea, M);
+            sort!(q; by=LMP.upgoing); LMP.dbookerquartic(ea, M, q, B)[i])
 
         @test maxabsdiff(dq.(θs), dqref) < 1e-6
     end
@@ -87,12 +88,13 @@ function test_bookerquarticT_deriv(scenario)
     M = LMP.susceptibility(LMPParams().topheight, tx.frequency, bfield, species)
 
     for i = 1:4
-        qfcn(θ) = (T = LMP.tmatrix(θ, M); (q, B) = LMP.bookerquartic(T);
-                LMP.sortquarticroots!(q); q[i])
+        qfcn(θ) = (ea = EigenAngle(θ); T = LMP.tmatrix(ea, M);
+                   (q, B) = LMP.bookerquartic(T); LMP.sortquarticroots!(q); q[i])
         dqref = FiniteDiff.finite_difference_derivative(qfcn, θs, Val{:central})
-        dq(θ) = (T = LMP.tmatrix(θ, M); dT = LMP.dtmatrix(θ, M);
-                (q, B) = LMP.bookerquartic(T);
-                LMP.sortquarticroots!(q); LMP.dbookerquartic(T, dT, q, B)[i])
+        dq(θ) = (ea = EigenAngle(θ);
+                 T = LMP.tmatrix(ea, M); dT = LMP.dtmatrix(ea, M);
+                 (q, B) = LMP.bookerquartic(T);
+                 LMP.sortquarticroots!(q); LMP.dbookerquartic(T, dT, q, B)[i])
 
         @test maxabsdiff(dq.(θs), dqref) < 1e-6
     end
@@ -125,10 +127,10 @@ function test_bookerwavefields_deriv(scenario)
 
     # Compare analytical solution with finite diff
     for i = 1:4
-        eref(θ) = LMP.bookerwavefields(θ, M)[i]
+        eref(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M)[i])
         deref = FiniteDiff.finite_difference_derivative(eref, θs, Val{:central})
-        e(θ) = LMP.bookerwavefields(θ, M, LMP.Dθ())[1][i]
-        de(θ) = LMP.bookerwavefields(θ, M, LMP.Dθ())[2][i]
+        e(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[1][i])
+        de(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[2][i])
 
         @test eref.(θs) ≈ e.(θs)
         @test maxabsdiff(deref, de.(θs)) < 1e-3
@@ -138,7 +140,7 @@ function test_bookerwavefields_deriv(scenario)
     de1 = Vector{SMatrix{4,2,ComplexF64,8}}(undef, length(θs))
     de2 = similar(de1)
     for i in eachindex(θs)
-        ea = θs[i]
+        ea = EigenAngle(θs[i])
         T = LMP.tmatrix(ea, M)
         dT = LMP.dtmatrix(ea, M)
         de1[i] = LMP.bookerwavefields(ea, M, LMP.Dθ())[2]
@@ -182,7 +184,7 @@ function test_bookerreflection(scenario)
     initRs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     Rs = similar(initRs)
     for i in eachindex(θs)
-        ea = θs[i]
+        ea = EigenAngle(θs[i])
         T = LMP.tmatrix(ea, M)
         W = LMP.wmatrix(ea, T)
 
@@ -202,7 +204,7 @@ function test_bookerreflection(scenario)
     e = LMP.bookerwavefields(ea, M)
     wavefieldR = LMP.bookerreflection(ea, e)
 
-    Cinv = sec(ea)
+    Cinv = ea.secθ
     Sv_inv = SMatrix{4,4}(Cinv, 0, -Cinv, 0,
                           0, -1, 0, -1,
                           0, -Cinv, 0, Cinv,
@@ -226,7 +228,7 @@ function test_dbookerreflection(scenario)
     initdRs = Vector{SMatrix{2,2,ComplexF64,4}}(undef, length(θs))
     dRs = similar(initdRs)
     for i in eachindex(θs)
-        ea = θs[i]
+        ea = EigenAngle(θs[i])
         T = LMP.tmatrix(ea, M)
         dT = LMP.dtmatrix(ea, M)
         W = LMP.wmatrix(ea, T)
@@ -248,10 +250,10 @@ function test_dbookerreflection(scenario)
 
     # Finite difference derivative
     for i = 1:4
-        Rref(θ) = LMP.bookerreflection(θ, M)[i]
+        Rref(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M)[i])
         dRref = FiniteDiff.finite_difference_derivative(Rref, θs, Val{:central})
-        R(θ) = LMP.bookerreflection(θ, M, LMP.Dθ())[1][i]
-        dR(θ) = LMP.bookerreflection(θ, M, LMP.Dθ())[2][i]
+        R(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[1][i])
+        dR(θ) = (ea = EigenAngle(θ); LMP.bookerreflection(ea, M, LMP.Dθ())[2][i])
 
         @test Rref.(θs) ≈ R.(θs)
         @test maxabsdiff(dRref, dR.(θs)) < 1e-4

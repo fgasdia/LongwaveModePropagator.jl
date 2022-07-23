@@ -61,7 +61,7 @@ nothing  #hide
 species = Species(QE, ME, z->waitprofile(z, 75, 0.32), electroncollisionfrequency)
 frequency = 24e3
 bfield = BField(50e-6, π/2, 0)
-θ = deg2rad(75);
+ea = EigenAngle(deg2rad(75));
 
 # We start the integration at a "great height".
 # For longwaves, anything above the D-region is fine.
@@ -69,7 +69,7 @@ bfield = BField(50e-6, π/2, 0)
 
 topheight = 110e3
 Mtop = LMP.susceptibility(topheight, frequency, bfield, species)
-Rtop = LMP.bookerreflection(θ, Mtop)
+Rtop = LMP.bookerreflection(ea, Mtop)
 
 # The starting solution `Rtop` comes from a solution of the Booker quartic for the
 # wavefields at `topheight`.
@@ -81,7 +81,7 @@ Rtop = LMP.bookerreflection(θ, Mtop)
 
 ground = GROUND[1]
 waveguide = HomogeneousWaveguide(bfield, species, ground)
-me = PhysicalModeEquation(θ, frequency, waveguide);
+me = PhysicalModeEquation(ea, frequency, waveguide);
 
 # Then we simply define the `ODEProblem` and `solve`.
 
@@ -145,7 +145,7 @@ plot(p1, p2; layout=(1,2), size=(800, 400))
 # Each scenario is described by a [`PhysicalModeEquation`](@ref).
 
 function generatescenarios(N)
-    θs = complex.(rand(N)*(π/2-π/6) .+ π/6, rand(N)*deg2rad(-10))
+    eas = EigenAngle.(complex.(rand(N)*(π/2-π/6) .+ π/6, rand(N)*deg2rad(-10)))
     frequencies = rand(N)*50e3 .+ 10e3
 
     B = rand(30e-6:5e-7:60e-6, N)
@@ -162,7 +162,7 @@ function generatescenarios(N)
         ground = GROUND[5]  ## not used in integration of R
         waveguide = HomogeneousWaveguide(bfields[i], species, ground)
 
-        me = PhysicalModeEquation(θs[i], frequencies[i], waveguide)
+        me = PhysicalModeEquation(eas[i], frequencies[i], waveguide)
         scenarios[i] = me
     end
 

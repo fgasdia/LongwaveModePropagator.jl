@@ -245,11 +245,12 @@ end
 Computing the T matrix entries
 ==#
 
+
 @doc raw"""
-    tmatrix(θ, M)
+    tmatrix(ea::EigenAngle, M)
 
 Compute the matrix `T` as a `TMatrix` for the differential equations of a wave propagating
-at angle `θ` in an ionosphere with susceptibility `M`.
+at angle `ea` in an ionosphere with susceptibility `M`.
 
 Clemmow and Heading derived the `T` matrix from Maxwell's equations for an electromagnetic
 wave in the anisotropic, collisional cold plasma of the ionosphere in a coordinate frame
@@ -269,9 +270,8 @@ See also: [`susceptibility`](@ref), [`dtmatrix`](@ref)
     governing radio propagation in the ionosphere,” Mathematical Proceedings of the
     Cambridge Philosophical Society, vol. 50, no. 2, pp. 319–333, Apr. 1954.
 """
-function tmatrix(θ, M)
-    S, C = sincos(θ)
-    C² = C^2
+function tmatrix(ea::EigenAngle, M)
+    S, C² = ea.sinθ, ea.cos²θ
 
     # Denominator of most of the entries of `T`
     den = inv(1 + M[3,3])
@@ -303,14 +303,14 @@ function tmatrix(θ, M)
 end
 
 """
-    dtmatrix(θ, M)
+    dtmatrix(ea::EigenAngle, M)
 
 Compute a dense `SMatrix` with the derivative of `T` with respect to `θ`.
 
 See also: [`tmatrix`](@ref)
 """
-function dtmatrix(θ, M)
-    S, C = sincos(θ)
+function dtmatrix(ea::EigenAngle, M)
+    S, C = ea.sinθ, ea.cosθ
     dC² = -2*S*C  # d/dθ (C²)
 
     den = inv(1 + M[3,3])
