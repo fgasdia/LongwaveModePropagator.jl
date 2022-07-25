@@ -70,7 +70,8 @@ function test_dRdz(scenario)
     dR3 = @inferred LMP.dRdz(R, me, 72e3, Mfcn2)
 
     @test dR1 == dR2  # identical functions Mfcn
-    @test isapprox(dR1, dR3, atol=1e-12)  # interpolating spline
+    @test isapprox(dR1, dR3, atol=1e-12)  # interpolating spline 
+    @inferred LMP.dRdz(R, me, 72e3)
 end
 
 function test_dRdθdz(scenario)
@@ -269,23 +270,25 @@ function test_findmodes(scenario)
 
     origcoords = LMP.defaultmesh(tx.frequency)
 
-    # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
-    params = LMPParams()
-    modes = @inferred findmodes(modeequation, origcoords; params=params)
-    modes2 = @inferred findmodes(modeequation, origcoords; params=LMPParams(params; approxsusceptibility=true))
+    modes = @inferred findmodes(modeequation, origcoords; params=LMPParams(approxsusceptibility=true, refineeigenangles=false))
+    modes2 = @inferred findmodes(modeequation, origcoords; params=LMPParams(approxsusceptibility=false, refineeigenangles=false))
+    modes3 = @inferred findmodes(modeequation)
 
-    @test length(modes) == length(modes2)
+    @test length(modes) == length(modes2) == length(modes3)
+    @test modes ≈ modes2 atol=1e-3
 
-    # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
-    @test all(maxabsdiff(modes[i], modes2[i]) < 5e-4 for i in 1:length(modes))
-
+    fparams = LMPParams(integrationparams=IntegrationParams(tolerance=1e-8))
     for m in modes
-        f = LMP.solvemodalequation(m, modeequation; params=params)
-        isroot(f) || return f
-        @test isroot(f)
+        f = LMP.solvemodalequation(m, modeequation; params=fparams)
+        isroot(f; atol=1e-2) || return f
+        @test isroot(f; atol=1e-2)
     end
 
-    # return modes
+    for m in modes3
+        f = LMP.solvemodalequation(m, modeequation; params=fparams)
+        isroot(f; atol=1e-4) || return f
+        @test isroot(f; atol=1e-4)
+    end
 end
 
 ########
