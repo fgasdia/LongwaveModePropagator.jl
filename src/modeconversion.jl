@@ -14,7 +14,7 @@ This is used in the approach known as full mode conversion [Pappert1972b].
     doi: 10.1029/RS007i002p00275.
 """
 function modeconversion(previous_wavefields::Wavefields{H}, wavefields::Wavefields{H},
-                        adjoint_wavefields::Wavefields{H}; params=LMPParams()) where H
+    adjoint_wavefields::Wavefields{H}; params=LMPParams()) where H
 
     @unpack wavefieldheights = params
 
@@ -26,28 +26,35 @@ function modeconversion(previous_wavefields::Wavefields{H}, wavefields::Wavefiel
     prevmodes = eigenangles(previous_wavefields)
 
     modes == adjmodes || @warn "Full mode conversion physics assumes adjoint wavefields are
-        calculated for eigenangles of the original waveguide."
+    calculated for eigenangles of the original waveguide."
 
     nmodes = length(modes)
     nprevmodes = length(prevmodes)
 
+    gtranspose_vec = Vector{Transpose{ComplexF64,SVector{4,ComplexF64}}}(undef, numheights(wavefields))
+
     # `a` is total conversion
     a = Matrix{ComplexF64}(undef, nprevmodes, nmodes)
     for n in eachindex(modes)  # modes == adjmodes
+        for i in eachindex(wavefieldheights)
+            @inbounds f = wavefields[i,n][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
+            @inbounds g = SVector{4}(adjoint_wavefields[i,n][6],
+                                     -adjoint_wavefields[i,n][5],
+                                     -adjoint_wavefields[i,n][3],
+                                     adjoint_wavefields[i,n][2])  # Hz, -Hy, -Ez, Ey
+
+            gtranspose = transpose(g)
+            product[i] = gtranspose*f
+            gtranspose_vec[i] = gtranspose
+        end
+        N, Nerr = romberg(heights(wavefields), product)  # normalization
+
         for m in eachindex(prevmodes)
             for i in eachindex(wavefieldheights)
-                @inbounds f = wavefields[i,n][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-                @inbounds fp = previous_wavefields[i,m][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz
-                @inbounds g = SVector{4}(adjoint_wavefields[i,n][6],
-                                         -adjoint_wavefields[i,n][5],
-                                         -adjoint_wavefields[i,n][3],
-                                         adjoint_wavefields[i,n][2])  # Hz, -Hy, -Ez, Ey
+                @inbounds fp = previous_wavefields[i,m][SVector(2,3,5,6)]  # Ey, Ez, Hy, Hz 
 
-                gtranspose = transpose(g)
-                product[i] = gtranspose*f
-                pproduct[i] = gtranspose*fp
+                pproduct[i] = gtranspose_vec[i]*fp
             end
-            N, Nerr = romberg(heights(wavefields), product)  # normalization
             I, Ierr = romberg(heights(wavefields), pproduct)
             @inbounds a[m,n] = I/N
         end

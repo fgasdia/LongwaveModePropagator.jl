@@ -1,10 +1,9 @@
 function test_modeconversion_segmented(scenario)
-    @unpack distances, tx, bfield, species, ground = scenario()
+    @unpack tx, bfield, species, ground = scenario
     params = LMPParams()
 
-    waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield[i], species[i],
-                                        ground[i], distances[i]) for i in 1:2])
-
+    distances = (0.0, 500e3)
+    waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield, species, ground, distances[i]) for i in 1:2])
 
     heighttype = typeof(params.wavefieldheights)
     wavefields_vec = Vector{LMP.Wavefields{heighttype}}(undef, 2)
@@ -25,7 +24,26 @@ function test_modeconversion_segmented(scenario)
         adjwavefields_vec[i] = adjwavefields
     end
 
-    a = LMP.modeconversion(wavefields_vec[1], wavefields_vec[1], adjwavefields_vec[1])
-    @test all(diag(a) .≈ complex(1))
+    @time a = LMP.modeconversion(wavefields_vec[1], wavefields_vec[1], adjwavefields_vec[1])
+    
+    # Check that `a` is approximately identity. I'm not sure why the off-diagonal terms
+    # aren't smaller
+    di = diagind(a)
+    for i in eachindex(a)
+        if i in di
+            @test a[i] ≈ 1
+        else
+            @test a[i] ≈ 0 atol=1e-2
+        end
+    end
     # a = modeconversion(wavefields_vec[1], wavefields_vec[2], adjwavefields_vec[2])
+end
+
+@testset "modeconversion.jl" begin
+    @info "Testing modeconversion"
+
+    for scn in (verticalB_scenario, multiplespecies_scenario)
+        
+        test_modeconversion_segmented(scn)
+    end
 end
