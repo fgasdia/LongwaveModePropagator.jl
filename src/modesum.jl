@@ -538,44 +538,42 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
                 # Transmitter exists only in the transmitter slab (obviously)
                 xmtrfields[n] = txterm
             else
-                # Otherwise, mode conversion of transmitted fields
+                # Otherwise, mode conversion of transmitted fields at segment_start
                 xmtrfields_sum = zero(eltype(xmtrfields))
                 for m = 1:M
                     xmtrfields_sum += previous_xmtrfields[m]*conversioncoeffs[m,n]
                 end
                 xmtrfields[n] = xmtrfields_sum
             end
-
             rcvrfields[n] = xmtrfields[n]*rxterm
         end
 
         # Calculate E at each distance in the current waveguide segment
-        while X[i] < segment_end
+        while i <= Xlength && X[i] <= segment_end
             x = X[i] - segment_start
             factor = Q/sqrt(abs(sin(X[i]/earthradius)))
 
             totalfield = zero(eltype(E))
             for n = 1:N
                 S₀ = referencetoground(eas[n].sinθ; params=params)
-                totalfield += rcvrfields[n]*cis(-k*x*(S₀ - 1))*factor
+                totalfield += rcvrfields[n]*cis(-k*x*(S₀ - 1))
             end
 
-            E[i] = totalfield
+            E[i] = totalfield*factor
             i += 1
-            i > Xlength && break
         end
 
         # If we've reached the end of the current segment and there are more segments,
         # prepare for next segment
         if j < J
-            # End of current slab
+            # End of current segment
             x = segment_end - segment_start
 
             resize!(previous_xmtrfields, N)
             for n = 1:N
                 S₀ = referencetoground(eas[n].sinθ; params=params)
 
-                # Excitation factors at end of slab
+                # Excitation factors at segment_end
                 xmtrfields[n] *= cis(-k*x*(S₀ - 1))
                 previous_xmtrfields[n] = xmtrfields[n]
             end
