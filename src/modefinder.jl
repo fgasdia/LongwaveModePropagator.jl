@@ -554,12 +554,14 @@ from the mesh.
 See also: [`findmodes`](@ref)
 """
 function defaultmesh(frequency;
-    rmin=deg2rad(30.0), imin=deg2rad(-10.0),
+    rmin=deg2rad(10), imin=frequency > 30e3 ? deg2rad(-10) : deg2rad(-30),
     Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
-    rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
+    rtransition=deg2rad(70), itransition=deg2rad(-3))
+
+    @info "yep"
 
     # TODO: get a better idea of frequency transition
-    if frequency > 12000
+    if frequency > 0
         zbl_coarse = complex(rmin, imin)
         ztr_coarse = complex(deg2rad(89.9), 0.0)
 
@@ -572,10 +574,10 @@ function defaultmesh(frequency;
 
         append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
     else
-        zbl = complex(rmin, imin)
-        ztr = complex(deg2rad(89.9), 0.0)
+        zbl_coarse = complex(rmin, imin)
+        ztr_coarse = complex(deg2rad(89.9), 0.0)
 
-        mesh = trianglemesh(zbl, ztr, Δr_coarse)
+        mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
     end
 
     return mesh
