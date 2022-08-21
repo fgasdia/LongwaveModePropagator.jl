@@ -558,8 +558,6 @@ function defaultmesh(frequency;
     Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
     rtransition=deg2rad(70), itransition=deg2rad(-3))
 
-    @info "yep"
-
     # TODO: get a better idea of frequency transition
     if frequency > 0
         zbl_coarse = complex(rmin, imin)
