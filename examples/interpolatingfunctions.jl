@@ -46,8 +46,8 @@ Ne = FIRITools.extrapolate(firi(50, 30), zs);
 
 # Let's construct the interpolators.
 
-linear_itp = LinearInterpolation(zs, Ne)
-cubic_itp = CubicSplineInterpolation(zs, Ne);
+linear_itp = linear_interpolation(zs, Ne)
+cubic_itp = cubic_spline_interpolation(zs, Ne);
 
 # There's not great documentation on the monotonic interpolators of Interpolations.jl as of
 # `v0.13`, but several are supported.

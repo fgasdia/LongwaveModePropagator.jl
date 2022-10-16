@@ -127,7 +127,7 @@ function susceptibilityspline(frequency, bfield, species; params=LMPParams())
     zs = BOTTOMHEIGHT:params.susceptibilitysplinestep:params.topheight
     Ms = susceptibility.(zs, (frequency,), (bfield,), (species,))
 
-    itp = CubicSplineInterpolation(zs, Ms)
+    itp = cubic_spline_interpolation(zs, Ms)
 
     return itp
 end

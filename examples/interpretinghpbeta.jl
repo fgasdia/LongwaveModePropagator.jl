@@ -213,7 +213,7 @@ function reflectionheight(params, hp, β)
     species = Species(LMP.QE, LMP.ME,
         z->waitprofile(z, hp, β), z->collisionfrequency(z, params...))
     ωr = LMP.waitsparameter.(alt, (TX.frequency,), (BFIELD,), (species,))
-    itp = LinearInterpolation(ωr, alt)
+    itp = linear_interpolation(ωr, alt)
     eqz = itp(TX.frequency.ω)
 
     return eqz

@@ -99,7 +99,7 @@ ne = species.numberdensity.(zs)
 nu = species.collisionfrequency.(zs)
 Wr = LMP.waitsparameter.(zs, (frequency,), (bfield,), (species,))
 
-altinterp = LinearInterpolation(reverse(Wr), reverse(zs))
+altinterp = linear_interpolation(reverse(Wr), reverse(zs))
 eqz = altinterp(frequency.ω)  # altitude where ω = ωᵣ
 
 ne[end] = NaN  # otherwise Plots errors
