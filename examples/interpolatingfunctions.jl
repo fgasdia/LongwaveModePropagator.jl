@@ -18,8 +18,8 @@
 # ## Profiles and interpolators
 # 
 # We'll use the [FIRI-2018](https://doi.org/10.1029/2018JA025437) profiles from
-# [FIRITools.jl](https://github.com/fgasdia/FIRITools.jl) which are slightly more
-# complicated than a pure exponential profile. FIRITools isn't registered, but can be
+# [FaradayInternationalReferenceIonosphere.jl](https://github.com/fgasdia/FaradayInternationalReferenceIonosphere.jl) which are slightly more
+# complicated than a pure exponential profile. The package isn't registered, but can be
 # installed from the Pkg by copy-pasting the entire url.
 # 
 # From [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl) we'll use
@@ -32,17 +32,19 @@ using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
 using Plots, Distances
 
-using FIRITools
+using FaradayInternationalReferenceIonosphere
 
 using Interpolations, NormalHermiteSplines
 nothing #hide
+
+const FIRI = FaradayInternationalReferenceIonosphere
 
 # Here's the discrete profile data. Some interpolators will benefit from random sample
 # points, but most density data will be on a grid. The profile uses an exponential
 # extrapolation of the base of FIRI from about 60 km altitude down to the ground.
 
 zs = 0:1e3:110e3
-Ne = FIRITools.extrapolate(firi(50, 30), zs);
+Ne = FIRI.extrapolate(firi(50, 30), zs);
 
 # Let's construct the interpolators.
 
@@ -67,7 +69,7 @@ hermite_itp(z) = evaluate_one(spline, z);
 #  a spline built with RK_H2 kernel is a twice continuously differentiable function).
 
 zs_fine = 40e3:100:110e3
-Ne_fine = FIRITools.extrapolate(firi(50, 30), zs_fine);
+Ne_fine = FIRI.extrapolate(firi(50, 30), zs_fine);
 
 linear_fine = linear_itp.(zs_fine)
 cubic_fine = cubic_itp.(zs_fine)
@@ -138,7 +140,7 @@ end
 
 interpolators = (
     "truth" => Interpolations.interpolate(0:100:110e3,
-        FIRITools.extrapolate(firi(50, 30), 0:100:110e3),
+        FIRI.extrapolate(firi(50, 30), 0:100:110e3),
         FritschButlandMonotonicInterpolation()),
     "linear"=> linear_itp,
     "cubic" => cubic_itp,
