@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Density and collision frequency as interpolating functions · LongwaveModePropagator</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LongwaveModePropagator</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../basic/">Introduction to defining scenarios</a></li><li><a class="tocitem" href="../io/">File-based I/O</a></li><li><a class="tocitem" href="../meshgrid/">Mesh grid for mode finding - Part 1</a></li><li><a class="tocitem" href="../meshgrid2/">Mesh grid for mode finding - Part 2</a></li><li><a class="tocitem" href="../integratedreflection/">Solvers for ionosphere reflection coefficient</a></li><li><a class="tocitem" href="../wavefieldintegration/">Wavefield integration</a></li><li><a class="tocitem" href="../magneticfield/">Magnetic field direction</a></li><li><a class="tocitem" href="../interpretinghpbeta/">Interpreting h′ and β</a></li><li><a class="tocitem" href="../multiplespecies/">Multiple ionospheric species</a></li><li class="is-active"><a class="tocitem" href>Density and collision frequency as interpolating functions</a><ul class="internal"><li><a class="tocitem" href="#Profiles-and-interpolators"><span>Profiles and interpolators</span></a></li><li><a class="tocitem" href="#Propagation-results"><span>Propagation results</span></a></li></ul></li><li><a class="tocitem" href="../ground/">Ground</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../lib/public/">Public Interface</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Density and collision frequency as interpolating functions</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Density and collision frequency as interpolating functions</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/interpolatingfunctions.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="interpolating-functions"><a class="docs-heading-anchor" href="#interpolating-functions">Density and collision frequency as interpolating functions</a><a id="interpolating-functions-1"></a><a class="docs-heading-anchor-permalink" href="#interpolating-functions" title="Permalink"></a></h1><p>The ionospheric <a href="../../lib/public/#LongwaveModePropagator.Species"><code>Species</code></a> type used when defining a <a href="../../lib/public/#LongwaveModePropagator.HomogeneousWaveguide"><code>HomogeneousWaveguide</code></a> requires <code>numberdensity</code> and <code>collisionfrequency</code> fields to be callable functions of altitude <code>z</code> in meters that return <code>Float64</code> values of number density in m⁻³ and species-neutral collision frequency in s⁻¹.</p><p>Sometimes a simple analytical function can be provided, such as <a href="../../lib/public/#LongwaveModePropagator.waitprofile"><code>waitprofile</code></a>. Other times, the profile is constructed from tabular data at discrete heights which must be wrapped in an interpolator before being passed to <code>Species</code>.</p><p>The choice of interpolating function not only impacts the accuracy of the propagation result (how well the interpolation resembles the true profile), but it can also impact the runtime of <a href="../../lib/public/#LongwaveModePropagator.propagate"><code>propagate</code></a> and related functions.</p><p>In this example we&#39;ll compare a few different interpolating functions.</p><h2 id="Profiles-and-interpolators"><a class="docs-heading-anchor" href="#Profiles-and-interpolators">Profiles and interpolators</a><a id="Profiles-and-interpolators-1"></a><a class="docs-heading-anchor-permalink" href="#Profiles-and-interpolators" title="Permalink"></a></h2><p>We&#39;ll use the <a href="https://doi.org/10.1029/2018JA025437">FIRI-2018</a> profiles from <a href="https://github.com/fgasdia/FaradayInternationalReferenceIonosphere.jl">FaradayInternationalReferenceIonosphere.jl</a> which are slightly more complicated than a pure exponential profile. The package isn&#39;t registered, but can be installed from the Pkg by copy-pasting the entire url.</p><p>From <a href="https://github.com/JuliaMath/Interpolations.jl">Interpolations.jl</a> we&#39;ll use a linear interpolator, a cubic spline interpolator, and monotonic interpolators. We&#39;ll use <a href="https://github.com/IgorKohan/NormalHermiteSplines.jl">NormalHermiteSplines.jl</a> to construct Hermite splines.</p><pre><code class="language-julia hljs">using Printf, Statistics
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME
+using Plots, Distances
+
+using FaradayInternationalReferenceIonosphere
+
+using Interpolations, NormalHermiteSplines
+
+const FIRI = FaradayInternationalReferenceIonosphere</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">FaradayInternationalReferenceIonosphere</code></pre><p>Here&#39;s the discrete profile data. Some interpolators will benefit from random sample points, but most density data will be on a grid. The profile uses an exponential extrapolation of the base of FIRI from about 60 km altitude down to the ground.</p><pre><code class="language-julia hljs">zs = 0:1e3:110e3
+Ne = FIRI.extrapolate(firi(50, 30), zs);</code></pre><p>Let&#39;s construct the interpolators.</p><pre><code class="language-julia hljs">linear_itp = linear_interpolation(zs, Ne)
+cubic_itp = cubic_spline_interpolation(zs, Ne);</code></pre><p>There&#39;s not great documentation on the monotonic interpolators of Interpolations.jl as of <code>v0.13</code>, but several are supported.</p><pre><code class="language-julia hljs">fb_itp = Interpolations.interpolate(zs, Ne, FritschButlandMonotonicInterpolation())
+fc_itp = Interpolations.interpolate(zs, Ne, FritschCarlsonMonotonicInterpolation())
+s_itp = Interpolations.interpolate(zs, Ne, SteffenMonotonicInterpolation());</code></pre><p>And the Hermite splines</p><pre><code class="language-julia hljs">spline = prepare(collect(zs), RK_H1())
+spline = construct(spline, Ne)
+hermite_itp(z) = evaluate_one(spline, z);</code></pre><p>(a spline built with RK<em>H0 kernel is a continuous function,  a spline built with RK</em>H1 kernel is a continuously differentiable function,  a spline built with RK_H2 kernel is a twice continuously differentiable function).</p><pre><code class="language-julia hljs">zs_fine = 40e3:100:110e3
+Ne_fine = FIRI.extrapolate(firi(50, 30), zs_fine);
+
+linear_fine = linear_itp.(zs_fine)
+cubic_fine = cubic_itp.(zs_fine)
+fb_fine = fb_itp.(zs_fine)
+fc_fine = fc_itp.(zs_fine)
+s_fine = s_itp.(zs_fine)
+hermite_fine = hermite_itp.(zs_fine);</code></pre><p>The profiles are compared using percentage difference relative to the true profile.</p><pre><code class="language-julia hljs">cmp(a,b) = (a - b)/b*100
+
+dNe = cmp.(Ne_fine, Ne_fine)
+dlinear = cmp.(linear_fine, Ne_fine)
+dcubic = cmp.(cubic_fine, Ne_fine)
+dfb = cmp.(fb_fine, Ne_fine)
+dfc = cmp.(fc_fine, Ne_fine)
+ds = cmp.(s_fine, Ne_fine)
+dhermite = cmp.(hermite_fine, Ne_fine);</code></pre><p>To plot densities with a log scale, we set values less than 0.1 to NaN.</p><pre><code class="language-julia hljs">cl(x) = replace(v-&gt;v &lt;= 0.1 ? NaN : v, x)
+lc(x) = replace(x, NaN =&gt; 0)
+
+p1 = plot(cl([Ne_fine linear_fine cubic_fine hermite_fine fb_fine fc_fine s_fine]),
+    zs_fine/1000, xscale=:log10, xlabel=&quot;Ne (m⁻³)&quot;, ylabel=&quot;Altitude (km)&quot;,
+    legend=:topleft, labels=[&quot;Truth&quot; &quot;Linear&quot; &quot;Cubic&quot; &quot;Hermite&quot; &quot;FritschButland&quot; &quot;FritschCarlson&quot; &quot;Steffen&quot;])
+p2 = plot(lc([dNe dlinear dcubic dhermite dfb dfc ds]),
+    zs_fine/1000, xlabel=&quot;% difference&quot;, legend=false, xlims=(-1, 1))
+plot(p1, p2, layout=(1,2), size=(800,400), margin=3Plots.mm)</code></pre><p><img src="../interpolatingfunctions_profiles.png" alt/></p><p>Unsurprisingly, the error is highest at the cutoff altitude of 40 km where the densities below are 0. The linear interpolation has positive-biased errors at all other heights because linear interpolation does not accurately capture the true exponential profile. To avoid this, the interpolator could have been constructed with a finer initial grid, but that is not always possible.</p><p>Let&#39;s compute the total absolute difference between each interpolator and the truth and also compute the average percentage difference for each:</p><pre><code class="language-julia hljs">for (n, v) in (&quot;linear&quot;=&gt;(linear_fine, dlinear), &quot;cubic&quot;=&gt;(cubic_fine, dcubic),
+    &quot;hermite&quot;=&gt;(hermite_fine, dhermite), &quot;FritschButland&quot;=&gt;(fb_fine, dfb),
+    &quot;FritschCarlson&quot;=&gt;(fc_fine, dfc), &quot;Steffen&quot;=&gt;(s_fine, ds))
+    @printf(&quot;%s:  %.3g  %.3g\n&quot;, n, cityblock(Ne_fine, v[1]), mean(abs, v[2]))
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">linear:  1.54e+10  0.459
+cubic:  1.73e+10  0.14
+hermite:  1.73e+10  0.14
+FritschButland:  1.64e+10  0.129
+FritschCarlson:  1.66e+10  0.14
+Steffen:  1.66e+10  0.14</code></pre><p>Somewhat surprisingly, the linear interpolation has the lowest total absolute difference from the truth despite the fact that (as seen in the plot) the percentile difference from the linear interpolation to the truth is very high.</p><h2 id="Propagation-results"><a class="docs-heading-anchor" href="#Propagation-results">Propagation results</a><a id="Propagation-results-1"></a><a class="docs-heading-anchor-permalink" href="#Propagation-results" title="Permalink"></a></h2><p>Let&#39;s compare propagation results and performance with each of these interpolators. Unfortunately, as of <code>v0.5.1</code> of NormalHermiteSplines.jl, the implementation of the package isn&#39;t efficient (see #3)[https://github.com/IgorKohan/NormalHermiteSplines.jl/issues/3] and because <code>hermite_itp</code> would be called millions of times in <code>propagate</code>, it is prohibitively slow.</p><p>Here are the <code>Species</code> for each of the other interpolators. They will all use the analytic <a href="../../lib/public/#LongwaveModePropagator.electroncollisionfrequency"><code>electroncollisionfrequency</code></a>.</p><p>There&#39;s no functional form of the truth FIRI profile, so we&#39;ll build a fine FritschButland interpolator and call it the truth.</p><pre><code class="language-julia hljs">interpolators = (
+    &quot;truth&quot; =&gt; Interpolations.interpolate(0:100:110e3,
+        FIRI.extrapolate(firi(50, 30), 0:100:110e3),
+        FritschButlandMonotonicInterpolation()),
+    &quot;linear&quot;=&gt; linear_itp,
+    &quot;cubic&quot; =&gt; cubic_itp,
+    &quot;FritschButland&quot; =&gt; fb_itp,
+    &quot;FritschCarlson&quot; =&gt; fc_itp,
+    &quot;Steffen&quot; =&gt; s_itp
+)
+
+function propagateitp(interpolators)
+    bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+    ground = GROUND[5]
+
+    tx = Transmitter(24e3)
+    rx = GroundSampler(0:5e3:3000e3, Fields.Ez)
+
+    results = Dict{String,Tuple{Float64,Vector{Float64},Vector{Float64}}}()
+    for (n, itp) in interpolators
+        species = Species(QE, ME, itp, electroncollisionfrequency)
+        waveguide = HomogeneousWaveguide(bfield, species, ground)
+        t0 = time()
+        _, amp, phase = propagate(waveguide, tx, rx)
+        runtime = time() - t0
+        results[n] = (runtime, amp, phase)
+    end
+    return results
+end
+
+propagateitp(interpolators);  # warmup
+results = propagateitp(interpolators);</code></pre><p>First let&#39;s evaluate the propagation results.</p><pre><code class="language-julia hljs">d = 0:5:3000
+p1 = plot(ylabel=&quot;Amplitude (dB μV/m)&quot;)
+p2 = plot(xlabel=&quot;Range (km)&quot;, ylims=(-0.02, 0.02), ylabel=&quot;Δ&quot;, legend=false)
+for (n, v) in results
+    plot!(p1, d, v[2], label=n)
+    plot!(p2, d, v[2]-results[&quot;truth&quot;][2])
+end
+plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))</code></pre><p><img src="../interpolatingfunctions_amp.png" alt/></p><pre><code class="language-julia hljs">p1 = plot(ylabel=&quot;Phase (deg)&quot;)
+p2 = plot(xlabel=&quot;Range (km)&quot;, ylims=(-0.4, 0.4), ylabel=&quot;Δ&quot;, legend=false)
+for (n, v) in results
+    plot!(p1, d, rad2deg.(v[3]), label=n)
+    plot!(p2, d, rad2deg.(v[3])-rad2deg.(results[&quot;truth&quot;][3]))
+end
+plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))</code></pre><p><img src="../interpolatingfunctions_phase.png" alt/></p><p>Here is the mean absolute amplitude difference between each technique and the true profile amplitude:</p><pre><code class="language-julia hljs">for n in (&quot;linear&quot;, &quot;cubic&quot;, &quot;FritschButland&quot;, &quot;FritschCarlson&quot;, &quot;Steffen&quot;)
+    @printf(&quot;%s: %.3e\n&quot;,n, meanad(results[n][2], results[&quot;truth&quot;][2]))
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">linear: 1.492e-02
+cubic: 3.110e-03
+FritschButland: 4.090e-03
+FritschCarlson: 3.599e-03
+Steffen: 2.735e-03</code></pre><p>The amplitude and phase for each of the interpolators matches the true exponential profile extremely closely relative to the typical noise of real VLF measurements.</p><p>Timing can vary when run by GitHub to build the documentation, so results here are from a local run:</p><table><tr><th style="text-align: right">Interpolator</th><th style="text-align: right">Runtime relative to <code>truth</code></th></tr><tr><td style="text-align: right">truth</td><td style="text-align: right">1</td></tr><tr><td style="text-align: right">linear</td><td style="text-align: right">0.99</td></tr><tr><td style="text-align: right">cubic</td><td style="text-align: right">0.84</td></tr><tr><td style="text-align: right">FritschButland</td><td style="text-align: right">0.94</td></tr><tr><td style="text-align: right">FritschCarlson</td><td style="text-align: right">0.96</td></tr><tr><td style="text-align: right">Steffen</td><td style="text-align: right">0.95</td></tr></table><p>Really, any of these except for the linear interpolation could be used to interpolate a discrete profile. The cubic interpolation is the fastest, but the FritschButland is a little more true to the actual profile. It&#39;s for that reason that FritschButland is used to interpolate <a href="../../lib/public/#LongwaveModePropagator.TableInput"><code>TableInput</code></a> types in LongwaveModePropagator.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../multiplespecies/">« Multiple ionospheric species</a><a class="docs-footer-nextpage" href="../ground/">Ground »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Saturday 9 September 2023 21:35">Saturday 9 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
