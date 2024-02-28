@@ -276,7 +276,7 @@ function integratedreflection(modeequation::PhysicalModeEquation;
                 force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
-    R = sol[end]
+    R = sol.u[end]
 
     return R
 end
@@ -311,7 +311,7 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
                 force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
                 save_on=false, save_start=false, save_end=true)
 
-    RdR = sol[end]
+    RdR = sol.u[end]
 
     return RdR
 end
