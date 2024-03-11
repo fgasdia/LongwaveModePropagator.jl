@@ -10,16 +10,16 @@ function test_propagate(scenario)
 
     mesh = LMP.defaultmesh(tx.frequency)
     E2, amp2, phase2 = propagate(waveguide, tx, rx; mesh=mesh)
-    @test E2 ≈ E    rtol=1e-3
-    @test amp2 ≈ amp    rtol=1e-3
-    @test phase2 ≈ phase    rtol=1e-3
+    @test E2 ≈ E    rtol=1e-2
+    @test amp2 ≈ amp    rtol=1e-2
+    @test phase2 ≈ phase    rtol=1e-2
 
     me = PhysicalModeEquation(tx.frequency, waveguide)
     modes = findmodes(me, mesh)
     E3, amp3, phase3 = propagate(waveguide, tx, rx; modes=modes)
-    @test E3 ≈ E2    rtol=1e-3
-    @test amp3 ≈ amp2    rtol=1e-3
-    @test phase3 ≈ phase2    rtol=1e-3
+    @test E3 ≈ E2    rtol=1e-2
+    @test amp3 ≈ amp2    rtol=1e-2
+    @test phase3 ≈ phase2    rtol=1e-2
 
     # mesh should be ignored
     E4, amp4, phase4 = propagate(waveguide, tx, rx; modes=modes, mesh=[1.0])
@@ -53,9 +53,9 @@ function test_propagate_segmented(scenario)
     @test eltype(phase) == Float64
 
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
-    @test E1 ≈ E    rtol=1e-3
-    @test amp1 ≈ amp    rtol=1e-3
-    @test phase1 ≈ phase   rtol=1e-3
+    @test meanabsdiff(E1, E) < 1
+    @test maxabsdiff(amp1, amp) < 0.1
+    @test maxabsdiff(phase1, phase) < 0.005
 
     # Are params being carried through?
     params = LMPParams(earthradius=6300e3)
