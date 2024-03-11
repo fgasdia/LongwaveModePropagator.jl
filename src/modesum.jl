@@ -249,6 +249,41 @@ function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=
     return fz, fy, fx
 end
 
+"""
+    radiationresistance(k, Cγ, zt)
+
+Calculate radiation resistance correction for transmitting antenna elevated above the ground.
+Based on [^Pappert1986] below, is derived from the time-averaged Poynting vector, which
+uses total E and H fields calculated assuming a point dipole over perfectly reflecting ground.
+
+If a point dipole at height z is radiating known power Pz, the power that should be input to
+LMP is ``P/Pz = 2/f(kz,γ)``. Also note that E ∝ √P, hence the square root below.
+
+# References
+
+[Pappert1986]: R. A. Pappert, “Radiation resistance of thin antennas of arbitrary elevation
+    and configuration over perfectly conducting ground.,” Naval Ocean Systems Center,
+    San Diego, CA, Technical Report 1112, Jun. 1986. Accessed: Mar. 10, 2024. [Online].
+    Available: https://apps.dtic.mil/sti/citations/ADA170945
+"""
+function radiationresistance(k, Cγ, zt)
+    # TODO: Derive results for general Fresnel reflection coefficients.
+    kz = 2*k*zt
+    kz² = kz^2
+    kz³ = kz²*kz
+
+    sinkz, coskz = sincos(kz)
+    Cγ² = Cγ^2
+    Sγ² = 1 - Cγ²
+
+    f = (1 + 3/kz³*(sinkz - kz*coskz))*Cγ² +
+        (1 + 3/(2*kz³)*((1 - kz²)*sinkz - kz*coskz))*Sγ²
+
+    corrfactor = sqrt(2/f)
+
+    return corrfactor
+end
+
 @doc raw"""
     modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPParams())
 
@@ -396,6 +431,8 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
     txpower = power(tx)
     frequency = tx.frequency
     k = frequency.k
+    zt = altitude(tx)
+    Cγ = cos(inclination(tx))
 
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
@@ -414,8 +451,10 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
     # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
     # Q *= 100 # for V/m to uV/m
 
-    # TODO: Radiation resistance correction if zt > 0
-    # See, e.g. Pappert Hitney 1989 TWIRE paper
+    if params.radiationresistancecorrection && zt > 0
+        corrfactor = radiationresistance(k, Cγ, zt)
+        Q *= corrfactor
+    end
 
     @inbounds for i in eachindex(E)
         E[i] *= Q/sqrt(abs(sin(X[i]/params.earthradius)))
@@ -429,19 +468,17 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
 
     frequency = tx.frequency
     k = frequency.k
-
+    zt = altitude(tx)
+    Cγ = cos(inclination(tx))
     txpower = power(tx)
+
     x = distance(rx, tx)
 
     Q = 0.6822408*sqrt(frequency.f*txpower)
 
-    # At transmitter (within 1 meter from it), E is complex NaN or Inf
-    if x < 1
-        # Used in LWPC `lw_sum_modes.for`, but not sure where they got it
-        # amplitude = 10log10(80*Q)
-        E = sqrt(80*Q) + 0.0im # == 10^(amplitude/20)
-
-        return E
+    if params.radiationresistancecorrection && zt > 0
+        corrfactor = radiationresistance(k, Cγ, zt)
+        Q *= corrfactor
     end
 
     E = zero(ComplexF64)
@@ -483,8 +520,15 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
 
     frequency = tx.frequency
     k = frequency.k
+    zt = altitude(tx)
+    Cγ = cos(inclination(tx))
 
     Q = 0.6822408*sqrt(frequency.f*tx.power)
+
+    if params.radiationresistancecorrection && zt > 0
+        corrfactor = radiationresistance(k, Cγ, zt)
+        Q *= corrfactor
+    end
 
     # Initialize
     J = length(waveguide)
@@ -577,22 +621,4 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
     end
 
     return E
-end
-
-########
-
-#==
-radiation resistance correction factor for when zt isn't 0.
-
-From lw_sum_modes.for
-but could also see Pappert and Hitney 1989 TWIRE paper
-==#
-function radiationresistance(k, Cγ, zt)
-    x = 2*k*zt
-    sinx, cosx = sincos(x)
-    xt1 = 3*(sinx - x*cosx)/x^3
-    xt2 = (xt1 - 3*sinx/x)/2
-    xt3 = sqrt(2/(1 + xt2 + (xt1 - xt2)*Cγ^2))
-
-    return xt3
 end
