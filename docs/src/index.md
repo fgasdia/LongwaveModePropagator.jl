@@ -16,7 +16,7 @@ See the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/gener
 
 ```
 julia> ]
-(@v1.5) pkg> add LongwaveModePropagator
+(@v1.10) pkg> add LongwaveModePropagator
 ```
 
 If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.
