@@ -245,10 +245,10 @@ TO
 #
 # Let's reproduce the wavefields in figure 2 of Pitteway (1965).
 
-zs = 110e3:-500:50e3
+zs = 110e3:-50:50e3
 zskm = zs/1000
 
-e = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=true)
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day)
 
 ex1 = getindex.(e, 1)
 ey1 = getindex.(e, 2)
@@ -256,13 +256,13 @@ ex2 = getindex.(e, 5)
 hx2 = getindex.(e, 7)
 
 function plotfield(field; kwargs...)
-    p = plot(real(field), zskm; color="black", linewidth=1.5, legend=false,
+    p = plot(real(field), zskm; color="black", linewidth=1.2, legend=false,
              xlims=(-0.8, 0.8), label="real",
              framestyle=:grid, kwargs...)
     plot!(p, imag(field), zskm; color="black",
-          linewidth=1.5, linestyle=:dash, label="imag")
-    plot!(p, abs.(field), zskm; color="black", linewidth=3, label="abs")
-    plot!(p, -abs.(field), zskm; color="black", linewidth=3, label="")
+          linewidth=1.2, linestyle=:dash, label="imag")
+    plot!(p, abs.(field), zskm; color="black", linewidth=2, label="abs")
+    plot!(p, -abs.(field), zskm; color="black", linewidth=2, label="")
     return p
 end
 

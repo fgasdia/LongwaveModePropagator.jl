@@ -94,7 +94,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
     IntegrationParams(solver=Vern7(), tolerance=1e-5)`:
     parameters passed to `DifferentialEquations.jl` for integration of the ionosphere
     reflection coefficient.
-- `wavefieldheights::H = range(topheight, 0, length=513)`: heights in meters at which
+- `wavefieldheights::H = range(topheight, 0, length=2049)`: heights in meters at which
     wavefields will be integrated.
 - `wavefieldintegrationparams::IntegrationParams{T2} =
     IntegrationParams(solver=Tsit5(), tolerance=1e-6)`:
@@ -123,7 +123,7 @@ See also: [`IntegrationParams`](@ref)
     susceptibilitysplinestep::Float64 = 10.0
     grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
     integrationparams::IntegrationParams{T} = IntegrationParams()
-    wavefieldheights::H = range(topheight, 0; length=513)
+    wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =
         IntegrationParams(solver=Tsit5(), tolerance=1e-6)
     radiationresistancecorrection::Bool = false
