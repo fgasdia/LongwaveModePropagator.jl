@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>File-based I/O · LongwaveModePropagator</title><meta name="title" content="File-based I/O · LongwaveModePropagator"/><meta property="og:title" content="File-based I/O · LongwaveModePropagator"/><meta property="twitter:title" content="File-based I/O · LongwaveModePropagator"/><meta name="description" content="Documentation for LongwaveModePropagator."/><meta property="og:description" content="Documentation for LongwaveModePropagator."/><meta property="twitter:description" content="Documentation for LongwaveModePropagator."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LongwaveModePropagator</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../basic/">Introduction to defining scenarios</a></li><li class="is-active"><a class="tocitem" href>File-based I/O</a><ul class="internal"><li><a class="tocitem" href="#Inputs"><span>Inputs</span></a></li><li><a class="tocitem" href="#Running-the-model-from-a-JSON-file"><span>Running the model from a JSON file</span></a></li><li><a class="tocitem" href="#Outputs"><span>Outputs</span></a></li><li><a class="tocitem" href="#matlab_json"><span>JSON I/O from Matlab</span></a></li><li><a class="tocitem" href="#python_json"><span>JSON I/O from Python</span></a></li></ul></li><li><a class="tocitem" href="../meshgrid/">Mesh grid for mode finding - Part 1</a></li><li><a class="tocitem" href="../meshgrid2/">Mesh grid for mode finding - Part 2</a></li><li><a class="tocitem" href="../integratedreflection/">Solvers for ionosphere reflection coefficient</a></li><li><a class="tocitem" href="../wavefieldintegration/">Wavefield integration</a></li><li><a class="tocitem" href="../magneticfield/">Magnetic field direction</a></li><li><a class="tocitem" href="../interpretinghpbeta/">Interpreting h′ and β</a></li><li><a class="tocitem" href="../multiplespecies/">Multiple ionospheric species</a></li><li><a class="tocitem" href="../interpolatingfunctions/">Density and collision frequency as interpolating functions</a></li><li><a class="tocitem" href="../ground/">Ground</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../lib/public/">Public Interface</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>File-based I/O</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>File-based I/O</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/io.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="File-based-I/O"><a class="docs-heading-anchor" href="#File-based-I/O">File-based I/O</a><a id="File-based-I/O-1"></a><a class="docs-heading-anchor-permalink" href="#File-based-I/O" title="Permalink"></a></h1><p>LongwaveModePropagator provides basic propagation capabilities interfacing through <a href="https://www.json.org/json-en.html">JSON</a> files. Julia is still needed to run the model, but scenarios can otherwise be defined and analyzed from e.g. Matlab or Python.</p><p>Examples of writing and reading compatible JSON files are provided below for <a href="#matlab_json">Matlab</a> and <a href="#python_json">Python</a>.</p><p>Let&#39;s load the necessary packages.</p><pre><code class="language-julia hljs">using Dates
+using JSON3
+
+using LongwaveModePropagator</code></pre><p>Throughout the examples, we&#39;ll also define <code>LMP</code> as shorthand for <code>LongwaveModePropagator</code> when accessing functions from the package that aren&#39;t exported.</p><pre><code class="language-julia hljs">const LMP = LongwaveModePropagator</code></pre><h2 id="Inputs"><a class="docs-heading-anchor" href="#Inputs">Inputs</a><a id="Inputs-1"></a><a class="docs-heading-anchor-permalink" href="#Inputs" title="Permalink"></a></h2><p>There are two primary ways to define <a href="../../lib/internals/#LongwaveModePropagator.Input"><code>LongwaveModePropagator.Input</code></a>s, the abstract supertype for inputing information to the model.</p><h3 id="basicinput_io"><a class="docs-heading-anchor" href="#basicinput_io">ExponentialInput</a><a id="basicinput_io-1"></a><a class="docs-heading-anchor-permalink" href="#basicinput_io" title="Permalink"></a></h3><p>The first is known as a <a href="../../lib/public/#LongwaveModePropagator.ExponentialInput"><code>ExponentialInput</code></a>. It defines the ionosphere using Wait and Spies <span>$h&#39;$</span> and <span>$\beta$</span> parameters.</p><p>It contains the fields</p><ul><li><code>name::String</code></li><li><code>description::String</code></li><li><code>datetime::DateTime</code></li><li><code>segment_ranges::Vector{Float64}</code>: distance from transmitter to the beginning of each <code>HomogeneousWaveguide</code> segment in meters.</li><li><code>hprimes::Vector{Float64}</code>: Wait&#39;s <span>$h&#39;$</span> parameter for each <code>HomogeneousWaveguide</code> segment.</li><li><code>betas::Vector{Float64}</code>: Wait&#39;s <span>$\beta$</span> parameter for each <code>HomogeneousWaveguide</code> segment.</li><li><code>b_mags::Vector{Float64}</code>: magnetic field magnitude for each <code>HomogeneousWaveguide</code> segment.</li><li><code>b_dips::Vector{Float64}</code>: magnetic field dip angles in radians for each <code>HomogeneousWaveguide</code> segment.</li><li><code>b_azs::Vector{Float64}</code>: magnetic field azimuth in radians &quot;east&quot; of the propagation direction for each <code>HomogeneousWaveguide</code> segment.</li><li><code>ground_sigmas::Vector{Float64}</code>: ground conductivity in Siemens per meter for each <code>HomogeneousWaveguide</code> segment.</li><li><code>ground_epsrs::Vector{Int}</code>: ground relative permittivity for each <code>HomogeneousWaveguide</code> segment.</li><li><code>frequency::Float64</code>: transmitter frequency in Hertz.</li><li><code>output_ranges::Vector{Float64}</code>: distances from the transmitter at which the field will be calculated.</li></ul><p>The fields that are vectors allow the definition of a <a href="../../lib/public/#LongwaveModePropagator.SegmentedWaveguide"><code>SegmentedWaveguide</code></a> where each element of the vector is its own <a href="../../lib/public/#LongwaveModePropagator.HomogeneousWaveguide"><code>HomogeneousWaveguide</code></a> segment. Single element vectors are treated as a single <code>HomogeneousWaveguide</code>.</p><p>To show the equivalent JSON format, we&#39;ll build a simple, homogeneous ionosphere <code>ExponentialInput</code>. It&#39;s defined as a <code>mutable struct</code>, so it is simple to specify the fields one by one.</p><pre><code class="language-julia hljs">input = ExponentialInput()
+input.name = &quot;basic&quot;
+input.description = &quot;Test ExponentialInput&quot;
+input.datetime = DateTime(&quot;2020-12-29T05:00:00.000&quot;)  # usually `Dates.now()`
+
+input.segment_ranges = [0.0]
+input.hprimes = [75]
+input.betas = [0.35]
+input.b_mags= [50e-6]
+input.b_dips = [π/2]
+input.b_azs = [0.0]
+input.ground_sigmas = [0.001]
+input.ground_epsrs = [4]
+input.frequency = 24e3
+input.output_ranges = collect(0:100e3:1000e3)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11-element Vector{Float64}:
+      0.0
+ 100000.0
+ 200000.0
+ 300000.0
+ 400000.0
+ 500000.0
+ 600000.0
+ 700000.0
+ 800000.0
+ 900000.0
+      1.0e6</code></pre><p>Here it is formatted as JSON.</p><pre><code class="language-julia hljs">json_str = JSON3.pretty(input)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">{
+    &quot;name&quot;: &quot;basic&quot;,
+    &quot;description&quot;: &quot;Test ExponentialInput&quot;,
+    &quot;datetime&quot;: &quot;2020-12-29T05:00:00.0&quot;,
+    &quot;segment_ranges&quot;: [
+        0
+    ],
+    &quot;hprimes&quot;: [
+        75
+    ],
+    &quot;betas&quot;: [
+        0.35
+    ],
+    &quot;b_mags&quot;: [
+        5.0e-5
+    ],
+    &quot;b_dips&quot;: [
+        1.5707963267948966
+    ],
+    &quot;b_azs&quot;: [
+        0
+    ],
+    &quot;ground_sigmas&quot;: [
+        0.001
+    ],
+    &quot;ground_epsrs&quot;: [
+        4
+    ],
+    &quot;frequency&quot;: 24000,
+    &quot;output_ranges&quot;: [
+        0,
+        100000,
+        200000,
+        300000,
+        400000,
+        500000,
+        600000,
+        700000,
+        800000,
+        900000,
+        1000000
+    ]
+}</code></pre><p>Let&#39;s also save this to a file.</p><pre><code class="language-julia hljs">json_str = JSON3.write(input)
+
+root_dir = dirname(dirname(pathof(LongwaveModePropagator)))
+examples_dir = joinpath(root_dir, &quot;examples&quot;)
+filename = joinpath(examples_dir, &quot;basic.json&quot;)
+
+open(filename,&quot;w&quot;) do f
+    write(f, json_str)
+end</code></pre><h3 id="tableinput_io"><a class="docs-heading-anchor" href="#tableinput_io">TableInput</a><a id="tableinput_io-1"></a><a class="docs-heading-anchor-permalink" href="#tableinput_io" title="Permalink"></a></h3><p>The second input is the <a href="../../lib/public/#LongwaveModePropagator.TableInput"><code>TableInput</code></a>. This type defines the ionosphere using a tabular input of number density and collision frequency as a function of altitude. These tables are then cubic spline interpolated when integrating the ionosphere reflection coefficient and wavefields. See also <a href="../interpolatingfunctions/#interpolating-functions">interpolating functions</a>.</p><p>The fields of the <code>TableInput</code> are</p><ul><li><code>name::String</code></li><li><code>description::String</code></li><li><code>datetime::DateTime</code></li><li><code>segment_ranges::Vector{Float64}</code>: distance from transmitter to the beginning of each <code>HomogeneousWaveguide</code> segment in meters.</li><li><code>altitude::Vector{Float64}</code>: altitude above ground in meters for which the <code>density</code> and <code>collision_frequency</code> profiles are specified.</li><li><code>density::Vector{Float64}</code>: electron density at each <code>altitude</code> in <span>$m⁻³$</span>.</li><li><code>collision_frequency::Vector{Float64}</code>: electron-ion collision frequency at each <code>altitude</code> in <span>$s⁻¹$</span>.</li><li><code>b_dips::Vector{Float64}</code>: magnetic field dip angles in radians for each <code>HomogeneousWaveguide</code> segment.</li><li><code>b_azs::Vector{Float64}</code>: magnetic field azimuth in radians &quot;east&quot; of the propagation direction for each <code>HomogeneousWaveguide</code> segment.</li><li><code>ground_sigmas::Vector{Float64}</code>: ground conductivity in Siemens per meter for each <code>HomogeneousWaveguide</code> segment.</li><li><code>ground_epsrs::Vector{Int}</code>: ground relative permittivity for each <code>HomogeneousWaveguide</code> segment.</li><li><code>frequency::Float64</code>: transmitter frequency in Hertz.</li><li><code>output_ranges::Vector{Float64}</code>: distances from the transmitter at which the field will be calculated.</li></ul><p>Again we&#39;ll construct a <code>TableInput</code> to look at the JSON</p><pre><code class="language-julia hljs">tinput = TableInput()
+tinput.name = &quot;table&quot;
+tinput.description = &quot;Test TableInput&quot;
+tinput.datetime = DateTime(&quot;2020-12-29T05:00:00.000&quot;)
+
+tinput.segment_ranges = [0.0]
+tinput.altitude = collect(50e3:5e3:100e3)
+tinput.density = [waitprofile.(tinput.altitude, 75, 0.3)]
+tinput.collision_frequency = [electroncollisionfrequency.(tinput.altitude)]
+tinput.b_mags= [50e-6]
+tinput.b_dips = [π/2]
+tinput.b_azs = [0.0]
+tinput.ground_sigmas = [0.001]
+tinput.ground_epsrs = [4]
+tinput.frequency = 24e3
+tinput.output_ranges = collect(0:100e3:1000e3)
+
+json_str = JSON3.pretty(tinput)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">{
+    &quot;name&quot;: &quot;table&quot;,
+    &quot;description&quot;: &quot;Test TableInput&quot;,
+    &quot;datetime&quot;: &quot;2020-12-29T05:00:00.0&quot;,
+    &quot;segment_ranges&quot;: [
+        0
+    ],
+    &quot;altitude&quot;: [
+        50000,
+        55000,
+        60000,
+        65000,
+        70000,
+        75000,
+        80000,
+        85000,
+        90000,
+        95000,
+        100000
+    ],
+    &quot;density&quot;: [
+        [
+            4.374403183176109e6,
+            9.26061161145436e6,
+            1.9604714935292408e7,
+            4.150318184370078e7,
+            8.78622366525934e7,
+            1.8600435645316696e8,
+            3.9377122570138437e8,
+            8.33613691351424e8,
+            1.7647601984395177e9,
+            3.735997369413846e9,
+            7.909106493114021e9
+        ]
+    ],
+    &quot;collision_frequency&quot;: [
+        [
+            1.0044012161884667e8,
+            4.744455400598282e7,
+            2.2411220422141008e7,
+            1.0586310933525776e7,
+            5.0006192019140925e6,
+            2.362125253978684e6,
+            1.1157889633644049e6,
+            527061.3862109144,
+            248966.17008735015,
+            117603.29151329474,
+            55551.86140313166
+        ]
+    ],
+    &quot;b_mags&quot;: [
+        5.0e-5
+    ],
+    &quot;b_dips&quot;: [
+        1.5707963267948966
+    ],
+    &quot;b_azs&quot;: [
+        0
+    ],
+    &quot;ground_sigmas&quot;: [
+        0.001
+    ],
+    &quot;ground_epsrs&quot;: [
+        4
+    ],
+    &quot;frequency&quot;: 24000,
+    &quot;output_ranges&quot;: [
+        0,
+        100000,
+        200000,
+        300000,
+        400000,
+        500000,
+        600000,
+        700000,
+        800000,
+        900000,
+        1000000
+    ]
+}</code></pre><h3 id="batchinput_io"><a class="docs-heading-anchor" href="#batchinput_io">BatchInput</a><a id="batchinput_io-1"></a><a class="docs-heading-anchor-permalink" href="#batchinput_io" title="Permalink"></a></h3><p>Both the <code>ExponentialInput</code> and <code>TableInput</code> types can be collected together in a <a href="../../lib/public/#LongwaveModePropagator.BatchInput"><code>BatchInput</code></a> which has fields for a <code>name</code>, <code>description</code>, <code>datetime</code>, and vector of <code>Inputs</code>. This is useful for keeping a set of scenarios together. See the <a href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/test/IO.jl">test/IO.jl</a> file for additional help on how these should be formatted.</p><h2 id="Running-the-model-from-a-JSON-file"><a class="docs-heading-anchor" href="#Running-the-model-from-a-JSON-file">Running the model from a JSON file</a><a id="Running-the-model-from-a-JSON-file-1"></a><a class="docs-heading-anchor-permalink" href="#Running-the-model-from-a-JSON-file" title="Permalink"></a></h2><p>To run the model, <a href="../../lib/public/#LongwaveModePropagator.propagate"><code>propagate</code></a> accepts a filename input (see the help for optional arguments). However, instead of returning a tuple of complex electric field, amplitude, and phase, it returns an <code>Output</code> type. Additionally, it saves the output to a JSON file.</p><pre><code class="language-julia hljs">output = propagate(filename);</code></pre><h2 id="Outputs"><a class="docs-heading-anchor" href="#Outputs">Outputs</a><a id="Outputs-1"></a><a class="docs-heading-anchor-permalink" href="#Outputs" title="Permalink"></a></h2><p>There are only two <a href="../../lib/internals/#LongwaveModePropagator.Output"><code>LongwaveModePropagator.Output</code></a> types: <a href="../../lib/public/#LongwaveModePropagator.BasicOutput"><code>BasicOutput</code></a> and <a href="../../lib/public/#LongwaveModePropagator.BatchOutput"><code>BatchOutput</code></a>. Both <code>ExponentialInput</code>s and <code>TableInput</code>s create <code>BasicOutput</code>s, but the <code>BatchInput</code> creates a <code>BatchOutput</code>.</p><p>The <code>BasicOutput</code> contains fields for</p><ul><li><code>name::String</code></li><li><code>description::String</code></li><li><code>datetime::DateTime</code></li><li><code>output_ranges::Vector{Float64}</code></li><li><code>amplitude::Vector{Float64}</code></li><li><code>phase::Vector{Float64}</code></li></ul><p>where <code>name</code> and <code>description</code> are directly copied from the input and <code>datetime</code> is when the model was run.</p><pre><code class="language-julia hljs">output</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BasicOutput(&quot;basic&quot;, &quot;Test ExponentialInput&quot;, Dates.DateTime(&quot;2024-03-16T18:39:28.443&quot;), [0.0, 100000.0, 200000.0, 300000.0, 400000.0, 500000.0, 600000.0, 700000.0, 800000.0, 900000.0, 1.0e6], [0.0, 69.0420085588333, 63.22947398509886, 60.327867672184254, 52.46540662748447, 56.88153291599398, 54.30208286924061, 47.3461069885161, 40.45356838712788, 40.881809048792746, 43.81414359827729], [0.7853981633974483, 1.9976603131585595, 1.7444723978632044, 1.6653810259804087, 1.087231658038243, 1.2321020702529828, 1.6640892911327365, 2.0612234882159335, 2.6906710175389246, 4.465406859525416, 5.067125999764023])</code></pre><p>Not surprisingly, a <code>BatchOutput</code> is simply a container holding a <code>Vector</code> of <code>BasicOutput</code>s, as well as some additional metadata from the corresponding <code>BatchInput</code>.</p><h2 id="matlab_json"><a class="docs-heading-anchor" href="#matlab_json">JSON I/O from Matlab</a><a id="matlab_json-1"></a><a class="docs-heading-anchor-permalink" href="#matlab_json" title="Permalink"></a></h2><p>Here&#39;s an example of how to encode the above <code>ExponentialInput</code> to JSON and decode the output using <a href="https://www.mathworks.com/help/matlab/json-format.html">Matlab</a>. It&#39;s also in the file <a href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/io.m">examples/io.m</a>.</p><pre><code class="language-matlab hljs">% Matlab script
+
+input.name = &quot;basic&quot;;
+input.description = &quot;Test ExponentialInput&quot;;
+input.datetime = &#39;2020-12-28T21:06:50.501&#39;;
+
+input.segment_ranges = {0.0};
+input.hprimes = {75};
+input.betas = {0.35};
+input.b_mags = {50e-6};
+input.b_dips = {pi/2};
+input.b_azs = {0.0};
+input.ground_sigmas = {0.001};
+input.ground_epsrs = {4};
+input.frequency = 24e3;
+input.output_ranges = 0:100e3:1000e3;
+
+json_str = jsonencode(input);
+
+fid = fopen(&#39;basic_matlab.json&#39;, &#39;w&#39;);
+fwrite(fid, json_str, &#39;char&#39;);
+fclose(fid);</code></pre><p>Matlab was used to generate the file <a href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/basic_matlab.json"><code>basic_matlab.json</code></a>. We can confirm it&#39;s parsed correctly by using the internal LongwaveModePropagator function <a href="../../lib/internals/#LongwaveModePropagator.parse-Tuple{Any}"><code>LongwaveModePropagator.parse</code></a>, which attempts to parse JSON files into recognized input and output formats.</p><pre><code class="language-julia hljs">matlab_input = LMP.parse(joinpath(examples_dir, &quot;basic_matlab.json&quot;))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ExponentialInput(&quot;basic&quot;, &quot;Test ExponentialInput&quot;, Dates.DateTime(&quot;2020-12-28T21:06:50.501&quot;), [0.0], [75.0], [0.35], [5.0e-5], [1.5707963267948966], [0.0], [0.001], [4], 24000.0, [0.0, 100000.0, 200000.0, 300000.0, 400000.0, 500000.0, 600000.0, 700000.0, 800000.0, 900000.0, 1.0e6])</code></pre><p>Let&#39;s run it.</p><pre><code class="language-julia hljs">matlab_output = propagate(joinpath(examples_dir, &quot;basic_matlab.json&quot;));</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>It is possible to run Julia as a script, calling it directly from a terminal (see <a href="https://docs.julialang.org/en/v1/manual/getting-started/">the docs</a>), but it is probably easiest to just run the code from the REPL.</p><ol><li><code>cd</code> in a terminal to your working directory</li><li>Start up Julia: <code>julia</code></li><li>It&#39;s recommended to <code>] activate .</code>, generating a new environment in this directory</li><li>If necessary, install LongwaveModePropagator.jl: <code>] add LongwaveModePropagator</code></li><li><code>using LongwaveModePropagator</code></li><li><code>propagate(&quot;basic_matlab.json&quot;)</code></li></ol><p>If this has been done before in the same directory, then just do steps 1, 2, 5, 6.</p></div></div><p>Reading the results file from Matlab is relatively simple.</p><pre><code class="language-matlab hljs">% Matlab script
+
+filename = &#39;basic_matlab_output.json&#39;;
+
+text = fileread(filename);
+
+output = jsondecode(text);</code></pre><h2 id="python_json"><a class="docs-heading-anchor" href="#python_json">JSON I/O from Python</a><a id="python_json-1"></a><a class="docs-heading-anchor-permalink" href="#python_json" title="Permalink"></a></h2><p>Here is similar code for <a href="https://docs.python.org/3/library/json.html">Python</a>, also available in the file <a href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/io.py">io.py</a>.</p><pre><code class="language-python hljs"># Python script
+
+import json
+import datetime
+import numpy as np
+
+input = dict()
+
+input[&#39;name&#39;] = &quot;basic&quot;
+input[&#39;description&#39;] = &quot;Test ExponentialInput&quot;
+input[&#39;datetime&#39;] = datetime.datetime.now().isoformat()[:-3]
+
+input[&#39;segment_ranges&#39;] = [0.0]
+input[&#39;hprimes&#39;] = [75]
+input[&#39;betas&#39;] = [0.35]
+input[&#39;b_mags&#39;] = [50e-6]
+input[&#39;b_dips&#39;] = [np.pi/2]
+input[&#39;b_azs&#39;] = [0.0]
+input[&#39;ground_sigmas&#39;] = [0.001]
+input[&#39;ground_epsrs&#39;] = [4]
+input[&#39;frequency&#39;] = 24e3
+input[&#39;output_ranges&#39;] = np.arange(0, 1000e3, 100e3).tolist()
+
+json_str = json.dumps(input)
+
+with open(&#39;basic_python.json&#39;, &#39;w&#39;) as file:
+    file.write(json_str)</code></pre><p>Let&#39;s ensure that the JSON file is correctly parsed.</p><pre><code class="language-julia hljs">python_input = LMP.parse(joinpath(examples_dir, &quot;basic_python.json&quot;))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ExponentialInput(&quot;basic&quot;, &quot;Test ExponentialInput&quot;, Dates.DateTime(&quot;2020-12-29T11:35:11.989&quot;), [0.0], [75.0], [0.35], [5.0e-5], [1.5707963267948966], [0.0], [0.001], [4], 24000.0, [0.0, 100000.0, 200000.0, 300000.0, 400000.0, 500000.0, 600000.0, 700000.0, 800000.0, 900000.0])</code></pre><p>And run the file.</p><pre><code class="language-julia hljs">python_output = propagate(joinpath(examples_dir, &quot;basic_python.json&quot;));</code></pre><p>To read the results:</p><pre><code class="language-python hljs">with open(&#39;basic_python_output.json&#39;, &#39;r&#39;) as file:
+    output = json.load(file)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../basic/">« Introduction to defining scenarios</a><a class="docs-footer-nextpage" href="../meshgrid/">Mesh grid for mode finding - Part 1 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Saturday 16 March 2024 18:44">Saturday 16 March 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
