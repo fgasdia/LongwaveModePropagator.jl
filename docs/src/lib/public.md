@@ -81,7 +81,6 @@ SegmentedWaveguide
 ### IO
 
 ```@docs
-BasicInput
 ExponentialInput
 TableInput
 BatchInput
