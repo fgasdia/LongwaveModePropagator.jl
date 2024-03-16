@@ -14,14 +14,14 @@ amplitude(e) = 10log10(abs2(e))  # == 20log10(abs(E))
 
 Compute field amplitude in dB and phase in radians and return as (`amplitude`, `phase`).
 """
-function amplitudephase(e)
+function amplitudephase(e::Number)
     a = amplitude(e)
     p = angle(e)
 
     return a, p
 end
 
-function amplitudephase(e::AbstractVector)
+function amplitudephase(e)
     a = similar(e, Float64)
     p = similar(a)
     @inbounds for i in eachindex(e)
@@ -38,11 +38,13 @@ Unwrap a phase vector `x` in radians in-place.
 """
 unwrap!
 
-function unwrap!(x::AbstractVector)
+function unwrap!(x)
 	v = first(x)
 	@inbounds for k in eachindex(x)
-		x[k] = v = v + rem2pi(x[k]-v, RoundNearest)
-	end
+        if isfinite(v)
+            x[k] = v = v + rem2pi(x[k]-v, RoundNearest)
+        end
+    end
 	return x
 end
 

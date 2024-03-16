@@ -100,6 +100,8 @@ Parameters for the `LongwaveModePropagator` module with defaults:
     IntegrationParams(solver=Tsit5(), tolerance=1e-6)`:
     parameters passed to `DifferentialEquations.jl` for integration of the wavefields
     used in mode conversion. The solver cannot be lazy.
+- `radiationresistancecorrection::Bool = false`: Perform a radiation resistance correction
+    to the calculated field amplitude for transmitter antennas with altitude > 0.
 
 The struct is created using `Parameters.jl` `@with_kw` and supports that package's
 instantiation capabilities, e.g.:
@@ -124,6 +126,7 @@ See also: [`IntegrationParams`](@ref)
     wavefieldheights::H = range(topheight, 0; length=513)
     wavefieldintegrationparams::IntegrationParams{T2} =
         IntegrationParams(solver=Tsit5(), tolerance=1e-6)
+    radiationresistancecorrection::Bool = false
 end
 export LMPParams
 

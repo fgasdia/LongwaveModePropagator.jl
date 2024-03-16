@@ -142,8 +142,8 @@ const segmented_scenario = (
 const θs = [complex(r,i) for r = range(deg2rad(60), deg2rad(89); length=30) for i =
             range(deg2rad(-10), deg2rad(0); length=11)]
 
-maxabsdiff(a, b) = maximum(abs.(a - b))
-meanabsdiff(a, b) = mean(abs.(a - b))
+maxabsdiff(a, b) = maximum(x -> isfinite(x) ? abs(x) : -Inf, a - b)
+meanabsdiff(a, b) = mean(x -> isfinite(x) ? abs(x) : 0, a - b)
 
 function findroots(scenario)
     @unpack bfield, species, ground, tx = scenario

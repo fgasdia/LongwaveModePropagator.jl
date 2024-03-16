@@ -17,10 +17,11 @@
 
 using Dates, Printf
 using HDF5
+using ProgressMeter
 using Plots
 
 using LongwaveModePropagator
-using LongwaveModePropagator: buildrun, Progress, next!
+using LongwaveModePropagator: buildrun
 
 # For convenience, we'll define global `OUTPUT_RANGES` at which the electric field
 # will be computed, and the magnetic field dip and azimuth angles `B_DIPS` and `B_AZS`

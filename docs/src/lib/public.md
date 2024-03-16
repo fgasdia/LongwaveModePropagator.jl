@@ -56,6 +56,7 @@ ioncollisionfrequency
 Sampler
 GroundSampler
 Fields
+Receiver
 ```
 
 ### Emitters
@@ -80,7 +81,7 @@ SegmentedWaveguide
 ### IO
 
 ```@docs
-BasicInput
+ExponentialInput
 TableInput
 BatchInput
 BasicOutput

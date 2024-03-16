@@ -309,8 +309,8 @@ function basic_lmp()
 
     _, a, p = propagate(wvg, tx, rx)
     
-    @test isapprox(a, output.amplitude, atol=0.1)
-    @test isapprox(p, output.phase, atol=deg2rad(1))
+    @test maxabsdiff(a, output.amplitude) < 0.1
+    @test maxabsdiff(p, output.phase) < 0.005
 
     return output
 end
