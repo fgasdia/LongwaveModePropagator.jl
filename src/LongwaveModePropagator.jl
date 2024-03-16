@@ -69,8 +69,6 @@ coefficient matrix in `modefinder.jl`.
 end
 export IntegrationParams
 
-const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
-
 """
     LMPParams{T,T2,H <: AbstractRange{Float64}}
 
@@ -121,7 +119,7 @@ See also: [`IntegrationParams`](@ref)
     curvatureheight::Float64 = 50e3  # m
     approxsusceptibility::Bool = false
     susceptibilitysplinestep::Float64 = 10.0
-    grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
+    grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =

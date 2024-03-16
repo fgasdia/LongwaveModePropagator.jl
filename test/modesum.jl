@@ -20,6 +20,15 @@ function test_modeterms(scenario)
         @test rx1 ≈ rx2
     end
 
+    tx1, rx1 = LMP.modeterms(modeequation, tx, sampler)
+    tx2, rx2 = LMP.modeterms(modeequation, tx, groundsampler)  # specialized
+
+    @test length(tx1) == 1
+    @test length(rx1) == LMP.NUMFIELDTERMS
+    
+    @test tx1 ≈ tx2
+    @test rx1 ≈ rx2
+
     # frequency mismatch with modeequation
     txwrong = Transmitter(15e3)
     @test_throws ArgumentError LMP.modeterms(modeequation, txwrong, sampler)
