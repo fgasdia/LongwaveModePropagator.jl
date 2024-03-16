@@ -17,7 +17,19 @@ Ey::Field = 1
 """
 baremodule Fields
 using Base: @enum
-@enum Field Ex Ey Ez
+@enum Field Ex Ey Ez E
+end
+
+function numcomponents(f)
+    if f == Fields.Ex || f == Fields.Ey || f == Fields.Ez
+        return 1
+    elseif f == Fields.E #|| f == Fields.H
+        return 3
+    # elseif f == Fields.EH
+    #     return 6
+    else
+        throw(ArgumentError("Field $f is not supported."))
+    end
 end
 
 ########
