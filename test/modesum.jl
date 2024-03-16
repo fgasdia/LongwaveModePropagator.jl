@@ -8,17 +8,15 @@ function test_modeterms(scenario)
     groundsampler = GroundSampler(rx.distance, rx.fieldcomponent)
     sampler = Sampler(rx.distance, rx.fieldcomponent, 0.0)
 
-    # each field
-    for fc in (Fields.Ez, Fields.Ey, Fields.Ex)
-        groundsampler = GroundSampler(rx.distance, fc)
-        sampler = Sampler(rx.distance, fc, 0.0)
 
-        tx1, rx1 = LMP.modeterms(modeequation, tx, sampler)
-        tx2, rx2 = LMP.modeterms(modeequation, tx, groundsampler)  # specialized
+    groundsampler = GroundSampler(rx.distance, Fields.E)
+    sampler = Sampler(rx.distance, Fields.E, 0.0)
 
-        @test tx1 ≈ tx2
-        @test rx1 ≈ rx2
-    end
+    tx1, rx1 = LMP.modeterms(modeequation, tx, sampler)
+    tx2, rx2 = LMP.modeterms(modeequation, tx, groundsampler)  # specialized
+
+    @test tx1 ≈ tx2
+    @test rx1 ≈ rx2
 
     tx1, rx1 = LMP.modeterms(modeequation, tx, sampler)
     tx2, rx2 = LMP.modeterms(modeequation, tx, groundsampler)  # specialized
