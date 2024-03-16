@@ -174,7 +174,7 @@ zs = 110e3:-50:0
 solvers = [Tsit5(), BS5(lazy=false), OwrenZen5(),
            Vern6(lazy=false), Vern7(lazy=false), Vern8(lazy=false), Vern9(lazy=false)]
 
-solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
+solverstrings = ["Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8", "Vern9"]
 
 day_es = []
 night_es = []
@@ -258,7 +258,7 @@ hx2 = getindex.(e, 7)
 function plotfield(field; kwargs...)
     p = plot(real(field), zskm; color="black", linewidth=1.5, legend=false,
              xlims=(-0.8, 0.8), label="real",
-             framestyle=:grid; kwargs...)
+             framestyle=:grid, kwargs...)
     plot!(p, imag(field), zskm; color="black",
           linewidth=1.5, linestyle=:dash, label="imag")
     plot!(p, abs.(field), zskm; color="black", linewidth=3, label="abs")

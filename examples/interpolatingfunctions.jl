@@ -195,10 +195,11 @@ plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
 #md # ![](interpolatingfunctions_phase.png)
 
 # Here is the mean absolute amplitude difference between each technique and the true profile
-# amplitude:
+# amplitude. We filter to finite values because the amplitude calculated at 0 meters is `Inf`.
 
 for n in ("linear", "cubic", "FritschButland", "FritschCarlson", "Steffen")
-    @printf("%s: %.3e\n",n, meanad(results[n][2], results["truth"][2]))
+    @printf("%s: %.3e\n",n, meanad(filter(isfinite,results[n][2]),
+        filter(isfinite,results["truth"][2])))
 end
 
 # The amplitude and phase for each of the interpolators matches the true exponential profile
@@ -210,13 +211,13 @@ end
 # |  Interpolator  | Runtime relative to `truth` |
 # | -------------- | --------------------------- |
 # | truth          |              1              |
-# | linear         |             0.99            |
-# | cubic          |             0.84            |
-# | FritschButland |             0.94            |
-# | FritschCarlson |             0.96            |
-# | Steffen        |             0.95            |
+# | linear         |             0.84            |
+# | cubic          |             0.85            |
+# | FritschButland |             0.91            |
+# | FritschCarlson |             0.92            |
+# | Steffen        |             0.82            |
 # 
 # Really, any of these except for the linear interpolation could be used to interpolate a
-# discrete profile. The cubic interpolation is the fastest, but the FritschButland is a
+# discrete profile. The Steffen and cubic interpolations are fastest, but the FritschButland is a
 # little more true to the actual profile. It's for that reason that FritschButland is used
 # to interpolate [`TableInput`](@ref) types in LongwaveModePropagator.

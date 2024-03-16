@@ -85,7 +85,7 @@ me = PhysicalModeEquation(ea, frequency, waveguide);
 
 # Then we simply define the `ODEProblem` and `solve`.
 
-prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), (me, LMPParams()))
+prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), me)
 
 sol = solve(prob, RK4(); abstol=1e-9, reltol=1e-9);
 
@@ -116,10 +116,10 @@ hline!(p1, [eqz/1000]; linestyle=:dash, color="gray", label="");
 annotate!(p1, frequency.ω, 10, text(" ω", :left, 9));
 annotate!(p1, 70, eqz/1000-3, text("ωᵣ = ω", :left, 9));
 
-R11 = abs.(sol(zs; idxs=1))
-R21 = abs.(sol(zs; idxs=2))
-R12 = abs.(sol(zs; idxs=3))
-R22 = abs.(sol(zs; idxs=4))
+R11 = vec(abs.(sol(zs; idxs=1)))
+R21 = vec(abs.(sol(zs; idxs=2)))
+R12 = vec(abs.(sol(zs; idxs=3)))
+R22 = vec(abs.(sol(zs; idxs=4)))
 
 p2 = plot([R11 R21 R12 R22], zs/1000;
           xlims=(0, 1),
@@ -227,7 +227,7 @@ tolerances = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
 tolerancestrings = string.(tolerances)
 
 solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
-solverstrings = replace.(string.(solvers), "OrdinaryDiffEq."=>"")
+solverstrings = ["RK4", "Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8"]
 
 Rs, times = compute(scenarios, tolerances, solvers);
 
