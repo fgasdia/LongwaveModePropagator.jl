@@ -47,18 +47,18 @@ function test_propagate(scenario)
     @test amp7[:,LMP.index(rx.fieldcomponent)] ≈ amp    rtol=1e-2
     @test phase7[:,LMP.index(rx.fieldcomponent)] ≈ phase    rtol=1e-2
 
-    distidx = findfirst(x->x==1000e3, X)
+    distidx = findfirst(x->x==1000e3, rx.distance)
     fullrxpt = GroundSampler(1000e3, Fields.E)
     E8, amp8, phase8 = propagate(waveguide, tx, fullrxpt)
     @test E8[LMP.index(rx.fieldcomponent)] ≈ E[distidx]    rtol=1e-2
     @test amp8[LMP.index(rx.fieldcomponent)] ≈ amp[distidx]    rtol=1e-2
-    @test phase8[LMP.index(rx.fieldcomponent)] ≈ phase[distidx]    rtol=1e-2
+    @test mod2pi(phase8[LMP.index(rx.fieldcomponent)]) ≈ phase[distidx]    rtol=1e-2
 
     rxpt = GroundSampler(1000e3, Fields.Ez)
     E9, amp9, phase9 = propagate(waveguide, tx, rxpt)
     @test E9 ≈ E[distidx]    rtol=1e-2
     @test amp9 ≈ amp[distidx]    rtol=1e-2
-    @test phase9 ≈ phase[distidx]    rtol=1e-2
+    @test mod2pi(phase9) ≈ phase[distidx]    rtol=1e-2
 end
 
 function test_propagate_segmented(scenario)
