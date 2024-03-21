@@ -30,7 +30,7 @@ function test_fieldsum(scenario)
 
     X = LMP.distance(rx, tx)
 
-    E1 = LMP.fieldsum(modes, waveguide, tx, rx)  # out-of-place
+    E1 = LMP.fieldsum(modes, waveguide, tx, rx)
 
     singlerx = GroundSampler(1000e3, rx.fieldcomponent)
     E2 = LMP.fieldsum(modes, waveguide, tx, singlerx)  # specialized
