@@ -42,9 +42,14 @@ unwrap!
 
 function unwrap!(x)
 	for ec in eachcol(x)
-        v = first(ec)
+        v = first(ec)  # need to define v at this scope
+        setv = true
         for k in eachindex(ec)
-            if isfinite(v)
+            if setv
+                v = ec[k]
+                isfinite(v) ? setv = false : setv = true
+            end
+            if !setv
                 ec[k] = v = v + rem2pi(ec[k]-v, RoundNearest)
             end
         end
