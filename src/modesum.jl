@@ -2,7 +2,7 @@
 Excitation factor, height gain functions, and electric field mode sum
 ==#
 
-const NUMFIELDTERMS = 3  # see `modeterms`
+const NUMFIELDCOMPONENTS = 3  # see `modeterms`
 
 """
     ExcitationFactor{T,T2}
@@ -327,7 +327,6 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
 
     zt = altitude(tx)
     zr = altitude(rx)
-    rxfield = fieldcomponent(rx)
 
     # Transmit antenna orientation with respect to propagation direction
     # See [Morfitt1980] pg. 22
@@ -381,13 +380,13 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     # Transmitter term
     # TODO: specialized heightgains for z = 0
-    fz, _, _ = heightgains(0.0, ea₀, frequency, efconstants; params=params)
+    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants; params=params)
     txterm = λv*fz
 
     # Receiver term
-    rxEz = -S₀*fzr
-    rxEy = efconstants.EyHy*fyr
-    rxEx = -fxr
+    rxEz = -S₀*fz
+    rxEy = efconstants.EyHy*fy
+    rxEx = -fx
     rxterm = SVector(rxEz, rxEy, rxEx) # length(rxterm) == NUMRXTERMS
 
     return txterm, rxterm
@@ -398,20 +397,7 @@ Electric field calculation
 ==#
 
 """
-    fieldindex(f::Fields.Field)
-
-Return the index of `rxterm` field returned by `modeterms`. 
-"""
-function fieldindex(f::Fields.Field)
-    try
-        return Integer(f)
-    catch
-        throw(ArgumentError("$f not supported."))
-    end
-end
-
-"""
-    Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+    fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
            params=LMPParams())
 
 Compute the complex electric field by summing `modes` in `waveguide` for emitter `tx` at
@@ -431,14 +417,17 @@ of `rx.fieldcomponent`.
     elevation and orientation,” Naval Ocean Systems Center, San Diego, CA, NOSC/TR-891,
     Aug. 1983. [Online]. Available: http://www.dtic.mil/docs/citations/ADA133876.
 """
-function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
+function fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     params=LMPParams())
 
-    # There's no compute time advantage switching to a specialized version of Efield for
+    # There's no compute time advantage switching to a specialized version of fieldsum for
     # scalars.
 
     X = distance(rx, tx)
-    E = zeros(ComplexF64, NUMFIELDTERMS, length(X))
+
+    # Restricting dimensions and computation to `numcomponents(fc)` provides negligible
+    # computation gains relative to the modefinder
+    E = zeros(ComplexF64, NUMFIELDCOMPONENTS, length(X))
 
     txpower = power(tx)
     frequency = tx.frequency
@@ -454,7 +443,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
         expterm = -k*(S₀ - 1)
         txrxterm = txterm.*rxterm
 
-        @inbounds for i in eachindex(E)
+        for i in axes(E,2)
             @. E[:,i] += txrxterm*cis(expterm*X[i])
         end
     end
@@ -468,14 +457,14 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstrac
         Q *= corrfactor
     end
 
-    @inbounds for i in eachindex(E)
+    for i in axes(E,2)
         @. E[:,i] *= Q/sqrt(abs(sin(X[i]/params.earthradius)))
     end
 
     return E
 end
 
-function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
+function fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
     rx::AbstractSampler{<:Real}; params=LMPParams())
 
     frequency = tx.frequency
@@ -493,7 +482,7 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
         Q *= corrfactor
     end
 
-    E = zeros(SVector{NUMFIELDTERMS, ComplexF64})
+    E = zeros(SVector{ComplexF64, NUMFIELDCOMPONENTS})
     for ea in modes
         modeequation = PhysicalModeEquation(ea, frequency, waveguide)
         txterm, rxterm = modeterms(modeequation, tx, rx, params=params)
@@ -511,10 +500,10 @@ function Efield(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
 end
 
 """
-    Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec, tx::Emitter,
+    fieldsum(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec, tx::Emitter,
            rx::AbstractSampler; params=LMPParams())
 """
-function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec,
+function fieldsum(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec,
     tx::Emitter, rx::AbstractSampler; params=LMPParams())
     @unpack earthradius = params
 
@@ -528,7 +517,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
     X = distance(rx, tx)
     maxX = maximum(X)
     Xlength = length(X)
-    E = Matrix{ComplexF64}(undef, NUMFIELDTERMS, Xlength)
+    E = Matrix{ComplexF64}(undef, NUMFIELDCOMPONENTS, Xlength)
 
     frequency = tx.frequency
     k = frequency.k
@@ -547,7 +536,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
     M = 0  # number of eigenangles in previous segment. Current segment is N
     xmtrfields = Vector{ComplexF64}(undef, 0)  # fields generated by transmitter
     previous_xmtrfields = similar(xmtrfields)  # fields saved from previous segment
-    rcvrfields = Matrix{ComplexF64}(undef, NUMFIELDTERMS, 0)  # fields at receiver location
+    rcvrfields = Matrix{ComplexF64}(undef, NUMFIELDCOMPONENTS, 0)  # fields at receiver location
 
     i = 1  # index of X
     for j = 1:J  # index of waveguide
@@ -570,7 +559,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
 
         # xmtrfields is for `Hy`
         resize!(xmtrfields, N)
-        resize!(rcvrfields, NUMFIELDTERMS, N)
+        resize!(rcvrfields, NUMFIELDCOMPONENTS, N)
         if j > 1
             adjwavefields = adjwavefields_vec[j]
             prevwavefields = wavefields_vec[j-1]
@@ -603,7 +592,7 @@ function Efield(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_vec
             x = X[i] - segment_start
             factor = Q/sqrt(abs(sin(X[i]/earthradius)))
 
-            totalfield = zero(eltype(E), NUMFIELDTERMS)
+            totalfield = zero(eltype(E), NUMFIELDCOMPONENTS)
             for n = 1:N
                 S₀ = referencetoground(eas[n].sinθ; params=params)
                 @. totalfield += rcvrfields[:,n]*cis(-k*x*(S₀ - 1))*factor
