@@ -30,7 +30,8 @@ examples = [
     "interpretinghpbeta.jl",
     "multiplespecies.jl",
     "interpolatingfunctions.jl",
-    "ground.jl"
+    "ground.jl",
+    "fieldcomponents.jl"
 ]
 
 for example in examples
@@ -59,7 +60,8 @@ example_pages = Any[
     "generated/interpretinghpbeta.md",
     "generated/multiplespecies.md",
     "generated/interpolatingfunctions.md",
-    "generated/ground.md"
+    "generated/ground.md",
+    "generated/fieldcomponents.md"
 ]
 
 library_pages = Any[
