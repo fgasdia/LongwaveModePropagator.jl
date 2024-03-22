@@ -70,7 +70,8 @@ We can plot the results if we `] add Plots`:
 ```julia
 using Plots
 
-plot(rx.distance/1000, a, xlabel="distance (km)", ylabel="amplitude (dB)")
+plot(rx.distance/1000, a,
+     xlabel="distance (km)", ylabel="amplitude (dB μV/m)", legend=false, lw=2)
 ```
 
 ![](indexexample.png)
