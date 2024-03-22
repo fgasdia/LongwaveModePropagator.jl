@@ -4,12 +4,12 @@
     Fields
 
 This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
-and `Ez`.
+`Ez`, and `E` (for calculating Ez, Ey, and Ex all at once).
 ```
 """
 baremodule Fields
 using Base: @enum
-@enum Field Ex Ey Ez E
+@enum Field Ez Ey Ex E
 end
 
 function index(f::Fields.Field)
