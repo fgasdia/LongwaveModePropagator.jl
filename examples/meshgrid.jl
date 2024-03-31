@@ -345,8 +345,7 @@ plot!(img, real(polesdeg), imag(polesdeg); color="red",
 
 #
 ## Daytime ionosphere, 1 kHz
-#
-# We'll use the rectangular mesh
+## We'll use the rectangular mesh
 
 zbl = deg2rad(complex(1, -89))
 ztr = deg2rad(complex(89.9, 0))

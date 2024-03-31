@@ -569,7 +569,6 @@ function defaultmesh(frequency; meshshape="auto",
     isnothing(rmax) && (rmax = deg2rad(89.9))
     isnothing(imax) && (imax = 0.0)
     
-
     if frequency >= 12000
         isnothing(rmin) && (rmin = deg2rad(30))
         isnothing(imin) && (imin = deg2rad(-10))
