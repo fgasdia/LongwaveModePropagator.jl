@@ -80,27 +80,7 @@ heatmap(x, y_verylow, reshape(phase, length(x), length(y_verylow))&#39;;
 ztr = deg2rad(complex(89.9, 0.0))
 Δr = deg2rad(0.5)
 
-mesh = rectangulardomain(zbl, ztr, Δr)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2930-element Vector{ComplexF64}:
- 0.5235987755982988 - 0.17453292519943295im
- 0.5311200146050945 - 0.17453292519943295im
- 0.5386412536118902 - 0.17453292519943295im
-  0.546162492618686 - 0.17453292519943295im
- 0.5536837316254817 - 0.17453292519943295im
- 0.5612049706322774 - 0.17453292519943295im
-  0.568726209639073 - 0.17453292519943295im
- 0.5762474486458687 - 0.17453292519943295im
- 0.5837686876526645 - 0.17453292519943295im
- 0.5912899266594602 - 0.17453292519943295im
-                    ⋮
- 1.5088810854885368 + 0.0im
- 1.5164023244953326 + 0.0im
-  1.523923563502128 + 0.0im
- 1.5314448025089238 + 0.0im
- 1.5389660415157196 + 0.0im
- 1.5464872805225154 + 0.0im
- 1.5540085195293112 + 0.0im
- 1.5615297585361065 + 0.0im
- 1.5690509975429023 + 0.0im</code></pre><p>We convert back to degrees just for plotting. Here&#39;s a zoomed in portion of the upper right of the domain.</p><pre><code class="language-julia hljs">meshdeg = rad2deg.(mesh)
+mesh = rectangulardomain(zbl, ztr, Δr);</code></pre><p>We convert back to degrees just for plotting. Here&#39;s a zoomed in portion of the upper right of the domain.</p><pre><code class="language-julia hljs">meshdeg = rad2deg.(mesh)
 
 img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
@@ -154,23 +134,7 @@ img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, line
 plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_10kdaymesh.png" alt/></p><p>At 100 kHz, <code>grpf</code> requires more mesh refinements and takes considerably more time to run.</p><pre><code class="language-julia hljs"># Daytime ionosphere, high frequency
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, day_high_me),
-                                                  mesh, PlotData(), params);
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
-
-rootsdeg = rad2deg.(roots)
-polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
-
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
-           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
-           title=day_high_title);
-plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
-      seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_100kdaymesh.png" alt/></p><pre><code class="language-julia hljs"># Nighttime ionosphere, 20 kHz
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_10kdaymesh.png" alt/></p><pre><code class="language-julia hljs"># Nighttime ionosphere, 20 kHz
 roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, night_mid_me),
                                                   mesh, PlotData(), params);
 z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
@@ -186,7 +150,23 @@ img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, line
 plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_20knightmesh.png" alt/></p><pre><code class="language-julia hljs"># Daytime ionosphere, 1 kHz
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_20knightmesh.png" alt/></p><p>At 100 kHz, <code>grpf</code> requires more mesh refinements and takes considerably more time to run.</p><pre><code class="language-julia hljs"># Daytime ionosphere, high frequency
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ-&gt;solvemodalequation(θ, day_high_me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(30, 90), ylims=(-10, 0),
+           xlabel=&quot;real(θ)&quot;, ylabel=&quot;imag(θ)&quot;, legend=false,
+           title=day_high_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_100kdaymesh.png" alt/></p><p>The mesh grid does not need to be as dense at lower VLF and ELF.</p><pre><code class="language-julia hljs"># Daytime ionosphere, 1 kHz
 # We&#39;ll use the rectangular mesh
 
 zbl = deg2rad(complex(1, -89))
@@ -210,4 +190,4 @@ img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, line
 plot!(img, real(rootsdeg), imag(rootsdeg); color=&quot;red&quot;,
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color=&quot;red&quot;,
-      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_1kdaymesh.png" alt/></p><p>The example continues in <a href="../meshgrid2/#Mesh-grid-for-mode-finding-Part-2">Mesh grid for mode finding - Part 2</a>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« File-based I/O</a><a class="docs-footer-nextpage" href="../meshgrid2/">Mesh grid for mode finding - Part 2 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 31 March 2024 06:20">Sunday 31 March 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+      seriestype=:scatter, markershape=:utriangle, markersize=5)</code></pre><p><img src="../meshgrid_1kdaymesh.png" alt/></p><p>The example continues in <a href="../meshgrid2/#Mesh-grid-for-mode-finding-Part-2">Mesh grid for mode finding - Part 2</a>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« File-based I/O</a><a class="docs-footer-nextpage" href="../meshgrid2/">Mesh grid for mode finding - Part 2 »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 31 March 2024 16:03">Sunday 31 March 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
