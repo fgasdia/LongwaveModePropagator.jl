@@ -174,3 +174,16 @@ plot!(img, [30, 90], [0, 0]; color="red");
 plot!(img, [80, 90], [-10, 0]; color="red")
 #md savefig(img, "meshgrid2_defaultmesh.png"); nothing # hide
 #md # ![](meshgrid2_defaultmesh.png)
+
+# The `defaultmesh` at frequencies below 12 kHz is rectangular and uses a lower point
+# density.
+
+frequency = 1e3
+mesh = defaultmesh(frequency)
+meshdeg = rad2deg.(mesh)
+
+img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
+           xlabel="real(θ)", ylabel="imag(θ)",
+           size=(450,375), legend=false)
+#md savefig(img, "meshgrid2_defaultmesh_verylow.png"); nothing # hide
+#md # ![](meshgrid2_defaultmesh_verylow.png)
