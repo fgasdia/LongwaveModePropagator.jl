@@ -10,7 +10,7 @@
 # poles within the boundary of each identified candidate region.
 #
 # Because the GRPF algorithm uses an adaptive meshing process, the initial mesh
-# node spacing can actually be greater than the distance between the roots/poles
+# node spacing can be greater than the distance between the roots/poles
 # of the function, but there is no established method for _a priori_ estimation
 # of the required initial sampling of an arbitrary function.
 # The GRPF algorithm is implemented in
@@ -54,9 +54,10 @@ using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
 # Let's begin by exploring the modal equation phase on a fine grid across the bottom
 # right complex quadrant.
 #
-# We'll define four different [`PhysicalModeEquation`](@ref)'s that we'll use
+# We'll define five different [`PhysicalModeEquation`](@ref)'s that we'll use
 # throughout this example.
 
+verylowfrequency = Frequency(1e3)
 lowfrequency = Frequency(10e3)
 midfrequency = Frequency(20e3)
 highfrequency = Frequency(100e3)
@@ -67,12 +68,14 @@ night = Species(QE, ME, z->waitprofile(z, 85, 0.9), electroncollisionfrequency)
 daywaveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), day, GROUND[5])
 nightwaveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), night, GROUND[5])
 
+day_verylow_me = PhysicalModeEquation(verylowfrequency, daywaveguide)
 day_low_me = PhysicalModeEquation(lowfrequency, daywaveguide)
 day_mid_me = PhysicalModeEquation(midfrequency, daywaveguide)
 day_high_me = PhysicalModeEquation(highfrequency, daywaveguide)
 
 night_mid_me = PhysicalModeEquation(midfrequency, nightwaveguide)
 
+day_verylow_title = "1 kHz\nh′: 75, β: 0.35"
 day_low_title = "10 kHz\nh′: 75, β: 0.35"
 day_mid_title = "20 kHz\nh′: 75, β: 0.35"
 day_high_title = "100 kHz\nh′: 75, β: 0.35"
@@ -159,30 +162,60 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
 #md savefig("meshgrid_10kday.png"); nothing # hide
 #md # ![](meshgrid_10kday.png)
 
+# At even lower frequencies into ELF, we need to expand the domain of the mesh grid.
+
+y_verylow = -90:Δr:0
+mesh_verylow = x .+ im*y_verylow';
+
+phase = modeequationphase(day_verylow_me, mesh_verylow);
+
+heatmap(x, y_verylow, reshape(phase, length(x), length(y_verylow))';
+        color=:twilight, clims=(-180, 180),
+        xlims=(0, 90), ylims=(-90, 0),
+        xlabel="real(θ)", ylabel="imag(θ)",
+        title=day_verylow_title,
+        right_margin=2mm)
+#md savefig("meshgrid_1kday.png"); nothing # hide
+#md # ![](meshgrid_1kday.png)
+
+
 # ## Global complex roots and poles finding
 #
 # The global complex roots and poles finding (GRPF) algorithm is most efficient when
 # the initial mesh grid consists of equilateral triangles.
 # Such a grid can be produced with the `rectangulardomain` function from
-# RootsAndPoles, but as seen in the evaluation of the modal equation above, no
-# roots or poles appear in the lower right diagonal half of the domain.
+# RootsAndPoles,
+
+zbl = deg2rad(complex(30.0, -10.0))
+ztr = deg2rad(complex(89.9, 0.0))
+Δr = deg2rad(0.5)
+
+mesh = rectangulardomain(zbl, ztr, Δr)
+
+# We convert back to degrees just for plotting.
+# Here's a zoomed in portion of the upper right of the domain.
+
+meshdeg = rad2deg.(mesh)
+
+img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
+           xlims=(80, 90), ylims=(-10, 0),
+           xlabel="real(θ)", ylabel="imag(θ)",
+           legend=false, size=(450,375))
+#md savefig(img, "meshgrid_rectanglemesh.png"); nothing # hide
+#md # ![](meshgrid_rectanglemesh.png)
+
+# As seen in the evaluation of the modal equation above, no roots or poles appear in the
+# lower right diagonal of the domain for frequencies above about 10 kHz.
 # Even if they did, they would correspond to highly attenuated modes.
 # Therefore, to save compute time, we can exclude the lower right triangle of the domain
-# from the initial mesh.
+# from the initial mesh if the frequency is sufficiently high.
 #
 # The function [`LongwaveModePropagator.trianglemesh`](@ref) is built into
 # LongwaveModePropagator for this purpose.
 # The inputs are specified by the complex bottom left corner `zbl`, the top right corner
 # `ztr`, and the mesh spacing `Δr` in _radians_.
 
-zbl = deg2rad(complex(30.0, -10.0))
-ztr = deg2rad(complex(89.9, 0.0))
-Δr = deg2rad(0.5)
-
 mesh = trianglemesh(zbl, ztr, Δr);
-
-# We convert back to degrees just for plotting.
-# Here's a zoomed in portion of the upper right of the domain.
 
 meshdeg = rad2deg.(mesh)
 
@@ -195,7 +228,6 @@ plot!(img, [0, 90], [-90, 0]; color="red")
 #md savefig(img, "meshgrid_trianglemesh.png"); nothing # hide
 #md # ![](meshgrid_trianglemesh.png)
 
-# 
 # Now let's apply `grpf` to the modal equation on the triangle mesh.
 # `grpf` adaptively refines the mesh to obtain a more accurate estimate of the position
 # of the roots and poles.
@@ -245,7 +277,7 @@ plot!(img, real(polesdeg), imag(polesdeg); color="red",
 # with red triangles.
 # The automatic refinement of the mesh is clearly visible.
 #
-# Here are similar plots for the other three scenarios.
+# Here are similar plots for the other scenarios.
 
 ## Daytime ionosphere, low frequency
 roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_low_me),
@@ -310,5 +342,35 @@ plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 #md savefig(img, "meshgrid_20knightmesh.png"); nothing # hide
 #md # ![](meshgrid_20knightmesh.png)
+
+#
+## Daytime ionosphere, 1 kHz
+#
+# We'll use the rectangular mesh
+
+zbl = deg2rad(complex(1, -89))
+ztr = deg2rad(complex(89.9, 0))
+Δr = deg2rad(1)
+
+mesh = rectangulardomain(zbl, ztr, Δr)
+
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_verylow_me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(0, 90), ylims=(-90, 0),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
+           title=night_mid_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
+      seriestype=:scatter, markershape=:utriangle, markersize=5)
+#md savefig(img, "meshgrid_1kdaymesh.png"); nothing # hide
+#md # ![](meshgrid_1kdaymesh.png)
 
 # The example continues in [Mesh grid for mode finding - Part 2](@ref).
