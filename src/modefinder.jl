@@ -532,50 +532,82 @@ Mesh grids for `GRPF`
 ==#
 
 """
-    defaultmesh(frequency; rmin=deg2rad(30.0), imin=deg2rad(-10.0),
+    defaultmesh(frequency; rmax=deg2rad(89.9), imax=deg2rad(0.0),
         Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
-        rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
+        rtransition=deg2rad(75.0), itransition=deg2rad(-1.5),
+        meshshape="auto")
 
-Generate vector of complex coordinates to be used by GRPF in the search for
+Generate vector of complex coordinates (radians) to be used by GRPF in the search for
 waveguide modes.
 
 `rmin` is the lower bound of the real axis and `imin` is the lower bound of the imaginary
 axis.
 
-At frequencies above 12 kHz the mesh spacing in the upper right corner of the domain
+The value of `frequency` sets different default behavior:
+
+| `frequency` | `meshshape = "auto"` |    `rmin`   |    `imin`    | resolution  |
+|:-----------:|:--------------------:|:-----------:|:------------:|:-----------:|
+|   < 12 kHz  |  `"rectanglemesh"`   | deg2rad(1)  | deg2rad(-89) | `Δr_coarse` |
+|   ≥ 12 kHz  |  `"trianglemesh"`    | deg2rad(30) | deg2rad(-10) | variable    |
+
+At frequencies at or above 12 kHz the mesh spacing in the upper right corner of the domain
 with real values above `rtransition` and imaginary values above `itransition` is
 `Δr_fine` and is `Δr_coarse` everywhere else.
 
-At frequencies below 12 kHz the mesh spacing is always `Δr_coarse`.
-
-The lower right diagonal of the lower right quadrant of the complex plane is excluded
-from the mesh.
+If `meshshape = "rectanglemesh"`, the full lower right quadrant of the complex plane is
+searched for modes. If `meshshape = "trianglemesh"`, the lower right diagonal of the lower
+right quadrant of the complex plane is excluded from the mesh. Eigenangles at VLF (~12 kHz)
+and higher frequencies are not typically in the lower right diagonal.
 
 See also: [`findmodes`](@ref)
 """
-function defaultmesh(frequency;
-    rmin=deg2rad(30.0), imin=deg2rad(-10.0),
-    Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
-    rtransition=deg2rad(75.0), itransition=deg2rad(-1.5))
+function defaultmesh(frequency; meshshape="auto",
+    rmin=nothing, imin=nothing, rmax=nothing, imax=nothing,
+    Δr_coarse=nothing, Δr_fine=nothing,
+    rtransition=nothing, itransition=nothing)
 
-    # TODO: get a better idea of frequency transition
-    if frequency > 12000
+    isnothing(rmax) && (rmax = deg2rad(89.9))
+    isnothing(imax) && (imax = 0.0)
+    
+    if frequency >= 12000
+        isnothing(rmin) && (rmin = deg2rad(30))
+        isnothing(imin) && (imin = deg2rad(-10))
+        isnothing(Δr_coarse) && (Δr_coarse = deg2rad(0.5))
+        isnothing(Δr_fine) && (Δr_fine = deg2rad(0.1))
+        isnothing(rtransition) && (rtransition = deg2rad(75))
+        isnothing(itransition) && (itransition = deg2rad(-1.5))
+
         zbl_coarse = complex(rmin, imin)
-        ztr_coarse = complex(deg2rad(89.9), 0.0)
+        ztr_coarse = complex(rmax, imax)
 
-        mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
+        if meshshape == "auto" || meshshape == "trianglemesh"
+            mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
 
-        filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
+            filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
+            zbl_fine = complex(rtransition, itransition)
+            ztr_fine = complex(rmax, imax)
+            append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
+        elseif meshshape == "rectanglemesh"
+            mesh = rectangulardomain(zbl_coarse, ztr_coarse, Δr_coarse)
 
-        zbl_fine = complex(rtransition, itransition)
-        ztr_fine = complex(deg2rad(89.9), 0.0)
-
-        append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
+            filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
+            zbl_fine = complex(rtransition, itransition)
+            ztr_fine = complex(rmax, imax)
+            append!(mesh, rectangulardomain(zbl_coarse, ztr_coarse, Δr_fine))
+        end
     else
-        zbl = complex(rmin, imin)
-        ztr = complex(deg2rad(89.9), 0.0)
+        isnothing(rmin) && (rmin = deg2rad(1))
+        isnothing(imin) && (imin = deg2rad(-89))
+        isnothing(Δr_coarse) && (Δr_coarse = deg2rad(1))
 
-        mesh = trianglemesh(zbl, ztr, Δr_coarse)
+        zbl = complex(rmin, imin)
+        ztr = complex(rmax, imax)
+
+        if meshshape == "auto" || meshshape == "rectanglemesh"
+            mesh = rectangulardomain(zbl, ztr, Δr_coarse)
+        elseif meshshape == "trianglemesh"
+            mesh = trianglemesh(zbl, ztr, Δr_coarse)
+        end
     end
 
     return mesh
