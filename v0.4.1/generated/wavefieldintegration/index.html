@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Wavefield integration · LongwaveModePropagator</title><meta name="title" content="Wavefield integration · LongwaveModePropagator"/><meta property="og:title" content="Wavefield integration · LongwaveModePropagator"/><meta property="twitter:title" content="Wavefield integration · LongwaveModePropagator"/><meta name="description" content="Documentation for LongwaveModePropagator."/><meta property="og:description" content="Documentation for LongwaveModePropagator."/><meta property="twitter:description" content="Documentation for LongwaveModePropagator."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LongwaveModePropagator</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../basic/">Introduction to defining scenarios</a></li><li><a class="tocitem" href="../io/">File-based I/O</a></li><li><a class="tocitem" href="../meshgrid/">Mesh grid for mode finding - Part 1</a></li><li><a class="tocitem" href="../meshgrid2/">Mesh grid for mode finding - Part 2</a></li><li><a class="tocitem" href="../integratedreflection/">Solvers for ionosphere reflection coefficient</a></li><li class="is-active"><a class="tocitem" href>Wavefield integration</a><ul class="internal"><li><a class="tocitem" href="#The-ionosphere"><span>The ionosphere</span></a></li><li><a class="tocitem" href="#Scaled,-integrated-wavefields"><span>Scaled, integrated wavefields</span></a></li><li><a class="tocitem" href="#Differential-equations-solver"><span>Differential equations solver</span></a></li><li><a class="tocitem" href="#Pitteway-figure-2"><span>Pitteway figure 2</span></a></li><li><a class="tocitem" href="#Pitteway-figure-3"><span>Pitteway figure 3</span></a></li></ul></li><li><a class="tocitem" href="../magneticfield/">Magnetic field direction</a></li><li><a class="tocitem" href="../interpretinghpbeta/">Interpreting h′ and β</a></li><li><a class="tocitem" href="../multiplespecies/">Multiple ionospheric species</a></li><li><a class="tocitem" href="../interpolatingfunctions/">Density and collision frequency as interpolating functions</a></li><li><a class="tocitem" href="../ground/">Ground</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../lib/public/">Public Interface</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Wavefield integration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Wavefield integration</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/wavefieldintegration.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Wavefield-integration"><a class="docs-heading-anchor" href="#Wavefield-integration">Wavefield integration</a><a id="Wavefield-integration-1"></a><a class="docs-heading-anchor-permalink" href="#Wavefield-integration" title="Permalink"></a></h1><p>The process of mode conversion between two different segments of <a href="../../lib/public/#LongwaveModePropagator.HomogeneousWaveguide"><code>HomogeneousWaveguide</code></a>&#39;s requires the computation of electromagnetic wavefields from ground to a great height in the ionosphere.</p><p><a href="https://doi.org/10.1098/rsta.1965.0004">Pitteway (1965)</a> presents one well-known method of integrating the wavefields that breaks the solution for the differential wave equations in the anisotropic ionosphere into solutions for a <em>penetrating</em> and <em>non-penetrating</em> mode. Because of the amplitude of the two waves varies greatly during the integration, Pitteway scales and orthogonalizes the solutions to maintain their independence.</p><p>In this example we&#39;ll reproduce the figures in Pitteway&#39;s paper.</p><p>First we&#39;ll import the necessary packages.</p><pre><code class="language-julia hljs">using CSV, Interpolations
+using Plots
+using Plots.Measures
+using OrdinaryDiffEq
+
+using TimerOutputs
+
+using LongwaveModePropagator
+using LongwaveModePropagator: QE, ME
+const LMP = LongwaveModePropagator</code></pre><h2 id="The-ionosphere"><a class="docs-heading-anchor" href="#The-ionosphere">The ionosphere</a><a id="The-ionosphere-1"></a><a class="docs-heading-anchor-permalink" href="#The-ionosphere" title="Permalink"></a></h2><p>Pitteway uses an ionosphere presented in <a href="https://doi.org/10.1098/rsta.1965.0005">Piggot et. al., 1965</a>.</p><img src="../../images/Piggott_ionosphere.png"/><p>He begins with the midday profile with a 16 kHz radio wave at an angle of incidence of 40° from normal. We&#39;ll also assume the magnetic field has a strength of 50,000 nT at a dip angle of 68° and azimuth of 111°. Piggott was concerned with a path from Rugby to Cambridge, UK, which, according to the <a href="https://apps.dtic.mil/sti/citations/AD0675771">Westinghouse VLF effective-conductivity map</a>, has a ground conductivity index of 8. This can be specified as <code>GROUND[8]</code>.</p><pre><code class="language-julia hljs">ea = EigenAngle(deg2rad(40))
+frequency = Frequency(16e3)
+bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+ground = GROUND[8]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Ground(15, 0.03)</code></pre><p>To define the electron density and collision frequency profile, we will read in a <a href="https://github.com/fgasdia/LongwaveModePropagator.jl/blob/main/examples/piggott1965_data.csv">digitized table</a> of the curves from Piggott and linearly interpolate them. While we&#39;re at it, we&#39;ll also prepare the nighttime ionosphere.</p><pre><code class="language-julia hljs">root_dir = dirname(dirname(pathof(LongwaveModePropagator)))
+examples_dir = joinpath(root_dir, &quot;examples&quot;)
+data = CSV.File(joinpath(examples_dir, &quot;piggott1965_data.csv&quot;))
+
+# interpolation object
+day_itp = interpolate((data.day_ne_z,), data.day_ne, Gridded(Linear()))
+day_etp = extrapolate(day_itp, Line())
+dayfcn(z) = (v = day_etp(z); v &gt; 0 ? v : 0.001)
+
+# night has some rows of `missing` data
+filtnight_z = collect(skipmissing(data.night_ne_z))
+filtnight = collect(skipmissing(data.night_ne))
+night_itp = interpolate((filtnight_z,), filtnight, Gridded(Linear()))
+night_etp = extrapolate(night_itp, Line())
+nightfcn(z) = (v = night_etp(z); v &gt; 0 ? v : 0.001)
+
+# so does the collision frequency
+filtnu_z = collect(skipmissing(data.nu_z))
+filtnu = collect(skipmissing(data.nu))
+nu_itp = interpolate((filtnu_z,), filtnu, Gridded(Linear()))
+nu_etp = extrapolate(nu_itp, Line())
+nufcn(z) = (v = nu_etp(z); v &gt; 0 ? v : 0.001)
+
+day = Species(QE, ME, dayfcn, nufcn)
+night = Species(QE, ME, nightfcn, nufcn)</code></pre><h2 id="Scaled,-integrated-wavefields"><a class="docs-heading-anchor" href="#Scaled,-integrated-wavefields">Scaled, integrated wavefields</a><a id="Scaled,-integrated-wavefields-1"></a><a class="docs-heading-anchor-permalink" href="#Scaled,-integrated-wavefields" title="Permalink"></a></h2><p>We use the coordinate frame where <span>$z$</span> is directed upward into the ionosphere, <span>$x$</span> is along the propagation direction, and <span>$y$</span> is perpendicular to complete the right-handed system. Where the ionosphere only varies in the <span>$z$</span> direction, the <span>$E_z$</span> and <span>$H_z$</span> fields can be eliminated so that we only need to study the remaining four. The differential equations for the wave in the ionosphere can be written in matrix form for our coordinate system as</p><p class="math-container">\[\frac{\mathrm{d}\bm{e}}{\mathrm{d}z} = -ik\bm{T}\bm{e}\]</p><p>where</p><p class="math-container">\[\bm{e} = \begin{pmatrix}
+E_x \\ -E_y \\ H_x \\ H_y
+\end{pmatrix}\]</p><p>and <span>$\bm{T}$</span> is the <span>$4 \times 4$</span> matrix presented in <a href="https://doi.org/10.1017/S030500410002939X">Clemmow and Heading (1954)</a>. <span>$\bm{T}$</span> consists of elements of the susceptibility matrix for the ionosphere (and can be calculated with <a href="../../lib/internals/#LongwaveModePropagator.tmatrix-Tuple{EigenAngle, Any}"><code>LongwaveModePropagator.tmatrix</code></a>).</p><p>To compute the wavefields, we calculate them at some height <span>$z$</span>, use <span>$\mathrm{d}\bm{e}/\mathrm{d}z$</span> to step to a new height, and repeat from a point high in the ionosphere down to the ground. The initial solution comes from the Booker Quartic, which is a solution for the wavefields in a homogeneous ionosphere. At a great height in the ionosphere, we are interested in the two quartic solutions corresponding to upward-going waves. Therefore, we are integrating two sets of 4 complex variables simultaneously. Throughout the integration, the two solutions lose their independence because of numerical accuracy limitations over a wide range of field magnitudes. To maintain accuracy, the wavefields are orthonomalized repeatedly during the downward integration, and the scaling values are stored so that the fields can be &quot;recorrected&quot; after the integration is complete.</p><p>Here are what the real component of the <span>$E_{x,1}$</span> and <span>$H_{x,2}$</span> wavefields looks like with and without the &quot;recorrection&quot;.</p><pre><code class="language-julia hljs">zs = 110e3:-50:0
+zskm = zs/1000
+
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=true)
+e_unscaled = LMP.integratewavefields(zs, ea, frequency, bfield, day; unscale=false)
+
+ex1 = getindex.(e, 1)
+ex1_unscaled = getindex.(e_unscaled, 1)
+hx2 = getindex.(e, 7)
+hx2_unscaled = getindex.(e_unscaled, 7)
+
+p1 = plot(real(ex1), zskm; title=&quot;\$E_{x,1}\$&quot;,
+          ylims=(0, 90), xlims=(-1.2, 1.2), linewidth=1.5, ylabel=&quot;altitude (km)&quot;,
+          label=&quot;corrected&quot;, legend=:topleft);
+plot!(p1, real(ex1_unscaled),
+      zskm; linewidth=1.5, label=&quot;scaled only&quot;);
+
+p2 = plot(real(hx2), zskm; title=&quot;\$H_{x,2}\$&quot;,
+          ylims=(0, 90), xlims=(-1.2, 1.2), linewidth=1.5, legend=false);
+plot!(p2, real(hx2_unscaled),
+      zskm; linewidth=1.5);
+
+plot(p1, p2; layout=(1,2))</code></pre><p><img src="../wavefields_scaling.png" alt/></p><h2 id="Differential-equations-solver"><a class="docs-heading-anchor" href="#Differential-equations-solver">Differential equations solver</a><a id="Differential-equations-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Differential-equations-solver" title="Permalink"></a></h2><p>Pitteway (1965) used a basic form of a Runge-Kutta integrator with fixed step size. Julia has a fantastic <a href="https://diffeq.sciml.ai/stable/">DifferentialEquations suite</a> for integrating many different forms of differential equations. Although wavefields are only computed two times for every transition in a <a href="../../lib/public/#LongwaveModePropagator.SegmentedWaveguide"><code>SegmentedWaveguide</code></a>, we would still like to choose an efficient solver that requires relatively few function calls while still maintaining good accuracy.</p><p>Let&#39;s try a few different solvers and compare their runtime for the day and night ionospheres.</p><p>We can pass <a href="../../lib/public/#LongwaveModePropagator.IntegrationParams"><code>IntegrationParams</code></a> through the <a href="../basic/#LMPParams"><code>LMPParams</code></a> struct. Where necessary, we set the <code>lazy</code> interpolant option  of the solvers to <code>false</code> because we discontinuously scale the fields in the middle of the integration and the <code>lazy</code> option is not aware of this.</p><pre><code class="language-julia hljs">TO = TimerOutput()
+
+zs = 110e3:-50:0
+solvers = [Tsit5(), BS5(lazy=false), OwrenZen5(),
+           Vern6(lazy=false), Vern7(lazy=false), Vern8(lazy=false), Vern9(lazy=false)]
+
+solverstrings = [&quot;Tsit5&quot;, &quot;BS5&quot;, &quot;OwrenZen5&quot;, &quot;Vern6&quot;, &quot;Vern7&quot;, &quot;Vern8&quot;, &quot;Vern9&quot;]
+
+day_es = []
+night_es = []
+for s in eachindex(solvers)
+    ip = IntegrationParams(solver=solvers[s], tolerance=1e-6)
+    params = LMPParams(wavefieldintegrationparams=ip)
+
+    # make sure method is compiled
+    LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params);
+    LMP.integratewavefields(zs, ea, frequency, bfield, night; params=params);
+
+    solverstring = solverstrings[s]
+    let day_e, night_e
+        # repeat 200 times to average calls
+        for i = 1:200
+            # day ionosphere
+            @timeit TO solverstring begin
+                day_e = LMP.integratewavefields(zs, ea, frequency, bfield, day; params=params)
+            end
+            # night ionosphere
+            @timeit TO solverstring begin
+                night_e = LMP.integratewavefields(zs, ea, frequency, bfield, night; params=params)
+            end
+        end
+        push!(day_es, day_e)
+        push!(night_es, night_e)
+    end
+end</code></pre><p>A quick plot to ensure none of the methods have problems.</p><pre><code class="language-julia hljs">day_e1s = [getindex.(e, 1) for e in day_es]
+
+plot(real(day_e1s), zs/1000;
+     label=permutedims(solverstrings), legend=:topleft)</code></pre><p><img src="../wavefields_day.png" alt/></p><p>And at night...</p><pre><code class="language-julia hljs">night_e1s = [getindex.(e, 1) for e in night_es]
+
+plot(real(night_e1s), zs/1000;
+     label=permutedims(solverstrings), legend=:topright)</code></pre><p><img src="../wavefields_night.png" alt/></p><p>The times to run each...</p><pre><code class="language-julia hljs">TO</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1"> ──────────────────────────────────────────────────────────────────────</span>
+<span class="sgr1">                     </span>         Time                    Allocations      
+                     ───────────────────────   ────────────────────────
+  Tot / % measured:       21.9s /  38.8%           6.72GiB /  73.7%    
+
+ Section     ncalls     time    %tot     avg     alloc    %tot      avg
+ ──────────────────────────────────────────────────────────────────────
+ OwrenZen5      400    1.62s   19.0%  4.05ms    785MiB   15.5%  1.96MiB
+ Vern9          400    1.58s   18.6%  3.95ms    759MiB   15.0%  1.90MiB
+ Vern7          400    1.19s   13.9%  2.97ms    718MiB   14.2%  1.79MiB
+ Vern8          400    1.13s   13.3%  2.83ms    692MiB   13.6%  1.73MiB
+ Vern6          400    1.11s   13.0%  2.77ms    722MiB   14.2%  1.81MiB
+ BS5            400    975ms   11.4%  2.44ms    703MiB   13.9%  1.76MiB
+ Tsit5          400    918ms   10.8%  2.30ms    693MiB   13.7%  1.73MiB
+<span class="sgr1"> ──────────────────────────────────────────────────────────────────────</span></code></pre><p>The <code>Tsit5</code>, <code>BS5</code>, and 6th, 7th, and 8th order Vern methods all have similar performance. In fact, rerunning these same tests multiple times can result in different solvers being &quot;fastest&quot;.</p><p>We use <code>Tsit5()</code>as the default in LongwaveModePropagator, which is similar to MATLAB&#39;s <code>ode45</code>, but usually more efficient.</p><p>Why not a strict <code>RK4</code> or a more basic method? I tried them and they produce some discontinuities around the reflection height. It is admittedly difficult to tell if this is a true failure of the methods at this height or a problem related to the scaling and saving callbacks that occur during the integration. In any case, none of the methods tested above exhibit that issue.</p><h2 id="Pitteway-figure-2"><a class="docs-heading-anchor" href="#Pitteway-figure-2">Pitteway figure 2</a><a id="Pitteway-figure-2-1"></a><a class="docs-heading-anchor-permalink" href="#Pitteway-figure-2" title="Permalink"></a></h2><p>Let&#39;s reproduce the wavefields in figure 2 of Pitteway (1965).</p><pre><code class="language-julia hljs">zs = 110e3:-50:50e3
+zskm = zs/1000
+
+e = LMP.integratewavefields(zs, ea, frequency, bfield, day)
+
+ex1 = getindex.(e, 1)
+ey1 = getindex.(e, 2)
+ex2 = getindex.(e, 5)
+hx2 = getindex.(e, 7)
+
+function plotfield(field; kwargs...)
+    p = plot(real(field), zskm; color=&quot;black&quot;, linewidth=1.2, legend=false,
+             xlims=(-0.8, 0.8), label=&quot;real&quot;,
+             framestyle=:grid, kwargs...)
+    plot!(p, imag(field), zskm; color=&quot;black&quot;,
+          linewidth=1.2, linestyle=:dash, label=&quot;imag&quot;)
+    plot!(p, abs.(field), zskm; color=&quot;black&quot;, linewidth=2, label=&quot;abs&quot;)
+    plot!(p, -abs.(field), zskm; color=&quot;black&quot;, linewidth=2, label=&quot;&quot;)
+    return p
+end
+
+fs = 10
+ex1p = plotfield(ex1; ylims=(49, 81), yaxis=false, yformatter=_-&gt;&quot;&quot;);
+annotate!(ex1p, 0.2, 79, text(&quot;\$E_{x,1}\$&quot;, fs));
+ey1p = plotfield(ey1; ylims=(49, 81));
+annotate!(ey1p, 0.2, 79, text(&quot;\$E_{y,1}\$&quot;, fs));
+annotate!(ey1p, -0.98, 83, text(&quot;height (km)&quot;, fs));
+ex2p = plotfield(ex2; ylims=(49, 86), yaxis=false, yformatter=_-&gt;&quot;&quot;);
+annotate!(ex2p, 0.3, 84, text(&quot;\$E_{x,2}\$&quot;, fs));
+hx2p = plotfield(hx2; ylims=(49, 86));
+annotate!(hx2p, 0.35, 84, text(&quot;\$H_{x,2}\$&quot;, fs, :center));
+plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)</code></pre><p><img src="../wavefields_fig2.png" alt/></p><img src="../../images/Pitteway1965_fig2.png"/><p>The envelopes of the two are very similar. The precise position of the real and imaginary wave components are not important because they each represent an instant in time and change based on the starting height of the integration.</p><h2 id="Pitteway-figure-3"><a class="docs-heading-anchor" href="#Pitteway-figure-3">Pitteway figure 3</a><a id="Pitteway-figure-3-1"></a><a class="docs-heading-anchor-permalink" href="#Pitteway-figure-3" title="Permalink"></a></h2><p>Figure 3 of Pitteway (1965) uses a different scenario. A wave of frequency 202 kHz is at normal incidence through the nighttime ionosphere presented in Piggott (1965).</p><p>First let&#39;s set up the new scenario.</p><pre><code class="language-julia hljs">ea = EigenAngle(0)
+frequency = Frequency(202e3)
+bfield = BField(50e-6, deg2rad(68), deg2rad(111))
+ground = GROUND[8]</code></pre><p>Now integrating the wavefields.</p><pre><code class="language-julia hljs">zs = 110e3:-50:70e3
+zskm = zs/1000
+
+e = LMP.integratewavefields(zs, ea, frequency, bfield, night)
+
+ey1 = getindex.(e, 2)
+hx2 = getindex.(e, 7)
+
+ey1p = plotfield(ey1; ylims=(75, 102), title=&quot;\$E_{y,1}\$&quot;);
+hx2p = plotfield(hx2; ylims=(75, 102), title=&quot;\$H_{x,2}\$&quot;);
+plot(ey1p, hx2p; layout=(1,2), size=(400,500))</code></pre><p><img src="../wavefields_fig3.png" alt/></p><img src="../../images/Pitteway1965_fig3.png"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../integratedreflection/">« Solvers for ionosphere reflection coefficient</a><a class="docs-footer-nextpage" href="../magneticfield/">Magnetic field direction »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.3.0 on <span class="colophon-date" title="Sunday 31 March 2024 16:50">Sunday 31 March 2024</span>. Using Julia version 1.10.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
