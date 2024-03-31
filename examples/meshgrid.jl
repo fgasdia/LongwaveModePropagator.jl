@@ -190,7 +190,7 @@ zbl = deg2rad(complex(30.0, -10.0))
 ztr = deg2rad(complex(89.9, 0.0))
 Δr = deg2rad(0.5)
 
-mesh = rectangulardomain(zbl, ztr, Δr)
+mesh = rectangulardomain(zbl, ztr, Δr);
 
 # We convert back to degrees just for plotting.
 # Here's a zoomed in portion of the upper right of the domain.
@@ -299,6 +299,27 @@ plot!(img, real(polesdeg), imag(polesdeg); color="red",
 #md savefig(img, "meshgrid_10kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_10kdaymesh.png)
 
+#
+## Nighttime ionosphere, 20 kHz
+roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, night_mid_me),
+                                                  mesh, PlotData(), params);
+z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+
+rootsdeg = rad2deg.(roots)
+polesdeg = rad2deg.(poles)
+zdeg = rad2deg.(z)
+
+img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+           xlims=(30, 90), ylims=(-10, 0),
+           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
+           title=night_mid_title);
+plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
+      seriestype=:scatter, markersize=5);
+plot!(img, real(polesdeg), imag(polesdeg); color="red",
+      seriestype=:scatter, markershape=:utriangle, markersize=5)
+#md savefig(img, "meshgrid_20knightmesh.png"); nothing # hide
+#md # ![](meshgrid_20knightmesh.png)
+
 # At 100 kHz, `grpf` requires more mesh refinements and takes considerably
 # more time to run.
 
@@ -322,28 +343,8 @@ plot!(img, real(polesdeg), imag(polesdeg); color="red",
 #md savefig(img, "meshgrid_100kdaymesh.png"); nothing # hide
 #md # ![](meshgrid_100kdaymesh.png)
 
-#
-## Nighttime ionosphere, 20 kHz
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, night_mid_me),
-                                                  mesh, PlotData(), params);
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+# The mesh grid does not need to be as dense at lower VLF and ELF.
 
-rootsdeg = rad2deg.(roots)
-polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
-
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=night_mid_title);
-plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
-      seriestype=:scatter, markersize=5);
-plot!(img, real(polesdeg), imag(polesdeg); color="red",
-      seriestype=:scatter, markershape=:utriangle, markersize=5)
-#md savefig(img, "meshgrid_20knightmesh.png"); nothing # hide
-#md # ![](meshgrid_20knightmesh.png)
-
-#
 ## Daytime ionosphere, 1 kHz
 ## We'll use the rectangular mesh
 

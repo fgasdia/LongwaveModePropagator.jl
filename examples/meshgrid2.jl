@@ -175,8 +175,11 @@ plot!(img, [80, 90], [-10, 0]; color="red")
 #md savefig(img, "meshgrid2_defaultmesh.png"); nothing # hide
 #md # ![](meshgrid2_defaultmesh.png)
 
-# The `defaultmesh` at frequencies below 12 kHz is rectangular and uses a lower point
-# density.
+# ## Frequencies below 12 kHz
+#
+# The [`LongwaveModePropagator.defaultmesh`](@ref) at frequencies below 12 kHz is rectangular from
+# `LMP.rectangulardomain`, and uses a lower point density with `Δr_coarse = deg2rad(1)` and
+# no fine mesh.
 
 frequency = 1e3
 mesh = defaultmesh(frequency)
