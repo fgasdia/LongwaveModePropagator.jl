@@ -4,21 +4,26 @@
     Fields
 
 This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
-and `Ez`.
-
-# Examples
-
-```jldoctest; setup=:(using LongwaveModePropagator.Fields)
-julia> Fields.Ex
-Ex::Field = 0
-julia> Fields.Ey
-Ey::Field = 1
+`Ez`, and `E` (for calculating Ez, Ey, and Ex all at once).
 ```
 """
 baremodule Fields
 using Base: @enum
-@enum Field Ex Ey Ez
+@enum Field Ez Ey Ex E
 end
+
+function index(f::Fields.Field)
+    if f == Fields.Ez
+        return 1
+    elseif f == Fields.Ey
+        return 2
+    elseif f == Fields.Ex
+        return 3
+    elseif f == Fields.E
+        return 1:3
+    end
+end
+numcomponents(f::Fields.Field) = length(index(f))
 
 ########
 
@@ -27,7 +32,7 @@ end
 
 Abstract supertype for sampling fields in the waveguide.
 
-Subtypes of AbstractSampler have a position in the guide and a `Fields.Field`.
+Subtypes of AbstractSampler have a position in the guide and a field component.
 """
 abstract type AbstractSampler{T} end
 

@@ -24,9 +24,11 @@ end
 function amplitudephase(e)
     a = similar(e, Float64)
     p = similar(a)
-    @inbounds for i in eachindex(e)
-        a[i] = amplitude(e[i])
-        p[i] = angle(e[i])
+    for (c, ec) in pairs(eachcol(e))
+        for i in eachindex(ec)
+            a[i,c] = amplitude(ec[i])
+            p[i,c] = angle(ec[i])
+        end
     end
     return a, p
 end
@@ -39,10 +41,17 @@ Unwrap a phase vector `x` in radians in-place.
 unwrap!
 
 function unwrap!(x)
-	v = first(x)
-	@inbounds for k in eachindex(x)
-        if isfinite(v)
-            x[k] = v = v + rem2pi(x[k]-v, RoundNearest)
+	for ec in eachcol(x)
+        v = first(ec)  # need to define v at this scope
+        setv = true
+        for k in eachindex(ec)
+            if setv
+                v = ec[k]
+                isfinite(v) ? setv = false : setv = true
+            end
+            if !setv
+                ec[k] = v = v + rem2pi(ec[k]-v, RoundNearest)
+            end
         end
     end
 	return x

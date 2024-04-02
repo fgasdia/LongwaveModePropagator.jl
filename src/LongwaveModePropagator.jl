@@ -69,8 +69,6 @@ coefficient matrix in `modefinder.jl`.
 end
 export IntegrationParams
 
-const DEFAULT_GRPFPARAMS = GRPFParams(100000, 1e-5, true)
-
 """
     LMPParams{T,T2,H <: AbstractRange{Float64}}
 
@@ -121,7 +119,7 @@ See also: [`IntegrationParams`](@ref)
     curvatureheight::Float64 = 50e3  # m
     approxsusceptibility::Bool = false
     susceptibilitysplinestep::Float64 = 10.0
-    grpfparams::GRPFParams = DEFAULT_GRPFPARAMS
+    grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =
@@ -208,7 +206,15 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
         modes = findmodes(modeequation, mesh; params=params)
     end
 
-    E = Efield(modes, waveguide, tx, rx; params=params)
+    EE = fieldsum(modes, waveguide, tx, rx; params=params)
+   
+    fc = rx.fieldcomponent
+    E = permutedims(EE)[:,index(fc)]  # select field components from full matrix EE
+
+    # Type instable, but gives the expected result
+    if length(E) == 1
+        E = only(E)
+    end
 
     amplitude, phase = amplitudephase(E)
 
@@ -268,12 +274,12 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
         adjwavefields_vec[j] = adjwavefields
     end
 
-    E = Efield(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=params)
+    EE = fieldsum(waveguide, wavefields_vec, adjwavefields_vec, tx, rx; params=params)
 
-    # Efield for SegmentedWaveguides doesn't have a specialized form for AbstractSamplers
-    # of Number type, but for consistency we will return scalar E.
-    # Although now this function is technically type unstable, it has a practically
-    # unmeasurable affect on the total runtime.
+    fc = rx.fieldcomponent
+    E = permutedims(EE)[:,index(fc)]  # select field components from full matrix EE
+
+    # Type instable, but gives the expected result
     if length(E) == 1
         E = only(E)
     end
@@ -302,7 +308,7 @@ function propagate(file::AbstractString, outfile=missing; incrementalwrite=false
 
     if ismissing(outfile)
         basepath = dirname(file)
-        filename, fileextension = splitext(basename(file))
+        filename, _ = splitext(basename(file))
 
         outfile = joinpath(basepath, filename)*"_output.json"
     end
