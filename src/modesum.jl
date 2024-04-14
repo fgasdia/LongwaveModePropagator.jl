@@ -2,7 +2,7 @@
 Excitation factor, height gain functions, and electric field mode sum
 ==#
 
-const NUMFIELDCOMPONENTS = 3  # see `modeterms`
+const NUMFIELDCOMPONENTS = 6  # see `modeterms`
 
 """
     ExcitationFactor{T,T2}
@@ -17,7 +17,7 @@ Constants used in calculating excitation factors and height gains.
 - `F₄::T`
 - `h₁0::T`: first modified Hankel function of order 1/3 at the ground.
 - `h₂0::T`: second modified Hankel function of order 1/3 at the ground.
-- `EyHy::T`: polarization ratio ``Ey/Hy``, derived from reflection coefficients (or ``T``s).
+- `eyhy::T`: polarization ratio ``Ey/Hy`` at the ground.
 - `Rg::T2`: ground reflection coefficient matrix.
 
 # References
@@ -34,7 +34,7 @@ struct ExcitationFactor{T,T2}
     F₄::T
     h₁0::T
     h₂0::T
-    EyHy::T
+    eyhy::T
     Rg::T2
 end
 
@@ -42,12 +42,12 @@ end
     excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPParams())
 
 Return an `ExcitationFactor` struct used in calculating height-gain functions and excitation
-factors where eigenangle `ea₀` is referenced to the ground.
+factors.
 
 !!! note
 
-    This function assumes that reflection coefficients `R` and `Rg` are referenced to
-    ``d = z = 0``.
+    This function assumes that reflection coefficients `R` and `Rg` and eigenanle `ea` are
+    referenced to ground (``z = 0``).
 
 # References
 
@@ -66,34 +66,34 @@ factors where eigenangle `ea₀` is referenced to the ground.
     [Online]. Available: http://www.dtic.mil/docs/citations/ADA082695.
 """
 function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPParams())
-    S², C² = ea₀.sin²θ, ea₀.cos²θ
+    S₀², C₀² = ea₀.sin²θ, ea₀.cos²θ
     k, ω = frequency.k, frequency.ω
     ϵᵣ, σ = ground.ϵᵣ, ground.σ
 
-    @unpack earthradius = params
+    @unpack earthradius, curvatureheight = params
 
     # Precompute
     α = 2/earthradius
     tmp1 = pow23(α/k)/2  # 1/2*(a/k)^(2/3)
 
-    q₀ = pow23(k/α)*C²  # (a/k)^(-2/3)*C²
+    q₀ = pow23(k/α)*C₀²  # (a/k)^(-2/3)*C₀²
     h₁0, h₂0, dh₁0, dh₂0 = modifiedhankel(q₀)
 
     H₁0 = dh₁0 + tmp1*h₁0
     H₂0 = dh₂0 + tmp1*h₂0
 
-    n₀² = 1  # modified free space index of refraction squared, referenced to ground
+    n₀² = 1  # free space index of refraction
     Ng² = complex(ϵᵣ, -σ/(ω*E0))  # ground index of refraction
 
     # Precompute
-    tmp2 = 1im*cbrt(k/α)*sqrt(Ng² - S²)  # i(k/α)^(1/3)*(Ng² - S²)^(1/2)
+    tmp2 = 1im*cbrt(k/α)*sqrt(Ng² - S₀²)  # i(k/α)^(1/3)*(Ng² - S₀²)^(1/2)
 
     F₁ = -H₂0 + (n₀²/Ng²)*tmp2*h₂0
     F₂ = H₁0 - (n₀²/Ng²)*tmp2*h₁0
     F₃ = -dh₂0 + tmp2*h₂0
     F₄ = dh₁0 - tmp2*h₁0
 
-    # ``EyHy = ey/hy``. Also known as `f0fr` or `f`.
+    # ``eyhy = ey/hy``. Also known as `f0fr` or `f`.
     # It is a polarization ratio that adds the proper amount of TE wave when the y component
     # of the magnetic field is normalized to unity at the ground.
     # A principally TE mode will have `1 - R[1,1]*Rg[1,1]` very small and EyHy will be very
@@ -103,14 +103,14 @@ function excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=LMPPa
     # LWPC uses the form used here and this makes sense because there are more working
     # decimal places.
     if abs2(1 - R[1,1]*Rg[1,1]) < abs2(1 - R[2,2]*Rg[2,2])
-        # EyHy = T₃/T₁
-        EyHy = (1 + Rg[2,2])*R[2,1]*Rg[1,1]/((1 + Rg[1,1])*(1 - R[2,2]*Rg[2,2]))
+        eyhy = (1 + Rg[2,2] )*R[1,2]*Rg[1,1]/((1 + Rg[1,1])*(1 - R[2,2]*Rg[2,2]))
     else
-        # EyHy = T₂/(T₃*T₄)
-        EyHy = (1 + Rg[2,2])*(1 - R[1,1]*Rg[1,1])/((1 + Rg[1,1])*R[1,2]*Rg[2,2])
+        eyhy = (1 + Rg[2,2])*(1 - R[1,1]*Rg[1,1])/((1 + Rg[1,1])*R[2,1]*Rg[2,2])
     end
+    # TODO XXX possibly remove EyHy from this function. Any why include Rg?
+    # TODO XXX: also, this doesn't use D11 and D12, which it would if we defined with Ts
 
-    return ExcitationFactor(F₁, F₂, F₃, F₄, h₁0, h₂0, EyHy, Rg)
+    return ExcitationFactor(F₁, F₂, F₃, F₄, h₁0, h₂0, eyhy, Rg)
 end
 
 """
@@ -124,13 +124,7 @@ The excitation factor describes how efficiently the field component can be excit
 waveguide.
 
 This function most closely follows the approach taken in [Pappert1983], which makes
-use of ``T`` (different from `TMatrix`) rather than ``τ``. From the total ``Hy`` excitation
-factor (the sum product of the `λ`s with the antenna orientation terms), the excitation
-factor for electric fields can be found as:
-
-- ``λz = -S₀λ``
-- ``λx = EyHy⋅λ``
-- ``λy = -λ``
+use of ``T`` (different from `TMatrix`) rather than ``τ``.
 
 !!! note
 
@@ -155,7 +149,9 @@ factor for electric fields can be found as:
 function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LMPParams())
     S = ea.sinθ
     sqrtS = sqrt(S)
-    S₀ = referencetoground(ea.sinθ; params=params)
+
+    ea₀ = referencetoground(ea; params)
+    S₀ = ea₀.sinθ
 
     @unpack F₁, F₂, F₃, F₄, h₁0, h₂0, Rg = efconstants
 
@@ -166,18 +162,19 @@ function excitationfactor(ea, dFdθ, R, efconstants::ExcitationFactor; params=LM
     F₃h₁0 = F₃*h₁0
     F₄h₂0 = F₄*h₂0
 
-    D₁₁ = (F₁h₁0 + F₂h₂0)^2
-    D₁₂ = (F₁h₁0 + F₂h₂0)*(F₃h₁0 + F₄h₂0)
-    # D₂₂ = (F₃h₁0 + F₄h₂0)^2
+    D₁₁ = (F₁h₁0 + F₂h₂0)^2  # == fz(0)^2
+    D₁₂ = (F₁h₁0 + F₂h₂0)*(F₃h₁0 + F₄h₂0)  # == fz(0)*fy(0)
+    # D₂₂ = (F₃h₁0 + F₄h₂0)^2  # == fy(0)^2
 
     # `sqrtS` should be at `curvatureheight` because that is where `dFdθ` is evaluated
     T₁ = sqrtS*(1 + Rg[1,1])^2*(1 - R[2,2]*Rg[2,2])/(dFdθ*Rg[1,1]*D₁₁)
     # T₂ = sqrtS*(1 + Rg[2,2])^2*(1 - R[1,1]*Rg[1,1])/(dFdθ*Rg[2,2]*D₂₂)
-    T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[2,1]/(dFdθ*D₁₂)
-    T₄ = R[1,2]/R[2,1]
+    T₃ = sqrtS*(1 + Rg[1,1])*(1 + Rg[2,2])*R[1,2]/(dFdθ*D₁₂)
+    T₄ = R[2,1]/R[1,2]
 
-    # These are [Pappert1983] terms divided by `-S`, the factor between Hy and Ez
-    λv = -S₀*T₁
+    # Excitation factors for Hy at z = 0
+    # Note: From Maxwell's equations Hy = -Ez/S
+    λv = -T₁*S₀
     λb = T₃*T₄
     λe = T₁
 
@@ -197,7 +194,8 @@ eigenangle `ea₀` is referenced to the ground.
 
 !!! note
 
-    This function assumes that reflection coefficients are referenced to ``d = z = 0``.
+    This function assumes that reflection coefficients and eigenangles are referenced to
+    ground (``z = 0``).
 
 See also: [`excitationfactorconstants`](@ref)
 
@@ -213,17 +211,17 @@ See also: [`excitationfactorconstants`](@ref)
     no. 4, pp. 551–558, Jul. 1986, doi: 10.1029/RS021i004p00551.
 """
 function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
-    C, C² = ea₀.cosθ, ea₀.cos²θ
+    C₀, C₀² = ea₀.cosθ, ea₀.cos²θ
     k = frequency.k
     @unpack F₁, F₂, F₃, F₄, Rg = efconstants
-    @unpack earthradius, earthcurvature = params
+    @unpack earthradius, earthcurvature, curvatureheight = params
 
     if earthcurvature
         # Precompute
         α = 2/earthradius
         expz = exp(z/earthradius)  # assumes reflection coefficients are referenced to `d = 0`
 
-        qz = pow23(k/α)*(C² + α*z)  # (k/α)^(2/3)*(C² + α*z)
+        qz = pow23(k/α)*(C₀² + α*z)  # (k/α)^(2/3)*(C² + α*z)
 
         h₁z, h₂z, dh₁z, dh₂z = modifiedhankel(qz)
 
@@ -231,24 +229,27 @@ function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=
         F₁h₁z = F₁*h₁z
         F₂h₂z = F₂*h₂z
 
-        # Height gain for Ez, also called f∥(z).
+        # Height gain for Ez, also called f∥(z)
         fz = expz*(F₁h₁z + F₂h₂z)
 
         # Height gain for Ey, also called f⟂(z)
-        fy = (F₃*h₁z + F₄*h₂z)
+        fy = F₃*h₁z + F₄*h₂z
+        dfy = F₃*dh₁z + F₄*dh₂z  # TODO: remove dfy
 
         # Height gain for Ex, also called g(z)
-        # f₂ = 1/(1im*k) df₁/dz
-        fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
+        # fx = 1/(1im*k) dfz/dz
+        fx = -1im*expz/k*((F₁h₁z + F₂h₂z)/earthradius + (F₁*dh₁z + F₂*dh₂z))
     else
         # Flat earth, [Pappert1983] pg. 12--13
-        expiz = cis(k*C*z)
+        kC = k*C
+        expiz = cis(kC*z)
         fz = expiz + Rg[1,1]/expiz
         fy = expiz + Rg[2,2]/expiz
         fx = C*(expiz - Rg[1,1]/expiz)
+        dfy = -kC*sin(kC*z) + kC*1im*cos(kC*z) - kC*Rg[2,2]*sin(kC*z) - kC*Rg[2,2]*1im*cos(kC*z)
     end
 
-    return fz, fy, fx
+    return fz, fy, fx, dfy
 end
 
 """
@@ -319,6 +320,8 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     @unpack ea, frequency, waveguide = modeequation
     @unpack ground = waveguide
 
+    S = ea.sinθ
+
     ea₀ = referencetoground(ea; params=params)
     S₀ = ea₀.sinθ
 
@@ -333,30 +336,30 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     Sγ, Cγ = sincos(inclination(tx))  # γ is measured from vertical
     Sϕ, Cϕ = sincos(azimuth(tx))  # ϕ is measured from `x`
 
-    t1 = Cγ
-    t2 = Sγ*Sϕ
-    t3 = Sγ*Cϕ
-
     dFdθ, R, Rg = solvedmodalequation(modeequation; params=params)
-    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=params)
+    efconstants = excitationfactorconstants(ea, R, Rg, frequency, ground; params=params)
+    @unpack F₃, F₄, EyHy = efconstants.EyHy
 
     λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants; params=params)
 
     # Transmitter term
-    fzt, fyt, fxt = heightgains(zt, ea₀, frequency, efconstants; params=params)
-    txterm = λv*fzt*t1 + λb*fyt*t2 + λe*fxt*t3
+    fzt, fyt, fxt, _ = heightgains(zt, ea, frequency, efconstants; params=params)
+    txterm = λv*fzt*Cγ + λb*fyt*Sγ*Sϕ + λe*fxt*Sγ*Cϕ
 
     # Receiver term
     if zr == zt
         fzr, fyr, fxr = fzt, fyt, fxt
     else
-        fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants; params=params)
+        fzr, fyr, fxr, dfyr = heightgains(zr, ea, frequency, efconstants; params=params)
     end
 
     rxEz = -S₀*fzr
-    rxEy = efconstants.EyHy*fyr
+    rxEy = eyhy*fyr
     rxEx = -fxr
-    rxterm = SVector(rxEz, rxEy, rxEx)
+    rxHz = S₀*eyhy*fyr
+    rxHy = fzr
+    rxHx = 1/(1im*frequency.k)*eyhy*dfyr
+    rxterm = SVector(rxEz, rxEy, rxEx, rxHz, rxHy, rxHx)
 
     return txterm, rxterm
 end
@@ -367,6 +370,8 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     @unpack ea, frequency, waveguide = modeequation
     @unpack ground = waveguide
+
+    S = ea.sinθ
     ea₀ = referencetoground(ea; params=params)
     S₀ = ea₀.sinθ
 
@@ -374,20 +379,23 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
         throw(ArgumentError("`tx.frequency` and `modeequation.frequency` do not match"))
 
     dFdθ, R, Rg = solvedmodalequation(modeequation; params=params)
-    efconstants = excitationfactorconstants(ea₀, R, Rg, frequency, ground; params=params)
+    efconstants = excitationfactorconstants(ea, R, Rg, frequency, ground; params=params)
+    EyHy = efconstants.EyHy
 
     λv, _, _ = excitationfactor(ea, dFdθ, R, efconstants; params=params)
 
     # Transmitter term
-    # TODO: specialized heightgains for z = 0
-    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants; params=params)
+    fz, fy, fx, dfy = heightgains(0.0, ea, frequency, efconstants; params=params)
     txterm = λv*fz
 
     # Receiver term
-    rxEz = -S₀*fz
-    rxEy = efconstants.EyHy*fy
-    rxEx = -fx
-    rxterm = SVector(rxEz, rxEy, rxEx) # length(rxterm) == NUMRXTERMS
+    rxEz = fz
+    rxEy = -EyHy*fy/S
+    rxEx = fx/S
+    rxHz = S/Z0*rxEy  # TODO XXX: Do I need to convert by Z0 later?
+    rxHy = -fz/(Z0*S)
+    rxHx = 1/(1im*Z0*frequency.k*S)*EyHy*dfy
+    rxterm = SVector(rxEz, rxEy, rxEx)
 
     return txterm, rxterm
 end

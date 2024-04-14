@@ -1,3 +1,21 @@
+function test_heightgains(scenario)
+    @unpack tx, rx, bfield, species, ground = scenario
+    modes = TEST_MODES[scenario]
+
+    ea₀ = LMP.referencetoground(modes[1])
+
+    wvg = HomogeneousWaveguide(bfield, species, ground)
+    me = PhysicalModeEquation(modes[1], tx.frequency, wvg)
+    dFdθ, R, Rg = LMP.solvedmodalequation(me)
+
+    efc = LMP.excitationfactorconstants(ea₀, R, Rg, tx.frequency, ground)
+    fz0, fy0, fx0 = LMP.heightgains(0, ea₀, tx.frequency, efc)
+    fz1, fy1, fx1 = LMP.heightgains(1, ea₀, tx.frequency, efc)
+    fx1 - fx0
+
+    fx = 1/(1im*k) dfz/dz
+end
+
 function test_modeterms(scenario)
     @unpack tx, rx, bfield, species, ground = scenario
     waveguide = HomogeneousWaveguide(bfield, species, ground)

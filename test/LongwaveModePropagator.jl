@@ -1,6 +1,9 @@
 function test_propagate(scenario)
     @unpack tx, rx, bfield, species, ground = scenario
 
+
+    # TEMP TODO XXX
+    rx = GroundSampler(rx.distance, Fields.E)
     waveguide = HomogeneousWaveguide(bfield, species, ground)
 
     E, amp, phase = propagate(waveguide, tx, rx)
