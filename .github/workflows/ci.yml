@@ -23,7 +23,7 @@ jobs:
           - macOS-latest
           - windows-latest
         version:
-          - lts
+          - '1.10'
           - '1'
         arch:
           - x64
