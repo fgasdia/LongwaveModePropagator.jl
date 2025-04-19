@@ -7,6 +7,11 @@ on:
     branches: [main]
     tags: ["*"]
 
+# needed to allow julia-actions/cache to delete old caches that it has created
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - threads ${{ matrix.threads }} - ${{ github.event_name }}
@@ -16,30 +21,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.10' # minimum Julia version the package supports.
-          - 1 # automatically expands to the latest stable 1.x release of Julia.
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        julia-version: ['lts', '1']
+        os: [ubuntu-latest]
+        julia-arch: [x64]
         threads:
           - 1
         include:
           # test macOS and Windows with latest Julia only
           - os: macOS-latest
-            arch: x64
-            version: 1
+            julia-arch: x64
+            julia-version: ['1']
           - os: windows-latest
-            arch: x64
-            version: 1
+            julia-arch: x64
+            julia-version: ['1']
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
-      - uses: actions/cache@v1
+          version: ${{ matrix.julia-version }}
+          arch: ${{ matrix.julia-arch }}
+      - uses: actions/cache@v2
         env:
           cache-name: cache-artifacts
         with:
@@ -55,8 +56,8 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
       - name: Install dependencies
