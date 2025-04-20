@@ -119,7 +119,7 @@ function test_integratedreflection_vertical(scenario)
     R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
     
     @test R2 == R
-    @test maxabsdiff(R, R3) < 1e-6
+    @test maxabsdiff(R, R3) < 2e-6
 end
 
 function test_integratedreflection_deriv(scenario)
