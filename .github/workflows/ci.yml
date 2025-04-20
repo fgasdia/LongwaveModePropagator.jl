@@ -10,6 +10,8 @@ on:
 permissions:
   actions: write
   contents: read
+  pull-requests: read
+  statuses: write
 
 jobs:
   test:
@@ -60,16 +62,16 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
+      - uses: julia-actions/cache@v2
       - name: Install dependencies
+        shell: julia --color=yes --project=docs {0}
         run: |
-          julia --project=docs -e '
-            using Pkg
-            Pkg.add(PackageSpec(url="https://github.com/fgasdia/FaradayInternationalReferenceIonosphere.jl"))
-            Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.instantiate()'
-        env:
-          JULIA_PKG_SERVER: ''
-      - run: julia --project=docs docs/make.jl
+          using Pkg
+          Pkg.add(PackageSpec(url="https://github.com/fgasdia/FaradayInternationalReferenceIonosphere.jl"))
+          Pkg.develop(PackageSpec(path=pwd()))
+          Pkg.instantiate()'
+      - name: Build and deploy
+        run: julia --color=yes --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
