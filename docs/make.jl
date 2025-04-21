@@ -36,14 +36,11 @@ examples = [
 
 for example in examples
     example_filepath = joinpath(EXAMPLES_DIR, example)
-    if get(ENV, "CI", nothing) == "true"
-        Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true)
-    else
-        # local
-        Literate.markdown(example_filepath, OUTPUT_DIR, documenter=true,
-                          repo_root_url=REPO_ROOT_URL)
-    end
+    Literate.markdown(example_filepath, OUTPUT_DIR, repo_root_url=REPO_ROOT_URL)
 end
+
+# Documenter.jl can only link to files within docs/src/
+symlink(abspath("../examples"), "src/examples"; dir_target=true)
 
 #==
 Organize page hierarchies
@@ -81,8 +78,7 @@ Build and deploy docs
 ==#
 
 format = Documenter.HTML(
-    collapselevel = 1,
-    prettyurls=get(ENV, "CI", nothing)=="true"
+    collapselevel = 1
 )
 
 makedocs(
