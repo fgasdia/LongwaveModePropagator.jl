@@ -14,7 +14,7 @@ See the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/gener
 1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
 2. From the Julia REPL, install LongwaveModePropagator.
 
-```
+```julia
 julia> ]
 (@v1.10) pkg> add LongwaveModePropagator
 ```
@@ -32,7 +32,7 @@ Please open [Issues](https://github.com/fgasdia/LongwaveModePropagator.jl/issues
 
 Here's a simple homogeneous ground/ionosphere scenario defined in Julia.
 
-```julia
+```@example index
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
 
@@ -59,13 +59,13 @@ E, a, p = propagate(waveguide, tx, rx);
 
 We can plot the results if we `] add Plots`:
 
-```julia
+```@example index
 using Plots
 
-plot(rx.distance/1000, a, xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)")
+plot(rx.distance/1000, a,
+     xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)",
+     legend=false, linewidth=2)
 ```
-
-![](indexexample.png)
 
 !!! note
 
