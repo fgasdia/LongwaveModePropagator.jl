@@ -215,7 +215,7 @@ plot(real(day_e1s), zs/1000;
 
 And at night...
 
-```@example wavefield
+```@example wavefields
 night_e1s = [getindex.(e, 1) for e in night_es]
 
 plot(real(night_e1s), zs/1000;
@@ -224,7 +224,7 @@ plot(real(night_e1s), zs/1000;
 
 The times to run each...
 
-```@example wavefield
+```@example wavefields
 TO
 ```
 
