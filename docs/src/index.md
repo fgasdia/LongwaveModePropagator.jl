@@ -14,9 +14,8 @@ See the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/gener
 1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
 2. From the Julia REPL, install LongwaveModePropagator.
 
-```julia
-julia> ]
-(@v1.10) pkg> add LongwaveModePropagator
+```@repl index
+] add LongwaveModePropagator
 ```
 
 If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.

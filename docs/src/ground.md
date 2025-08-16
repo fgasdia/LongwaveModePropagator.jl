@@ -17,7 +17,7 @@ LWPC uses standard ground indices to describe combinations of relative permittiv
 and conductivity.
 The standard indices can be accessed from LMP as [`GROUND`](@ref).
 
-```@example ground
+```@repl ground
 sort(GROUND)
 ```
 

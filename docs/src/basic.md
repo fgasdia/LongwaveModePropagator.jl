@@ -169,7 +169,7 @@ guide and specify what electromagnetic field component they sample.
 `Fields` is a `baremodule` contained within and reexported from LongwaveModePropagator.jl
 which contains a single `Enum` object
 
-```@example basic
+```@repl basic
 Fields.Field
 ```
 
@@ -296,7 +296,7 @@ ground = Ground(10, 2e-4)
 
 For convenience, a dictionary of common ground indices is exported.
 
-```@example basic
+```@repl basic
 sort(GROUND)
 ```
 

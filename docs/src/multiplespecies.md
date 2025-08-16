@@ -38,7 +38,7 @@ using LongwaveModePropagator: QE, ME
 
 `QE` is the charge of an electron and is therefore negative.
 
-```@example multiple
+```@repl multiple
 QE
 ```
 

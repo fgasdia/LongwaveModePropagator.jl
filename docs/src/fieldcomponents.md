@@ -20,7 +20,7 @@ using LongwaveModePropagator: QE, ME
 Each supported electromagnetic `Field` is an `Enum` defined in an exported `baremodule`
 named `Fields`. The supported fields can be returned form the REPL
 
-```@example components
+```@repl components
 Fields.Field
 ```
 
@@ -32,7 +32,7 @@ plane and completes the right handed coordinate system.
 Because of the scope of `Enum` objects, individual fields are specified with a dot syntax
 like
 
-```@example components
+```@repl components
 Fields.Ez
 ```
 
