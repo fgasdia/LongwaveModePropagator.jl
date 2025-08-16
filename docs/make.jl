@@ -1,6 +1,6 @@
 using Documenter
 using Plots
-ENV["GKSwstype"] = "nul"  # to avoid GKS error on docs build ("nul" for headless systems)
+ENV["GKSwstype"] = "100"  # to avoid GKS error on docs build
 
 using LongwaveModePropagator
 using LongwaveModePropagator.Fields
