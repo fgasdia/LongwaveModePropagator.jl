@@ -52,7 +52,7 @@ ground = GROUND[8]
 ```
 
 To define the electron density and collision frequency profile, we will read in a
-[digitized table](@__REPO_ROOT_URL__/piggott1965_data.csv)
+[digitized table](https://github.com/fgasdia/LongwaveModePropagator.jl/docs/src/piggott1965_data.csv)
 of the curves from Piggott and linearly interpolate them.
 While we're at it, we'll also prepare the nighttime ionosphere.
 
@@ -224,7 +224,7 @@ plot(real(night_e1s), zs/1000;
 
 The times to run each...
 
-```@example wavefields
+```@repl wavefields
 TO
 ```
 

@@ -123,8 +123,7 @@ Both the `ExponentialInput` and `TableInput` types can be collected together in 
 [`BatchInput`](@ref) which has fields
 for a `name`, `description`, `datetime`, and vector of `Inputs`.
 This is useful for keeping a set of scenarios together.
-See the [test/IO.jl](@__REPO_ROOT_URL__/test/IO.jl) file
-for additional help on how these should be formatted.
+See [test/IO.jl](https://github.com/fgasdia/LongwaveModePropagator.jl/test/IO.jl) for additional help on how these should be formatted.
  
 ## Running the model from a JSON file
 
@@ -162,7 +161,7 @@ Not surprisingly, a `BatchOutput` is simply a container holding a `Vector` of
 
 Here's an example of how to encode the above `ExponentialInput` to JSON and
 decode the output using [Matlab](https://www.mathworks.com/help/matlab/json-format.html).
-It's also in the file [io.m](@__REPO_ROOT_URL__/io.m).
+It's also in the file [io.m](https://github.com/fgasdia/LongwaveModePropagator.jl/docs/src/io.m).
 
 ```matlab
 % Matlab script
@@ -190,7 +189,7 @@ fclose(fid);
 ```
 
 Matlab was used to generate the file
-[`basic_matlab.json`](@__REPO_ROOT_URL__/basic_matlab.json).
+[`basic_matlab.json`](https://github.com/fgasdia/LongwaveModePropagator.jl/docs/src/basic_matlab.json).
 We can confirm it's parsed correctly by using the internal
 LongwaveModePropagator function [`LongwaveModePropagator.parse`](@ref), which attempts to parse
 JSON files into recognized input and output formats.
@@ -234,7 +233,7 @@ output = jsondecode(text);
 ## [JSON I/O from Python](@id python_json)
 
 Here is similar code for [Python](https://docs.python.org/3/library/json.html),
-also available in the file [io.py](@__REPO_ROOT_URL__/io.py).
+also available in the file [io.py](https://github.com/fgasdia/LongwaveModePropagator.jl/docs/src/io.py).
 
 ```python
 # Python script

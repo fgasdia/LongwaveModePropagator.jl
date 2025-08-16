@@ -100,7 +100,7 @@ batch = generate(82.0, 0.6);
 ## Run the model
 
 Results from my custom LWPC script are saved in an
-[HDF5 file](@__REPO_ROOT_URL__/bfields_lwpc.h5).
+[HDF5 file](https://github.com/fgasdia/LongwaveModePropagator.jl/docs/src/bfields_lwpc.h5).
 For easy comparison, we will also save the results from the
 Longwave Mode Propagator to an HDF5 file.
 Although not strictly necessary for a small number inputs like we have here,
