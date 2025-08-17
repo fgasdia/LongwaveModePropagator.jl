@@ -26,7 +26,8 @@ using TimerOutputs
 
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
-const LMP = LongwaveModePropagator;
+const LMP = LongwaveModePropagator
+nothing  # hide
 ```
 
 ## The ionosphere
@@ -34,7 +35,7 @@ const LMP = LongwaveModePropagator;
 Pitteway uses an ionosphere presented in
 [Piggot et. al., 1965](https://doi.org/10.1098/rsta.1965.0005).
 
-[](images/Piggott_ionosphere.png)
+![](images/Piggott_ionosphere.png)
 
 He begins with the midday profile with a 16 kHz radio wave at an angle of incidence of
 40° from normal. We'll also assume the magnetic field has a strength of 50,000 nT
@@ -79,7 +80,8 @@ nu_etp = extrapolate(nu_itp, Line())
 nufcn(z) = (v = nu_etp(z); v > 0 ? v : 0.001)
 
 day = Species(QE, ME, dayfcn, nufcn)
-night = Species(QE, ME, nightfcn, nufcn);
+night = Species(QE, ME, nightfcn, nufcn)
+nothing  # hide
 ```
 
 ## Scaled, integrated wavefields
@@ -120,7 +122,7 @@ integration, and the scaling values are stored so that the fields can be "recorr
 after the integration is complete.
 
 Here are what the real component of the ``E_{x,1}`` and ``H_{x,2}`` wavefields
-looks like with and without the "recorrection".
+looks like with and without the "recorrection":
 
 ```@example wavefields
 zs = 110e3:-50:0
@@ -204,7 +206,7 @@ for s in eachindex(solvers)
 end
 ```
 
-A quick plot to ensure none of the methods have problems.
+A quick plot to ensure none of the methods have problems:
 
 ```@example wavefields
 day_e1s = [getindex.(e, 1) for e in day_es]
@@ -280,7 +282,7 @@ annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center));
 plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)
 ```
 
-[](images/Pitteway1965_fig2.png)
+![](images/Pitteway1965_fig2.png)
 
 The envelopes of the two are very similar.
 The precise position of the real and imaginary wave components are not important
@@ -300,9 +302,10 @@ ea = EigenAngle(0)
 frequency = Frequency(202e3)
 bfield = BField(50e-6, deg2rad(68), deg2rad(111))
 ground = GROUND[8]
+nothing  # hide
 ```
 
-Now integrating the wavefields.
+Now integrating the wavefields...
 
 ```@example wavefields
 zs = 110e3:-50:70e3
@@ -318,4 +321,4 @@ hx2p = plotfield(hx2; ylims=(75, 102), title="\$H_{x,2}\$");
 plot(ey1p, hx2p; layout=(1,2), size=(400,500))
 ```
 
-[](images/Pitteway1965_fig3.png)
+![](images/Pitteway1965_fig3.png)

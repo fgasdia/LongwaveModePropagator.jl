@@ -33,6 +33,7 @@ will be computed, and the magnetic field dip and azimuth angles `B_DIPS` and `B_
 const OUTPUT_RANGES = 0:5e3:3000e3
 const B_DIPS = [90.0, 60, 60, 60, 60, 60, 60, 60, 60]
 const B_AZS = [0.0, 0, 45, 90, 135, 180, 225, 270, 315]  ## vertical, N, E, S, W
+nothing  # hide
 ```
 
 The `generate` function produces the [`BatchInput`](@ref) of the scenarios.
@@ -94,7 +95,7 @@ function generate(hp, β)
     return batch
 end
 
-batch = generate(82.0, 0.6);
+batch = generate(82.0, 0.6)
 ```
 
 ## Run the model
@@ -149,6 +150,7 @@ function runlmp(inputs, outfile)
         next!(PM)
     end
 end
+nothing  # hide
 ```
 
 The full path will need to be specified to `bfields_lmp.h5` below.
@@ -188,9 +190,10 @@ end
 agrid, pgrid = h5open(lmpfile, "r") do o
     agrid, pgrid = process(o)
 end
+nothing  # hide
 ```
 
-# Here is the amplitude plot itself.
+Here is the amplitude plot itself:
 
 ```@example magnetic
 labels = string.(trunc.(Int, B_AZS), "°")

@@ -54,8 +54,15 @@ ground = Ground(10, 1e-4)
 waveguide = HomogeneousWaveguide(bfield, electrons, ground)
 
 # return the complex electric field, amplitude, and phase
-E, a, p = propagate(waveguide, tx, rx);
+E, a, p = propagate(waveguide, tx, rx)
+nothing  # hide
 ```
+
+!!! note
+
+    SI units (MKS) and _radians_ are used throughout LongwaveModePropagator.
+
+    The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often implicitly taken to be kilometers and inverse kilometers.
 
 We can plot the results if we `] add Plots`:
 
@@ -67,20 +74,14 @@ plot(rx.distance/1000, a,
      legend=false, linewidth=2)
 ```
 
-!!! note
-
-    SI units (MKS) and _radians_ are used throughout LongwaveModePropagator.
-
-    The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often implicitly taken to be kilometers and inverse kilometers.
-
-Users are encouraged to browse the [Examples](@ref examples_first_page) section for more complex scenarios.
+Users are encouraged to browse the [Examples](@ref examples_first_page) section of the docs for more complicated scenarios.
 
 ## New to Julia?
 
-Julia is a relatively new general programming language that shines for technical computing.
+Julia is a general programming language that shines for technical computing.
 It has similarities to Matlab and Python, but is high performance and attempts to solve the ["two language problem"](https://thebottomline.as.ucsb.edu/2018/10/julia-a-solution-to-the-two-language-programming-problem).
 In part, it achieves its high performance by compiling functions to efficient native code via LLVM.
-Julia is dynamically typed and uses multiple dispatch, so that the first time a given function is passed arguments of a certain type, the function is compiled for those types.
+Julia is dynamically typed and uses multiple dispatch, so that the first time a function is passed arguments of a certain type, the function is compiled for those types.
 In practice, this means that the first time a function is called, it takes longer than it will on subsequent calls, because at the first call the function also had to be compiled.
 
 ### Finding help
@@ -88,14 +89,18 @@ In practice, this means that the first time a function is called, it takes longe
 I highly recommend reading the [Julia Documentation](https://docs.julialang.org/en/v1/).
 It is very thorough and combines significant textual explanations with examples.
 
-Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible with `?`.
+Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible by typing `?`.
 The help functionality works "automatically", even for user-defined functions with docstrings.
 Most internal functions of LongwaveModePropagator are documented, so e.g.
-```julia
-? LongwaveModePropagator.bookerquartic
-```
-prints an explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) function even though it's not exported from the package.
 
+```julia
+?LongwaveModePropagator.TMatrix
+```
+```@docs; canonical=false
+LongwaveModePropagator.TMatrix
+```
+
+prints a brief explanation of the [`LongwaveModePropagator.TMatrix`](@ref) type even though it's not exported from the package.
 
 ## References
 

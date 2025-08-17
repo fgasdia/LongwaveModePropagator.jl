@@ -11,6 +11,7 @@ the ground in the waveguide for day and nighttime ionospheres.
 using Plots, Printf
 using LongwaveModePropagator
 const LMP = LongwaveModePropagator
+nothing  # hide
 ```
 
 LWPC uses standard ground indices to describe combinations of relative permittivity
@@ -33,6 +34,7 @@ const RX = GroundSampler(0:5e3:3000e3, Fields.Ez)
 
 const DAY = Species(LMP.QE, LMP.ME, z->waitprofile(z, 75, 0.3), electroncollisionfrequency)
 const NIGHT = Species(LMP.QE, LMP.ME, z->waitprofile(z, 82, 0.6), electroncollisionfrequency)
+nothing  # hide
 ```
 
 We'll define a function to which we can pass the day or night `Species` and return the
@@ -48,6 +50,7 @@ function varyground(prf)
     end
     return amps
 end
+nothing  # hide
 ```
 
 And here's a function to plot each of the curves.
@@ -58,12 +61,13 @@ function buildplots!(p, amps)
 
     for i = 1:length(GROUND)
         plot!(p, RX.distance/1000, amps[i];
-              label=@sprintf("%d, %.1g", GROUND[i].ϵᵣ, GROUND[i].σ), color=cmap[i]);
+              label=@sprintf("%d, %.1g", GROUND[i].ϵᵣ, GROUND[i].σ), color=cmap[i])
     end
 end
+nothing  # hide
 ```
 
-First, the daytime results.
+First, the daytime results:
 
 ```@example ground
 amps = varyground(DAY)
@@ -74,7 +78,7 @@ plot!(p; size=(600,400), ylims=(0, 95), title="Day", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
 ```
 
-And now nighttime.
+And now nighttime:
 
 ```@example ground
 amps = varyground(NIGHT)

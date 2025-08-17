@@ -123,7 +123,7 @@ modal equation with respect to ``θ``.
 The excitation factor describes how efficiently the field component can be excited in the
 waveguide.
 
-This function most closely follows the approach taken in [Pappert1983], which makes
+This function is similar to the approach taken in [Pappert1983], which makes
 use of ``T`` (different from `TMatrix`) rather than ``τ``. From the total ``Hy`` excitation
 factor (the sum product of the `λ`s with the antenna orientation terms), the excitation
 factor for electric fields can be found as:

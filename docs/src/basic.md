@@ -276,10 +276,14 @@ electrons = Species(QE, ME, z->waitprofile(z, h, β), electroncollisionfrequency
 ```
 
 Note that we used a lambda function to specify the `waitprofile` with our given
-``h'`` and ``\beta``. Also note that these two parameters are a rare instance of
-SI units not strictly being followed.
+``h'`` and ``\beta``.
 See the help for [`waitprofile`](@ref) for more information, including optional
 height cutoff and density threshold arguments.
+
+!!! note
+
+    ``h'`` and ``\beta`` are an exception to the use of SI units throughout the code.
+    They are specified in `km` and `km⁻¹`, respectively.
 
 `electroncollisionfrequency` is a function of height `z` only, so it is not
 necessary to generate a lambda function. We can pass the function handle
@@ -293,7 +297,7 @@ directly.
 ground = Ground(10, 2e-4)
 ```
 
-For convenience, a dictionary of common ground indices is exported.
+For convenience, a dictionary of common ground indices `GROUND` is exported.
 
 ```@repl basic
 sort(GROUND)
@@ -324,17 +328,16 @@ amplitude in dB μV/m, and phase in radians.
 
 ```@example basic
 E, a, p = propagate(waveguide, tx, rx);
+nothing  # hide
 ```
 
-# Here are quick plots of the amplitude
+Here are quick plots of the amplitude and phase:
 
 ```@example basic
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false)
 ```
-
-and phase
 
 ```@example basic
 plot(ranges/1000, rad2deg.(p);
@@ -371,18 +374,17 @@ waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield, species[i], ground,
 We can [`propagate`](@ref) just as before
 
 ```@example basic
-E, a, p = propagate(waveguide, tx, rx);
+E, a, p = propagate(waveguide, tx, rx)
+nothing  # hide
 ```
 
-Here are quick plots of the amplitude
+Here are quick plots of the amplitude and phase:
 
 ```@example basic
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false)
 ```
-
-and phase
 
 ```@example basic
 plot(ranges/1000, rad2deg.(p);
