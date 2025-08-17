@@ -14,8 +14,9 @@ See the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/gener
 1. [Download](https://julialang.org/downloads/) and install a recent version of Julia for your operating system.
 2. From the Julia REPL, install LongwaveModePropagator.
 
-```@repl index
-] add LongwaveModePropagator
+```julia
+using Pkg
+Pkg.add("LongwaveModePropagator")
 ```
 
 If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.
@@ -72,7 +73,7 @@ plot(rx.distance/1000, a,
 
     The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often implicitly taken to be kilometers and inverse kilometers.
 
-Users are encouraged to browse the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/generated/basic/) section for more complex scenarios.
+Users are encouraged to browse the [Examples](@ref examples_first_page) section for more complex scenarios.
 
 ## New to Julia?
 

@@ -1,4 +1,4 @@
-# Introduction and defining scenarios
+# [Introduction and defining scenarios](@id examples_first_page)
 
 This example walks through the basic usage of LongwaveModePropagator
 when interfacing with the package through Julia.

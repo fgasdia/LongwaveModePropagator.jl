@@ -17,11 +17,10 @@ using LongwaveModePropagator: QE, ME
 
 ## [`Fields`](@ref)
 
-Each supported electromagnetic `Field` is an `Enum` defined in an exported `baremodule`
-named `Fields`. The supported fields can be returned form the REPL
+Each supported electromagnetic field is defined in an `Enum` called `Fields`. The supported fields are:
 
-```@repl components
-Fields.Field
+```@repl
+Fields
 ```
 
 The ``x`` axis extends from the transmitter along the ground in the direction of the
@@ -29,10 +28,9 @@ receiver. The ``z`` axis extends vertically upward into the ionosphere so that t
 wavefields are propagating in the ``x-z`` plane. The ``y`` axis is perpendicular to the
 plane and completes the right handed coordinate system.
 
-Because of the scope of `Enum` objects, individual fields are specified with a dot syntax
-like
+Individual fields are specified with a dot syntax:
 
-```@repl components
+```@repl
 Fields.Ez
 ```
 
