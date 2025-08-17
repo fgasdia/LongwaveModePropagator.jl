@@ -44,7 +44,7 @@ It is not necessary for a user to use the integer representation of the `Enum`.
 ## Propagating multiple fields: HomogeneousWaveguide
 
 Using the same conditions defined in [the introduction](@ref basic_homogeneous), we'll
-define a model using a new `GroundSampler` with `fieldcomponent` `Fields.E`, run the model,
+define a model using a new `GroundSampler` with fieldcomponent `Fields.E`, run the model,
 and plot the results.
 
 ```@example components

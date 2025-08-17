@@ -8,6 +8,7 @@ using StaticArrays
 using StaticArrays: promote_tuple_eltype, convert_ntuple
 using OrdinaryDiffEq, DiffEqCallbacks
 using Parameters, ProgressLogging
+using EnumX
 using JSON3, StructTypes
 using Interpolations
 import FunctionWrappers: FunctionWrapper
