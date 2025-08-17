@@ -99,11 +99,9 @@ prints an explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) func
 
 ## References
 
-```@raw html
-<p><a name="Budden1955a"></a>K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: <a href="https://doi.org/10.1098/rspa.1955.0027">10.1098/rspa.1955.0027</a>.</p>
+K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: [10.1098/rspa.1955.0027](https://doi.org/10.1098/rspa.1955.0027).
 
-<p><a name="Budden1962"></a>K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: <a href="https://doi.org/10.1098/rspa.1962.0041">10.1098/rspa.1962.0041</a>.</p>
-```
+K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: [10.1098/rspa.1962.0041](https://doi.org/10.1098/rspa.1962.0041).
 
 ## Citing
 
