@@ -169,7 +169,7 @@ guide and specify what electromagnetic field component they sample.
 `Fields` is an enum which contains the components of the electric field vector of the propagating wave that can be computed by LongwaveModePropagator.
 
 ```@repl basic
-Fields
+Fields.Field
 ```
 
 Individual fields are specified as, e.g.:
@@ -181,7 +181,7 @@ field = Fields.Ez
 The general [`Sampler`](@ref) type specifies
 
 - `distance::S`: ground distance from the transmitter in meters.
-- `fieldcomponent::Fields.T`: field component measured by the `Sampler`.
+- `fieldcomponent::Fields.Field`: field component measured by the `Sampler`.
 - `altitude::Float64`: height above the ground in meters.
 
 The `distance` field is parameterized and therefore could be a single distance

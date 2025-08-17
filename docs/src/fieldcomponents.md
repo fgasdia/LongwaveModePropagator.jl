@@ -19,8 +19,8 @@ using LongwaveModePropagator: QE, ME
 
 Each supported electromagnetic field is defined in an `Enum` called `Fields`. The supported fields are:
 
-```@repl
-Fields
+```@repl components
+Fields.Field
 ```
 
 The ``x`` axis extends from the transmitter along the ground in the direction of the
@@ -30,14 +30,14 @@ plane and completes the right handed coordinate system.
 
 Individual fields are specified with a dot syntax:
 
-```@repl
+```@repl components
 Fields.Ez
 ```
 
 `Fields.Ez`, `Fields.Ex`, and `Fields.Ey` are self explanatory. `Fields.E` returns all
 three electric field components at once.
 
-It is not necessary for a user to use the integer representation of the `Enum`.
+It is not recommended to use the integer representation of the `Enum`.
 
 ## Propagating multiple fields: HomogeneousWaveguide
 

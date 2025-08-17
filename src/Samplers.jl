@@ -1,5 +1,5 @@
 """
-    enum Fields
+    enum Fields.Field
 
 Vector components of the electric field.
 
@@ -9,14 +9,14 @@ Vector components of the electric field.
         completing the right-handed coordinate system
     - `E` calculates `Ez`, `Ey`, and `Ex`
 """
-@enumx Fields begin
+@enumx T=Field Fields begin
     Ez
     Ey
     Ex
     E
 end
 
-function index(f::Fields.T)
+function index(f::Fields.Field)
     if f == Fields.Ez
         return 1
     elseif f == Fields.Ey
@@ -27,7 +27,7 @@ function index(f::Fields.T)
         return 1:3
     end
 end
-numcomponents(f::Fields.T) = length(index(f))
+numcomponents(f::Fields.Field) = length(index(f))
 
 ########
 
@@ -49,22 +49,22 @@ function distancechecks(d, stype; earthradius=LMPParams().earthradius)
 end
 
 """
-    Sampler{S} <: AbstractSampler{S}
+    Sampler{T} <: AbstractSampler{T}
 
 `Sampler` types sample (measure) the electromagnetic field in the waveguide.
 
 # Fields
 
-- `distance::S`: ground distance from the transmitter in meters.
-- `fieldcomponent::Fields.T`: field component measured by the `Sampler`.
+- `distance::T`: ground distance from the transmitter in meters.
+- `fieldcomponent::Fields.Field`: field component measured by the `Sampler`.
 - `altitude::Float64`: height above the ground in meters.
 """
-struct Sampler{S} <: AbstractSampler{S}
-    distance::S
-    fieldcomponent::Fields.T
+struct Sampler{T} <: AbstractSampler{T}
+    distance::T
+    fieldcomponent::Fields.Field
     altitude::Float64
 
-    Sampler(d::S, fc, a) where S = distancechecks(d, Sampler) && new{S}(d, fc, a)
+    Sampler(d::T, fc, a) where T = distancechecks(d, Sampler) && new{T}(d, fc, a)
 end
 distance(s::Sampler) = s.distance
 distance(s::Sampler,t::Transmitter) = s.distance
@@ -72,20 +72,20 @@ fieldcomponent(s::Sampler) = s.fieldcomponent
 altitude(s::Sampler) = s.altitude
 
 """
-    GroundSampler{S} <: AbstractSampler{S}
+    GroundSampler{T} <: AbstractSampler{T}
 
 `GroundSamplers` are `Sampler` types with an altitude of zero.
 
 # Fields
 
-- `distance::S`: ground distance from the transmitter in meters.
-- `fieldcomponent::Fields.T`: field component measured by the `GroundSampler`.
+- `distance::T`: ground distance from the transmitter in meters.
+- `fieldcomponent::Fields.Field`: field component measured by the `GroundSampler`.
 """
-struct GroundSampler{S} <: AbstractSampler{S}
-    distance::S  # S is usually <: AbstractVector but could be a scalar
-    fieldcomponent::Fields.T
+struct GroundSampler{T} <: AbstractSampler{T}
+    distance::T  # T is usually <: AbstractVector but could be a scalar
+    fieldcomponent::Fields.Field
 
-    GroundSampler(d::S, fc) where S = distancechecks(d, GroundSampler) && new{S}(d, fc)
+    GroundSampler(d::T, fc) where T = distancechecks(d, GroundSampler) && new{T}(d, fc)
 end
 distance(g::GroundSampler) = g.distance
 distance(g::GroundSampler,t::Transmitter) = g.distance
