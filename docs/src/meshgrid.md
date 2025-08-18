@@ -83,6 +83,7 @@ day_low_title = "10 kHz\nh′: 75, β: 0.35"
 day_mid_title = "20 kHz\nh′: 75, β: 0.35"
 day_high_title = "100 kHz\nh′: 75, β: 0.35"
 night_mid_title = "20 kHz\nh′: 85, β: 0.9"
+nothing  # hide
 ```
 
 Here we define a dense rectangular mesh.
@@ -91,7 +92,8 @@ Here we define a dense rectangular mesh.
 Δr = 0.2
 x = 0:Δr:90
 y = -40:Δr:0
-mesh = x .+ im*y';
+mesh = x .+ im*y'
+nothing  # hide
 ```
 
 Now we simply iterate over each node of the mesh, evaluating the modal equation with
@@ -109,7 +111,8 @@ function modeequationphase(me, mesh)
     return phase
 end
 
-phase = modeequationphase(day_mid_me, mesh);
+phase = modeequationphase(day_mid_me, mesh)
+nothing  # hide
 ```
 
 If an instability occurs in the integration of the reflection coefficient,
@@ -128,7 +131,11 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_mid_title,
         right_margin=2mm)
+
+savefig("day_mid_me-plot.png"); nothing  # hide
 ```
+
+![](day_mid_me-plot.png)
 
 We can zoom in to the upper right corner of the plot to see the lowest order modes:
 
@@ -139,7 +146,11 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_mid_title,
         right_margin=2mm)
+
+savefig("day_mid_me_zoom-plot.png"); nothing  # hide
 ```
+
+![](day_mid_me_zoom-plot.png)
 
 If we switch to a nighttime ionosphere with a high Wait β parameter, we see that the
 roots move closer to the axes.
@@ -154,7 +165,11 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
         xlabel="real(θ)", ylabel="imag(θ)",
         title=night_mid_title,
         right_margin=2mm)
+
+savefig("night_mid_me-plot.png"); nothing  # hide
 ```
+
+![](night_mid_me-plot.png)
 
 At lower frequencies, the roots/poles move further apart.
 
@@ -167,7 +182,11 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_low_title,
         right_margin=2mm)
+
+savefig("day_low_me-plot.png"); nothing  # hide
 ```
+
+![](day_low_me-plot.png)
 
 At even lower frequencies into ELF, we need to expand the domain of the mesh grid.
 
@@ -183,7 +202,11 @@ heatmap(x, y_verylow, reshape(phase, length(x), length(y_verylow))';
         xlabel="real(θ)", ylabel="imag(θ)",
         title=day_verylow_title,
         right_margin=2mm)
+
+savefig("day_verylow_me-plot.png"); nothing  # hide
 ```
+
+![](day_verylow_me-plot.png)
 
 ## Global complex roots and poles finding
 
@@ -197,7 +220,8 @@ zbl = deg2rad(complex(30.0, -10.0))
 ztr = deg2rad(complex(89.9, 0.0))
 Δr = deg2rad(0.5)
 
-mesh = rectangulardomain(zbl, ztr, Δr);
+mesh = rectangulardomain(zbl, ztr, Δr)
+nothing  #Hide
 ```
 
 We convert back to degrees just for plotting.
@@ -210,7 +234,11 @@ img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            xlims=(80, 90), ylims=(-10, 0),
            xlabel="real(θ)", ylabel="imag(θ)",
            legend=false, size=(450,375))
+
+savefig("mesh-plot.svg"); nothing  # hide
 ```
+
+![](mesh-plot.svg)
 
 As seen in the evaluation of the modal equation above, no roots or poles appear in the
 lower right diagonal of the domain for frequencies above about 10 kHz.
@@ -234,7 +262,11 @@ img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            legend=false, size=(450,375));
 plot!(img, [80, 90], [0, 0]; color="red");
 plot!(img, [0, 90], [-90, 0]; color="red")
+
+savefig("trianglemesh-plot.svg"); nothing  # hide
 ```
+
+![](trianglemesh-plot.svg)
 
 Now let's apply `grpf` to the modal equation on the triangle mesh.
 `grpf` adaptively refines the mesh to obtain a more accurate estimate of the position
@@ -281,7 +313,11 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("day_mid_mesh-plot.svg"); nothing  # hide
 ```
+
+![](day_mid_mesh-plot.svg)
 
 In the plot above, roots are marked with red circles and poles are marked
 with red triangles. The automatic refinement of the mesh is clearly visible.
@@ -307,7 +343,11 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("day_low_mesh-plot.svg"); nothing  # hide
 ```
+
+![](day_low_mesh-plot.svg)
 
 ## Nighttime ionosphere, 20 kHz
 
@@ -328,7 +368,11 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("night_mid_mesh-plot.svg"); nothing  # hide
 ```
+
+![](night_mid_mesh-plot.svg)
 
 At 100 kHz, `grpf` requires more mesh refinements and takes considerably
 more time to run.
@@ -352,13 +396,17 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("day_high_mesh-plot.svg"); nothing  # hide
 ```
+
+![](day_high_mesh-plot.svg)
 
 The mesh grid does not need to be as dense at lower VLF and ELF.
 
 ## Daytime ionosphere, 1 kHz
 
-We'll use the rectangular mesh
+We'll use the rectangular mesh.
 
 ```@example meshgrid
 zbl = deg2rad(complex(1, -89))
@@ -383,6 +431,10 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("day_verylow_mesh-plot.svg"); nothing  # hide
 ```
+
+![](day_verylow_mesh-plot.svg)
 
 The example continues in [Mesh grid for mode finding - Part 2](@ref).

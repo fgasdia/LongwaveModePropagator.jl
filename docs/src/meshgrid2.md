@@ -35,6 +35,7 @@ electrons = Species(QE, ME, z->waitprofile(z, 80, 0.45), electroncollisionfreque
 waveguide = HomogeneousWaveguide(BField(50e-6, π/2, 0), electrons, Ground(15, 0.001))
 me = PhysicalModeEquation(frequency, waveguide)
 title = "24 kHz\nh′: 80, β: 0.45"
+nothing  # hide
 ```
 
 First, let's simply compute the mode equation on a fine grid.
@@ -43,7 +44,8 @@ First, let's simply compute the mode equation on a fine grid.
 Δr = 0.2
 x = 30:Δr:90
 y = -10:Δr:0
-mesh = x .+ 1im*y';
+mesh = x .+ 1im*y'
+nothing  # hide
 ```
 
 As in part 1, we also define a function to compute the modal equation phase.
@@ -66,7 +68,11 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
         xlabel="real(θ)", ylabel="imag(θ)",
         title=title,
         right_margin=2mm)
+
+savefig("me-plot.png"); nothing  # hide
 ```
+
+![](me-plot.png)
 
 Let's run the `grpf` with `Δr = 0.5`.
 
@@ -103,7 +109,11 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("trianglemesh_05-plot.svg"); nothing  # hide
 ```
+
+![](trianglemesh_05-plot.svg)
 
 Upon inspection, it is clear that there is a root/pole visible at the upper right
 corner of the domain in the fine mesh above that is not identified by `grpf`.
@@ -142,7 +152,11 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("trianglemesh_02-plot.svg"); nothing  # hide
 ```
+
+![](trianglemesh_02-plot.svg)
 
 This higher resolution initial grid has identified 22 roots and 21 poles.
 Zooming in on the upper right region, we can see that the previously
@@ -157,7 +171,11 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
+
+savefig("trianglemesh_02_zoom-plot.svg"); nothing  # hide
 ```
+
+![](trianglemesh_02_zoom-plot.svg)
 
 Roots are frequently located closely to poles in the upper right of the domain for
 a variety of ionospheres. To ensure they are captured,
@@ -175,7 +193,11 @@ img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            size=(450,375), legend=false);
 plot!(img, [30, 90], [0, 0]; color="red");
 plot!(img, [80, 90], [-10, 0]; color="red")
+
+savefig("defmesh-plot.svg"); nothing  # hide
 ```
+
+![](defmesh-plot.svg)
 
 ## Frequencies below 12 kHz
 
@@ -191,4 +213,8 @@ meshdeg = rad2deg.(mesh)
 img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(450,375), legend=false)
+
+savefig("defmesh_low-plot.svg"); nothing  # hide
 ```
+
+![](defmesh_low-plot.svg)

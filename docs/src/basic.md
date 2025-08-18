@@ -337,13 +337,19 @@ Here are quick plots of the amplitude and phase:
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false)
+savefig("basic_a-plot.svg"); nothing  # hide
 ```
+
+![](basic_a-plot.svg)
 
 ```@example basic
 plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false)
+savefig("basic_p-plot.svg"); nothing  # hide
 ```
+
+![](basic_p-plot.svg)
 
 ## Propagating the fields: SegmentedWaveguide
 
@@ -384,13 +390,19 @@ Here are quick plots of the amplitude and phase:
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, legend=false)
+savefig("basic_a_segm-plot.svg"); nothing  # hide
 ```
+
+![](basic_a_segm-plot.svg)
 
 ```@example basic
 plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, legend=false)
+savefig("basic_p_segm-plot.svg"); nothing  # hide
 ```
+
+![](basic_p_segm-plot.svg)
 
 Comparing to the plots for the `HomogeneousWaveguide` above, the results are
 the same for the first 1000 km and differ for the second 1000 km where there

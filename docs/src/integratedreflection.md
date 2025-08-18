@@ -45,7 +45,8 @@ using Interpolations
 
 using LongwaveModePropagator
 using LongwaveModePropagator: StaticArrays, QE, ME
-const LMP = LongwaveModePropagator;
+const LMP = LongwaveModePropagator
+nothing  # hide
 ```
 
 ## R(z)
@@ -63,7 +64,7 @@ We'll use a real ``\theta = 75°``.
 species = Species(QE, ME, z->waitprofile(z, 75, 0.32), electroncollisionfrequency)
 frequency = Frequency(24e3)
 bfield = BField(50e-6, π/2, 0)
-ea = EigenAngle(deg2rad(75));
+ea = EigenAngle(deg2rad(75))
 ```
 
 We start the integration at a "great height".
@@ -87,7 +88,8 @@ including `Ground`, for convenience.
 ```@example reflection
 ground = GROUND[1]
 waveguide = HomogeneousWaveguide(bfield, species, ground)
-me = PhysicalModeEquation(ea, frequency, waveguide);
+me = PhysicalModeEquation(ea, frequency, waveguide)
+nothing  # hide
 ```
 
 Then we simply define the `ODEProblem` and `solve`.
@@ -95,7 +97,8 @@ Then we simply define the `ODEProblem` and `solve`.
 ```@example reflection
 prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), me)
 
-sol = solve(prob, RK4(); abstol=1e-9, reltol=1e-9);
+sol = solve(prob, RK4(); abstol=1e-9, reltol=1e-9)
+nothing  # hide
 ```
 
 Let's plot the reflection coefficients next to the electron density and collision
@@ -140,7 +143,10 @@ p2 = plot([R11 R21 R12 R22], zs/1000;
 hline!(p2, [eqz/1000]; linestyle=:dash, color="gray", label="");
 
 plot(p1, p2; layout=(1,2), size=(800, 400))
+savefig("rcoeffs-plot.svg"); nothing  # hide
 ```
+
+![](rcoeffs-plot.svg)
 
 ## Generate random scenarios
  
@@ -177,7 +183,8 @@ function generatescenarios(N)
     return scenarios
 end
 
-scenarios = generatescenarios(30);
+scenarios = generatescenarios(30)
+nothing  # hide
 ```
 
 ## Reference solutions
@@ -193,7 +200,8 @@ integration process above for us and returns the reflection coefficient at the g
 ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
 params = LMPParams(integrationparams=ip)
 
-Rrefs = [LMP.integratedreflection(scenario; params=params) for scenario in scenarios];
+Rrefs = [LMP.integratedreflection(scenario; params=params) for scenario in scenarios]
+nothing  # hide
 ```
 
 ## Evaluate solvers
@@ -240,7 +248,8 @@ tolerancestrings = string.(tolerances)
 solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
 solverstrings = ["RK4", "Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8"]
 
-Rs, times = compute(scenarios, tolerances, solvers);
+Rs, times = compute(scenarios, tolerances, solvers)
+nothing  # hide
 ```
 
 We'll measure the error in the reflection coefficient matrices
@@ -265,7 +274,10 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
         clims=(-9, -2),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="log₁₀ max abs difference", colorbar=true)
+savefig("rerrs-plot.png"); nothing  # hide
 ```
+
+![](rerrs-plot.png)
 
 And the average runtimes are:
 
@@ -276,11 +288,13 @@ heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6;
         clims=(0, 5),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="time (μs)", colorbar=true)
+savefig("times-plot.png"); nothing  # hide
 ```
 
-The best accuracy occurs with `Vern7` and experiment's we've done looking at the
-sensitivity of the mode solutions to integration tolerance have shown we can get away
-with a tolerance of `1e-4`. To play it safe, the default used by LMP is `1e-5`.
-The integration accuracy improves considerably for relatively little additional
+![](times-plot.png)
+
+The best accuracy occurs with `Vern7` and experiments we've done looking at the
+sensitivity of the mode solutions to integration tolerance have shown a tolerance of `1e-5` is sufficient.
+The integration accuracy improves for relatively little additional
 computation time if the tolerance is changed to `1e-9`, but that accuracy is not
 required.

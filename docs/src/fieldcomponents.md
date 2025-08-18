@@ -37,7 +37,9 @@ Fields.Ez
 `Fields.Ez`, `Fields.Ex`, and `Fields.Ey` are self explanatory. `Fields.E` returns all
 three electric field components at once.
 
-It is not recommended to use the integer representation of the `Enum`.
+!!! warning
+
+     It is not recommended to rely upon the integer representation of the `Enum`.
 
 ## Propagating multiple fields: HomogeneousWaveguide
 
@@ -64,7 +66,8 @@ The [`propagate`](@ref) function returns a tuple of complex electric field,
 amplitude in dB μV/m, and phase in radians.
 
 ```@example components
-E, a, p = propagate(waveguide, tx, rx);
+E, a, p = propagate(waveguide, tx, rx)
+nothing  # hide
 ```
 
 You'll notice that `E`, `a`, and `p` are 2001 × 3 matrices
@@ -75,7 +78,7 @@ size(E), size(a), size(p)
 
 The columns are, in order, the `Ez`, `Ey`, and `Ex` field components.
 
-Here are quick plots of the amplitude
+Here are quick plots of the amplitude:
 
 ```@example components
 fieldlabels = ["Ez" "Ey" "Ex"]
@@ -83,15 +86,21 @@ fieldlabels = ["Ez" "Ey" "Ex"]
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, label=fieldlabels)
+savefig("fc_a-plot.svg"); nothing  # hide
 ```
 
-and phase.
+![](fc_a-plot.svg)
+
+and phase:
 
 ```@example components
 plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
+savefig("fc_p-plot.svg"); nothing  # hide
 ```
+
+![](fc_p-plot.svg)
 
 The `Ey` phase grows rapidly - an alternative plot would `mod2pi` the results to
 "undo" the phase unwrapping applied by `propagate`.
@@ -100,7 +109,10 @@ The `Ey` phase grows rapidly - an alternative plot would `mod2pi` the results to
 plot(ranges/1000, rad2deg.(mod2pi.(p));
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
+savefig("fc_p_mod-plot.svg"); nothing  # hide
 ```
+
+![](fc_p_mod-plot.svg)
 
 ## Propagating multiple fields: SegmentedWaveguide
 
@@ -112,35 +124,45 @@ species = [Species(QE, ME, z->waitprofile(z, 75, 0.35), electroncollisionfrequen
            Species(QE, ME, z->waitprofile(z, 82, 0.5), electroncollisionfrequency)]
 
 waveguide = SegmentedWaveguide([HomogeneousWaveguide(bfield, species[i], ground,
-                                                     distances[i]) for i in 1:2]);
+                                                     distances[i]) for i in 1:2])
 ```
 
 We can [`propagate`](@ref) just as before
 
 ```@example components
-E, a, p = propagate(waveguide, tx, rx);
+E, a, p = propagate(waveguide, tx, rx)
+nothing  # hide
 ```
 
-Here are quick plots of the amplitude
+Here are quick plots of the amplitude:
 
 ```@example components
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, label=fieldlabels)
+savefig("fc_a_segm-plot.svg"); nothing  # hide
 ```
 
-and phase
+![](fc_a_segm-plot.svg)
+
+and phase:
 
 ```@example components
 plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
+savefig("fc_p_segm-plot.svg"); nothing  # hide
 ```
 
-and again with phase wrapping 
+![](fc_p_segm-plot.svg)
+
+and again with phase wrapping:
 
 ```@example components
 plot(ranges/1000, rad2deg.(mod2pi.(p));
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
+savefig("fc_p_mod_segm-plot.svg"); nothing  # hide
 ```
+
+![](fc_p_mod_segm-plot.svg)
