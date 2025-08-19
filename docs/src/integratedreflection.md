@@ -143,10 +143,10 @@ p2 = plot([R11 R21 R12 R22], zs/1000;
 hline!(p2, [eqz/1000]; linestyle=:dash, color="gray", label="");
 
 plot(p1, p2; layout=(1,2), size=(800, 400))
-savefig("rcoeffs-plot.svg"); nothing  # hide
+savefig("plot-integratedreflection_rcoeffs.svg"); nothing  # hide
 ```
 
-![](rcoeffs-plot.svg)
+![](plot-integratedreflection_rcoeffs.svg)
 
 ## Generate random scenarios
  
@@ -274,10 +274,10 @@ heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
         clims=(-9, -2),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="log₁₀ max abs difference", colorbar=true)
-savefig("rerrs-plot.png"); nothing  # hide
+savefig("plot-integratedreflection_rerrs.png"); nothing  # hide
 ```
 
-![](rerrs-plot.png)
+![](plot-integratedreflection_rerrs.png)
 
 And the average runtimes are:
 
@@ -288,10 +288,10 @@ heatmap(tolerancestrings, solverstrings, permutedims(mean_times)/1e6;
         clims=(0, 5),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="time (μs)", colorbar=true)
-savefig("times-plot.png"); nothing  # hide
+savefig("plot-integratedreflection_times.png"); nothing  # hide
 ```
 
-![](times-plot.png)
+![](plot-integratedreflection_times.png)
 
 The best accuracy occurs with `Vern7` and experiments we've done looking at the
 sensitivity of the mode solutions to integration tolerance have shown a tolerance of `1e-5` is sufficient.

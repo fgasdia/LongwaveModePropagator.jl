@@ -148,7 +148,10 @@ plot!(p2, real(hx2_unscaled),
       zskm; linewidth=1.5);
 
 plot(p1, p2; layout=(1,2))
+savefig("plot-wavefieldintegration_scaling.svg"); nothing  # hide
 ```
+
+![](plot-wavefieldintegration_scaling.svg)
 
 ## Differential equations solver
 
@@ -213,7 +216,10 @@ day_e1s = [getindex.(e, 1) for e in day_es]
 
 plot(real(day_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topleft)
+savefig("plot-wavefieldintegration_day.svg"); nothing  # hide
 ```
+
+![](plot-wavefieldintegration_day.svg)
 
 And at night...
 
@@ -222,7 +228,10 @@ night_e1s = [getindex.(e, 1) for e in night_es]
 
 plot(real(night_e1s), zs/1000;
      label=permutedims(solverstrings), legend=:topright)
+savefig("plot-wavefieldintegration_night.svg"); nothing  # hide
 ```
+
+![](plot-wavefieldintegration_night.svg)
 
 The times to run each...
 
@@ -280,9 +289,10 @@ annotate!(ex2p, 0.3, 84, text("\$E_{x,2}\$", fs));
 hx2p = plotfield(hx2; ylims=(49, 86));
 annotate!(hx2p, 0.35, 84, text("\$H_{x,2}\$", fs, :center));
 plot(ex1p, ey1p, ex2p, hx2p; layout=(2,2), size=(400,600), top_margin=5mm)
+savefig("plot-wavefieldintegration_fig2.svg"); nothing  # hide
 ```
 
-![](images/Pitteway1965_fig2.png)
+![](plot-wavefieldintegration_fig2.svg) ![](images/Pitteway1965_fig2.png)
 
 The envelopes of the two are very similar.
 The precise position of the real and imaginary wave components are not important
@@ -319,6 +329,7 @@ hx2 = getindex.(e, 7)
 ey1p = plotfield(ey1; ylims=(75, 102), title="\$E_{y,1}\$");
 hx2p = plotfield(hx2; ylims=(75, 102), title="\$H_{x,2}\$");
 plot(ey1p, hx2p; layout=(1,2), size=(400,500))
+savefig("plot-wavefieldintegration_fig3.svg"); nothing  # hide
 ```
 
-![](images/Pitteway1965_fig3.png)
+![](plot-wavefieldintegration_fig3.svg) ![](images/Pitteway1965_fig3.png)

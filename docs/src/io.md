@@ -23,6 +23,7 @@ aren't exported.
 
 ```@example io
 const LMP = LongwaveModePropagator
+nothing  # hide
 ```
 
 ## Inputs
@@ -63,6 +64,7 @@ input.ground_sigmas = [0.001]
 input.ground_epsrs = [4]
 input.frequency = 24e3
 input.output_ranges = collect(0:100e3:1000e3)
+nothing  # hide
 ```
 
 Here it is formatted as JSON.
@@ -81,6 +83,7 @@ filename = "basic.json"
 open(filename,"w") do f
     write(f, json_str)
 end
+nothing  # hide
 ```
 
 ### [TableInput](@id tableinput_io)
@@ -134,6 +137,7 @@ type. Additionally, it saves the output to a JSON file.
 
 ```@example io
 output = propagate(filename);
+nothing  # hide
 ```
 
 ## Outputs

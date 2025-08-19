@@ -76,7 +76,10 @@ p = plot()
 buildplots!(p, amps)
 plot!(p; size=(600,400), ylims=(0, 95), title="Day", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
+savefig("plot-ground_a_day.svg"); nothing  # hide
 ```
+
+![](plot-ground_a_day.svg)
 
 And now nighttime:
 
@@ -87,7 +90,10 @@ p = plot()
 buildplots!(p, amps)
 plot!(p; size=(600,400), ylims=(0, 95), title="Night", legend=(0.85, 1.02),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="ϵᵣ, σ")
+savefig("plot-ground_a_night.svg"); nothing  # hide
 ```
+
+![](plot-ground_a_night.svg)
 
 Low ground conductivity can have a significant influence on the signal propagation -
 there is strong attenuation.

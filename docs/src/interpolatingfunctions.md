@@ -38,6 +38,7 @@ using FaradayInternationalReferenceIonosphere
 using Interpolations, NormalHermiteSplines
 
 const FIRI = FaradayInternationalReferenceIonosphere;
+nothing  # hide
 ```
 
 Here's the discrete profile data. Some interpolators will benefit from random sample
@@ -47,6 +48,7 @@ extrapolation of the base of FIRI from about 60 km altitude down to the ground.
 ```@example interp
 zs = 0:1e3:110e3
 Ne = FIRI.extrapolate(firi(50, 30), zs);
+nothing  # hide
 ```
 
 Let's construct the interpolators.
@@ -58,6 +60,7 @@ cubic_itp = cubic_spline_interpolation(zs, Ne);
 fb_itp = Interpolations.interpolate(zs, Ne, FritschButlandMonotonicInterpolation())
 fc_itp = Interpolations.interpolate(zs, Ne, FritschCarlsonMonotonicInterpolation())
 s_itp = Interpolations.interpolate(zs, Ne, SteffenMonotonicInterpolation());
+nothing  # hide
 ```
 
 And the Hermite splines
@@ -67,6 +70,7 @@ And the Hermite splines
 spline = prepare(collect(zs), RK_H1())
 spline = construct(spline, Ne)
 hermite_itp(z) = evaluate_one(spline, z);
+nothing  # hide
 ```
 
 Now interpolating at 100m resolution between 40km and 110km altitude.
@@ -81,6 +85,7 @@ fb_fine = fb_itp.(zs_fine)
 fc_fine = fc_itp.(zs_fine)
 s_fine = s_itp.(zs_fine)
 hermite_fine = hermite_itp.(zs_fine);
+nothing  # hide
 ```
 
 The profiles are compared using percentage difference relative to the true profile.
@@ -95,6 +100,7 @@ dfb = cmp.(fb_fine, Ne_fine)
 dfc = cmp.(fc_fine, Ne_fine)
 ds = cmp.(s_fine, Ne_fine)
 dhermite = cmp.(hermite_fine, Ne_fine);
+nothing  # hide
 ```
 
 To plot densities with a log scale, we set values less than 0.1 to NaN.
@@ -109,7 +115,10 @@ p1 = plot(cl([Ne_fine linear_fine cubic_fine hermite_fine fb_fine fc_fine s_fine
 p2 = plot(lc([dNe dlinear dcubic dhermite dfb dfc ds]),
     zs_fine/1000, xlabel="% difference", legend=false, xlims=(-1, 1))
 plot(p1, p2, layout=(1,2), size=(800,400), margin=3Plots.mm)
+savefig("plot-interpolatingfunctions_profiles.svg"); nothing  # hide
 ```
+
+![](plot-interpolatingfunctions_profiles.svg)
     
 Unsurprisingly, the error is highest at the cutoff altitude of 40 km where the densities
 below are 0.
@@ -193,7 +202,10 @@ for (n, v) in results
     plot!(p2, d, v[2]-results["truth"][2])
 end
 plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
+savefig("plot-interpolatingfunctions_a.svg"); nothing  # hide
 ```
+
+![](plot-interpolatingfunctions_a.svg)
 
 ```@example interp
 p1 = plot(ylabel="Phase (deg)")
@@ -203,7 +215,10 @@ for (n, v) in results
     plot!(p2, d, rad2deg.(v[3])-rad2deg.(results["truth"][3]))
 end
 plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
+savefig("plot-interpolatingfunctions_p.svg"); nothing  # hide
 ```
+
+![](plot-interpolatingfunctions_p.svg)
 
 Here is the mean absolute amplitude difference between each technique and the true profile
 amplitude. We filter to finite values because the amplitude calculated at 0 meters is `Inf`.

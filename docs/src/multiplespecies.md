@@ -77,7 +77,10 @@ plot!(mask.(Np.(z)), z/1000, label="Np", linewidth=1.5)
 plot!(mask.(Nn.(z)), z/1000, label="Nn", linewidth=1.5)
 plot!(xlabel="Density (m⁻³)", ylabel="Altitude (km)",
     xscale=:log10, legend=:topleft)
+savefig("plot-multiplespecies_densities.svg"); nothing  # hide
 ```
+
+![](plot-multiplespecies_densities.svg)
 
 Here are the electron and ion collision frequencies:
 
@@ -85,7 +88,10 @@ Here are the electron and ion collision frequencies:
 plot(electroncollisionfrequency.(z), z/1000, label="νe", linewidth=1.5)
 plot!(ioncollisionfrequency.(z), z/1000, label="νi", linewidth=1.5)
 plot!(xlabel="Collision frequency (s⁻¹)", ylabel="Altitude (km)", xscale=:log10)
+savefig("plot-multiplespecies_freq.svg"); nothing  # hide
 ```
+
+![](plot-multiplespecies_freq.svg)
 
 The [`Species`](@ref):
 
@@ -116,7 +122,10 @@ plot!(p1, rx.distance/1000, aei, label="electrons & ions")
 p2 = plot(rx.distance/1000, aei-ae,
     ylims=(-0.5, 0.5), xlabel="Range (km)", ylabel="Δ", legend=false)
 plot(p1, p2, layout=grid(2,1,heights=[0.7, 0.3]))
+savefig("plot-multiplespecies_ions.svg"); nothing  # hide
 ```
+
+![](plot-multiplespecies_ions.svg)
 
 The influence here is minor; the difference is hardly above the noise floor of many VLF
 receivers.

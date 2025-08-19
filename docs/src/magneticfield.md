@@ -208,7 +208,10 @@ plot(OUTPUT_RANGES/1000, agrid;
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true)
+savefig("plot-magneticfield_a.svg"); nothing  # hide
 ```
+
+![](plot-magneticfield_a.svg)
 
 The amplitude corresponding to each magnetic field azimuth
 (where 0° is along the propagation direction)
@@ -235,7 +238,10 @@ plot(OUTPUT_RANGES/1000, adifference;
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude difference (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true)
+savefig("plot-magneticfield_adiff.svg"); nothing  # hide
 ```
+
+![](plot-magneticfield_adiff.svg)
 
 The two models are a very close match.
 Where there are large differences they occur because of slight misalignment of
@@ -260,6 +266,9 @@ plot(OUTPUT_RANGES/1000, agrid;
      linewidth=1.5, palette=colors, colorbar=false,
      xlabel="range (km)", ylabel="amplitude (dB)",
      labels=permutedims(labels), legendtitle="  dip, az", legend=true)
+savefig("plot-magneticfield_aday.svg"); nothing  # hide
 ```
+
+![](plot-magneticfield_aday.svg)
 
 At these lower reflection altitudes the effect of Earth's magnetic field is decreased.

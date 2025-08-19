@@ -86,10 +86,10 @@ fieldlabels = ["Ez" "Ey" "Ex"]
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, label=fieldlabels)
-savefig("fc_a-plot.svg"); nothing  # hide
+savefig("plot-fieldcomponents_a.svg"); nothing  # hide
 ```
 
-![](fc_a-plot.svg)
+![](plot-fieldcomponents_a.svg)
 
 and phase:
 
@@ -97,10 +97,10 @@ and phase:
 plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
-savefig("fc_p-plot.svg"); nothing  # hide
+savefig("plot-fieldcomponents_p.svg"); nothing  # hide
 ```
 
-![](fc_p-plot.svg)
+![](plot-fieldcomponents_p.svg)
 
 The `Ey` phase grows rapidly - an alternative plot would `mod2pi` the results to
 "undo" the phase unwrapping applied by `propagate`.
@@ -109,10 +109,10 @@ The `Ey` phase grows rapidly - an alternative plot would `mod2pi` the results to
 plot(ranges/1000, rad2deg.(mod2pi.(p));
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
-savefig("fc_p_mod-plot.svg"); nothing  # hide
+savefig("plot-fieldcomponents_p_mod.svg"); nothing  # hide
 ```
 
-![](fc_p_mod-plot.svg)
+![](plot-fieldcomponents_p_mod.svg)
 
 ## Propagating multiple fields: SegmentedWaveguide
 
@@ -140,10 +140,10 @@ Here are quick plots of the amplitude:
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
      linewidth=1.5, label=fieldlabels)
-savefig("fc_a_segm-plot.svg"); nothing  # hide
+savefig("plot-fieldcomponents_a_segm.svg"); nothing  # hide
 ```
 
-![](fc_a_segm-plot.svg)
+![](plot-fieldcomponents_a_segm.svg)
 
 and phase:
 
@@ -151,10 +151,10 @@ and phase:
 plot(ranges/1000, rad2deg.(p);
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
-savefig("fc_p_segm-plot.svg"); nothing  # hide
+savefig("plot-fieldcomponents_p_segm.svg"); nothing  # hide
 ```
 
-![](fc_p_segm-plot.svg)
+![](plot-fieldcomponents_p_segm.svg)
 
 and again with phase wrapping:
 
@@ -162,7 +162,7 @@ and again with phase wrapping:
 plot(ranges/1000, rad2deg.(mod2pi.(p));
      xlabel="range (km)", ylabel="phase (deg)",
      linewidth=1.5, label=fieldlabels)
-savefig("fc_p_mod_segm-plot.svg"); nothing  # hide
+savefig("plot-fieldcomponents_p_mod_segm.svg"); nothing  # hide
 ```
 
-![](fc_p_mod_segm-plot.svg)
+![](plot-fieldcomponents_p_mod_segm.svg)

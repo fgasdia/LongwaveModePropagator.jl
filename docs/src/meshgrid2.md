@@ -69,10 +69,10 @@ heatmap(x, y, reshape(phase, length(x), length(y))';
         title=title,
         right_margin=2mm)
 
-savefig("me-plot.png"); nothing  # hide
+savefig("plot-meshgrid2_me.png"); nothing  # hide
 ```
 
-![](me-plot.png)
+![](plot-meshgrid2_me.png)
 
 Let's run the `grpf` with `Δr = 0.5`.
 
@@ -110,10 +110,10 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 
-savefig("trianglemesh_05-plot.svg"); nothing  # hide
+savefig("plot-meshgrid2_trianglemesh_05.svg"); nothing  # hide
 ```
 
-![](trianglemesh_05-plot.svg)
+![](plot-meshgrid2_trianglemesh_05.svg)
 
 Upon inspection, it is clear that there is a root/pole visible at the upper right
 corner of the domain in the fine mesh above that is not identified by `grpf`.
@@ -153,10 +153,10 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 
-savefig("trianglemesh_02-plot.svg"); nothing  # hide
+savefig("plot-meshgrid2_trianglemesh_02.svg"); nothing  # hide
 ```
 
-![](trianglemesh_02-plot.svg)
+![](plot-meshgrid2_trianglemesh_02.svg)
 
 This higher resolution initial grid has identified 22 roots and 21 poles.
 Zooming in on the upper right region, we can see that the previously
@@ -172,10 +172,10 @@ plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
 plot!(img, real(polesdeg), imag(polesdeg); color="red",
       seriestype=:scatter, markershape=:utriangle, markersize=5)
 
-savefig("trianglemesh_02_zoom-plot.svg"); nothing  # hide
+savefig("plot-meshgrid2_trianglemesh_02_zoom.svg"); nothing  # hide
 ```
 
-![](trianglemesh_02_zoom-plot.svg)
+![](plot-meshgrid2_trianglemesh_02_zoom.svg)
 
 Roots are frequently located closely to poles in the upper right of the domain for
 a variety of ionospheres. To ensure they are captured,
@@ -194,10 +194,10 @@ img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
 plot!(img, [30, 90], [0, 0]; color="red");
 plot!(img, [80, 90], [-10, 0]; color="red")
 
-savefig("defmesh-plot.svg"); nothing  # hide
+savefig("plot_meshgrid2_defmesh.svg"); nothing  # hide
 ```
 
-![](defmesh-plot.svg)
+![](plot_meshgrid2_defmesh.svg)
 
 ## Frequencies below 12 kHz
 
@@ -214,7 +214,7 @@ img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
            xlabel="real(θ)", ylabel="imag(θ)",
            size=(450,375), legend=false)
 
-savefig("defmesh_low-plot.svg"); nothing  # hide
+savefig("plot-meshgrid2_defmesh_low.svg"); nothing  # hide
 ```
 
-![](defmesh_low-plot.svg)
+![](plot-meshgrid2_defmesh_low.svg)

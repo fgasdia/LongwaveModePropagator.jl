@@ -122,7 +122,10 @@ end
 buildplots!(p, amps);
 plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="h′")
+savefig("plot-interpretinghpbeta_varyhp.svg"); nothing  # hide
 ```
+
+![](plot-interpretinghpbeta_varyhp.svg)
 
 As h′ increases, the field strength modal interference pattern is displaced outwardly
 away from the transmitter.
@@ -158,7 +161,10 @@ end
 buildplots!(p, amps);
 plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="β")
+savefig("plot-interpretinghpbeta_varyb.svg"); nothing  # hide
 ```
+
+![](plot-interpretinghpbeta_varyb.svg)
 
 The signal roughly increases with increasing β.
 Higher β profiles more closely represent a sharp reflecting boundary.
@@ -206,7 +212,10 @@ end
 buildplots!(p, amps);
 plot!(p; size=(600,400),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="f kHz, λ km")
+savefig("plot-interpretinghpbeta_freqs.svg"); nothing  # hide
 ```
+
+![](plot-interpretinghpbeta_freqs.svg)
 
 The effect of increasing frequency is similar to increasing h′.
 This makes sense because in both cases the waveguide "height" in wavelengths is
@@ -257,7 +266,10 @@ buildplots!(p, params, 75, 0.35);
 annotate!(p, [(1e3, 64, text("ωᵣ = ω", 10))])
 plot!(p; size=(600,400), xscale=:log10,
       xlabel="ν (s⁻¹)", ylabel="Altitude (km)", legendtitle="1.816 ν₀, a")
+savefig("plot-interpretinghpbeta_collision_profile.svg"); nothing  # hide
 ```
+
+![](plot-interpretinghpbeta_collision_profile.svg)
 
 Typical daytime electron density profile.
 
@@ -288,7 +300,10 @@ end
 buildplots!(p, amps);
 plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
+savefig("plot-interpretinghpbeta_collision_day.svg"); nothing  # hide
 ```
+
+![](plot-interpretinghpbeta_collision_day.svg)
 
 Typical nighttime electron density profile.
 
@@ -308,6 +323,9 @@ end
 buildplots!(p, amps);
 plot!(p; size=(600,400), ylims=(22, 95),
       xlabel="Range (km)", ylabel="Amplitude (dB)", legendtitle="1.816 ν₀, a")
+savefig("plot-interpretinghpbeta_collision_night.svg"); nothing  # hide
 ```
+
+![](plot-interpretinghpbeta_collision_night.svg)
 
 [^1]: As a government technical report and not a journal paper curated by a publishing company, it is difficult to track how many times it has been cited by others.
