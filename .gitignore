@@ -10,3 +10,4 @@ generated/
 *.pdf
 .vscode/
 Manifest.toml
+basic*_output.json

@@ -8,10 +8,10 @@ refractive index that mimicks the propagation of the radio wave through free spa
 curved earth.
 ==#
 
-@doc raw"""
+"""
     PhysicalModeEquation{W<:HomogeneousWaveguide} <: ModeEquation
 
-Parameters for solving the physical mode equation ``\det(Rg*R - I)``.
+Parameters for solving the physical mode equation ``\\det(Rg R - I)``.
 
 Fields:
 
@@ -545,11 +545,11 @@ axis.
 
 The value of `frequency` sets different default behavior:
 
-| `frequency` | `meshshape = "auto"` |    `rmin`   |    `imin`    | resolution  |
-|:-----------:|:--------------------:|:-----------:|:------------:|:-----------:|
-|   < 12 kHz  |  `"rectanglemesh"`   | deg2rad(1)  | deg2rad(-89) | `Δr_coarse` |
-|   ≥ 12 kHz  |  `"trianglemesh"`    | deg2rad(30) | deg2rad(-10) | variable    |
-
+| `frequency` | `meshshape = "auto"` |     `rmin`    |     `imin`     | resolution  |
+|:-----------:|:--------------------:|:-------------:|:--------------:|:-----------:|
+|   < 12 kHz  |  `"rectanglemesh"`   | `deg2rad(1)`  | `deg2rad(-89)` | `Δr_coarse` |
+|   ≥ 12 kHz  |  `"trianglemesh"`    | `deg2rad(30)` | `deg2rad(-10)` | variable    |
+`
 At frequencies at or above 12 kHz the mesh spacing in the upper right corner of the domain
 with real values above `rtransition` and imaginary values above `itransition` is
 `Δr_fine` and is `Δr_coarse` everywhere else.

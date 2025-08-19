@@ -1,15 +1,19 @@
-########
-
 """
-    Fields
+    enum Fields.Field
 
-This `baremodule` allows scoped enum-like access to electric field components `Ex`, `Ey`,
-`Ez`, and `E` (for calculating Ez, Ey, and Ex all at once).
-```
+Vector components of the electric field.
+
+    - `Ex` is in the direction from the transmitter toward the receiver
+    - `Ez` extends vertically upward into the ionosphere
+    - `Ey` is perpendicular to the ``x-z`` plane in which the wavefields propagate,
+        completing the right-handed coordinate system
+    - `E` calculates `Ez`, `Ey`, and `Ex`
 """
-baremodule Fields
-using Base: @enum
-@enum Field Ez Ey Ex E
+@enumx T=Field Fields begin
+    Ez
+    Ey
+    Ex
+    E
 end
 
 function index(f::Fields.Field)
