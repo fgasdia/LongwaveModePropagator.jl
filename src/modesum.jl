@@ -513,6 +513,9 @@ function fieldsum(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_v
     length(waveguide) == length(wavefields_vec) == length(adjwavefields_vec) ||
         throw(ArgumentError("`wavefields_vec` and `adjwavefields_vec` must have the same"*
                             "length as `waveguide`."))
+    issorted(getfield.(waveguide, :distance)) ||
+        throw(ArgumentError("Segments of `waveguide` must be sorted by distance from the transmitter."))
+
 
     X = distance(rx, tx)
     maxX = maximum(X)
