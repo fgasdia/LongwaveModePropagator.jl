@@ -18,7 +18,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 CSV = "0.10"
-DiffEqCallbacks = "4"
+DiffEqCallbacks = "4.0.0 - 4.9"
 FiniteDiff = "2"
 Interpolations = "0.14.4 - 0.16"
 JSON3 = "1"
