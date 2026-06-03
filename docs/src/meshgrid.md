@@ -281,32 +281,56 @@ We will also pass RootsAndPoles' `PlotData()` argument to obtain additional
 information on the function phase for plotting.
 
 ```@example meshgrid
-params = LMPParams().grpfparams
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_mid_me),
-                                                  mesh, PlotData(), params);
+mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+
+params = FinderParams(tol=1e-5)
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_mid_me), mesh; params);
 ```
 
 The `getplotdata` function, provided by RootsAndPoles, is a convenience function
 for plotting a color-coded tesselation from `grpf` based on the phase of the function.
 
 ```@example meshgrid
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+const RP = RootsAndPoles
+
+function formatquadrants(mesh)
+    xs = Vector{Float64}()
+    ys = similar(xs)
+    cs = Vector{Int}()
+    for e in RP.each_solid_edge(mesh)
+        u, v = RP.DT.edge_vertices(e)
+        x, y = RP.coord(mesh, u)
+        p, q = RP.coord(mesh, v)
+
+        qu, qv = RP.quadrant(mesh, u, v)
+        ΔQ = abs(qu - qv)
+        ΔQ == 2 ? c = 5 :
+            ΔQ == 0 ? c = RP.quadrant(mesh, u) :
+                c = 0
+
+        push!(xs, x, p, NaN)
+        push!(ys, y, q, NaN)
+        push!(cs, c, c, c)
+    end
+    return xs, ys, cs
+end
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
+
+xs, ys, cs = formatquadrants(mesh)
 
 twilightquads = [
+    colorant"#404040",  # bndry
     colorant"#9E3D36",
     colorant"#C99478",
     colorant"#7599C2",
     colorant"#5C389E",
-    colorant"#404040",
-    RGB(0.0, 0.0, 0.0)
+    RGB(0.0, 0.0, 0.0)  # candidate
 ]
 
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
+img = plot(rad2deg.(xs), rad2deg.(ys); group=cs, palette=twilightquads, linewidth=1.5,
+           xlims=(0, 90), ylims=(-40, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_mid_title);
 plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
@@ -327,16 +351,15 @@ Here are similar plots for the other scenarios.
 ## Daytime ionosphere, low frequency
 
 ```@example meshgrid
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_low_me),
-                                                  mesh, PlotData(), params);
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_low_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
+xs, ys, cs = formatquadrants(mesh)
 
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
+img = plot(rad2deg.(xs), rad2deg.(ys); group=cs, palette=twilightquads, linewidth=1.5,
+           xlims=(0, 90), ylims=(-40, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_low_title);
 plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
@@ -352,16 +375,15 @@ savefig("plot-meshgrid_day_low_mesh.svg"); nothing  # hide
 ## Nighttime ionosphere, 20 kHz
 
 ```@example meshgrid
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, night_mid_me),
-                                                  mesh, PlotData(), params);
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, night_mid_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
+xs, ys, cs = formatquadrants(mesh)
 
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
+img = plot(rad2deg.(xs), rad2deg.(ys); group=cs, palette=twilightquads, linewidth=1.5,
+           xlims=(0, 90), ylims=(-40, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=night_mid_title);
 plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
@@ -380,16 +402,15 @@ more time to run.
 ## Daytime ionosphere, high frequency
 
 ```@example meshgrid
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_high_me),
-                                                  mesh, PlotData(), params);
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
+xs, ys, cs = formatquadrants(mesh)
 
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
-           xlims=(30, 90), ylims=(-10, 0),
+img = plot(rad2deg.(xs), rad2deg.(ys); group=cs, palette=twilightquads, linewidth=1.5,
+           xlims=(0, 90), ylims=(-40, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
            title=day_high_title);
 plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
@@ -409,24 +430,17 @@ The mesh grid does not need to be as dense at lower VLF and ELF.
 We'll use the rectangular mesh.
 
 ```@example meshgrid
-zbl = deg2rad(complex(1, -89))
-ztr = deg2rad(complex(89.9, 0))
-Δr = deg2rad(1)
-
-mesh = rectangulardomain(zbl, ztr, Δr)
-
-roots, poles, quads, phasediffs, tess, g2f = grpf(θ->solvemodalequation(θ, day_verylow_me),
-                                                  mesh, PlotData(), params);
-z, edgecolors = getplotdata(tess, quads, phasediffs, g2f)
+mesh = ComplexMesh(deg2rad.([0-90.0im, 0-0.0im, 90-0.0im, 90-90.0im]))
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_verylow_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
-zdeg = rad2deg.(z)
+xs, ys, cs = formatquadrants(mesh)
 
-img = plot(real(zdeg), imag(zdeg); group=edgecolors, palette=twilightquads, linewidth=1.5,
+img = plot(rad2deg.(xs), rad2deg.(ys); group=cs, palette=twilightquads, linewidth=1.5,
            xlims=(0, 90), ylims=(-90, 0),
            xlabel="real(θ)", ylabel="imag(θ)", legend=false,
-           title=night_mid_title);
+           title=day_verylow_title);
 plot!(img, real(rootsdeg), imag(rootsdeg); color="red",
       seriestype=:scatter, markersize=5);
 plot!(img, real(polesdeg), imag(polesdeg); color="red",

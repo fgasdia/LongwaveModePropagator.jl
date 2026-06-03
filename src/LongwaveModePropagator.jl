@@ -16,7 +16,7 @@ import FunctionWrappers: FunctionWrapper
 using PolynomialRoots: roots!
 
 using RootsAndPoles, Romberg, ModifiedHankelFunctionsOfOrderOneThird
-export GRPFParams
+export FinderParams  # TODO: may not be necessary to export
 
 # LongwaveModePropagator.jl
 export propagate
@@ -87,7 +87,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
     [`susceptibility`](@ref) during the integration of [`dRdz`](@ref).
 - `susceptibilitysplinestep::Float64 = 10.0`: altitude step in meters used to build the
     spline representation of [`susceptibility`](@ref) if `approxsusceptibility == true`.
-- `grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)`: parameters for the `GRPF`
+- `grpfparams::FinderParams = FinderParams(tol=1e-5, numtasks=Threads.nthreads())`: parameters for the `SA-GRPF`
     complex root-finding algorithm.
 - `integrationparams::IntegrationParams{T} =
     IntegrationParams(solver=Vern7(), tolerance=1e-5)`:
@@ -108,7 +108,7 @@ instantiation capabilities, e.g.:
 ```julia
 p = LMPParams()
 p2 = LMPParams(earth_radius=6370e3)
-p3 = LMPParams(p2; grpf_params=GRPFParams(100000, 1e-6, true))
+p3 = LMPParams(p2; grpf_params=FinderParams(tol=1e-5, numtasks=Threads.nthreads()))
 ```
 
 See also: [`IntegrationParams`](@ref)
@@ -120,7 +120,7 @@ See also: [`IntegrationParams`](@ref)
     curvatureheight::Float64 = 50e3  # m
     approxsusceptibility::Bool = false
     susceptibilitysplinestep::Float64 = 10.0
-    grpfparams::GRPFParams = GRPFParams(100000, 1e-5, true)
+    grpfparams::FinderParams = FinderParams(tol=1e-5, numtasks=Threads.nthreads())  # TODO: Refine default
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =

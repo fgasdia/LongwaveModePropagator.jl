@@ -492,8 +492,8 @@ the GRPF algorithm searches for roots of `modeequation`. If `mesh === nothing`,
 it is computed with [`defaultmesh`](@ref).
 
 There is a check for redundant modes that requires modes to be separated by at least
-1 orders of magnitude greater than `grpfparams.tolerance` in real and/or imaginary
-component. For example, if `grpfparams.tolerance = 1e-5`, then either the real or imaginary
+1 orders of magnitude greater than `grpfparams.tol` in real and/or imaginary
+component. For example, if `grpfparams.tol = 1e-5`, then either the real or imaginary
 component of each mode must be separated by at least 1e-4 from every other mode.
 """
 function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
@@ -518,7 +518,7 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
 
     # Scale tolerance for filtering
     # if tolerance is 1e-8, this rounds to 7 decimal places
-    ndigits = round(Int, abs(log10(grpfparams.tolerance)+1), RoundDown)
+    ndigits = round(Int, abs(log10(grpfparams.tol)+1), RoundDown)
 
     # Remove any redundant modes
     sort!(roots; by=reim, rev=true)
@@ -593,7 +593,7 @@ function defaultmesh(frequency; meshshape="auto",
             filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
             zbl_fine = complex(rtransition, itransition)
             ztr_fine = complex(rmax, imax)
-            append!(mesh, rectangulardomain(zbl_coarse, ztr_coarse, Δr_fine))
+            append!(mesh, rectangulardomain(zbl_fine, ztr_fine, Δr_fine))
         end
     else
         isnothing(rmin) && (rmin = deg2rad(1))
