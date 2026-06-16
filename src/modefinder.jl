@@ -185,10 +185,9 @@ function dwmatrix(ea::EigenAngle, T, dT)
 end
 
 """
-    dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
+    dRdz(R, modeequation, z; params=LMPParams())
 
 Compute the differential of the reflection matrix `R`, ``dR/dz``, at height `z`.
-`susceptibilityfcn` is a function returning the ionosphere susceptibility at height `z`.  
 
 Following the Budden formalism for the reflection of an (obliquely) incident plane wave from
 a horizontally stratified ionosphere [Budden1955a], the differential of the
@@ -205,12 +204,12 @@ the ionosphere as if it were a sharp boundary at the stopping level with free sp
     reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227,
     no. 1171, pp. 516–537, Feb. 1955.
 """
-function dRdz(R, modeequation, z, susceptibilityfcn=z->susceptibility(z, modeequation; params=LMPParams()))
+function dRdz(R, modeequation, z)
     @unpack ea, frequency = modeequation
 
     k = frequency.k
 
-    M = susceptibilityfcn(z)
+    M = susceptibility(z, modeequation)#::SMatrix{3,3,ComplexF64,9}
     T = tmatrix(ea, M)
     W11, W21, W12, W22 = wmatrix(ea, T)
 
@@ -250,31 +249,25 @@ function dRdθdz(RdRdθ, p, z)
 end
 
 """
-    integratedreflection(modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+    integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
 
 Integrate ``dR/dz`` downward through the ionosphere described by `modeequation` from
 `params.topheight`, returning the ionosphere reflection coefficient `R` at the ground.
-`susceptibilityfcn` is a function returning the ionosphere susceptibility tensor as a
-function of altitude `z` in meters.
-
 `params.integrationparams` are passed to `DifferentialEquations.jl`.
 """
-function integratedreflection(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
-
+function integratedreflection(modeequation::PhysicalModeEquation; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack tolerance, solver, dt, force_dtmin, maxiters = integrationparams
+    @unpack tolerance, solver, dt, maxiters = integrationparams
 
     Mtop = susceptibility(topheight, modeequation; params=params)
     Rtop = bookerreflection(modeequation.ea, Mtop)
 
-    prob = ODEProblem{false}((R,p,z)->dRdz(R,p,z,susceptibilityfcn), Rtop, (topheight, BOTTOMHEIGHT), modeequation)
+    prob = ODEProblem{false}(dRdz, Rtop, (topheight, BOTTOMHEIGHT), modeequation)
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
-                save_on=false, save_start=false, save_end=true)
+                dt=dt, maxiters=maxiters,
+                save_everystep=false, save_start=false)  # save end only
 
     R = sol.u[end]
 
@@ -292,7 +285,7 @@ function.
 """
 function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=LMPParams())
     @unpack topheight, integrationparams = params
-    @unpack solver, dt, force_dtmin, maxiters = integrationparams
+    @unpack solver, dt, maxiters = integrationparams
 
     # Tolerance is overridden for this `::Dθ` form.
     # Using an identical accuracy appears to result in relatively less accurate solutions
@@ -308,8 +301,8 @@ function integratedreflection(modeequation::PhysicalModeEquation, ::Dθ; params=
 
     # WARNING: When save_on=false, don't try interpolating the solution!
     sol = solve(prob, solver; abstol=tolerance, reltol=tolerance,
-                force_dtmin=force_dtmin, dt=dt, maxiters=maxiters,
-                save_on=false, save_start=false, save_end=true)
+                dt=dt, maxiters=maxiters,
+                save_everystep=false, save_start=false)
 
     RdR = sol.u[end]
 
@@ -420,19 +413,16 @@ function dmodalequation(R, dR, Rg, dRg)
 end
 
 """
-    solvemodalequation(modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+    solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
 
 Compute the ionosphere and ground reflection coefficients and return the value of the
-determinental modal equation associated with `modeequation`. `susceptibilityfcn` is a
-function that returns the ionosphere susceptibility as a function of altitude `z` in meters.
+determinental modal equation associated with `modeequation`.
 
 See also: [`solvedmodalequation`](@ref)
 """
-function solvemodalequation(modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+function solvemodalequation(modeequation::PhysicalModeEquation; params=LMPParams())
 
-    R = integratedreflection(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
+    R = integratedreflection(modeequation; params=params)
     Rg = fresnelreflection(modeequation)
 
     f = modalequation(R, Rg)
@@ -440,17 +430,14 @@ function solvemodalequation(modeequation::PhysicalModeEquation;
 end
 
 """
-    solvemodalequation(θ, modeequation::PhysicalModeEquation;
-        params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
+    solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
 
 Set `θ` for `modeequation` and then solve the modal equation.
 """
-function solvemodalequation(θ, modeequation::PhysicalModeEquation;
-    params=LMPParams(), susceptibilityfcn=z->susceptibility(z, modeequation; params=params))
-
-    # Convenience function for `grpf`
+function solvemodalequation(θ, modeequation::PhysicalModeEquation; params=LMPParams())
+    # Convenience function for `rootsandpoles`
     modeequation = setea(EigenAngle(θ), modeequation)
-    solvemodalequation(modeequation; params=params, susceptibilityfcn=susceptibilityfcn)
+    solvemodalequation(modeequation; params=params)
 end
 
 """
@@ -488,17 +475,10 @@ Find `EigenAngle`s associated with `modeequation.waveguide` within the domain of
 `mesh`.
 
 `mesh` should be an array of complex numbers that make up the original grid over which
-the GRPF algorithm searches for roots of `modeequation`. If `mesh === nothing`,
+the SA-GRPF algorithm searches for roots of `modeequation`. If `mesh === nothing`,
 it is computed with [`defaultmesh`](@ref).
-
-There is a check for redundant modes that requires modes to be separated by at least
-1 orders of magnitude greater than `grpfparams.tol` in real and/or imaginary
-component. For example, if `grpfparams.tol = 1e-5`, then either the real or imaginary
-component of each mode must be separated by at least 1e-4 from every other mode.
 """
 function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
-    @unpack approxsusceptibility, grpfparams = params
-
     if isnothing(mesh)
         mesh = defaultmesh(modeequation.frequency)
     end
@@ -506,23 +486,19 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
     # is possible multiple identical modes will be identified. Checks for valid and
     # redundant modes help ensure valid eigenangles are returned from this function.
+    roots, _ = rootsandpoles(θ->solvemodalequation(θ, modeequation;
+        params=params), ComplexMesh(mesh); params=params.finderparams)
 
-    if approxsusceptibility
-        susceptibilityfcn = susceptibilityspline(modeequation; params=params)
-    else
-        susceptibilityfcn = z -> susceptibility(z, modeequation; params=params)
-    end
 
-    roots, _ = grpf(θ->solvemodalequation(θ, modeequation;
-        params=params, susceptibilityfcn=susceptibilityfcn), mesh, grpfparams)
+    # TODO: delete uniqueness check
 
-    # Scale tolerance for filtering
-    # if tolerance is 1e-8, this rounds to 7 decimal places
-    ndigits = round(Int, abs(log10(grpfparams.tol)+1), RoundDown)
+    # # Scale tolerance for filtering
+    # # if tolerance is 1e-8, this rounds to 7 decimal places
+    # ndigits = round(Int, abs(log10(grpfparams.tol)+1), RoundDown)
 
-    # Remove any redundant modes
-    sort!(roots; by=reim, rev=true)
-    unique!(z->round(z; digits=ndigits), roots)
+    # # Remove any redundant modes
+    # sort!(roots; by=reim, rev=true)
+    # unique!(z->round(z; digits=ndigits), roots)
 
     return EigenAngle.(roots)
 end
@@ -532,12 +508,9 @@ Mesh grids for `GRPF`
 ==#
 
 """
-    defaultmesh(frequency; rmax=deg2rad(89.9), imax=deg2rad(0.0),
-        Δr_coarse=deg2rad(0.5), Δr_fine=deg2rad(0.1),
-        rtransition=deg2rad(75.0), itransition=deg2rad(-1.5),
-        meshshape="auto")
+    defaultmesh(frequency)
 
-Generate vector of complex coordinates (radians) to be used by GRPF in the search for
+Generate vector of complex coordinates (radians) to be used by SA-GRPF in the search for
 waveguide modes.
 
 `rmin` is the lower bound of the real axis and `imin` is the lower bound of the imaginary
@@ -545,138 +518,21 @@ axis.
 
 The value of `frequency` sets different default behavior:
 
-| `frequency` | `meshshape = "auto"` |     `rmin`    |     `imin`     | resolution  |
-|:-----------:|:--------------------:|:-------------:|:--------------:|:-----------:|
-|   < 12 kHz  |  `"rectanglemesh"`   | `deg2rad(1)`  | `deg2rad(-89)` | `Δr_coarse` |
-|   ≥ 12 kHz  |  `"trianglemesh"`    | `deg2rad(30)` | `deg2rad(-10)` | variable    |
+| `frequency` |                         initial mesh                         |
+|:-----------:|:------------------------------------------------------------:|
+|   < 8 kHz   |  `deg2rad.([0-90.0im, 0-0.0im, 89.99-90.0im, 89.99-0.0im])`  |
+|   ≥ 8 kHz   |  `deg2rad.([0-40.0im, 0-0.0im, 89.99-40.0im, 89.99-0.0im])`  |
 `
-At frequencies at or above 12 kHz the mesh spacing in the upper right corner of the domain
-with real values above `rtransition` and imaginary values above `itransition` is
-`Δr_fine` and is `Δr_coarse` everywhere else.
-
-If `meshshape = "rectanglemesh"`, the full lower right quadrant of the complex plane is
-searched for modes. If `meshshape = "trianglemesh"`, the lower right diagonal of the lower
-right quadrant of the complex plane is excluded from the mesh. Eigenangles at VLF (~12 kHz)
-and higher frequencies are not typically in the lower right diagonal.
 
 See also: [`findmodes`](@ref)
 """
-function defaultmesh(frequency; meshshape="auto",
-    rmin=nothing, imin=nothing, rmax=nothing, imax=nothing,
-    Δr_coarse=nothing, Δr_fine=nothing,
-    rtransition=nothing, itransition=nothing)
-
-    isnothing(rmax) && (rmax = deg2rad(89.9))
-    isnothing(imax) && (imax = 0.0)
-    
-    if frequency >= 12000
-        isnothing(rmin) && (rmin = deg2rad(30))
-        isnothing(imin) && (imin = deg2rad(-10))
-        isnothing(Δr_coarse) && (Δr_coarse = deg2rad(0.5))
-        isnothing(Δr_fine) && (Δr_fine = deg2rad(0.1))
-        isnothing(rtransition) && (rtransition = deg2rad(75))
-        isnothing(itransition) && (itransition = deg2rad(-1.5))
-
-        zbl_coarse = complex(rmin, imin)
-        ztr_coarse = complex(rmax, imax)
-
-        if meshshape == "auto" || meshshape == "trianglemesh"
-            mesh = trianglemesh(zbl_coarse, ztr_coarse, Δr_coarse)
-
-            filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
-            zbl_fine = complex(rtransition, itransition)
-            ztr_fine = complex(rmax, imax)
-            append!(mesh, trianglemesh(zbl_fine, ztr_fine, Δr_fine))
-        elseif meshshape == "rectanglemesh"
-            mesh = rectangulardomain(zbl_coarse, ztr_coarse, Δr_coarse)
-
-            filter!(z->(real(z) < rtransition || imag(z) < itransition), mesh)
-            zbl_fine = complex(rtransition, itransition)
-            ztr_fine = complex(rmax, imax)
-            append!(mesh, rectangulardomain(zbl_fine, ztr_fine, Δr_fine))
-        end
+function defaultmesh(frequency)
+    if frequency < 8000
+        mesh = deg2rad.([0-90.0im, 0-0.0im, 89.99-90.0im, 89.99-0.0im])
     else
-        isnothing(rmin) && (rmin = deg2rad(1))
-        isnothing(imin) && (imin = deg2rad(-89))
-        isnothing(Δr_coarse) && (Δr_coarse = deg2rad(1))
-
-        zbl = complex(rmin, imin)
-        ztr = complex(rmax, imax)
-
-        if meshshape == "auto" || meshshape == "rectanglemesh"
-            mesh = rectangulardomain(zbl, ztr, Δr_coarse)
-        elseif meshshape == "trianglemesh"
-            mesh = trianglemesh(zbl, ztr, Δr_coarse)
-        end
+        mesh = deg2rad.([0-40.0im, 0-0.0im, 89.99-40.0im, 89.99-0.0im])
     end
 
     return mesh
 end
-defaultmesh(f::Frequency; kw...) = defaultmesh(f.f; kw...)
-
-"""
-    trianglemesh(zbl, ztr, Δr)
-
-Generate initial mesh node coordinates for a right triangle domain from complex
-coordinate `zbl` in the bottom left and `ztr` in the top right with initial mesh step `Δr`.
-
-`zbl` and `ztr` are located on the complex plane at the locations marked in the
-diagram below:
-
-```
-       im
-       |
--re ---|------ ztr
-       |     /
-       |    /
-       |   /
-       |  /
-       zbl
-```
-"""
-function trianglemesh(zbl, ztr, Δr)
-    rzbl, izbl = reim(zbl)
-    rztr, iztr = reim(ztr)
-
-    X = rztr - rzbl
-    Y = iztr - izbl
-
-    n = ceil(Int, Y/Δr)
-    dy = Y/n
-
-    ## dx = sqrt(Δr² - (dy/2)²), solved for equilateral triangle
-    m = ceil(Int, X/sqrt(Δr^2 - dy^2/4))
-    dx = X/m
-    half_dx = dx/2
-
-    slope = 1  # 45° angle
-
-    T = promote_type(ComplexF64, typeof(zbl), typeof(ztr), typeof(Δr))
-    mesh = Vector{T}()
-
-    shift = false  # we will displace every other line by dx/2
-    for j = 0:n
-        y = izbl + dy*j
-
-        for i = 0:m
-            x = rzbl + dx*i
-
-            if shift && i == 0
-                continue  # otherwise, we shift out of left bound
-            elseif shift
-                x -= half_dx
-            end
-
-            if i == m
-                shift = !shift
-            end
-
-            ## NEW: check if `x, y` is in upper left triangle
-            if y >= slope*x - π/2
-                push!(mesh, complex(x, y))
-            end
-        end
-    end
-
-    return mesh
-end
+defaultmesh(f::Frequency) = defaultmesh(f.f)

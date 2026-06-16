@@ -97,7 +97,7 @@ Then we simply define the `ODEProblem` and `solve`.
 ```@example reflection
 prob = ODEProblem{false}(LMP.dRdz, Rtop, (topheight, 0.0), me)
 
-sol = solve(prob, RK4(); abstol=1e-9, reltol=1e-9)
+sol = solve(prob, Vern9(), reltol=1e-14, abstol=1e-14)
 nothing  # hide
 ```
 
@@ -190,14 +190,13 @@ nothing  # hide
 ## Reference solutions
  
 To evaluate the accuracy of the reflection coefficients, we compare to a very
-low tolerance Runge-Kutta Order 4 method. The DifferentialEquations implementation
-of `RK4` uses adaptive stepping.
+low tolerance Verner 9th order method.
  
 The [`LongwaveModePropagator.integratedreflection`](@ref) function does the
 integration process above for us and returns the reflection coefficient at the ground.
 
 ```@example reflection
-ip = IntegrationParams(tolerance=1e-14, solver=RK4(), maxiters=1_000_000)
+ip = IntegrationParams(tolerance=1e-14, solver=Vern9())
 params = LMPParams(integrationparams=ip)
 
 Rrefs = [LMP.integratedreflection(scenario; params=params) for scenario in scenarios]
@@ -219,7 +218,7 @@ function compute(scenarios, tolerances, solvers)
 
     for k in eachindex(solvers)
         for j in eachindex(tolerances)
-            ip = IntegrationParams(tolerance=tolerances[j], solver=solvers[k])
+            ip = IntegrationParams(tolerance=tolerances[j], solver=solvers[k], dt=1.0)
             params = LMPParams(integrationparams=ip)
 
             for i in eachindex(scenarios)
@@ -242,11 +241,11 @@ function compute(scenarios, tolerances, solvers)
     return Rs, times
 end
 
-tolerances = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
+tolerances = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9]
 tolerancestrings = string.(tolerances)
 
-solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8()]
-solverstrings = ["RK4", "Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8"]
+solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8(), VCABM()]
+solverstrings = ["RK4", "Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8", "VCABM"]
 
 Rs, times = compute(scenarios, tolerances, solvers)
 nothing  # hide
@@ -271,7 +270,7 @@ Rerrs = differr(Rs, Rrefs)
 mean_Rerrs = dropdims(mean(Rerrs; dims=1); dims=1)
 
 heatmap(tolerancestrings, solverstrings, permutedims(log10.(mean_Rerrs));
-        clims=(-9, -2),
+        clims=(-8, -2),
         xlabel="tolerance", ylabel="solver",
         colorbar_title="log₁₀ max abs difference", colorbar=true)
 savefig("plot-integratedreflection_rerrs.png"); nothing  # hide
@@ -294,7 +293,4 @@ savefig("plot-integratedreflection_times.png"); nothing  # hide
 ![](plot-integratedreflection_times.png)
 
 The best accuracy occurs with `Vern7` and experiments we've done looking at the
-sensitivity of the mode solutions to integration tolerance have shown a tolerance of `1e-5` is sufficient.
-The integration accuracy improves for relatively little additional
-computation time if the tolerance is changed to `1e-9`, but that accuracy is not
-required.
+sensitivity of the mode solutions to integration tolerance have shown a tolerance around `1e-5` is sufficient.

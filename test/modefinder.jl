@@ -59,20 +59,6 @@ function test_dRdz(scenario)
 
     # sharply bounded R from bookerreflection satisfies dR/dz = 0
     @test isapprox(LMP.dRdz(Rtop, me, params.topheight), zeros(2, 2); atol=1e-15)
-
-    # Compare default and optional argument
-    M = LMP.susceptibility(72e3, me; params=params)
-    R = LMP.bookerreflection(ea, M)
-    dR1 = @inferred LMP.dRdz(R, me, 72e3)
-
-    Mfcn = z -> LMP.susceptibility(z, me; params=params)
-    dR2 = @inferred LMP.dRdz(R, me, 72e3, Mfcn)
-
-    Mfcn2 = LMP.susceptibilityspline(me; params=params)
-    dR3 = @inferred LMP.dRdz(R, me, 72e3, Mfcn2)
-
-    @test dR1 == dR2  # identical functions Mfcn
-    @test isapprox(dR1, dR3, atol=1e-12)  # interpolating spline
 end
 
 function test_dRdθdz(scenario)
@@ -110,16 +96,6 @@ function test_integratedreflection_vertical(scenario)
     R = LMP.integratedreflection(me)
 
     @test R[1,2] ≈ R[2,1]
-
-    # Let's also check with interpolation susceptibilityfcn here
-    Mfcn = z -> LMP.susceptibility(z, me)
-    R2 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn)
-    
-    Mfcn2 = LMP.susceptibilityspline(me)
-    R3 = LMP.integratedreflection(me; susceptibilityfcn=Mfcn2)
-    
-    @test R2 == R
-    @test maxabsdiff(R, R3) < 2e-6
 end
 
 function test_integratedreflection_deriv(scenario)
@@ -207,16 +183,6 @@ function test_solvemodalequation(scenario)
     me2 = PhysicalModeEquation(EigenAngle(0.0+0.0im), tx.frequency, waveguide)
     f2 = LMP.solvemodalequation(ea.θ, me2)
     @test f == f2
-
-    # Test with specified susceptibilityfcn
-    Mfcn = z -> LMP.susceptibility(z, me)
-    f3 = LMP.solvemodalequation(me; susceptibilityfcn=Mfcn)
-
-    Mfcn2 = LMP.susceptibilityspline(me)
-    f4 = LMP.solvemodalequation(me; susceptibilityfcn=Mfcn2)
-
-    @test f == f3
-    @test maxabsdiff(f, f4) < 1e-3
 end
 
 function test_modalequation_resonant(scenario)
@@ -271,12 +237,8 @@ function test_findmodes(scenario)
 
     origcoords = LMP.defaultmesh(tx.frequency)
 
-    # params = LMPParams(grpfparams=LMP.GRPFParams(100000, 1e-6, true))
     params = LMPParams()
     modes = @inferred findmodes(modeequation, origcoords; params=params)
-    modes2 = @inferred findmodes(modeequation, origcoords; params=LMPParams(params; approxsusceptibility=true))
-
-    @test length(modes) == length(modes2)
 
     # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
     @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 5e-4 for i in 1:length(modes))

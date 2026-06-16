@@ -1,4 +1,4 @@
-# Mesh grid for mode finding - Part 1
+# Mesh grid for mode finding
 
 The [Global complex Roots and Poles Finding](https://doi.org/10.1109/TAP.2018.2869213)
 (GRPF) algorithm searches for roots and poles of complex-valued functions by sampling
@@ -9,15 +9,7 @@ Specifically, the phase change of the function value cannot exceed three quadran
 across mesh edges. Effectively this means there cannot be equal numbers of roots and
 poles within the boundary of each identified candidate region.
 
-Because the GRPF algorithm uses an adaptive meshing process, the initial mesh
-node spacing can be greater than the distance between the roots/poles
-of the function, but there is no established method for _a priori_ estimation
-of the required initial sampling of an arbitrary function.
-The GRPF algorithm is implemented in
-[RootsAndPoles.jl](https://github.com/fgasdia/RootsAndPoles.jl) and used by
-LongwaveModePropagator to identify eigenangles of [`HomogeneousWaveguide`](@ref)'s.
-Therefore, we must experimentally determine a sufficient initial mesh grid spacing to
-identify roots of the mode equation.
+Although the GRPF algorithm uses an adaptive meshing process, its ability to find roots and poles was sensitive to the initial mesh node spacing and there is no established method for _a priori_ estimation of the required initial sampling for an arbitrary function. The [Self-Adaptive Mesh Generator for Global Complex Roots and Poles Finding Algorithm](https://ieeexplore.ieee.org/document/10025853/) (SA-GRPF) can start from just four corner points on the complex plane, using a gradient calculation to identify areas that need mesh refinement. The SA-GRPF algorithm is implemented in [RootsAndPoles.jl](https://github.com/fgasdia/RootsAndPoles.jl), and is used by LongwaveModePropagator v0.5 to identify eigenangles of [`HomogeneousWaveguide`](@ref)'s.
 
 ## Mode equation
 
@@ -40,6 +32,7 @@ First, import the necessary packages.
 using Plots
 using Plots.Measures
 using RootsAndPoles
+const RP = RootsAndPoles
 
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
@@ -75,7 +68,6 @@ day_verylow_me = PhysicalModeEquation(verylowfrequency, daywaveguide)
 day_low_me = PhysicalModeEquation(lowfrequency, daywaveguide)
 day_mid_me = PhysicalModeEquation(midfrequency, daywaveguide)
 day_high_me = PhysicalModeEquation(highfrequency, daywaveguide)
-
 night_mid_me = PhysicalModeEquation(midfrequency, nightwaveguide)
 
 day_verylow_title = "1 kHz\nh′: 75, β: 0.35"
@@ -210,89 +202,28 @@ savefig("plot-meshgrid_day_verylow_me.png"); nothing  # hide
 
 ## Global complex roots and poles finding
 
-The global complex roots and poles finding (GRPF) algorithm is most efficient when
-the initial mesh grid consists of equilateral triangles.
-Such a grid can be produced with the `rectangulardomain` function from
-RootsAndPoles,
-
-```@example meshgrid
-zbl = deg2rad(complex(30.0, -10.0))
-ztr = deg2rad(complex(89.9, 0.0))
-Δr = deg2rad(0.5)
-
-mesh = rectangulardomain(zbl, ztr, Δr)
-nothing  #Hide
-```
-
-We convert back to degrees just for plotting.
-Here's a zoomed in portion of the upper right of the domain.
-
-```@example meshgrid
-meshdeg = rad2deg.(mesh)
-
-img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
-           xlims=(80, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           legend=false, size=(450,375))
-
-savefig("plot-meshgrid_mesh.svg"); nothing  # hide
-```
-
-![](plot-meshgrid_mesh.svg)
-
-As seen in the evaluation of the modal equation above, no roots or poles appear in the
-lower right diagonal of the domain for frequencies above about 10 kHz.
-Even if they did, they would correspond to highly attenuated modes.
-Therefore, to save compute time, we can exclude the lower right triangle of the domain
-from the initial mesh if the frequency is sufficiently high.
-
-The function [`LongwaveModePropagator.trianglemesh`](@ref) is built into
-LongwaveModePropagator for this purpose.
-The inputs are specified by the complex bottom left corner `zbl`, the top right corner
-`ztr`, and the mesh spacing `Δr` in _radians_.
-
-```@example meshgrid
-mesh = trianglemesh(zbl, ztr, Δr);
-
-meshdeg = rad2deg.(mesh)
-
-img = plot(real(meshdeg), imag(meshdeg); seriestype=:scatter,
-           xlims=(80, 90), ylims=(-10, 0),
-           xlabel="real(θ)", ylabel="imag(θ)",
-           legend=false, size=(450,375));
-plot!(img, [80, 90], [0, 0]; color="red");
-plot!(img, [0, 90], [-90, 0]; color="red")
-
-savefig("plot-meshgrid_trianglemesh.svg"); nothing  # hide
-```
-
-![](plot-meshgrid_trianglemesh.svg)
-
-Now let's apply `grpf` to the modal equation on the triangle mesh.
-`grpf` adaptively refines the mesh to obtain a more accurate estimate of the position
-of the roots and poles.
+Let's apply `rootsandpoles` to the modal equation.
 
 [`LMPParams`](@ref) is a struct use for passing parameters across LongwaveModePropagator.
 Default values are automatically inserted when instantiating the struct.
-We'll extract the `grpfparams` field which contains a `GRPFParams` struct for passing
-to `grpf`.
- 
-We will also pass RootsAndPoles' `PlotData()` argument to obtain additional
-information on the function phase for plotting.
+We'll extract the `finderparams` field which contains a `FinderParams` struct for passing
+to `rootsandpoles`.
 
 ```@example meshgrid
-mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+initmesh = deg2rad.([0-40.0im, 0-0.0im, 89.99-40.0im, 89.99-0.0im])
+mesh = ComplexMesh(initmesh)
 
-params = FinderParams(tol=1e-5)
+params = FinderParams(tol=1e-5, numtasks=Threads.nthreads())
 roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_mid_me), mesh; params);
 ```
 
-The `getplotdata` function, provided by RootsAndPoles, is a convenience function
-for plotting a color-coded tesselation from `grpf` based on the phase of the function.
+We'll write a function to help us draw each edge of the mesh.
+
+!!! warning
+
+    The `ComplexMesh` `mesh` is updated in place by `rootsandpoles`.
 
 ```@example meshgrid
-const RP = RootsAndPoles
-
 function formatquadrants(mesh)
     xs = Vector{Float64}()
     ys = similar(xs)
@@ -344,14 +275,14 @@ savefig("plot-meshgrid_day_mid_mesh.svg"); nothing  # hide
 ![](plot-meshgrid_day_mid_mesh.svg)
 
 In the plot above, roots are marked with red circles and poles are marked
-with red triangles. The automatic refinement of the mesh is clearly visible.
+with red triangles. The mesh was automatically refined near roots and poles.
 
 Here are similar plots for the other scenarios.
 
-## Daytime ionosphere, low frequency
+## Daytime ionosphere, 10 kHz
 
 ```@example meshgrid
-mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+mesh = ComplexMesh(initmesh)
 roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_low_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
@@ -375,7 +306,7 @@ savefig("plot-meshgrid_day_low_mesh.svg"); nothing  # hide
 ## Nighttime ionosphere, 20 kHz
 
 ```@example meshgrid
-mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+mesh = ComplexMesh(initmesh)
 roots, poles = rootsandpoles(θ->solvemodalequation(θ, night_mid_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
@@ -396,14 +327,15 @@ savefig("plot-meshgrid_night_mid_mesh.svg"); nothing  # hide
 
 ![](plot-meshgrid_night_mid_mesh.svg)
 
-At 100 kHz, `grpf` requires more mesh refinements and takes considerably
-more time to run.
+At 100 kHz, `grpf` requires more mesh refinements and takes longer to run.
 
-## Daytime ionosphere, high frequency
+## Daytime ionosphere, 100 kHz
 
 ```@example meshgrid
-mesh = ComplexMesh(deg2rad.([0-40.0im, 0-0.0im, 90-40.0im, 90-0.0im]))
+mesh = ComplexMesh(initmesh)
 roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh; params);
+
+@info "$(length(roots)) roots and $(length(poles)) poles"
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
@@ -423,14 +355,25 @@ savefig("plot-meshgrid_day_high_mesh.svg"); nothing  # hide
 
 ![](plot-meshgrid_day_high_mesh.svg)
 
-The mesh grid does not need to be as dense at lower VLF and ELF.
+Increasing the number of adaptive and total mesh nodes results in a finding several extra roots.
+
+```@example meshgrid
+newparams = FinderParams(tol=1e-5, maxadaptivenodes=10000, maxnodes=40000, numtasks=Threads.nthreads())
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh; params=newparams);
+
+@info "$(length(roots)) roots and $(length(poles)) poles"
+```
 
 ## Daytime ionosphere, 1 kHz
 
-We'll use the rectangular mesh.
+The mesh grid does not need to be as dense at lower VLF and ELF, where the roots and poles are widely separated.
+
+Below 8 kHz, the full lower right quadrant of the complex plane is searched for modes.
+Consider additionally providing your own `params` struct with a lower value for `maxadaptivenodes` if regularly modeling lower VLF or ELF propagation.
 
 ```@example meshgrid
-mesh = ComplexMesh(deg2rad.([0-90.0im, 0-0.0im, 90-0.0im, 90-90.0im]))
+initmesh = deg2rad.([0-90.0im, 0-0.0im, 89.99-90.0im, 89.99-0.0im]) 
+mesh = ComplexMesh(initmesh)
 roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_verylow_me), mesh; params);
 
 rootsdeg = rad2deg.(roots)
@@ -450,5 +393,3 @@ savefig("plot-meshgrid_day_verylow_mesh.svg"); nothing  # hide
 ```
 
 ![](plot-meshgrid_day_verylow_mesh.svg)
-
-The example continues in [Mesh grid for mode finding - Part 2](@ref).

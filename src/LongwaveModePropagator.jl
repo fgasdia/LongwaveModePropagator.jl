@@ -16,7 +16,6 @@ import FunctionWrappers: FunctionWrapper
 using PolynomialRoots: roots!
 
 using RootsAndPoles, Romberg, ModifiedHankelFunctionsOfOrderOneThird
-export FinderParams  # TODO: may not be necessary to export
 
 # LongwaveModePropagator.jl
 export propagate
@@ -54,18 +53,15 @@ coefficient matrix in `modefinder.jl`.
 
 # Fields
 
-- `tolerance::Float64 = 1e-5`: integration `atol` and `rtol`.
+- `tolerance::Float64 = 1e-6`: integration `atol` and `rtol`.
 - `solver::T = Vern7()`: a `DifferentialEquations.jl` solver.
-- `dt::Float64 = 1.0`: height step in meters (many methods use a variable step size).
-- `force_dtmin::Bool = false`: if true, continue integration when solver reaches minimum
-    step size.
+- `dt::Float64 = 10.0`: height step in meters (many methods use a variable step size).
 - `maxiters::Int = 100_000`: maximum number of iterations before stopping.
 """
 @with_kw struct IntegrationParams{T}
-    tolerance::Float64 = 1e-5
+    tolerance::Float64 = 1e-6
     solver::T = Vern7()
-    dt::Float64 = 1.0
-    force_dtmin::Bool = false
+    dt::Float64 = 10.0
     maxiters::Int = 100_000
 end
 export IntegrationParams
@@ -83,11 +79,7 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 - `curvatureheight::Float64 = 50e3`: reference height for Earth curvature in meters. At this
     height, the index of refraction is 1, and is therefore the reference height for
     eigenangles.
-- `approxsusceptibility::Bool = false`: use a cubic interpolating spline representation of
-    [`susceptibility`](@ref) during the integration of [`dRdz`](@ref).
-- `susceptibilitysplinestep::Float64 = 10.0`: altitude step in meters used to build the
-    spline representation of [`susceptibility`](@ref) if `approxsusceptibility == true`.
-- `grpfparams::FinderParams = FinderParams(tol=1e-5, numtasks=Threads.nthreads())`: parameters for the `SA-GRPF`
+- `finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=2000, numtasks=Threads.nthreads())`: parameters for the `SA-GRPF`
     complex root-finding algorithm.
 - `integrationparams::IntegrationParams{T} =
     IntegrationParams(solver=Vern7(), tolerance=1e-5)`:
@@ -108,7 +100,7 @@ instantiation capabilities, e.g.:
 ```julia
 p = LMPParams()
 p2 = LMPParams(earth_radius=6370e3)
-p3 = LMPParams(p2; grpf_params=FinderParams(tol=1e-5, numtasks=Threads.nthreads()))
+p3 = LMPParams(p2; finderparams=FinderParams(tol=1e-8, numtasks=2))
 ```
 
 See also: [`IntegrationParams`](@ref)
@@ -118,9 +110,7 @@ See also: [`IntegrationParams`](@ref)
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
     curvatureheight::Float64 = 50e3  # m
-    approxsusceptibility::Bool = false
-    susceptibilitysplinestep::Float64 = 10.0
-    grpfparams::FinderParams = FinderParams(tol=1e-5, numtasks=Threads.nthreads())  # TODO: Refine default
+    finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=4000, numtasks=Threads.nthreads())
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =
@@ -184,10 +174,10 @@ include("IO.jl")
 Compute electric field `E`, `amplitude`, and `phase` at `rx`.
 
 Precomputed waveguide `modes` can optionally be provided as a `Vector{EigenAngle}`. By
-default modes are found with [`findmodes`](@ref).
+default, modes are found with [`findmodes`](@ref).
 
-If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
-mode finding algorithm. This is ignored if `modes` is not `nothing`.
+If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the mode finding
+algorithm. This is ignored if `modes` is not `nothing`.
 """
 function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     modes::Union{Nothing,Vector{EigenAngle}}=nothing, mesh=nothing, unwrap=true,
@@ -212,7 +202,7 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
     fc = rx.fieldcomponent
     E = permutedims(EE)[:,index(fc)]  # select field components from full matrix EE
 
-    # Type instable, but gives the expected result
+    # Type unstable, but gives the expected result
     if length(E) == 1
         E = only(E)
     end
@@ -232,8 +222,8 @@ end
 
 Compute electric field `E`, `amplitude`, and `phase` at `rx` through a `SegmentedWaveguide`.
 
-If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the
-mode finding algorithm.
+If `mesh = nothing`, use [`defaultmesh`](@ref) to generate `mesh` for the mode finding
+algorithm.
 """
 function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampler;
     mesh=nothing, unwrap=true, params=LMPParams())
