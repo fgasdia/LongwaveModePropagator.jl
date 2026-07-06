@@ -90,6 +90,14 @@ Return a `Transmitter` with zeroed geographic position, 1000 W transmit power, a
 Transmitter(frequency) = Transmitter("", 0, 0, frequency)
 
 """
+    Transmitter(frequency, power)
+
+Return a `Transmitter` with zeroed geographic position, and
+`VerticalDipole` antenna.
+"""
+Transmitter(frequency, power) =  Transmitter{VerticalDipole}("", 0, 0, VerticalDipole(), Frequency(frequency), power)
+
+"""
     Transmitter(antenna, frequency, power)
 
 Return a `Transmitter` with zeroed geographic position.
