@@ -239,7 +239,7 @@ function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=
 
         # Height gain for Ex, also called g(z)
         # f₂ = 1/(1im*k) df₁/dz
-        fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + earthradius*(F₁*dh₁z + F₂*dh₂z))
+        fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + 2*pow23(k/α)*(F₁*dh₁z + F₂*dh₂z))
     else
         # Flat earth, [Pappert1983] pg. 12--13
         expiz = cis(k*C*z)
