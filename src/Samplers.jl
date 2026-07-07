@@ -1,19 +1,28 @@
 """
     enum Fields.Field
 
-Vector components of the electric field.
+Vector components of the electromagnetic field.
 
     - `Ex` is in the direction from the transmitter toward the receiver
     - `Ez` extends vertically upward into the ionosphere
     - `Ey` is perpendicular to the ``x-z`` plane in which the wavefields propagate,
         completing the right-handed coordinate system
     - `E` calculates `Ez`, `Ey`, and `Ex`
+    - `Hz`, `Hy`, `Hx` are the magnetic field components along the same axes, returned
+        in normalized units ``Z₀H`` (V/m); divide by `Z0` for A/m or by `C0` for tesla
+    - `H` calculates `Hz`, `Hy`, and `Hx`
+    - `EH` calculates all six components
 """
 @enumx T=Field Fields begin
     Ez
     Ey
     Ex
     E
+    Hz
+    Hy
+    Hx
+    H
+    EH
 end
 
 function index(f::Fields.Field)
@@ -25,6 +34,16 @@ function index(f::Fields.Field)
         return 3
     elseif f == Fields.E
         return 1:3
+    elseif f == Fields.Hz
+        return 4
+    elseif f == Fields.Hy
+        return 5
+    elseif f == Fields.Hx
+        return 6
+    elseif f == Fields.H
+        return 4:6
+    elseif f == Fields.EH
+        return 1:6
     end
 end
 numcomponents(f::Fields.Field) = length(index(f))
