@@ -25,7 +25,7 @@ The [`electroncollisionfrequency`](@ref) is used for the electron-neutral collis
 profile.
 
 - The electron density profile begins at 40 km altitude and extends to 110 km.
-- The transmitter power is 1 kW.
+- The transmitter power defaults to 1 kW, if not otherwise specified.
 
 # Fields
 
@@ -46,6 +46,7 @@ profile.
 - `ground_epsrs::Vector{Int}`: ground relative permittivity for each `HomogeneousWaveguide`
     segment.
 - `frequency::Float64`: transmitter frequency in Hertz.
+- `power::Float64`: transmitter power in Watts.
 - `output_ranges::Vector{Float64}`: distances from the transmitter at which the field will
     be calculated.
 """
@@ -64,11 +65,13 @@ mutable struct ExponentialInput <: Input
     ground_sigmas::Vector{Float64}
     ground_epsrs::Vector{Int}
     frequency::Float64
+    power::Float64
     output_ranges::Vector{Float64}
 
     function ExponentialInput()
         s = new()
         setfield!(s, :frequency, NaN)
+        setfield!(s, :power, 1000.0)
         return s
     end
 end
@@ -98,6 +101,7 @@ StructTypes.StructType(::Type{ExponentialInput}) = StructTypes.Mutable()
 - `ground_epsrs::Vector{Int}`: ground relative permittivity for each `HomogeneousWaveguide`
     segment.
 - `frequency::Float64`: transmitter frequency in Hertz.
+- `power::Float64`: transmitter power in Watts.
 - `output_ranges::Vector{Float64}`: distances from the transmitter at which the field will
     be calculated.
 """
@@ -117,11 +121,13 @@ mutable struct TableInput <: Input
     ground_sigmas::Vector{Float64}
     ground_epsrs::Vector{Int}
     frequency::Float64
+    power::Float64
     output_ranges::Vector{Float64}
 
     function TableInput()
         s = new()
         setfield!(s, :frequency, NaN)
+        setfield!(s, :power, 1000.0)
         setfield!(s, :density, [Vector{Float64}()])
         setfield!(s, :collision_frequency, [Vector{Float64}()])
         return s
@@ -395,13 +401,13 @@ function buildrun(s::ExponentialInput; mesh=nothing, unwrap=true, params=LMPPara
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter(s.frequency)
+        tx = Transmitter(s.frequency, s.power)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
         waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in
                                         eachindex(s.segment_ranges)])
-        tx = Transmitter(s.frequency)
+        tx = Transmitter(s.frequency, s.power)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
@@ -437,12 +443,12 @@ function buildrun(s::TableInput; mesh=nothing, unwrap=true, params=LMPParams())
         ground = Ground(only(s.ground_epsrs), only(s.ground_sigmas))
         waveguide = HomogeneousWaveguide(bfield, species, ground)
 
-        tx = Transmitter(s.frequency)
+        tx = Transmitter(s.frequency, s.power)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     else
         # SegmentedWaveguide
         waveguide = SegmentedWaveguide([buildwaveguide(s, i) for i in eachindex(s.segment_ranges)])
-        tx = Transmitter(s.frequency)
+        tx = Transmitter(s.frequency, s.power)
         rx = GroundSampler(s.output_ranges, Fields.Ez)
     end
 
