@@ -22,7 +22,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 LongwaveModePropagator = {path = ".."}
 
 [compat]
-CSV = "0.10"
+CSV = "0.10,1"
 Distances = "0.10"
 Documenter = "1"
 FaradayInternationalReferenceIonosphere = "0.2"
