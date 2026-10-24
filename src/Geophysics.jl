@@ -280,11 +280,9 @@ gyrofrequency(s::Species, b::BField) = gyrofrequency(s.charge, s.mass, b.B)
 
 Compute the magnetoionic parameters `X`, `Y`, and `Z` for height `z`.
 
-```math
-X = N e² / (ϵ₀ m ω²)
-Y = e B / (m ω)
-Z = ν / ω
-```
+- ``X = N e² / (ϵ₀ m ω²)``
+- ``Y = e B / (m ω)``
+- ``Z = ν / ω``
 
 # References
 

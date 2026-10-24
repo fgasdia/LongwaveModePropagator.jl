@@ -1,6 +1,6 @@
 # Public Interface
 
-Documentation of `LongwaveModePropagator.jl`'s exported structs and functions.
+Documentation of `LongwaveModePropagator`'s exported structs and functions.
 
 **Contents**
 

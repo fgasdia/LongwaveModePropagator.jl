@@ -15,8 +15,8 @@ See the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/gener
 2. From the Julia REPL, install LongwaveModePropagator.
 
 ```
-julia> ]
-(@v1.10) pkg> add LongwaveModePropagator
+using Pkg
+Pkg.add("LongwaveModePropagator")
 ```
 
 If you'll be working primarily in Julia, you probably want to `cd` to your working directory, `] activate` a new environment, and then `add` LongwaveModePropagator.
@@ -32,7 +32,7 @@ Please open [Issues](https://github.com/fgasdia/LongwaveModePropagator.jl/issues
 
 Here's a simple homogeneous ground/ionosphere scenario defined in Julia.
 
-```julia
+```@example index
 using LongwaveModePropagator
 using LongwaveModePropagator: QE, ME
 
@@ -54,18 +54,9 @@ ground = Ground(10, 1e-4)
 waveguide = HomogeneousWaveguide(bfield, electrons, ground)
 
 # return the complex electric field, amplitude, and phase
-E, a, p = propagate(waveguide, tx, rx);
+E, a, p = propagate(waveguide, tx, rx)
+nothing  # hide
 ```
-
-We can plot the results if we `] add Plots`:
-
-```julia
-using Plots
-
-plot(rx.distance/1000, a, xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)")
-```
-
-![](indexexample.png)
 
 !!! note
 
@@ -73,14 +64,24 @@ plot(rx.distance/1000, a, xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)")
 
     The only exception in the current version of the package is the use of kilometers and inverse kilometers to define Wait and Spies ``h'`` and ``\beta`` parameters for the electron density profile in the function [`waitprofile`](@ref). In practice, the units of these parameters are often implicitly taken to be kilometers and inverse kilometers.
 
-Users are encouraged to browse the [Examples](https://fgasdia.github.io/LongwaveModePropagator.jl/dev/generated/basic/) section for more complex scenarios.
+We can plot the results if we `] add Plots`:
+
+```@example index
+using Plots
+
+plot(rx.distance/1000, a,
+     xlabel="Distance (km)", ylabel="Amplitude (dB μV/m)",
+     legend=false, linewidth=2)
+```
+
+Users are encouraged to browse the [Examples](@ref examples_first_page) section of the docs for more complicated scenarios.
 
 ## New to Julia?
 
-Julia is a relatively new general programming language that shines for technical computing.
+Julia is a general programming language that shines for technical computing.
 It has similarities to Matlab and Python, but is high performance and attempts to solve the ["two language problem"](https://thebottomline.as.ucsb.edu/2018/10/julia-a-solution-to-the-two-language-programming-problem).
 In part, it achieves its high performance by compiling functions to efficient native code via LLVM.
-Julia is dynamically typed and uses multiple dispatch, so that the first time a given function is passed arguments of a certain type, the function is compiled for those types.
+Julia is dynamically typed and uses multiple dispatch, so that the first time a function is passed arguments of a certain type, the function is compiled for those types.
 In practice, this means that the first time a function is called, it takes longer than it will on subsequent calls, because at the first call the function also had to be compiled.
 
 ### Finding help
@@ -88,22 +89,24 @@ In practice, this means that the first time a function is called, it takes longe
 I highly recommend reading the [Julia Documentation](https://docs.julialang.org/en/v1/).
 It is very thorough and combines significant textual explanations with examples.
 
-Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible with `?`.
+Besides the regular REPL prompt `julia>` and the package mode accessed with `]`, there is also a help mode accessible by typing `?`.
 The help functionality works "automatically", even for user-defined functions with docstrings.
 Most internal functions of LongwaveModePropagator are documented, so e.g.
-```julia
-? LongwaveModePropagator.bookerquartic
-```
-prints an explanation of the [`LongwaveModePropagator.bookerquartic`](@ref) function even though it's not exported from the package.
 
+```julia
+?LongwaveModePropagator.TMatrix
+```
+```@docs; canonical=false
+LongwaveModePropagator.TMatrix
+```
+
+prints a brief explanation of the [`LongwaveModePropagator.TMatrix`](@ref) type even though it's not exported from the package.
 
 ## References
 
-```@raw html
-<p><a name="Budden1955a"></a>K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: <a href="https://doi.org/10.1098/rspa.1955.0027">10.1098/rspa.1955.0027</a>.</p>
+K. G. Budden, “The numerical solution of differential equations governing reflexion of long radio waves from the ionosphere,” Proc. R. Soc. Lond. A, vol. 227, no. 1171, pp. 516–537, Feb. 1955, doi: [10.1098/rspa.1955.0027](https://doi.org/10.1098/rspa.1955.0027).
 
-<p><a name="Budden1962"></a>K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: <a href="https://doi.org/10.1098/rspa.1962.0041">10.1098/rspa.1962.0041</a>.</p>
-```
+K. G. Budden, “The influence of the earth’s magnetic field on radio propagation by wave-guide modes,” Proceedings of the Royal Society of London. Series A. Mathematical and Physical Sciences, vol. 265, no. 1323, pp. 538–553, Feb. 1962, doi: [10.1098/rspa.1962.0041](https://doi.org/10.1098/rspa.1962.0041).
 
 ## Citing
 

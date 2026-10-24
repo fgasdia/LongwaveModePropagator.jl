@@ -3,7 +3,7 @@
 Documentation of all `const`s, `struct`s, `function`s, etc.
 
 ```@autodocs
-Modules = [LongwaveModePropagator, LongwaveModePropagator.Fields]
+Modules = [LongwaveModePropagator]
 Public = false
 Pages = [
   "Antennas.jl",

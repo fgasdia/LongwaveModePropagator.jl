@@ -5,7 +5,7 @@ Created on Tue Dec 29 11:14:54 2020
 Python script to create a JSON file formated to be parsed by
 LongwaveModePropagator.jl as a `ExponentialInput`.
 
-See examples/io.jl.
+See io.jl.
 
 @author: forrest
 """

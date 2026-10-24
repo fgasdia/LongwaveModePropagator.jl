@@ -1,7 +1,7 @@
 % Matlab script to create a JSON file formated to be parsed
 % by LongwaveModePropagator.jl as a `ExponentialInput`.
 % 
-% See examples/io.jl.
+% See io.jl.
 
 input.name = "basic";
 input.description = "Test ExponentialInput";
