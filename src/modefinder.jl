@@ -487,18 +487,7 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     # is possible multiple identical modes will be identified. Checks for valid and
     # redundant modes help ensure valid eigenangles are returned from this function.
     roots, _ = rootsandpoles(θ->solvemodalequation(θ, modeequation;
-        params=params), ComplexMesh(mesh); params=params.finderparams)
-
-
-    # TODO: delete uniqueness check
-
-    # # Scale tolerance for filtering
-    # # if tolerance is 1e-8, this rounds to 7 decimal places
-    # ndigits = round(Int, abs(log10(grpfparams.tol)+1), RoundDown)
-
-    # # Remove any redundant modes
-    # sort!(roots; by=reim, rev=true)
-    # unique!(z->round(z; digits=ndigits), roots)
+        params=params), ComplexMesh(mesh), params.finderparams)
 
     return EigenAngle.(roots)
 end

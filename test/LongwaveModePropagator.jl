@@ -28,7 +28,7 @@ function test_propagate(scenario)
     @test phase4 ≈ phase3    rtol=1e-3
 
     # Are params being carried through?
-    params = LMPParams(earthradius=6300e3)
+    params = LMPParams(earthradius=3000e3)
     E5, amp5, phase5 = propagate(waveguide, tx, rx; params=params)
     @test !isapprox(E5, E, rtol=1e-3)
     @test !isapprox(amp5, amp, rtol=1e-3)

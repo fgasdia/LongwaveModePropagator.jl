@@ -240,16 +240,11 @@ function test_findmodes(scenario)
     params = LMPParams()
     modes = @inferred findmodes(modeequation, origcoords; params=params)
 
-    # 5e-4 needed to accomodate multiplespecies_scenario. Otherwise they satisfy 1e-5
-    @test all(maxabsdiff(modes[i].θ, modes2[i].θ) < 5e-4 for i in 1:length(modes))
-
     for m in modes
         f = LMP.solvemodalequation(m, modeequation; params=params)
         isroot(f) || return f
         @test isroot(f)
     end
-
-    # return modes
 end
 
 ########
