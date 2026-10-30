@@ -419,6 +419,7 @@ of `rx.fieldcomponent`.
 """
 function fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSampler;
     params=LMPParams())
+    @unpack earthradius = params
 
     # There's no compute time advantage switching to a specialized version of fieldsum for
     # scalars.
@@ -448,9 +449,8 @@ function fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter, rx::Abstr
         end
     end
 
-    Q = 0.6822408*sqrt(frequency.f*txpower)  # factor from lw_sum_modes.for
-    # Q = Z₀/(4π)*sqrt(2π*txpower/10k)*k/2  # Ferguson and Morfitt 1981 eq (21), V/m, NOT uV/m!
-    # Q *= 100 # for V/m to uV/m
+    # Q = √(3μ₀π/(4Re))*√(f*p)*10^6 ≈ 0.6822*√(f*p) [μV/m]
+    Q = sqrt(3*U0*π/(4*earthradius)*frequency.f*txpower)*1_000_000
 
     if params.radiationresistancecorrection && zt > 0
         corrfactor = radiationresistance(k, Cγ, zt)
@@ -466,6 +466,7 @@ end
 
 function fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
     rx::AbstractSampler{<:Real}; params=LMPParams())
+    @unpack earthradius = params
 
     frequency = tx.frequency
     k = frequency.k
@@ -475,7 +476,7 @@ function fieldsum(modes, waveguide::HomogeneousWaveguide, tx::Emitter,
 
     x = distance(rx, tx)
 
-    Q = 0.6822408*sqrt(frequency.f*txpower)
+    Q = sqrt(3*U0*π/(4*earthradius)*frequency.f*txpower)*1_000_000
 
     if params.radiationresistancecorrection && zt > 0
         corrfactor = radiationresistance(k, Cγ, zt)
@@ -524,7 +525,8 @@ function fieldsum(waveguide::SegmentedWaveguide, wavefields_vec, adjwavefields_v
     zt = altitude(tx)
     Cγ = cos(inclination(tx))
 
-    Q = 0.6822408*sqrt(frequency.f*tx.power)
+    # Q = √(3μ₀π/(4Re))*√(f*p)*10^6 ≈ 0.6822*√(f*p) [μV/m]
+    Q = sqrt(3*U0*π/(4*earthradius)*frequency.f*tx.power)*1_000_000
 
     if params.radiationresistancecorrection && zt > 0
         corrfactor = radiationresistance(k, Cγ, zt)
