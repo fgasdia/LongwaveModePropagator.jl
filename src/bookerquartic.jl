@@ -317,7 +317,7 @@ function bookerwavefields(T::TMatrix, dT, q, dq)
     de = similar(e)
     @inbounds for i = 1:2
         den = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
-        den² = abs2(den)
+        den² = den^2
         dden = dT[1,4]*T[4,1] - (T[1,1]*dT[4,4] + dT[1,1]*T[4,4]) +
             q[i]*(dT[1,1] + dT[4,4] - 2*dq[i]) + dq[i]*(T[1,1] + T[4,4])
 
