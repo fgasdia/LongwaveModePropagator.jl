@@ -35,7 +35,7 @@ using RootsAndPoles
 const RP = RootsAndPoles
 
 using LongwaveModePropagator
-using LongwaveModePropagator: QE, ME, solvemodalequation, trianglemesh
+using LongwaveModePropagator: QE, ME, solvemodalequation
 ```
 
 ## Exploring the mode equation phase
@@ -214,7 +214,7 @@ initmesh = deg2rad.([0-40.0im, 0-0.0im, 89.99-40.0im, 89.99-0.0im])
 mesh = ComplexMesh(initmesh)
 
 params = FinderParams(tol=1e-5, numtasks=Threads.nthreads())
-roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_mid_me), mesh; params);
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_mid_me), mesh, params);
 ```
 
 We'll write a function to help us draw each edge of the mesh.
@@ -283,7 +283,7 @@ Here are similar plots for the other scenarios.
 
 ```@example meshgrid
 mesh = ComplexMesh(initmesh)
-roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_low_me), mesh; params);
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_low_me), mesh, params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
@@ -307,7 +307,7 @@ savefig("plot-meshgrid_day_low_mesh.svg"); nothing  # hide
 
 ```@example meshgrid
 mesh = ComplexMesh(initmesh)
-roots, poles = rootsandpoles(θ->solvemodalequation(θ, night_mid_me), mesh; params);
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, night_mid_me), mesh, params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)
@@ -333,7 +333,7 @@ At 100 kHz, `grpf` requires more mesh refinements and takes longer to run.
 
 ```@example meshgrid
 mesh = ComplexMesh(initmesh)
-roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh; params);
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh, params);
 
 @info "$(length(roots)) roots and $(length(poles)) poles"
 
@@ -355,11 +355,11 @@ savefig("plot-meshgrid_day_high_mesh.svg"); nothing  # hide
 
 ![](plot-meshgrid_day_high_mesh.svg)
 
-Increasing the number of adaptive and total mesh nodes results in a finding several extra roots.
+Increasing the number of adaptive and total mesh nodes results in a finding additional roots and poles.
 
 ```@example meshgrid
 newparams = FinderParams(tol=1e-5, maxadaptivenodes=10000, maxnodes=40000, numtasks=Threads.nthreads())
-roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh; params=newparams);
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_high_me), mesh, newparams);
 
 @info "$(length(roots)) roots and $(length(poles)) poles"
 ```
@@ -374,7 +374,7 @@ Consider additionally providing your own `params` struct with a lower value for 
 ```@example meshgrid
 initmesh = deg2rad.([0-90.0im, 0-0.0im, 89.99-90.0im, 89.99-0.0im]) 
 mesh = ComplexMesh(initmesh)
-roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_verylow_me), mesh; params);
+roots, poles = rootsandpoles(θ->solvemodalequation(θ, day_verylow_me), mesh, params);
 
 rootsdeg = rad2deg.(roots)
 polesdeg = rad2deg.(poles)

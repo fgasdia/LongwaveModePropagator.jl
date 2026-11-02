@@ -484,10 +484,9 @@ function findmodes(modeequation::ModeEquation, mesh=nothing; params=LMPParams())
     end
 
     # WARNING: If tolerance of mode finder is much less than the R integration tolerance, it
-    # is possible multiple identical modes will be identified. Checks for valid and
-    # redundant modes help ensure valid eigenangles are returned from this function.
-    roots, _ = rootsandpoles(θ->solvemodalequation(θ, modeequation;
-        params=params), ComplexMesh(mesh), params.finderparams)
+    # is possible multiple identical modes will be identified.
+    roots, _ = rootsandpoles(θ->solvemodalequation(θ, modeequation; params),
+                             ComplexMesh(mesh), params.finderparams)
 
     return EigenAngle.(roots)
 end
