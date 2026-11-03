@@ -3,7 +3,7 @@ Excitation factor, height gain functions, and electric field mode sum
 ==#
 
 # Rows of the field matrix returned by `fieldsum`: (Ez, Ey, Ex, Z₀Hz, Z₀Hy, Z₀Hx).
-# Magnetic rows carry Z₀H so all six rows share units of V/m and the same Q scaling;
+# Magnetic rows carry Z₀H so all six rows share units of μV/m and the same Q scaling;
 # see `modeterms`.
 const NUMFIELDCOMPONENTS = 6
 
@@ -193,7 +193,8 @@ end
 Compute height gain functions at height `z` returned as the tuple `(fz, fy, fx, dfy)` where
 eigenangle `ea₀` is referenced to the ground.
 
-- `fz` is the height gain for the vertical electric field component ``Ez``.
+- `fz` is the height gain for the transverse magnetic field component ``Z₀Hy``
+   (``f₁`` of [Pappert1986]). The vertical electric field component is ``Ez = -S₀ f_z``.
 - `fy` is the height gain for the transverse electric field component ``Ey``.
 - `fx` is the height gain for the horizontal electric field component ``Ex``.
 - `dfy` is the height derivative ``d(fy)/dz`` of the ``Ey`` height gain, used for the
@@ -301,7 +302,11 @@ end
 
 Compute `tx` and `rx` height-gain and excitation factor products and `ExcitationFactor`
 constants returned as the tuple `(txterm, rxterm)`. Magnetic receiver terms in normalized
-units (`Z₀H, V/m`).
+units (`Z₀H, μV/m`).
+
+The magnetic terms follow from ∇×E = -ikZ₀H with ∂/∂x = -ikS₀ and ∂/∂y = 0:
+Z₀Hz = S₀Ey and Z₀Hx = (dEy/dz)/(ik), while f_z is the Z₀Hy height gain
+[Pappert1986].
 
 The returned `txterm` is:
 ```math
@@ -314,7 +319,7 @@ and `rxterm` is the height-gain function ``f(zᵣ)`` appropriate for `rx.fieldco
 |      ``Ez``       |  ``-S₀⋅f_z``          |
 |      ``Ey``       |  ``EyHy⋅f_y``         |
 |      ``Ex``       |     ``-f_x``          |
-|      ``Hz``       |  ``-S₀⋅EyHy⋅f_y``     |
+|      ``Hz``       |  ``S₀⋅EyHy⋅f_y``     |
 |      ``Hy``       |       ``f_z``        |
 |      ``Hx``       |  ``EyHy⋅f_y′/(ik)``   |
 
@@ -376,7 +381,6 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     rxHz = S₀*EyHy*fyr
     rxHy = fzr
     rxHx = EyHy*dfyr/(1im*frequency.k)
-    #TODO confirm these are correct at non-zero altitudes with the index of refraction scaling for earth's curvature
 
     rxterm = SVector(rxEz, rxEy, rxEx, rxHz, rxHy, rxHx)
 
@@ -429,8 +433,8 @@ Electric field calculation
 Compute the complex electric field by summing `modes` in `waveguide` for emitter `tx` at
 sampler `rx`.
 
-This function always returns all three electric field components, regardless of the value
-of `rx.fieldcomponent`.
+This function always returns all `NUMFIELDCOMPONENTS` field components
+(``Ez, Ey, Ex, Z₀Hz, Z₀Hy, Z₀Hx``), regardless of the value of `rx.fieldcomponent`.
 
 # References
 

@@ -9,7 +9,7 @@ Vector components of the electromagnetic field.
         completing the right-handed coordinate system
     - `E` calculates `Ez`, `Ey`, and `Ex`
     - `Hz`, `Hy`, `Hx` are the magnetic field components along the same axes, returned
-        in normalized units ``Z₀H`` (V/m); divide by `Z0` for A/m or by `C0` for tesla
+        in normalized units ``Z₀H`` (μV/m); divide by `Z0` for μA/m or by `C0` for μT
     - `H` calculates `Hz`, `Hy`, and `Hx`
     - `EH` calculates all six components
 """

@@ -34,8 +34,10 @@ Individual fields are specified with a dot syntax:
 Fields.Ez
 ```
 
-`Fields.Ez`, `Fields.Ex`, and `Fields.Ey` are self explanatory. `Fields.E` returns all
-three electric field components at once.
+`Fields.Ez`, `Fields.Ex`, and `Fields.Ey` are self explanatory. `Fields.Hz`, `Fields.Hx`,
+and `Fields.Hy` are the corresponding magnetic fields in ``Z₀H``, matching units with the
+electric fields. `Fields.E` returns all three electric field components at once. `Fields.H`
+does the same with magnetic components and `Fields.EH` returns all electromagnetic components.
 
 !!! warning
 
