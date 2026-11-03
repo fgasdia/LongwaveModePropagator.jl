@@ -110,7 +110,7 @@ See also: [`IntegrationParams`](@ref)
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
     curvatureheight::Float64 = 50e3  # m
-    finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=6000, maxnodes=40000, numtasks=Threads.nthreads())
+    finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=8000, maxnodes=40000, numtasks=Threads.nthreads())
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =
