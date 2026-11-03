@@ -79,8 +79,8 @@ Parameters for the `LongwaveModePropagator` module with defaults:
 - `curvatureheight::Float64 = 50e3`: reference height for Earth curvature in meters. At this
     height, the index of refraction is 1, and is therefore the reference height for
     eigenangles.
-- `finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=2000, numtasks=Threads.nthreads())`: parameters for the `SA-GRPF`
-    complex root-finding algorithm.
+- `finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=6000, maxnodes=40000,
+    numtasks=Threads.nthreads())`: parameters for `RootsAndPoles`.
 - `integrationparams::IntegrationParams{T} =
     IntegrationParams(solver=Vern7(), tolerance=1e-5)`:
     parameters passed to `DifferentialEquations.jl` for integration of the ionosphere
@@ -110,7 +110,7 @@ See also: [`IntegrationParams`](@ref)
     earthradius::Float64 = 6369e3  # m
     earthcurvature::Bool = true
     curvatureheight::Float64 = 50e3  # m
-    finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=6000, maxnodes=30000, numtasks=Threads.nthreads())
+    finderparams::FinderParams = FinderParams(tol=1e-5, maxadaptivenodes=6000, maxnodes=40000, numtasks=Threads.nthreads())
     integrationparams::IntegrationParams{T} = IntegrationParams()
     wavefieldheights::H = range(topheight, 0; length=2049)
     wavefieldintegrationparams::IntegrationParams{T2} =
@@ -186,11 +186,6 @@ function propagate(waveguide::HomogeneousWaveguide, tx::Emitter, rx::AbstractSam
     if isnothing(modes)
         if isnothing(mesh)
             mesh = defaultmesh(tx.frequency)
-        else
-            if minimum(imag(mesh)) < deg2rad(-31)
-                @warn "imaginary component less than -0.5410 rad (-31°) may cause wave"*
-                    "fields calculated with modified Hankel functions to overflow."
-            end
         end
 
         modeequation = PhysicalModeEquation(tx.frequency, waveguide)
@@ -230,11 +225,6 @@ function propagate(waveguide::SegmentedWaveguide, tx::Emitter, rx::AbstractSampl
 
     if isnothing(mesh)
         mesh = defaultmesh(tx.frequency)
-    else
-        if minimum(imag(mesh)) < deg2rad(-31)
-            @warn "imaginary component less than -0.5410 rad (-31°) may cause wave fields"*
-                "calculated with modified Hankel functions to overflow."
-        end
     end
 
     J = length(waveguide)  # number of waveguide segments

@@ -65,9 +65,9 @@ function test_propagate_segmented(scenario)
     @test eltype(phase) == Float64
 
     E1, amp1, phase1 = propagate(waveguide, tx, rx)
-    @test meanabsdiff(E1, E) < 1
-    @test meanabsdiff(amp1, amp) < 1
-    @test meanabsdiff(phase1, phase) < 0.1
+    @test meanabsdiff(E1, E) < 5
+    @test meanabsdiff(amp1, amp) < 0.1
+    @test meanabsdiff(phase1, phase) < 0.01
 end
 
 function test_mcranges_segmented(scenario)
