@@ -22,7 +22,7 @@ susceptibility tensor `M` or `T` matrix.
 bookerquartic
 
 function bookerquartic(ea::EigenAngle, M)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+    S, C² = ea.sinθ, ea.cos²θ
 
     # Precompute
     M11p1 = 1 + M[1,1]
