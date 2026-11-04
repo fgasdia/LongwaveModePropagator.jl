@@ -54,7 +54,7 @@ f = 24e3
 tx = Transmitter(f)
 
 ranges = 0:1e3:2000e3
-field = Fields.E
+field = Fields.EH
 rx = GroundSampler(ranges, field)
 
 bfield = BField(50e-6, π/2, 0)
@@ -68,22 +68,22 @@ The [`propagate`](@ref) function returns a tuple of complex electric field,
 amplitude in dB μV/m, and phase in radians.
 
 ```@example components
-E, a, p = propagate(waveguide, tx, rx)
+EH, a, p = propagate(waveguide, tx, rx)
 nothing  # hide
 ```
 
-You'll notice that `E`, `a`, and `p` are 2001 × 3 matrices
+You'll notice that `EH`, `a`, and `p` are 2001 × 6 matrices
 
 ```@example components
-size(E), size(a), size(p)
+size(EH), size(a), size(p)
 ```
 
-The columns are, in order, the `Ez`, `Ey`, and `Ex` field components.
+The columns are, in order, the `Ez`, `Ey`, `Ex`, `Hz`, `Hy`, and `Hx` field components.
 
 Here are quick plots of the amplitude:
 
 ```@example components
-fieldlabels = ["Ez" "Ey" "Ex"]
+fieldlabels = ["Ez" "Ey" "Ex" "Hz" "Hy" "Hx"]
 
 plot(ranges/1000, a;
      xlabel="range (km)", ylabel="amplitude (dB)",
