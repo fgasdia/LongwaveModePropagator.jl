@@ -2,7 +2,10 @@
 Excitation factor, height gain functions, and electric field mode sum
 ==#
 
-const NUMFIELDCOMPONENTS = 3  # see `modeterms`
+# Rows of the field matrix returned by `fieldsum`: (Ez, Ey, Ex, Z₀Hz, Z₀Hy, Z₀Hx).
+# Magnetic rows carry Z₀H so all six rows share units of μV/m and the same Q scaling;
+# see `modeterms`.
+const NUMFIELDCOMPONENTS = 6
 
 """
     ExcitationFactor{T,T2}
@@ -187,12 +190,15 @@ end
 @doc raw"""
     heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=LMPParams())
 
-Compute height gain functions at height `z` returned as the tuple `(fz, fy, fx)` where
+Compute height gain functions at height `z` returned as the tuple `(fz, fy, fx, dfy)` where
 eigenangle `ea₀` is referenced to the ground.
 
-- `fz` is the height gain for the vertical electric field component ``Ez``.
+- `fz` is the height gain for the transverse magnetic field component ``Z₀Hy``
+   (``f₁`` of [Pappert1986]). The vertical electric field component is ``Ez = -S₀ f_z``.
 - `fy` is the height gain for the transverse electric field component ``Ey``.
 - `fx` is the height gain for the horizontal electric field component ``Ex``.
+- `dfy` is the height derivative ``d(fy)/dz`` of the ``Ey`` height gain, used for the
+    horizontal magnetic field component ``Hx``.
 [Pappert1983]
 
 !!! note
@@ -240,15 +246,20 @@ function heightgains(z, ea₀, frequency, efconstants::ExcitationFactor; params=
         # Height gain for Ex, also called g(z)
         # f₂ = 1/(1im*k) df₁/dz
         fx = expz/(1im*k*earthradius)*(F₁h₁z + F₂h₂z + 2*pow23(k/α)*(F₁*dh₁z + F₂*dh₂z))
+
+        # Height derivative of fy: d(fy)/dz = dqz/dz*(F₃*h₁′ + F₄*h₂′)
+        # where qz = (k/α)^(2/3)*(C² + α*z) so dqz/dz = α*(k/α)^(2/3)
+        dfy = α*pow23(k/α)*(F₃*dh₁z + F₄*dh₂z)
     else
         # Flat earth, [Pappert1983] pg. 12--13
         expiz = cis(k*C*z)
         fz = expiz + Rg[1,1]/expiz
         fy = expiz + Rg[2,2]/expiz
         fx = C*(expiz - Rg[1,1]/expiz)
+        dfy = 1im*k*C*(expiz - Rg[2,2]/expiz)
     end
 
-    return fz, fy, fx
+    return fz, fy, fx, dfy
 end
 
 """
@@ -290,7 +301,12 @@ end
     modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPParams())
 
 Compute `tx` and `rx` height-gain and excitation factor products and `ExcitationFactor`
-constants returned as the tuple `(txterm, rxterm)`.
+constants returned as the tuple `(txterm, rxterm)`. Magnetic receiver terms in normalized
+units (`Z₀H, μV/m`).
+
+The magnetic terms follow from ∇×E = -ikZ₀H with ∂/∂x = -ikS₀ and ∂/∂y = 0:
+Z₀Hz = S₀Ey and Z₀Hx = (dEy/dz)/(ik), while f_z is the Z₀Hy height gain
+[Pappert1986].
 
 The returned `txterm` is:
 ```math
@@ -300,9 +316,12 @@ and `rxterm` is the height-gain function ``f(zᵣ)`` appropriate for `rx.fieldco
 
 | `fieldcomponent` |   ``f(zᵣ)``    |
 |:----------------:|:--------------:|
-|      ``z``       |  ``-S₀⋅f_z``   |
-|      ``y``       |  ``EyHy⋅f_y``  |
-|      ``x``       |     ``-f_x``   |
+|      ``Ez``       |  ``-S₀⋅f_z``          |
+|      ``Ey``       |  ``EyHy⋅f_y``         |
+|      ``Ex``       |     ``-f_x``          |
+|      ``Hz``       |  ``S₀⋅EyHy⋅f_y``     |
+|      ``Hy``       |       ``f_z``        |
+|      ``Hx``       |  ``EyHy⋅f_y′/(ik)``   |
 
 # References
 
@@ -343,20 +362,27 @@ function modeterms(modeequation, tx::Emitter, rx::AbstractSampler; params=LMPPar
     λv, λb, λe = excitationfactor(ea, dFdθ, R, efconstants; params=params)
 
     # Transmitter term
-    fzt, fyt, fxt = heightgains(zt, ea₀, frequency, efconstants; params=params)
+    fzt, fyt, fxt, dfyt = heightgains(zt, ea₀, frequency, efconstants; params=params)
     txterm = λv*fzt*t1 + λb*fyt*t2 + λe*fxt*t3
 
     # Receiver term
     if zr == zt
-        fzr, fyr, fxr = fzt, fyt, fxt
+        fzr, fyr, fxr, dfyr = fzt, fyt, fxt, dfyt
     else
-        fzr, fyr, fxr = heightgains(zr, ea₀, frequency, efconstants; params=params)
+        fzr, fyr, fxr, dfyr = heightgains(zr, ea₀, frequency, efconstants; params=params)
     end
 
+    EyHy = efconstants.EyHy
+
     rxEz = -S₀*fzr
-    rxEy = efconstants.EyHy*fyr
+    rxEy = EyHy*fyr
     rxEx = -fxr
-    rxterm = SVector(rxEz, rxEy, rxEx)
+
+    rxHz = S₀*EyHy*fyr
+    rxHy = fzr
+    rxHx = EyHy*dfyr/(1im*frequency.k)
+
+    rxterm = SVector(rxEz, rxEy, rxEx, rxHz, rxHy, rxHx)
 
     return txterm, rxterm
 end
@@ -380,14 +406,18 @@ function modeterms(modeequation::ModeEquation, tx::Transmitter{VerticalDipole},
 
     # Transmitter term
     # TODO: specialized heightgains for z = 0
-    fz, fy, fx = heightgains(0.0, ea₀, frequency, efconstants; params=params)
+    fz, fy, fx, dfy = heightgains(0.0, ea₀, frequency, efconstants; params=params)
     txterm = λv*fz
 
-    # Receiver term
+    EyHy = efconstants.EyHy
+
     rxEz = -S₀*fz
-    rxEy = efconstants.EyHy*fy
+    rxEy = EyHy*fy
     rxEx = -fx
-    rxterm = SVector(rxEz, rxEy, rxEx) # length(rxterm) == NUMRXTERMS
+    rxHz = S₀*EyHy*fy
+    rxHy = fz
+    rxHx = EyHy*dfy/(1im*frequency.k)
+    rxterm = SVector(rxEz, rxEy, rxEx, rxHz, rxHy, rxHx)  # length == NUMFIELDCOMPONENTS
 
     return txterm, rxterm
 end
@@ -403,8 +433,8 @@ Electric field calculation
 Compute the complex electric field by summing `modes` in `waveguide` for emitter `tx` at
 sampler `rx`.
 
-This function always returns all three electric field components, regardless of the value
-of `rx.fieldcomponent`.
+This function always returns all `NUMFIELDCOMPONENTS` field components
+(``Ez, Ey, Ex, Z₀Hz, Z₀Hy, Z₀Hx``), regardless of the value of `rx.fieldcomponent`.
 
 # References
 
