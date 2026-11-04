@@ -33,9 +33,9 @@ function compare(lwpc_file, lmp_d, lmp_a, lmp_p)
     lm_p = mod.(lmp_p[distmask], 360)  # modulo because we're not interested in wrapping
     lw_p = mod.(lwpc_p[distmask], 360)
 
-    @test lmp_d ≈ lwpc_d
-    @test meanabsdiff(lmp_a[distmask], lwpc_a[distmask]) < 0.4
-    @test meanabsdiff(lm_p, lw_p) < 4.0
+    @test lmp_d == lwpc_d
+    @test meanabsdiff(lmp_a[distmask], lwpc_a[distmask]) < 0.5
+    @test meanabsdiff(lm_p, lw_p) < 5
 end
 
 

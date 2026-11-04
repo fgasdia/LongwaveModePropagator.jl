@@ -46,7 +46,7 @@ correction subtracts ``2/Rₑ*(H - altitude)`` from the diagonal of ``M`` where 
 function susceptibility(altitude, frequency, bfield, species; params=LMPParams())
     @unpack earthradius, earthcurvature, curvatureheight = params
 
-    B, x, y, z = bfield.B, bfield.dcl, bfield.dcm, bfield.dcn
+    x, y, z = bfield.dcl, bfield.dcm, bfield.dcn
     ω = frequency.ω
 
     # Precompute constants (if multiple species)
@@ -54,7 +54,7 @@ function susceptibility(altitude, frequency, bfield, species; params=LMPParams()
     invE0ω = invω/E0
 
     #== TODO:
-    The zero type should be inferred instead of hard coded, but because we species N and nu
+    The zero type should be inferred instead of hard coded, but because species N and nu
     are FunctionWrappers, we know the types will be ComplexF64.
     ==#
     U²D = zero(ComplexF64)
@@ -111,29 +111,3 @@ susceptibility(altitude, me::ModeEquation; params=LMPParams()) =
 
 susceptibility(altitude, frequency, w::HomogeneousWaveguide; params=LMPParams()) =
     susceptibility(altitude, frequency, w.bfield, w.species; params=params)
-
-"""
-    susceptibilityspline(frequency, bfield, species; params=LMPParams())
-    susceptibilityspline(frequency, w::HomogeneousWaveguide; params=LMPParams())
-    susceptibilityspline(me::ModeEquation; params=LMPParams())
-
-Construct a cubic interpolating spline of [`susceptibility`](@ref) and return the callable
-`Interpolations` type.
-
-`params.susceptibilitysplinestep` is the altitude step in meters used to construct the
-spline between `BOTTOMHEIGHT` and `params.topheight`.
-"""
-function susceptibilityspline(frequency, bfield, species; params=LMPParams())
-    zs = BOTTOMHEIGHT:params.susceptibilitysplinestep:params.topheight
-    Ms = susceptibility.(zs, (frequency,), (bfield,), (species,))
-
-    itp = cubic_spline_interpolation(zs, Ms)
-
-    return itp
-end
-
-susceptibilityspline(me::ModeEquation; params=LMPParams()) =
-    susceptibilityspline(me.frequency, me.waveguide; params=params)
-
-susceptibilityspline(frequency, w::HomogeneousWaveguide; params=LMPParams()) =
-    susceptibilityspline(frequency, w.bfield, w.species; params=params)
