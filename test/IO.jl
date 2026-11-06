@@ -31,11 +31,7 @@ function generate_basic()
     input.frequency = frequency
     input.output_ranges = output_ranges
 
-    json_str = JSON3.write(input)
-
-    open("basic.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("basic.json", input; pretty=true)
 
     return nothing
 end
@@ -84,11 +80,7 @@ function generate_table()
     input.frequency = frequency
     input.output_ranges = output_ranges
 
-    json_str = JSON3.write(input)
-
-    open("table.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("table.json", input; pretty=true)
 
     return nothing
 end
@@ -152,11 +144,7 @@ function generate_batchtable()
 
     binput.inputs = inputs
 
-    json_str = JSON3.write(binput)
-
-    open("batchtable.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("batchtable.json", binput; pretty=true)
 
     return nothing
 end
@@ -211,43 +199,17 @@ function generate_batchbasic()
 
     binput.inputs = inputs
 
-    json_str = JSON3.write(binput)
-
-    open("batchbasic.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("batchbasic.json", binput; pretty=true)
 
     return nothing
 end
 
-function read_basic()
-    open("basic.json","r") do f
-        v = JSON3.read(f, ExponentialInput)
-        return v
-    end
-end
+read_basic() = JSON.parsefile("basic.json", ExponentialInput)
+read_table() = JSON.parsefile("table.json", TableInput)
+read_batchbasic() = JSON.parsefile("batchbasic.json", BatchInput{ExponentialInput})
 
-function read_table()
-    open("table.json", "r") do f
-        v = JSON3.read(f, TableInput)
-        return v
-    end
-end
-
-function read_batchbasic()
-    open("batchbasic.json","r") do f
-        v = JSON3.read(f, BatchInput{ExponentialInput})
-        return v
-    end
-end
-
-function read_corrupted_basic()
-    # missing the ground_sigmas field
-    open("corrupted_basic.json","r") do f
-        v = JSON3.read(f, ExponentialInput)
-        return v
-    end
-end
+# missing the ground_sigmas field
+read_corrupted_basic() = JSON.parsefile("corrupted_basic.json", ExponentialInput)
 
 function run_basic()
     s = LMP.parse("basic.json")

@@ -9,7 +9,7 @@ using StaticArrays: promote_tuple_eltype, convert_ntuple
 using OrdinaryDiffEq, DiffEqCallbacks
 using Parameters, ProgressLogging
 using EnumX
-using JSON3, StructTypes
+using JSON
 using Interpolations
 import FunctionWrappers: FunctionWrapper
 
@@ -302,7 +302,7 @@ function propagate(file::AbstractString, outfile=missing; incrementalwrite=false
     else
         output = buildrun(s; mesh=mesh, unwrap=unwrap, params=params)
 
-        json_str = JSON3.write(output)
+        json_str = JSON.json(output)
 
         open(outfile, "w") do f
             write(f, json_str)

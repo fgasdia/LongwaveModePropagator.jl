@@ -12,7 +12,7 @@ Let's load the necessary packages.
 
 ```@example io
 using Dates
-using JSON3
+using JSON
 
 using LongwaveModePropagator
 ```
@@ -70,13 +70,13 @@ nothing  # hide
 Here it is formatted as JSON.
 
 ```@example io
-json_str = JSON3.pretty(input)
+json_str = JSON.json(input; pretty=true)
 ```
 
 Let's also save this to a file.
 
 ```@example io
-json_str = JSON3.write(input)
+json_str = JSON.json(input)
 
 filename = "basic.json"
 
@@ -117,7 +117,7 @@ tinput.ground_epsrs = [4]
 tinput.frequency = 24e3
 tinput.output_ranges = collect(0:100e3:1000e3)
 
-json_str = JSON3.pretty(tinput)
+json_str = JSON.json(tinput; pretty=true)
 ```
 
 ## [BatchInput](@id batchinput_io)
