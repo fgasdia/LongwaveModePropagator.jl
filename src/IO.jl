@@ -49,7 +49,7 @@ profile.
 - `output_ranges::Vector{Float64}`: distances from the transmitter at which the field will
     be calculated.
 """
-mutable struct ExponentialInput <: Input
+@noarg mutable struct ExponentialInput <: Input
     name::String
     description::String
     datetime::DateTime
@@ -63,16 +63,11 @@ mutable struct ExponentialInput <: Input
     b_azs::Vector{Float64}
     ground_sigmas::Vector{Float64}
     ground_epsrs::Vector{Int}
-    frequency::Float64
+    frequency::Float64 = NaN
     output_ranges::Vector{Float64}
 
-    function ExponentialInput()
-        s = new()
-        setfield!(s, :frequency, NaN)
-        return s
-    end
+    ExponentialInput() = new()
 end
-StructTypes.StructType(::Type{ExponentialInput}) = StructTypes.Mutable()
 
 """
     TableInput <: Input
@@ -101,7 +96,7 @@ StructTypes.StructType(::Type{ExponentialInput}) = StructTypes.Mutable()
 - `output_ranges::Vector{Float64}`: distances from the transmitter at which the field will
     be calculated.
 """
-mutable struct TableInput <: Input
+@noarg mutable struct TableInput <: Input
     name::String
     description::String
     datetime::DateTime
@@ -109,45 +104,34 @@ mutable struct TableInput <: Input
     # All units SI
     segment_ranges::Vector{Float64}
     altitude::Vector{Float64}
-    density::Vector{Vector{Float64}}
-    collision_frequency::Vector{Vector{Float64}}
+    density::Vector{Vector{Float64}} = [Vector{Float64}()]
+    collision_frequency::Vector{Vector{Float64}} = [Vector{Float64}()]
     b_mags::Vector{Float64}
     b_dips::Vector{Float64}
     b_azs::Vector{Float64}
     ground_sigmas::Vector{Float64}
     ground_epsrs::Vector{Int}
-    frequency::Float64
+    frequency::Float64 = NaN
     output_ranges::Vector{Float64}
 
-    function TableInput()
-        s = new()
-        setfield!(s, :frequency, NaN)
-        setfield!(s, :density, [Vector{Float64}()])
-        setfield!(s, :collision_frequency, [Vector{Float64}()])
-        return s
-    end
+    TableInput() = new()
 end
-StructTypes.StructType(::Type{TableInput}) = StructTypes.Mutable()
 
 """
     BatchInput{T} <: Input
 
 A collection of `inputs` with a batch `name`, `description`, and `datetime`.
 """
-mutable struct BatchInput{T} <: Input
+@noarg mutable struct BatchInput{T} <: Input
     name::String
     description::String
     datetime::DateTime
 
     inputs::Vector{T}
 
-    function BatchInput{T}() where T
-        s = new{T}()
-        return s
-    end
+    BatchInput{T}() where {T} = new{T}()
 end
 BatchInput() = BatchInput{Any}()
-StructTypes.StructType(::Type{<:BatchInput}) = StructTypes.Mutable()
 
 """
     Output
@@ -168,7 +152,7 @@ abstract type Output end
 - `amplitude::Vector{Float64}`
 - `phase::Vector{Float64}`
 """
-mutable struct BasicOutput <: Output
+@noarg mutable struct BasicOutput <: Output
     name::String
     description::String
     datetime::DateTime
@@ -179,7 +163,6 @@ mutable struct BasicOutput <: Output
 
     BasicOutput() = new()
 end
-StructTypes.StructType(::Type{BasicOutput}) = StructTypes.Mutable()
 
 """
     BatchOutput{T} <: Output
@@ -188,21 +171,16 @@ A collection of `outputs` with a batch `name`, `description`, and `datetime`.
 
 See also: [`BatchInput`](@ref)
 """
-mutable struct BatchOutput{T} <: Output
+@noarg mutable struct BatchOutput{T} <: Output
     name::String
     description::String
     datetime::DateTime
 
-    outputs::Vector{T}
+    outputs::Vector{T} = Vector{T}()
 
-    function BatchOutput{T}() where {T}
-        s = new{T}()
-        s.outputs = T[]
-        return s
-    end
+    BatchOutput{T}() where {T} = new{T}()
 end
 BatchOutput() = BatchOutput{Any}()
-StructTypes.StructType(::Type{<:BatchOutput}) = StructTypes.Mutable()
 jsonsafe!(s::BatchOutput) = jsonsafe!(s.outputs)
 
 """
@@ -313,14 +291,14 @@ function parse(file, t::Type{<:Input})
     # To clarify the syntax here, `filecontents` is what is returned from inside
     # the `do` block; the JSON contents or `nothing`
     filecontents = open(file, "r") do f
-        s = JSON3.read(f, t)
+        s = JSON.parse(f, t)
         if iscomplete(s) && validlengths(s)
             matched = true
             return s
         end
     end
 
-    matched ? filecontents : nothing
+    return matched ? filecontents : nothing
 end
 
 function parse(file, t::Type{<:Output})
@@ -329,14 +307,14 @@ function parse(file, t::Type{<:Output})
     # To clarify the syntax here, `filecontents` is what is returned from inside
     # the `do` block; the JSON contents or `nothing`
     filecontents = open(file, "r") do f
-        s = JSON3.read(f, t)
+        s = JSON.parse(f, t)
         if iscomplete(s)
             matched = true
             return s
         end
     end
 
-    matched ? filecontents : nothing
+    return matched ? filecontents : nothing
 end
 
 """
@@ -491,7 +469,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
 
     if append && isfile(outfile)
         batch = open(outfile, "r") do f
-            v = JSON3.read(f, BatchOutput{BasicOutput})
+            v = JSON.parse(f, BatchOutput{BasicOutput})
             return v
         end
     else
@@ -520,7 +498,7 @@ function buildrunsave(outfile, s::BatchInput; append=false, mesh=nothing, unwrap
         output = buildrun(s.inputs[i]; mesh=mesh, unwrap=unwrap, params=params)
         push!(batch.outputs, output)
 
-        json_str = JSON3.write(batch)
+        json_str = JSON.json(batch)
 
         open(outfile, "w") do f
             write(f, json_str)
