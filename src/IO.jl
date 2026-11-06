@@ -65,8 +65,6 @@ profile.
     ground_epsrs::Vector{Int}
     frequency::Float64 = NaN
     output_ranges::Vector{Float64}
-
-    ExponentialInput() = new()
 end
 
 """
@@ -113,8 +111,6 @@ end
     ground_epsrs::Vector{Int}
     frequency::Float64 = NaN
     output_ranges::Vector{Float64}
-
-    TableInput() = new()
 end
 
 """
@@ -128,8 +124,6 @@ A collection of `inputs` with a batch `name`, `description`, and `datetime`.
     datetime::DateTime
 
     inputs::Vector{T}
-
-    BatchInput{T}() where {T} = new{T}()
 end
 BatchInput() = BatchInput{Any}()
 
@@ -160,8 +154,6 @@ abstract type Output end
     output_ranges::Vector{Float64}
     amplitude::Vector{Float64}
     phase::Vector{Float64}
-
-    BasicOutput() = new()
 end
 
 """
@@ -177,8 +169,6 @@ See also: [`BatchInput`](@ref)
     datetime::DateTime
 
     outputs::Vector{T} = Vector{T}()
-
-    BatchOutput{T}() where {T} = new{T}()
 end
 BatchOutput() = BatchOutput{Any}()
 jsonsafe!(s::BatchOutput) = jsonsafe!(s.outputs)
