@@ -185,7 +185,7 @@ function sortquarticroots!(q)
     # It looks like we could just `sort!(q, by=real)`, but the quadrants of each root are
     # not fixed and the positions in the Argand diagram are just approximate.
 
-    length(q) == 4 || @warn "length of `q` is not 4"
+    @assert length(q) == 4
 
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
