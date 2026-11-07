@@ -46,7 +46,7 @@ Single element vectors are treated as a single `HomogeneousWaveguide`.
 
 To show the equivalent JSON format, we'll build a simple, homogeneous ionosphere
 `ExponentialInput`. It's defined as a `mutable struct`, so it is simple to specify the
-fields one by one.
+fields one by one. Note that `fieldcomponent` defaults to `Fields.Ez` if left unspecified.
 
 ```@example io
 input = ExponentialInput()
@@ -63,6 +63,7 @@ input.b_azs = [0.0]
 input.ground_sigmas = [0.001]
 input.ground_epsrs = [4]
 input.frequency = 24e3
+input.fieldcomponent = Fields.Ez
 input.output_ranges = collect(0:100e3:1000e3)
 nothing  # hide
 ```
@@ -115,6 +116,7 @@ tinput.b_azs = [0.0]
 tinput.ground_sigmas = [0.001]
 tinput.ground_epsrs = [4]
 tinput.frequency = 24e3
+tinput.fieldcomponent = Fields.Ez
 tinput.output_ranges = collect(0:100e3:1000e3)
 
 json_str = JSON.json(tinput; pretty=true)
@@ -142,10 +144,10 @@ nothing  # hide
 
 ## Outputs
 
-There are only two [`LongwaveModePropagator.Output`](@ref) types:
+There are two fundamental [`LongwaveModePropagator.Output`](@ref) types:
 [`BasicOutput`](@ref) and [`BatchOutput`](@ref).
-Both `ExponentialInput`s and `TableInput`s create `BasicOutput`s, but the `BatchInput`
-creates a `BatchOutput`.
+Both `ExponentialInput`s and `TableInput`s create `BasicOutput`s, when `fieldcomponent`
+is a single component but the `BatchInput`creates a `BatchOutput`.
 
 ```@docs; canonical=false
 BasicOutput
@@ -160,6 +162,13 @@ output
 
 Not surprisingly, a `BatchOutput` is simply a container holding a `Vector` of
 `BasicOutput`s, as well as some additional metadata from the corresponding `BatchInput`.
+
+However, when a [`LongwaveModePropagator.Input`](@ref) defines `fieldcomponent` as
+`Fields.E`, `Fields.H`, or `Fields.EH`, a `BasicOutput` is unable to return multiple
+components for `amplitude` and `phase` so a  [`FieldsOutput`](@ref) is used instead.
+`BatchOutput` can hold `FieldsOutput` when `BatchInput` calls for multiple fields,
+however every input in a `BatchInput` must request the same `fieldcomponent` so
+that the outputs share a type.
 
 ## [JSON I/O from Matlab](@id matlab_json)
 
@@ -261,6 +270,7 @@ input['b_azs'] = [0.0]
 input['ground_sigmas'] = [0.001]
 input['ground_epsrs'] = [4]
 input['frequency'] = 24e3
+input['fieldcomponent'] = "Ez"
 input['output_ranges'] = np.arange(0, 1000e3, 100e3).tolist()
 
 json_str = json.dumps(input)
