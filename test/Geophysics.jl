@@ -6,7 +6,7 @@ end
 function test_BField()
     bfield = BField(50e-6, π/2, 3π/2)
     @test isbits(bfield)
-    @test (@test_logs (:warn, "BField magnitude of exactly 0 is not supported."*
+    @test (@test_logs (:info, "BField magnitude of exactly 0 is not supported."*
                        " Setting B = 1e-16.") BField(0, π/2, 3π/2).B) == 1e-16
 
     #==
