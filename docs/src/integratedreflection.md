@@ -41,6 +41,7 @@ First we load the packages we need.
 using Statistics
 using Plots
 using OrdinaryDiffEq
+using OrdinaryDiffEqVerner, OrdinaryDiffEqLowOrderRK, OrdinaryDiffEqAdamsBashforthMoulton
 using Interpolations
 
 using LongwaveModePropagator
@@ -244,8 +245,8 @@ end
 tolerances = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9]
 tolerancestrings = string.(tolerances)
 
-solvers = [RK4(), Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8(), VCABM()]
-solverstrings = ["RK4", "Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8", "VCABM"]
+solvers = [Tsit5(), BS5(), OwrenZen5(), Vern6(), Vern7(), Vern8(), VCABM()]
+solverstrings = ["Tsit5", "BS5", "OwrenZen5", "Vern6", "Vern7", "Vern8", "VCABM"]
 
 Rs, times = compute(scenarios, tolerances, solvers)
 nothing  # hide
