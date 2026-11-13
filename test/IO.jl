@@ -1,4 +1,4 @@
-function generate_basic(fieldcomponent=Fields.Ez)
+function generate_basic(;write=true)
     # Waveguide definition
     segment_ranges = [0, 500e3, 1000e3, 1500e3]
     hprimes = [72.0, 74, 75, 76]
@@ -9,17 +9,14 @@ function generate_basic(fieldcomponent=Fields.Ez)
     ground_sigmas = [0.001, 0.001, 0.0005, 0.0001]
     ground_epsrs = [4, 4, 10, 10]
 
-    # Transmitter
     frequency = 24e3
 
-    # Outputs
     output_ranges = collect(0:20e3:2000e3)
 
     input = ExponentialInput()
     input.name = "basic"
     input.description = "Test ExponentialInput"
     input.datetime = Dates.now()
-
     input.segment_ranges = segment_ranges
     input.hprimes = hprimes
     input.betas = betas
@@ -31,23 +28,42 @@ function generate_basic(fieldcomponent=Fields.Ez)
     input.frequency = frequency
     input.output_ranges = output_ranges
 
+    write && JSON.json("basic.json", input; pretty=true)
+
+    return input
+end
+
+function generate_basic_fieldcomponent(fieldcomponent=Fields.Ez; write=true)
+    input = generate_basic(write=false)
+    input.fieldcomponent = fieldcomponent
+    
     if fieldcomponent == Fields.Ez
-        input.fieldcomponent = Fields.Ez
-        JSON.json("basic.json", input; pretty=true)
+        write &&JSON.json("basic.json", input; pretty=true)
     elseif fieldcomponent == Fields.E
-        input.fieldcomponent = Fields.E
-        JSON.json("basic-E.json", input; pretty=true)
+        write && JSON.json("basic-E.json", input; pretty=true)
     elseif fieldcomponent == Fields.EH
-        input.fieldcomponent = Fields.EH
-        JSON.json("basic-EH.json", input; pretty=true)
+        write && JSON.json("basic-EH.json", input; pretty=true)
     else
         error("Invalid field component: $fieldcomponent")
     end
 
-    return nothing
+    return input
 end
 
-function generate_table()
+function generate_basic_power(power=1000.0; write=true)
+    input = generate_basic(write=false)
+    input.power = power
+
+    if power == 1000.0
+        write && JSON.json("basic.json", input; pretty=true)
+    else
+        write && JSON.json("basic-power.json", input; pretty=true)
+    end
+
+    return input
+end
+
+function generate_table(;write=true)
     # Waveguide definition
     segment_ranges = [0, 500e3, 1000e3, 1500e3]
 
@@ -68,10 +84,8 @@ function generate_table()
     ground_sigmas = [0.001, 0.001, 0.0005, 0.0001]
     ground_epsrs = [4, 4, 10, 10]
 
-    # Transmitter
     frequency = 24e3
 
-    # Outputs
     output_ranges = collect(0:20e3:2000e3)
 
     input = TableInput()
@@ -91,9 +105,22 @@ function generate_table()
     input.frequency = frequency
     input.output_ranges = output_ranges
 
-    JSON.json("table.json", input; pretty=true)
+    write && JSON.json("table.json", input; pretty=true)
 
-    return nothing
+    return input
+end
+
+function generate_table_power(power=1000.0; write=true)
+    input = generate_table(write=false)
+    input.power = power
+
+    if power == 1000.0
+        write && JSON.json("table.json", input; pretty=true)
+    else
+        write && JSON.json("table-power.json", input; pretty=true)
+    end
+
+    return input
 end
 
 function generate_batchtable()
@@ -160,7 +187,7 @@ function generate_batchtable()
     return nothing
 end
 
-function generate_batchbasic()
+function generate_batchbasic(;write=true)
     N = 2
     rep(v) = repeat(v, 1, N)
 
@@ -176,10 +203,8 @@ function generate_batchbasic()
     hprimes = rep([72.0, 74, 75, 76])
     betas = rep([0.28, 0.30, 0.32, 0.35])
 
-    # Transmitter
     frequency = 24e3
 
-    # Outputs
     output_ranges = collect(0:20e3:2000e3)
 
     binput = BatchInput{ExponentialInput}()
@@ -210,9 +235,24 @@ function generate_batchbasic()
 
     binput.inputs = inputs
 
-    JSON.json("batchbasic.json", binput; pretty=true)
+    write && JSON.json("batchbasic.json", binput; pretty=true)
 
-    return nothing
+    return binput
+end
+
+function generate_batchbasic_power(power=1000.0; write=true)
+    binput = generate_batchbasic(write=false)
+    for input in binput.inputs
+        input.power = power
+    end
+
+    if power == 1000.0
+        write && JSON.json("batchbasic.json", binput; pretty=true)
+    else
+        write && JSON.json("batchbasic-power.json", binput; pretty=true)
+    end
+
+    return binput
 end
 
 read_basic() = JSON.parsefile("basic.json", ExponentialInput)
@@ -222,7 +262,13 @@ read_batchbasic() = JSON.parsefile("batchbasic.json", BatchInput{ExponentialInpu
 # missing the ground_sigmas field
 read_corrupted_basic() = JSON.parsefile("corrupted_basic.json", ExponentialInput)
 
-function run_basic(fieldcomponent=Fields.Ez)
+function run_basic()
+    s = LMP.parse("basic.json")
+    output = LMP.buildrun(s)
+    return output
+end
+
+function run_basic_fieldcomponent(fieldcomponent::Fields.Field)
     if fieldcomponent == Fields.Ez
         s = LMP.parse("basic.json")
     elseif fieldcomponent == Fields.E
@@ -236,14 +282,44 @@ function run_basic(fieldcomponent=Fields.Ez)
     return output
 end
 
+function run_basic_power(power::Float64)
+    if power == 1000.0
+        s = LMP.parse("basic.json")
+    else
+        s = LMP.parse("basic-power.json")
+    end
+    output = LMP.buildrun(s)
+    return output
+end
+
 function run_table()
     s = LMP.parse("table.json")
     output = LMP.buildrun(s)
     return output
 end
 
+function run_table_power(power::Float64)
+    if power == 1000.0
+        s = LMP.parse("table.json")
+    else
+        s = LMP.parse("table-power.json")
+    end
+    output = LMP.buildrun(s)
+    return output
+end
+
 function run_batchbasic()
     s = LMP.parse("batchbasic.json")
+    output = LMP.buildrun(s)
+    return output
+end
+
+function run_batchbasic_power(power::Float64)
+    if power == 1000.0
+        s = LMP.parse("batchbasic.json")
+    else
+        s = LMP.parse("batchbasic-power.json")
+    end
     output = LMP.buildrun(s)
     return output
 end
@@ -300,10 +376,13 @@ end
     @info "Testing IO"
 
     generate_basic()
-    generate_basic(Fields.E)
-    generate_basic(Fields.EH)
+    generate_basic_fieldcomponent(Fields.E)
+    generate_basic_fieldcomponent(Fields.EH)
+    generate_basic_power(500.0)
     generate_table()
+    generate_table_power(500.0)
     generate_batchbasic()
+    generate_batchbasic_power(500.0)
     generate_batchtable()
 
     @test LMP.iscomplete(read_basic())
@@ -314,10 +393,16 @@ end
     @test LMP.parse("basic-E.json", ExponentialInput) isa ExponentialInput
     @test LMP.parse("basic-EH.json", ExponentialInput) isa ExponentialInput
 
+    @test read_basic().fieldcomponent == Fields.Ez
+    @test read_basic().power == 1000.0
+    @test all(x->x.fieldcomponent == Fields.Ez, read_batchbasic().inputs)
+    @test all(x->x.power == 1000.0, read_batchbasic().inputs)
+
     @test LMP.iscomplete(read_table())
     @test LMP.validlengths(read_table())
     @test LMP.parse("table.json") isa TableInput
     @test LMP.parse("table.json", TableInput) isa TableInput
+    @test LMP.parse("table-power.json", TableInput) isa TableInput
 
     @test LMP.iscomplete(read_batchbasic())
     @test LMP.validlengths(read_batchbasic())
@@ -326,12 +411,27 @@ end
     @info "  Running:"
     @info "    Segmented Wait ionospheres..."
     @test run_basic() isa BasicOutput
-    @test run_basic(Fields.E) isa FieldsOutput
-    @test run_basic(Fields.EH) isa FieldsOutput
+    @test run_basic_fieldcomponent(Fields.E) isa FieldsOutput
+    @test run_basic_fieldcomponent(Fields.EH) isa FieldsOutput
+    
+    o1000 = run_basic_power(1000.0)
+    o500 = run_basic_power(500.0)
+    @test o1000 isa BasicOutput
+    @test o500 isa BasicOutput
+    @test all(>(2.9), o1000.amplitude[2:end] - o500.amplitude[2:end]) # ≈ 3 dB difference
+
     @info "    Segmented tabular ionospheres..."
-    @test run_table() isa BasicOutput
+    ot = run_table()
+    ot500 = run_table_power(500.0)
+    @test ot isa BasicOutput
+    @test ot500 isa BasicOutput
+    @test all(>(2.9), ot.amplitude[2:end] - ot500.amplitude[2:end]) # ≈ 3 dB difference
     @info "    Multiple segmented Wait ionospheres..."
-    @test run_batchbasic() isa BatchOutput{BasicOutput}
+    bo = run_batchbasic()
+    bo500 = run_batchbasic_power(500.0)
+    @test bo isa BatchOutput{BasicOutput}
+    @test bo500 isa BatchOutput{BasicOutput}
+    @test all(>(2.9), bo.outputs[1].amplitude[2:end] - bo500.outputs[1].amplitude[2:end]) # ≈ 3 dB difference
     @info "    Multiple segmented Wait ionospheres, appending..."
     @test run_batchbasicsave() isa BatchOutput{BasicOutput}
     @info "    Multiple segmented tabular ionospheres, appending."
@@ -343,8 +443,11 @@ end
     isfile("basic.json") && rm("basic.json")
     isfile("basic-E.json") && rm("basic-E.json")
     isfile("basic-EH.json") && rm("basic-EH.json")
+    isfile("basic-power.json") && rm("basic-power.json")
     isfile("table.json") && rm("table.json")
+    isfile("table-power.json") && rm("table-power.json")
     isfile("batchbasic.json") && rm("batchbasic.json")
+    isfile("batchbasic-power.json") && rm("batchbasic-power.json")
     isfile("batchtable.json") && rm("batchtable.json")
     isfile("batchbasictest.json") && rm("batchbasictest.json")
     isfile("batchtabletest.json") && rm("batchtabletest.json")
