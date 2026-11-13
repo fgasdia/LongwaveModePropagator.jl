@@ -1,19 +1,28 @@
 """
     enum Fields.Field
 
-Vector components of the electric field.
+Vector components of the electromagnetic field.
 
     - `Ex` is in the direction from the transmitter toward the receiver
     - `Ez` extends vertically upward into the ionosphere
     - `Ey` is perpendicular to the ``x-z`` plane in which the wavefields propagate,
         completing the right-handed coordinate system
     - `E` calculates `Ez`, `Ey`, and `Ex`
+    - `Hz`, `Hy`, `Hx` are the magnetic field components along the same axes, returned
+        in normalized units ``Z₀H`` (μV/m); divide by `Z0` for μA/m or by `C0` for μT
+    - `H` calculates `Hz`, `Hy`, and `Hx`
+    - `EH` calculates all six components
 """
 @enumx T=Field Fields begin
     Ez
     Ey
     Ex
     E
+    Hz
+    Hy
+    Hx
+    H
+    EH
 end
 
 function index(f::Fields.Field)
@@ -25,9 +34,30 @@ function index(f::Fields.Field)
         return 3
     elseif f == Fields.E
         return 1:3
+    elseif f == Fields.Hz
+        return 4
+    elseif f == Fields.Hy
+        return 5
+    elseif f == Fields.Hx
+        return 6
+    elseif f == Fields.H
+        return 4:6
+    elseif f == Fields.EH
+        return 1:6
     end
 end
 numcomponents(f::Fields.Field) = length(index(f))
+
+# Individual field components ordered by their column in the full field matrix (see index)
+const EH_COMPONENTS = (Fields.Ez, Fields.Ey, Fields.Ex, Fields.Hz, Fields.Hy, Fields.Hx)
+
+"""
+    components(fc::Fields.Field)
+
+Return the individual `Fields.Field` components computed for `fc`, ordered consistently
+with the columns of the fields returned by [`propagate`](@ref).
+"""
+components(fc::Fields.Field) = Fields.Field[EH_COMPONENTS[i] for i in index(fc)]
 
 ########
 

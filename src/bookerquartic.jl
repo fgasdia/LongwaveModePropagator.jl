@@ -22,7 +22,7 @@ susceptibility tensor `M` or `T` matrix.
 bookerquartic
 
 function bookerquartic(ea::EigenAngle, M)
-    S, C, C² = ea.sinθ, ea.cosθ, ea.cos²θ
+    S, C² = ea.sinθ, ea.cos²θ
 
     # Precompute
     M11p1 = 1 + M[1,1]
@@ -185,7 +185,7 @@ function sortquarticroots!(q)
     # It looks like we could just `sort!(q, by=real)`, but the quadrants of each root are
     # not fixed and the positions in the Argand diagram are just approximate.
 
-    length(q) == 4 || @warn "length of `q` is not 4"
+    @assert length(q) == 4
 
     # Calculate and sort by distance from 315°
     # The two closest are upgoing and the two others are downgoing
@@ -317,7 +317,7 @@ function bookerwavefields(T::TMatrix, dT, q, dq)
     de = similar(e)
     @inbounds for i = 1:2
         den = T14T41 - (T[1,1] - q[i])*(T[4,4] - q[i])
-        den² = abs2(den)
+        den² = den^2
         dden = dT[1,4]*T[4,1] - (T[1,1]*dT[4,4] + dT[1,1]*T[4,4]) +
             q[i]*(dT[1,1] + dT[4,4] - 2*dq[i]) + dq[i]*(T[1,1] + T[4,4])
 

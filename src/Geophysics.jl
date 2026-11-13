@@ -71,7 +71,7 @@ struct BField
 
     function BField(B, dcl, dcm, dcn)
         if iszero(B)
-            @warn "BField magnitude of exactly 0 is not supported. Setting B = 1e-16."
+            @info "BField magnitude of exactly 0 is not supported. Setting B = 1e-16."
             B = 1e-16
         end
         new(B, dcl, dcm, dcn)

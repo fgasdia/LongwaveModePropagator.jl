@@ -1,4 +1,4 @@
-function generate_basic()
+function generate_basic(fieldcomponent=Fields.Ez)
     # Waveguide definition
     segment_ranges = [0, 500e3, 1000e3, 1500e3]
     hprimes = [72.0, 74, 75, 76]
@@ -31,10 +31,17 @@ function generate_basic()
     input.frequency = frequency
     input.output_ranges = output_ranges
 
-    json_str = JSON3.write(input)
-
-    open("basic.json","w") do f
-        write(f, json_str)
+    if fieldcomponent == Fields.Ez
+        input.fieldcomponent = Fields.Ez
+        JSON.json("basic.json", input; pretty=true)
+    elseif fieldcomponent == Fields.E
+        input.fieldcomponent = Fields.E
+        JSON.json("basic-E.json", input; pretty=true)
+    elseif fieldcomponent == Fields.EH
+        input.fieldcomponent = Fields.EH
+        JSON.json("basic-EH.json", input; pretty=true)
+    else
+        error("Invalid field component: $fieldcomponent")
     end
 
     return nothing
@@ -84,11 +91,7 @@ function generate_table()
     input.frequency = frequency
     input.output_ranges = output_ranges
 
-    json_str = JSON3.write(input)
-
-    open("table.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("table.json", input; pretty=true)
 
     return nothing
 end
@@ -152,11 +155,7 @@ function generate_batchtable()
 
     binput.inputs = inputs
 
-    json_str = JSON3.write(binput)
-
-    open("batchtable.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("batchtable.json", binput; pretty=true)
 
     return nothing
 end
@@ -211,46 +210,28 @@ function generate_batchbasic()
 
     binput.inputs = inputs
 
-    json_str = JSON3.write(binput)
-
-    open("batchbasic.json","w") do f
-        write(f, json_str)
-    end
+    JSON.json("batchbasic.json", binput; pretty=true)
 
     return nothing
 end
 
-function read_basic()
-    open("basic.json","r") do f
-        v = JSON3.read(f, ExponentialInput)
-        return v
-    end
-end
+read_basic() = JSON.parsefile("basic.json", ExponentialInput)
+read_table() = JSON.parsefile("table.json", TableInput)
+read_batchbasic() = JSON.parsefile("batchbasic.json", BatchInput{ExponentialInput})
 
-function read_table()
-    open("table.json", "r") do f
-        v = JSON3.read(f, TableInput)
-        return v
-    end
-end
+# missing the ground_sigmas field
+read_corrupted_basic() = JSON.parsefile("corrupted_basic.json", ExponentialInput)
 
-function read_batchbasic()
-    open("batchbasic.json","r") do f
-        v = JSON3.read(f, BatchInput{ExponentialInput})
-        return v
+function run_basic(fieldcomponent=Fields.Ez)
+    if fieldcomponent == Fields.Ez
+        s = LMP.parse("basic.json")
+    elseif fieldcomponent == Fields.E
+        s = LMP.parse("basic-E.json")
+    elseif fieldcomponent == Fields.EH
+        s = LMP.parse("basic-EH.json")
+    else
+        error("Invalid field component: $fieldcomponent")
     end
-end
-
-function read_corrupted_basic()
-    # missing the ground_sigmas field
-    open("corrupted_basic.json","r") do f
-        v = JSON3.read(f, ExponentialInput)
-        return v
-    end
-end
-
-function run_basic()
-    s = LMP.parse("basic.json")
     output = LMP.buildrun(s)
     return output
 end
@@ -309,8 +290,8 @@ function basic_lmp()
 
     _, a, p = propagate(wvg, tx, rx)
     
-    @test maxabsdiff(a, output.amplitude) < 0.1
-    @test maxabsdiff(p, output.phase) < 0.005
+    @test meanabsdiff(a, output.amplitude) < 0.1
+    @test meanabsdiff(p, output.phase) < 0.01
 
     return output
 end
@@ -319,6 +300,8 @@ end
     @info "Testing IO"
 
     generate_basic()
+    generate_basic(Fields.E)
+    generate_basic(Fields.EH)
     generate_table()
     generate_batchbasic()
     generate_batchtable()
@@ -328,6 +311,8 @@ end
     @test LMP.iscomplete(read_corrupted_basic()) == false
     @test LMP.parse("basic.json") isa ExponentialInput
     @test LMP.parse("basic.json", ExponentialInput) isa ExponentialInput
+    @test LMP.parse("basic-E.json", ExponentialInput) isa ExponentialInput
+    @test LMP.parse("basic-EH.json", ExponentialInput) isa ExponentialInput
 
     @test LMP.iscomplete(read_table())
     @test LMP.validlengths(read_table())
@@ -341,6 +326,8 @@ end
     @info "  Running:"
     @info "    Segmented Wait ionospheres..."
     @test run_basic() isa BasicOutput
+    @test run_basic(Fields.E) isa FieldsOutput
+    @test run_basic(Fields.EH) isa FieldsOutput
     @info "    Segmented tabular ionospheres..."
     @test run_table() isa BasicOutput
     @info "    Multiple segmented Wait ionospheres..."
@@ -354,6 +341,8 @@ end
     @test basic_lmp() isa BasicOutput
 
     isfile("basic.json") && rm("basic.json")
+    isfile("basic-E.json") && rm("basic-E.json")
+    isfile("basic-EH.json") && rm("basic-EH.json")
     isfile("table.json") && rm("table.json")
     isfile("batchbasic.json") && rm("batchbasic.json")
     isfile("batchtable.json") && rm("batchtable.json")

@@ -86,7 +86,7 @@ function generate(hp, β)
     end
     batch.inputs = inputs
 
-    ## json_str = JSON3.write(batch)
+    ## json_str = JSON.json(batch)
     ##
     ## open("bfields.json","w") do f
     ##     write(f, json_str)

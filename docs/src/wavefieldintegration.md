@@ -21,6 +21,7 @@ using CSV, Interpolations
 using Plots
 using Plots.Measures
 using OrdinaryDiffEq
+using OrdinaryDiffEqVerner, OrdinaryDiffEqLowOrderRK
 
 using TimerOutputs
 

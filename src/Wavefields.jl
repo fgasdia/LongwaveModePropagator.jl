@@ -362,7 +362,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
         throw(ArgumentError("`zs` should go from top to bottom of the ionosphere."))
 
     @unpack wavefieldintegrationparams = params
-    @unpack tolerance, solver, dt, force_dtmin, maxiters = wavefieldintegrationparams
+    @unpack tolerance, solver, dt, maxiters = wavefieldintegrationparams
 
     # Initial conditions
     Mtop = susceptibility(first(zs), frequency, bfield, species; params=params)
@@ -387,7 +387,7 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     prob = ODEProblem{false}(dedz, e0, (first(zs), last(zs)), p)
     sol = solve(prob, solver; callback=CallbackSet(cb, scb),
                 save_everystep=false, save_start=false, save_end=false,
-                dt=dt, force_dtmin=force_dtmin, maxiters=maxiters,
+                dt=dt, maxiters=maxiters,
                 abstol=tolerance, reltol=tolerance)
 
     if unscale

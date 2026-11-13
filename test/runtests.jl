@@ -2,7 +2,7 @@ using Test, Dates, Random, LinearAlgebra, Statistics
 using StaticArrays
 using Parameters
 using OrdinaryDiffEq, DiffEqCallbacks
-using JSON3, StructTypes, CSV
+using JSON, CSV
 using Interpolations, NLsolve, FiniteDiff
 
 using LongwaveModePropagator

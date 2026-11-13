@@ -133,7 +133,7 @@ function test_bookerwavefields_deriv(scenario)
         de(θ) = (ea = EigenAngle(θ); LMP.bookerwavefields(ea, M, LMP.Dθ())[2][i])
 
         @test eref.(θs) ≈ e.(θs)
-        @test maxabsdiff(deref, de.(θs)) < 1e-3
+        @test maxabsdiff(deref, de.(θs)) < 1e-8
     end
 
     # Compare functions using `M` and `T`
