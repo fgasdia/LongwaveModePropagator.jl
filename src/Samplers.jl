@@ -48,6 +48,17 @@ function index(f::Fields.Field)
 end
 numcomponents(f::Fields.Field) = length(index(f))
 
+# Individual field components ordered by their column in the full field matrix (see index)
+const EH_COMPONENTS = (Fields.Ez, Fields.Ey, Fields.Ex, Fields.Hz, Fields.Hy, Fields.Hx)
+
+"""
+    components(fc::Fields.Field)
+
+Return the individual `Fields.Field` components computed for `fc`, ordered consistently
+with the columns of the fields returned by [`propagate`](@ref).
+"""
+components(fc::Fields.Field) = Fields.Field[EH_COMPONENTS[i] for i in index(fc)]
+
 ########
 
 """
