@@ -152,7 +152,7 @@ Compute the four submatrix elements of ``dW/dθ`` returned as the tuple
 respect to ``θ``, `dT`.
 """
 function dwmatrix(ea::EigenAngle, T, dT)
-    C, S, C², Cinv = ea.cosθ, ea.sinθ, ea.cos²θ, ea.secθ
+    S, Cinv = ea.sinθ, ea.secθ
     C²inv = Cinv^2
 
     dC = -S

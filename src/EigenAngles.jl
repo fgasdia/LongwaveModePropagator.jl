@@ -25,7 +25,7 @@ struct EigenAngle
     θ::ComplexF64  # radians, because df/dθ are in radians
     cosθ::ComplexF64
     sinθ::ComplexF64
-    secθ::ComplexF64  # == 1/cosθ
+    secθ::ComplexF64
     cos²θ::ComplexF64
     sin²θ::ComplexF64
 end
@@ -84,7 +84,7 @@ above 100 kHz.
     [Online]. Available: https://apps.dtic.mil/docs/citations/ADA096098.
 """
 function isdetached(ea::EigenAngle, frequency::Frequency; params=LMPParams())
-    C, C² = ea.cosθ, ea.cos²θ
+    C² = ea.cos²θ
     f, k = frequency.f, frequency.k
     @unpack earthradius, curvatureheight = params
     α = 2/earthradius
@@ -115,32 +115,37 @@ function referencetoground(sinθ; params=LMPParams())
 end
 
 """
-    attenuation(ea, frequency::Frequency; params=LMPParams())
+    attenuation(θ, frequency::Frequency; params=LMPParams())
 
-Compute attenuation of eigenangle `ea` at the ground.
+Compute attenuation of eigenangle `θ` in radians.
 
-`ea` will be converted to an `EigenAngle` if needed.
-
-This function internally references `ea` to the ground.
+This function internally references `θ` to the ground.
 """
-function attenuation(ea, frequency::Frequency; params=LMPParams())
-    ea = EigenAngle(ea)
-    S₀ = referencetoground(ea.sinθ)
+function attenuation(θ, frequency::Frequency; params=LMPParams())
+    S₀ = referencetoground(sin(θ); params)
+    neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
+    return -neper2dB*frequency.k*imag(S₀)*1e6
+end
+
+"attenuation(ea::EigenAngle, frequency::Frequency; params=LMPParams())"
+function attenuation(ea::EigenAngle, frequency::Frequency; params=LMPParams())
+    S₀ = referencetoground(ea.sinθ; params)
     neper2dB = 20log10(exp(1))  # 1 Np ≈ 8.685 dB
     return -neper2dB*frequency.k*imag(S₀)*1e6
 end
 
 """
-    phasevelocity(ea)
+    phasevelocity(θ; params=LMPParams())
 
-Compute the relative phase velocity ``v/c`` associated with the eigenangle `θ`.
+Compute the relative phase velocity ``v/c`` associated with the eigenangle `θ` in radians.
 
-`ea` will be converted to an `EigenAngle` if needed.
-
-This function internally references `ea` to the ground.
+This function internally references `θ` to the ground.
 """
-function phasevelocity(ea)
-    ea = EigenAngle(ea)
-    S₀ = referencetoground(ea.sinθ)
+function phasevelocity(θ; params=LMPParams())
+    S₀ = referencetoground(sin(θ); params)
     return 1/real(S₀)
 end
+
+"phasevelocity(ea::EigenAngle; params=LMPParams())"
+phasevelocity(ea::EigenAngle; params=LMPParams()) =
+    1/real(referencetoground(ea.sinθ; params=params))
