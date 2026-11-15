@@ -117,7 +117,7 @@ end
 """
     attenuation(θ, frequency::Frequency; params=LMPParams())
 
-Compute attenuation of eigenangle `θ` in radians.
+Compute attenuation of eigenangle `θ` [radians] in dB/Mm.
 
 This function internally references `θ` to the ground.
 """
