@@ -409,7 +409,7 @@ function dmodalequation(R, dR, Rg, dRg)
     # See e.g. https://folk.ntnu.no/hanche/notes/diffdet/diffdet.pdf
     A = Rg*R - I
     dA = dRg*R + Rg*dR
-    return det(A)*tr(A\dA)
+    return A[2,2]*dA[1,1] - A[1,2]*dA[2,1] - A[2,1]*dA[1,2] + A[1,1]*dA[2,2]
 end
 
 """
