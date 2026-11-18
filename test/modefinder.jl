@@ -230,6 +230,15 @@ function test_modalequation_deriv(scenario)
     @test isapprox(dFs, dFref; rtol=1e-3)
 end
 
+function test_dmodalequation_singular()
+    #A = Rg*R - I = [1 1; 1 1] has det(A)=0; d det(A) = tr(adj(A)*dA) = 2
+    R  = SMatrix{2,2,ComplexF64}(2, 1, 1, 2)
+    dR = SMatrix{2,2,ComplexF64}(1, 0, 0, 1)
+    Rg = SDiagonal(1.0 + 0im, 1.0 + 0im)
+    dRg = SDiagonal(0.0 + 0im, 0.0 + 0im)
+    @test LMP.dmodalequation(R, dR, Rg, dRg) == 2.0 + 0im
+end
+
 function test_findmodes(scenario)
     @unpack tx, bfield, species, ground = scenario
     waveguide = HomogeneousWaveguide(bfield, species, ground)
@@ -299,6 +308,8 @@ end
 
         test_findmodes(scn)
     end
+    
+    test_dmodalequation_singular()
 
     # Fill in TEST_MODES
     @info "  Mode finding..."
