@@ -378,6 +378,8 @@ function integratewavefields(zs, ea::EigenAngle, frequency::Frequency, bfield::B
     cb = DiscreteCallback(scalingcondition, scale!; save_positions=(true, true))
 
     saved_values = SavedValues(Float64, ScaleRecord)
+    sizehint!(saved_values.t, length(zs))
+    sizehint!(saved_values.saveval, length(zs))
     scb = SavingCallback(savevalues, saved_values; save_everystep=false, saveat=zs, tdir=-1)
 
     p = WavefieldIntegrationParams(params.topheight, ea, frequency, bfield, species, params)
