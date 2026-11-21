@@ -58,7 +58,7 @@ Base.sort(w::SegmentedWaveguide) = SegmentedWaveguide(sort!(copy(w.v)))
 Base.issorted(w::SegmentedWaveguide) = issorted(w.v; by=x->getfield(x, :distance))
 Base.size(w::SegmentedWaveguide) = size(w.v)
 Base.getindex(w::SegmentedWaveguide, i::Int) = w.v[i]
-Base.setindex(w::SegmentedWaveguide, x, i::Int) = (w.v[i] = x)
+Base.setindex!(w::SegmentedWaveguide, x, i::Int) = (w.v[i] = x)
 Base.push!(w::SegmentedWaveguide, x) = push!(w.v, x)
 Base.iterate(w::SegmentedWaveguide) = iterate(w.v)
 Base.iterate(w::SegmentedWaveguide, state) = iterate(w.v, state)
