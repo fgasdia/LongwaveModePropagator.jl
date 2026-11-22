@@ -171,6 +171,7 @@ Wavefields should be scaled if any component of `real(e)` or `imag(e)` are `>= 1
 addition, force scaling at `z <= bottomz` to ensure initial upgoing wave is unit amplitude.
 """
 scalingcondition(e, z, int) = any(x->(real(x) >= 1 || imag(x) >= 1), e) || z <= int.p.bottomz
+# scalingcondition(e, z, int) = any(x -> abs2(x) >= 1, e) || z <= int.p.bottomz
 
 """
     scale!(integrator)
